@@ -223,16 +223,18 @@ A menu never takes key focus from the window it opened from (like NSMenu's track
 | Home/End, Page Up/Down, ⌥↑/⌥↓ jump to the first/last item | Same |
 | Return or Space chooses; Return with nothing highlighted closes | Same |
 | Esc closes | Closes the whole menu, submenus included |
-| Type-ahead by first letters, 1s timeout, repeated letter steps through matches, Space extends a word | Same (case- and diacritic-insensitive) |
-| Key equivalents shown in Mac glyphs, and they work while the menu is open | Same |
-| Hover highlights; leaving the menu clears it | Same; a keyboard highlight survives the pointer moving outside |
+| Type-ahead by first letters, 1s timeout, repeated letter steps through matches, Space extends a word; a prefix that matches nothing starts over from the new letter, and a letter that matches nothing is dropped | Same (case- and diacritic-insensitive) |
+| Key equivalents shown in Mac glyphs, and they work while the menu is open, including ⌘/⌃ with arrows, Home, End, Page Up and Page Down | Same |
+| Hover highlights; leaving the menu clears it | Same; a keyboard highlight survives the pointer moving outside, and the gap between a menu and its submenu counts as inside |
 | Pop-up buttons open on mouse-down; press-drag-release chooses; a click leaves the menu open; drag off and release closes | Same with `KzMenuButton`. `.kzMenu(isPresented:)` opens on the button's mouse-up |
+| In an open menu, pressing an item, dragging off the menu and releasing closes it | Same |
 | Context menus: right-click or Control-click, press-drag-release | Same |
+| Right-clicking a list row outlines it without changing the selection, and the menu acts on that row; anywhere in the row counts | Same with `.kzContextMenu(isPresented:)` on each row plus `.kzContextTarget(_:)`; a click in the row's side gutter goes to the row's menu |
 | Pop-up menus put the checked item over the button | Same (`.select`) |
-| Submenus: hover opens, → opens and highlights the first item, ← closes, the pointer can cross other items on the way | Same, with a 120 ms open delay and a 250 ms grace period instead of a "safe triangle" |
+| Submenus: hover opens, → opens and highlights the first item, ← closes, the pointer can cross other items on the way | Same, with a 120 ms open delay and a 250 ms grace period instead of a "safe triangle". A submenu that hasn't opened yet doesn't open once the pointer has left its item |
 | The click outside closes the menu and goes nowhere else | Same inside Kudzu; in another app the click still lands there |
 | Closes on app switch, window move, resize, minimise, close, Space change, another window taking key | Same |
-| Selection blinks once, the menu fades, then the action runs | Same; the action runs after the menu has closed and focus is back. No fade under Reduce Motion |
+| Selection blinks once, the menu fades, then the action runs | Same; the action runs after the menu has closed and focus is back. No fade under Reduce Motion. If the menu is dismissed during the blink (a click outside, an app switch), the item doesn't run and focus isn't pulled back |
 | Focus stays in (returns to) the view that had it | Same |
 | VoiceOver: menu and menu-item roles, opened/closed notifications, checked state, shortcut | Roles, `AXMenuOpened`/`AXMenuClosed`, selection changes and press work. Check state is the item's value ("checked") and the shortcut is its help text, because AppKit's modern accessibility API has no setter for `AXMenuItemMarkChar`/`AXMenuItemCmdChar` |
 
