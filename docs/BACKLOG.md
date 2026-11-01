@@ -17,10 +17,17 @@ Follow-ups found while reviewing the M0 and M1 branches. These are not scheduled
 
 - Accept bare numbers for string attributes (`{{field name=qty default=5}}`). Today the whole tag becomes literal text.
 - Pass the root snippet's ID into the renderer, so a self-reference is caught before it expands once.
+- **No escape for a literal `{` right before a tag.** The source `{{{date}}` can't be written: it reloads as text, not as a chip. Add an escape (e.g. `\{`) to the grammar.
+- **Malformed or unknown tags get escaped (`\{{DATE}}`) on the first edit.** Output is unchanged, but tags a future version might support stay escaped. Consider keeping unknown tags verbatim on save.
 
 ## Interchange
 
 - Replace `TemplateTagFormatter`'s private template scanner with `TemplateParser` and `TemplateSerializer`. It only exists because the layers were built in parallel.
+
+## Editor polish
+
+- Show diagnostic messages as hover tooltips on the squiggles in the chip editor.
+- A Snippet chip with no snippet picked stays a "Missing snippet" placeholder. Remove the chip if the picker is dismissed empty.
 
 ## Sync (M4)
 
