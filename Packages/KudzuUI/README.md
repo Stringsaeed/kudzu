@@ -84,7 +84,7 @@ Every component must follow these rules.
    - No hover or pressed layer: `KzInteractive` does this when `.disabled(true)` is set.
 8. **Glass only at the edges**, never stacked:
    - the sidebar: `.regular`, `.behindWindow`
-   - menus and popovers: `.strong`, `.withinWindow`, `shadow: .float`
+   - menus and popovers: `.strong`, `shadow: .float`. Drawn in a window (specimens) they use `.withinWindow`; in their own floating panel they use `.behindWindow`, because that window has nothing of its own to blur. `KzMenuSurface`, `KzPopoverSurface` and `KzFloatingPanel` already do this.
    - the toolbar: `.strong`, `shadow: .glass`
 
    Reduce Transparency switches glass to the opaque tint.
@@ -124,6 +124,108 @@ A brand-new page that isn't in the design system needs two steps:
 
 1. Create `Gallery/Pages/<Name>Page.swift`, conforming to `GalleryPage` (`id`, `title`, `section`, `icon`).
 2. Add one line, `<Name>Page.self,`, to `Catalog.pages`.
+
+## Floating layers
+
+Menus, popovers and panels live in their own borderless, non-activating `NSPanel`, so they can leave the window and sit over other content. The window is larger than the glass by the shadow token's reach (`KzFloatingChrome.margins`), because `shadow-float` is drawn by SwiftUI like the CSS rather than by the window server.
+
+| API | Use |
+| --- | --- |
+| `KzMenu`, `KzMenuItem`, `KzMenuSeparator`, `KzMenuHeader`, `KzSubmenu`, `@KzMenuBuilder` | The menu model and DSL (`for`, `if`, `switch` work). |
+| `KzMenuButton(title:placement:menu:label:)` | Pop-up and pull-down buttons: Select, Sort, Insert tag, "more". Opens on mouse-down. |
+| `.kzMenu(isPresented:title:placement:content:)` | A menu driven by state, attached to any view. |
+| `.kzContextMenu(title:isPresented:_:)` | Right-click and Control-click menus. |
+| `KzMenu.popUp(at:in:)`, `popUp(from:in:placement:)` | The same from AppKit views. |
+| `KzMenuSurface(_:highlightedID:)` | A static specimen for galleries and snapshots. |
+| `.kzPopover(isPresented:edge:alignment:behavior:content:)`, `KzPopoverSurface` | Anchored glass popovers with no arrow. |
+| `KzFloatingPanel`, `KzFloatingPlacement`, `KzFloatingPanelSurface` | The base panel for the search palette and the form at the caret. |
+| `KzToolbarGroup`, `KzToolbarSeparator`, `\.kzInToolbarGroup` | The floating toolbar capsule. |
+
+### Attaching menus
+
+```swift
+// Select: the checked item opens over the field, like NSPopUpButton.
+KzMenuButton(placement: .select) {
+    for option in options { KzMenuItem(option.name, isChecked: option == value) { value = option } }
+} label: { isOpen in SelectLabel(value.name, isOpen: isOpen) }
+.buttonStyle(KzSelectStyle())
+
+// Sort: a titled pull-down of checkable items.
+KzMenuButton(title: "Sort by") {
+    for order in SortOrder.allCases { KzMenuItem(order.title, isChecked: sort == order) { sort = order } }
+} label: { isOpen in KzIcon(.sort).foregroundStyle(isOpen ? KzColor.vineInk : KzColor.inkMuted) }
+
+// Insert tag: headers, icons, shortcuts and submenus.
+KzMenuButton(title: "Insert tag") {
+    KzMenuHeader("Dates")
+    KzMenuItem("Date", icon: .clock) { insert("{date}") }
+    KzSubmenu("Form field", icon: .type) { KzMenuItem("Text") { insert("{form:text}") } }
+} label: { _ in Text("Insert tag") }
+
+// Context menu on a row; `isPresented` lets the row draw its "clicked" outline.
+SnippetRow(snippet).kzContextMenu(isPresented: contextBinding(for: snippet)) {
+    KzMenuItem("Duplicate", icon: .copy) { duplicate(snippet) }.keyboardShortcut("d")
+    KzMenuSeparator()
+    KzMenuItem("Delete", icon: .trash, role: .danger) { delete(snippet) }.keyboardShortcut(.delete)
+}
+```
+
+Controls that show their own open state read `isOpen` from the label closure. Inside a `KzToolbarGroup`, `\.kzInToolbarGroup` is true and icon buttons should be 28pt tall.
+
+### How menus behave
+
+A menu never takes key focus from the window it opened from (like NSMenu's tracking loop): a local event monitor sends it keys and clicks first, so the window keeps its first responder. When no Kudzu window is key (a right-click in an inactive window), the menu panel becomes key itself without activating Kudzu. Keyboard logic is in `KzMenuNavigator` and pointer hit-testing in `KzMenuLayout`, both pure and unit-tested.
+
+| Native behaviour | Kudzu menu |
+| --- | --- |
+| ↑/↓ move, skipping separators, headers and disabled items; wraps; ↑ with nothing highlighted goes to the last item | Same |
+| Home/End, Page Up/Down, ⌥↑/⌥↓ jump to the first/last item | Same |
+| Return or Space chooses; Return with nothing highlighted closes | Same |
+| Esc closes | Closes the whole menu, submenus included |
+| Type-ahead by first letters, 1s timeout, repeated letter steps through matches, Space extends a word | Same (case- and diacritic-insensitive) |
+| Key equivalents shown in Mac glyphs, and they work while the menu is open | Same |
+| Hover highlights; leaving the menu clears it | Same; a keyboard highlight survives the pointer moving outside |
+| Pop-up buttons open on mouse-down; press-drag-release chooses; a click leaves the menu open; drag off and release closes | Same with `KzMenuButton`. `.kzMenu(isPresented:)` opens on the button's mouse-up |
+| Context menus: right-click or Control-click, press-drag-release | Same |
+| Pop-up menus put the checked item over the button | Same (`.select`) |
+| Submenus: hover opens, → opens and highlights the first item, ← closes, the pointer can cross other items on the way | Same, with a 120 ms open delay and a 250 ms grace period instead of a "safe triangle" |
+| The click outside closes the menu and goes nowhere else | Same inside Kudzu; in another app the click still lands there |
+| Closes on app switch, window move, resize, minimise, close, Space change, another window taking key | Same |
+| Selection blinks once, the menu fades, then the action runs | Same; the action runs after the menu has closed and focus is back. No fade under Reduce Motion |
+| Focus stays in (returns to) the view that had it | Same |
+| VoiceOver: menu and menu-item roles, opened/closed notifications, checked state, shortcut | Roles, `AXMenuOpened`/`AXMenuClosed`, selection changes and press work. Check state is the item's value ("checked") and the shortcut is its help text, because AppKit's modern accessibility API has no setter for `AXMenuItemMarkChar`/`AXMenuItemCmdChar` |
+
+Not matched:
+
+- **Scrolling.** A menu taller than the screen scrolls with the wheel and follows the keyboard highlight, but has no scroll arrows that scroll on hover.
+- **Text views.** Right-clicks on text fields and editors keep the native text menu (Cut, Copy, Paste, spelling, Services); `.kzContextMenu` doesn't replace it.
+- **The menu bar extra** stays a system menu; macOS doesn't allow restyling it.
+- **While a menu is open** every key goes to it, as in NSMenu, so app shortcuts don't fire until it closes (unless they're items in the menu).
+- **Accessibility zoom / Full Keyboard Access** follow the highlight only through VoiceOver's notifications, not through the system menu tracking they know.
+- **Right-to-left.** Submenus and `.leading`/`.trailing` placements use physical left and right.
+
+### Popovers
+
+`.kzPopover` is built on `KzFloatingPanel` rather than `NSPopover`: the design has no arrow and `NSPopover` can't take Kudzu glass without private API. It opens on `edge` of the view (flipping when there isn't room), becomes key without activating Kudzu, closes on Esc, and gives focus back on close. `.transient` (the default) also closes on a click outside, when another window takes key, or when Kudzu is deactivated; clicking the view that opened it closes it rather than reopening it. Its content updates with the state it's built from, and it resizes to fit.
+
+### FloatingPanel
+
+`KzFloatingPanel` is what the search palette and the form at the caret should adopt:
+
+```swift
+// Search palette: fixed size, centred in the upper part of the screen, closes when it loses key.
+let panel = KzFloatingPanel(sizing: .fixed(CGSize(width: 760, height: 460))) { SearchPaletteView(…) }
+panel.keyHandler = { event in controller.handle(event) }   // before the search field's editor
+panel.onClose = { _ in model.isActive = false }
+panel.present(.centered(topFraction: 1.0 / 6))
+
+// Form at the caret: fits its content, below the caret (above when there's no room), stays until Esc or submit.
+let form = KzFloatingPanel(behavior: .modeless) { FormPanelView(…) }
+form.onClose = { reason in if reason == .escape { finish(nil) } }
+form.present(location.source == .mouse ? .centered() : .edge(.bottom, anchor: location.rect, gap: 6))
+```
+
+`Behavior` options: `.closesOnEscape` (intercepted before the focused view, except during IME composition), `.closesOnResignKey` (ignores its own child windows, so a menu or popover opened from it doesn't close it), `.closesOnOutsideClick` (the transparent shadow margin), `.restoresFocus`. `.transient` has all four; `.modeless` has Esc and focus.
 
 ## Tokens
 
