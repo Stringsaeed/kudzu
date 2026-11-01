@@ -25,7 +25,7 @@ Snippet content is stored as plain text with embedded **tags**. The editor shows
 | `time` | same as `date`, default format `HH:mm` | Alias of `date` with a time default |
 | `clipboard` | `trim` (bool, default `false`): trims whitespace and newlines at both ends | Plain-text clipboard contents, or empty |
 | `cursor` | — | Nothing; marks where the caret lands after insertion. Only the first `cursor` counts; later ones are diagnostics. |
-| `snippet` | `id` (UUID, required) | The referenced snippet's rendered content. Cycles are diagnostics and render empty. Max depth 8. |
+| `snippet` | `id` (UUID, required) | The referenced snippet's template source, rendered recursively. Cycles are diagnostics and render empty. Max depth 8. |
 | `field` | `name` (required), `default`, `multiline` (bool) | A form text field. Each `name` is one field; repeating a name reuses its value. |
 | `choice` | `name` (required), `options` (pipe-separated, `\|` escapes a pipe), `default` | A form dropdown |
 
@@ -38,7 +38,7 @@ TemplateRenderer.render(template, context) -> RenderResult
 // RenderResult: text: String, cursorOffset: Int? (in UTF-16 units from the start of `text`)
 ```
 
-`context` supplies `now: Date`, `clipboard: String?`, `formValues: [String: String]`, `resolveSnippet: (UUID) -> String?`, and `locale`/`timeZone`/`calendar`. The renderer is pure and deterministic given a context.
+`context` supplies `now: Date`, `clipboard: String?`, `formValues: [String: String]`, `resolveSnippet: @Sendable (UUID) -> String?`, and `locale`/`timeZone`/`calendar`. The renderer is pure and deterministic given a context.
 
 ## Espanso mapping (import)
 
@@ -53,3 +53,16 @@ TemplateRenderer.render(template, context) -> RenderResult
 | `word: true` | `fireMode: wholeWord` |
 | `propagate_case: true` | `caseMode: propagate` (otherwise `exact`) |
 | `replace` / `markdown` / `html` | Imported as plain text; rich formats get a warning (v2) |
+
+## Parsing, serialization, and recursion details
+
+- `resolveSnippet` returns **template source**, not rendered text. The renderer expands it with the same context. The root is depth 0; eight nested snippet levels are allowed. A reference at depth 8 is rejected. Missing references, cycles on the active reference path, and excess depth render empty with a diagnostic. Repeated references in separate branches are allowed.
+- Nested `cursor` tags render nothing and never set the caret. Only the first cursor in the root template sets the UTF-16 cursor offset.
+- Node and diagnostic ranges are half-open UTF-16 offsets in the containing source, including tag delimiters. Nested diagnostics refer to the nested source, not the outer insertion text.
+- Text nodes carry both their decoded string and source range (`.text(String, range:)`); tag nodes carry their range on `Tag`.
+- Canonical serialization preserves semantic node content, attribute types and order. Ranges are recomputed on parsing because canonical whitespace, quoting and escaping can change source lengths. Canonical inputs serialize byte-identically. All string attributes are quoted; booleans and numbers are bare.
+- Outside tags, `\\` represents a literal backslash, allowing literal text ending in a backslash immediately before a tag to round-trip. Other backslashes are literal except for `\{{`. The serializer escapes both backslashes and literal opening delimiters.
+- Inside quotes, `\|` is also accepted and retained as an escaped pipe for `options` splitting. Empty interior/trailing options are preserved; absent or empty options produce an empty list.
+- Duplicate attributes retain their last occurrence (and its position) and produce a warning. Unknown attributes are retained for forward compatibility. Known attributes with incorrect types make the tag literal with a diagnostic, except invalid offsets, which are ignored with a warning. Required names must be strings (an empty quoted name is accepted); snippet IDs must be valid UUID strings.
+- Invalid date offsets produce a warning and are ignored. One leading sign applies to every component; components are applied in written order using the supplied calendar and time zone. Month and year arithmetic clamps to valid calendar dates.
+- Static analysis examines only the supplied source. Form names and referenced snippet IDs are deduplicated in first-appearance order. The first definition determines a form control's kind, options and default; rendering still uses each occurrence's own default when no form value is supplied.
