@@ -58,9 +58,7 @@ struct MenuBarContent: View {
             }
         }
 
-        Button("Search Snippets… (coming soon)") {}
-            .keyboardShortcut(.space, modifiers: [.control, .option])
-            .disabled(true)
+        searchSnippetsButton
 
         Divider()
 
@@ -75,6 +73,26 @@ struct MenuBarContent: View {
             NSApplication.shared.terminate(nil)
         }
         .keyboardShortcut("q")
+    }
+
+    /// Opens the palette, showing its global shortcut (as a key equivalent when SwiftUI can express it).
+    @ViewBuilder
+    private var searchSnippetsButton: some View {
+        let shortcut = model.paletteShortcut
+        let registered = model.paletteShortcutError == nil
+        if registered, let key = shortcut.keyEquivalent {
+            Button("Search Snippets…", action: openPalette)
+                .keyboardShortcut(key, modifiers: shortcut.eventModifiers)
+        } else if registered {
+            Button("Search Snippets…  \(shortcut.displayString)", action: openPalette)
+        } else {
+            Button("Search Snippets…", action: openPalette)
+        }
+    }
+
+    private func openPalette() {
+        // Run after the menu has finished closing, or it takes key focus back from the panel.
+        Task { @MainActor in model.showPalette() }
     }
 
     @MainActor
@@ -133,6 +151,9 @@ struct MenuBarIcon: View {
             .accessibilityLabel("Kudzu")
             // The label is the only view built at launch, so it opens the welcome window.
             // (`defaultLaunchBehavior(.presented)` doesn't open windows for a menu-bar-only app.)
-            .onAppear { model.openOnboardingIfNeeded(openWindow) }
+            .onAppear {
+                model.attach(openWindow: openWindow)
+                model.openOnboardingIfNeeded(openWindow)
+            }
     }
 }

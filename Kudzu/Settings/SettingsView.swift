@@ -104,6 +104,8 @@ private struct GeneralSettingsTab: View {
                     .frame(width: 80)
                     .textFieldStyle(.roundedBorder)
                 }
+
+                LabeledContent("Search palette shortcut") { PaletteShortcutSetting() }
             }
 
             Section("Onboarding") {
