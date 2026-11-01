@@ -61,7 +61,7 @@ All attributes are optional or have defaults, and relationships are optional. Th
 - `AppRule`: mode (allow/deny), bundleIDs `[String]`, insertionOverride
 - `UsageRecord`: snippetID, deviceID, count, charsSaved, lastUsedAt. **One per (snippet, device)**, summed for display.
 - `SyncedSettings`: e.g. typing-speed WPM, default prefix
-- Local-only configuration: `LocalSettings` (hotkeys, sync toggle, per-Mac preferences)
+- Local-only configuration: UserDefaults for now (palette shortcut, form memory, the Settings → Apps exclusions and per-app insertion). App settings move to a synced store in M4.
 
 ## Sync
 

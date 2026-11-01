@@ -158,6 +158,11 @@ final class ExpansionEngine {
         NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier
     }
 
+    /// Guard for inserts the user asked for (palette): typing into a Kudzu window is fine there.
+    private var explicitAllowed: Bool {
+        !capturingSelection && !isPaused && !secureInputActive && permissions.postEvent
+    }
+
     private func resetMatcher() {
         _ = matcher.handle(.reset, bundleID: frontmost.bundleID)
         undoCaretLeftCount = 0
@@ -176,14 +181,16 @@ final class ExpansionEngine {
     }
 
     private func receive(_ event: CGEvent, signal: EventTap.Signal?, replay: Bool) -> Bool {
+        // Holding comes first: after a form closes, and during palette inserts, typing is held
+        // and replayed rather than landing inside the text we're about to delete or insert.
+        if !replay, tap.mode == .active, held.state == .inserting, let copy = event.copy() {
+            return held.enqueue(copy)
+        }
         if preparingForm || formPanel != nil {
             if signal != nil, formPanel == nil || NSApp.keyWindow !== formPanel { formInterrupted = true }
             return false
         }
         if paletteInserting { resetMatcher(); return false }
-        if !replay, tap.mode == .active, held.state == .inserting, let copy = event.copy() {
-            return held.enqueue(copy)
-        }
         // Listen-only can't withhold keys. Anything typed before our backspaces go out would
         // land inside the deletion range, so the pending expansion is abandoned instead.
         if !replay, tap.mode == .listenOnly, insertion != nil, signal != nil {
@@ -224,16 +231,7 @@ final class ExpansionEngine {
         if mode == .active { held.begin() }
         generation += 1
         let token = generation
-        deadline?.cancel()
-        deadline = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(1)) } catch { return }
-            guard let self, self.generation == token else { return }
-            self.insertion?.cancel()
-            self.insertion = nil
-            self.generation += 1
-            self.resetMatcher()
-            for event in self.held.timeout() { self.post(event, marker: EventTap.syntheticMarker) }
-        }
+        startDeadline(token: token)
         insertion = Task { [weak self] in
             guard let self else { return }
             defer {
@@ -273,8 +271,11 @@ final class ExpansionEngine {
                         // Let restoration and flushed input reach the target before stealing focus.
                         try await Task.sleep(for: .milliseconds(50))
                         guard self.generation == token, self.allowed else { return }
+                        // Typing already reached the document after the trigger, so deleting it
+                        // would be wrong. Leave the trigger rather than show a form we'd discard.
+                        if self.formInterrupted { self.resetMatcher(); return }
                         guard let values = await self.requestForm(snippet: snippet, fields: fields, context: context,
-                                                                 initiallyInterrupted: self.formInterrupted, caseStyle: match.caseStyle) else { self.resetMatcher(); return }
+                                                                 caseStyle: match.caseStyle) else { self.resetMatcher(); return }
                         try Task.checkCancellation()
                         guard self.generation == token, self.allowed else { return }
                         context.formValues = values
@@ -320,12 +321,16 @@ final class ExpansionEngine {
         }
     }
 
+    /// Shows the form and returns the submitted values, or nil when cancelled or interrupted.
+    ///
+    /// On success in active mode, typing is already being held (with a fresh deadline) so it
+    /// can't land in the target between the panel closing and the insertion.
     private func requestForm(snippet: SnippetRecord, fields: [FormFieldSpec], context: RenderContext,
-                             initiallyInterrupted: Bool = false, caseStyle: CaseStyle = .asIs) async -> [String: String]? {
+                             caseStyle: CaseStyle = .asIs, explicit: Bool = false) async -> [String: String]? {
         guard formPanel == nil else { return nil }
         let panel = FormPanel()
         formPanel = panel
-        formInterrupted = initiallyInterrupted
+        formInterrupted = false
         let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let token = generation
         let values = await panel.present(name: snippet.name, fields: fields,
@@ -334,11 +339,17 @@ final class ExpansionEngine {
             preview.formValues = values
             return CasePropagation.apply(caseStyle, to: TemplateRenderer.render(snippet.content, context: preview).text)
         }
-        // Keep watching target typing throughout the focus-return delay.
-        if values != nil { try? await Task.sleep(for: .milliseconds(50)) }
         if formPanel === panel { formPanel = nil }
-        guard let values, !Task.isCancelled, generation == token, !formInterrupted,
-              target == NSWorkspace.shared.frontmostApplication?.processIdentifier, allowed else { return nil }
+        guard let values, !Task.isCancelled, generation == token, !formInterrupted else { return nil }
+        if tap.mode == .active { held.begin(); startDeadline(token: token) }
+        // Let key focus return to the target. Listen-only typing here still interrupts.
+        try? await Task.sleep(for: .milliseconds(50))
+        guard !Task.isCancelled, generation == token else { return nil }
+        guard !formInterrupted, target == NSWorkspace.shared.frontmostApplication?.processIdentifier,
+              explicit ? explicitAllowed : allowed else {
+            releaseHold()
+            return nil
+        }
         formMemory.record(values, for: snippet.id)
         if let data = try? JSONEncoder().encode(formMemory) { UserDefaults.standard.set(data, forKey: "formMemory") }
         return values
@@ -346,7 +357,7 @@ final class ExpansionEngine {
 
     /// Inserts a palette selection at the target caret, collecting form values when required.
     func insertSnippet(id: UUID) async {
-        guard allowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy,
+        guard explicitAllowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy,
               let snippet = snippets[id] else { return }
         // Global exclusions (password managers, login window) apply to explicit inserts too.
         if let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
@@ -361,19 +372,27 @@ final class ExpansionEngine {
         context.rootSnippetID = id
         let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
         if !fields.isEmpty {
-            guard let values = await requestForm(snippet: snippet, fields: fields, context: context) else { return }
+            guard let values = await requestForm(snippet: snippet, fields: fields, context: context,
+                                                 explicit: true) else { return }
             context.formValues = values
         }
-        guard !Task.isCancelled, token == generation, allowed,
-              target == NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
+        guard !Task.isCancelled, token == generation else { return }
+        guard explicitAllowed, target == NSWorkspace.shared.frontmostApplication?.processIdentifier else {
+            releaseHold()
+            return
+        }
         let result = TemplateRenderer.render(snippet.content, context: context)
         let method = EffectiveSnippet(snippet, groups: GroupResolver(groups: groups))
             .insertion(for: NSWorkspace.shared.frontmostApplication?.bundleIdentifier, config: config ?? MatchingConfig())
+        if tap.mode == .active, held.state != .inserting { held.begin(); startDeadline(token: token) }
         paletteInserting = true
-        defer { paletteInserting = false }
+        defer {
+            paletteInserting = false
+            if generation == token { replayNext() }
+        }
         do {
             try await inserter.insert(result.text, method: insertionMethod(method))
-            guard token == generation, allowed, !Task.isCancelled else { return }
+            guard token == generation, explicitAllowed, !Task.isCancelled else { return }
             if let offset = result.cursorOffset {
                 let prefix = String(decoding: Array(result.text.utf16.prefix(offset)), as: UTF16.self)
                 try inserter.moveCaretLeft(count: result.text.count - prefix.count)
@@ -384,6 +403,26 @@ final class ExpansionEngine {
 
     private func insertionMethod(_ method: InsertionMethod) -> Inserter.Method {
         switch method { case .automatic: .automatic; case .type: .type; case .paste: .paste }
+    }
+
+    /// Never hold physical input for more than a second, whatever the target app does.
+    private func startDeadline(token: Int) {
+        deadline?.cancel()
+        deadline = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(1)) } catch { return }
+            guard let self, self.generation == token else { return }
+            self.insertion?.cancel()
+            self.insertion = nil
+            self.generation += 1
+            self.resetMatcher()
+            for event in self.held.timeout() { self.post(event, marker: EventTap.syntheticMarker) }
+        }
+    }
+
+    /// Stops holding and delivers held input as-is (without matching it).
+    private func releaseHold() {
+        deadline?.cancel(); deadline = nil
+        for event in held.drain() { post(event, marker: EventTap.syntheticMarker) }
     }
 
     private func usesClipboard(_ source: String, visited: Set<UUID>) -> Bool {

@@ -64,3 +64,36 @@ identify which app caused a change. Avoid copying elsewhere during that window.
 A posting failure after trigger deletion can leave a partial edit; events have no
 acknowledgement or transactional rollback. The timeout runs on the main actor and
 cannot interrupt a synchronous OS call (for example, reading a huge clipboard).
+
+## M3 manual test
+
+Run with Accessibility and Input Monitoring granted, in TextEdit, a browser field and a terminal.
+
+**Forms**
+
+1. Make a snippet `;mtg` with content `Meeting with {{field name="who"}} about {{choice name="topic" options="Plan|Review"}}{{cursor}}.`
+2. Type `;mtg`. The form appears under the caret, with focus in the first field. Tab and ⇧Tab move between fields, and the preview updates as you type.
+3. Press ↵. The trigger is replaced and the caret lands before the period.
+4. Type `;mtg` again. The fields show your last values.
+5. Type `;mtg`, then press Esc. `;mtg` stays as you typed it.
+6. Type `;mtg` and keep typing straight away, before the form appears. No form opens and nothing is lost.
+7. Submit a form and start typing immediately. Your typing appears after the inserted text.
+8. Put a field inside a snippet nested in another snippet. The outer snippet's form includes that field.
+
+**Search palette**
+
+1. Press ⌃⌥Space in another app. The palette opens and the other app stays frontmost.
+2. Type part of a trigger. The exact trigger match comes first.
+3. Press ↵. The snippet is inserted into the other app, through the form if it has one.
+4. Press ⌘↵. The rendered text is copied to the clipboard.
+5. Press ⌘E. The editor opens with that snippet selected.
+6. Open the palette from the Kudzu editor and press ↵. The text is inserted into the editor.
+7. Type a trigger inside the palette. It doesn't expand.
+8. Change the shortcut in Settings → General. ⌥-only shortcuts are rejected.
+
+**Rules**
+
+1. Right-click a group, choose Rules…, and set Block in TextEdit. The group's snippets stop expanding in TextEdit, and the snippet editor shows "Inherited from group …".
+2. In Settings → Apps:
+   - Add an excluded app. Nothing expands there, and the palette won't insert there either.
+   - Terminals default to Paste.

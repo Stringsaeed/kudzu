@@ -19,14 +19,15 @@ struct HotKeyShortcut: Codable, Hashable, Sendable {
 
     /// The shortcut a key-down event describes, or nil when it isn't usable globally.
     ///
-    /// A shortcut needs ⌘, ⌃ or ⌥ (⇧ alone would swallow capital letters system-wide); function
-    /// keys F1–F20 may stand alone.
+    /// A shortcut needs ⌘ or ⌃; function keys F1–F20 may stand alone. ⇧ or ⌥ alone would type a
+    /// character into the target app (⌥Space is a non-breaking space, a word separator) on the
+    /// same press that opens the palette.
     init?(event: NSEvent) {
         guard event.type == .keyDown else { return nil }
         let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
         let code = UInt32(event.keyCode)
         guard !Self.modifierKeyCodes.contains(Int(code)) else { return nil }
-        guard !flags.intersection([.command, .option, .control]).isEmpty || Self.functionKeyNames[Int(code)] != nil else { return nil }
+        guard !flags.intersection([.command, .control]).isEmpty || Self.functionKeyNames[Int(code)] != nil else { return nil }
         self.init(keyCode: code, modifiers: Self.carbonModifiers(flags))
     }
 

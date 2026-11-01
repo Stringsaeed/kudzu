@@ -178,8 +178,9 @@ public struct PaletteRanker: Sendable {
         var field: PaletteField
     }
 
-    /// Best weighted match of one term. Content is only searched when the name and triggers miss,
-    /// since its weight could never let it win and it is by far the longest field.
+    /// Best weighted match of one term across name, triggers and content.
+    /// A gappy name hit can score below a tight content hit, so content is always considered;
+    /// its span limit keeps that scan cheap.
     /// On a name hit, `scratch.namePositions` holds the matched UTF-16 offsets.
     private static func match(_ term: [UInt16], in entry: Entry, scratch: inout Scratch) -> Hit? {
         var best: Hit?
@@ -191,11 +192,12 @@ public struct PaletteRanker: Sendable {
             let weighted = Double(score) * triggerWeight
             if weighted > best?.score ?? -.infinity { best = Hit(score: weighted, field: .trigger) }
         }
-        if best != nil { return best }
         let maxSpan = term.count + max(3, term.count)
-        return greedy(term, entry.content, bonus: nil, maxSpan: maxSpan).map {
-            Hit(score: Double($0) * contentWeight, field: .content)
+        if let score = greedy(term, entry.content, bonus: nil, maxSpan: maxSpan) {
+            let weighted = Double(score) * contentWeight
+            if weighted > best?.score ?? -.infinity { best = Hit(score: weighted, field: .content) }
         }
+        return best
     }
 
     /// Scores a term against a short field with the optimal-alignment DP, or the greedy matcher

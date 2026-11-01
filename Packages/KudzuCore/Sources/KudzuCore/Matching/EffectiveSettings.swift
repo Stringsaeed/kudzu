@@ -67,7 +67,7 @@ public struct InheritedGroupSettings: Hashable, Sendable {
         if let insertion {
             return insertion.title
         }
-        return "Default (\(defaultInsertion.title))"
+        return "Default (\(defaultInsertion.title), or the app's setting in Settings → Apps)"
     }
 }
 

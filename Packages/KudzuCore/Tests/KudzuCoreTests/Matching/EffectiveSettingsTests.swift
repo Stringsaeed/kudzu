@@ -24,8 +24,8 @@ struct EffectiveSettingsTests {
         #expect(settings.insertion == nil)
         #expect(settings.insertionGroup == nil)
         #expect(settings.ruleDescription() == "No restrictions")
-        #expect(settings.insertionDescription() == "Default (Automatic)")
-        #expect(settings.insertionDescription(defaultInsertion: .paste) == "Default (Paste)")
+        #expect(settings.insertionDescription() == "Default (Automatic, or the app's setting in Settings → Apps)")
+        #expect(settings.insertionDescription(defaultInsertion: .paste) == "Default (Paste, or the app's setting in Settings → Apps)")
     }
 
     @Test func inheritsRuleAndInsertionWithSourceGroupNames() {

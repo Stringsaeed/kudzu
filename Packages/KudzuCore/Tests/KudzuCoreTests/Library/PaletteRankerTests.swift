@@ -36,6 +36,15 @@ struct PaletteRankerTests {
         #expect(ranker.rank("zzz").isEmpty)
     }
 
+    @Test func gappyNameDoesNotBuryExactContent() {
+        let exact = s("Unrelated title", [], "qt")
+        let loose = s("Something else", [], "qat")
+        let gappy = s("Q" + String(repeating: "x", count: 40) + "t notes", [], "qt")
+        let all = [exact, loose, gappy]
+        let ranked = names(PaletteRanker(snippets: all, now: now).rank("qt"), all)
+        #expect(ranked.firstIndex(of: gappy.name)! < ranked.firstIndex(of: loose.name)!)
+    }
+
     @Test func caseAndDiacriticInsensitive() {
         let a = s("Café Menu", [";café"], "Crème brûlée")
         let ranker = PaletteRanker(snippets: [a], now: now)
