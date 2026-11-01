@@ -45,7 +45,7 @@ func labels(source: String, symbol: String, text: String) {
     let original = tag("{{date format=\"EEEE\" extra=1 locale=fr_FR}}")
     let edited = original.setting("format", string: "HH").setting("offset", string: "+1d").setting("locale", string: nil)
     #expect(edited.attributes.map(\.name) == ["format", "extra", "offset"])
-    #expect(edited.source == "{{date format=\"HH\" extra=1.0 offset=\"+1d\"}}")
+    #expect(edited.source == "{{date format=\"HH\" extra=1 offset=\"+1d\"}}")
     #expect(tag("{{clipboard trim=true}}").setting("trim", flag: false).source == "{{clipboard}}")
     #expect(original.stringAttribute("locale") == "fr_FR" && !original.boolAttribute("locale"))
 }

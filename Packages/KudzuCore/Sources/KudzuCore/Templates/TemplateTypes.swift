@@ -17,6 +17,9 @@ public struct TemplateDiagnostic: Equatable, Sendable {
 }
 
 /// A typed attribute value; quoted tokens always remain strings.
+///
+/// A bare token is a number only when it is an optionally signed plain decimal (`5`, `-3`, `+2.50`);
+/// `true` and `false` are booleans; any other bare token is a string.
 public enum AttributeValue: Equatable, Sendable {
     case string(String), bool(Bool), number(Double)
 }
@@ -39,9 +42,14 @@ public struct Tag: Equatable, Sendable {
     public var attributes: [Attribute]
     /// Half-open UTF-16 offsets, including delimiters.
     public var range: Range<Int>
+    /// The exact source of an unknown or malformed `{{…}}` span, or nil for a recognized tag.
+    ///
+    /// Such a tag has no name or attributes. It renders and serializes as this text, so a tag a future version
+    /// understands is not rewritten by an editor that does not.
+    public var verbatim: String?
     /// Creates an editor tag, optionally without a source location.
-    public init(name: String, attributes: [Attribute] = [], range: Range<Int> = 0..<0) {
-        self.name = name; self.attributes = attributes; self.range = range
+    public init(name: String, attributes: [Attribute] = [], range: Range<Int> = 0..<0, verbatim: String? = nil) {
+        self.name = name; self.attributes = attributes; self.range = range; self.verbatim = verbatim
     }
     func string(_ key: String) -> String? {
         guard case .string(let value) = attributes.last(where: { $0.name == key })?.value else { return nil }
@@ -86,6 +94,7 @@ public enum TemplateTag: Equatable, Sendable {
 
     /// Interprets a tag using v1 defaults.
     public init(_ tag: Tag) {
+        guard tag.verbatim == nil else { self = .unknown; return }
         switch tag.name {
         case "date", "time":
             let format = tag.string("format") ?? (tag.name == "date" ? "yyyy-MM-dd" : "HH:mm")

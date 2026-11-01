@@ -3,7 +3,8 @@ import Testing
 @testable import KudzuCore
 
 @Test func literalDiagnosticsMapToDisplayAndSource() {
-    let segments = TemplateSegments.parse("a\\\\{{cursor}}x {{DATE}}")
+    // Hand-typed text; a "{{DATE}}" loaded from source would be a verbatim chip instead.
+    let segments: [TemplateSegment] = [.text("a\\"), .chip(KudzuCore.Tag(name: "cursor")), .text("x {{DATE}}")]
     // Display: "a\" (2) + chip (1) + "x {{DATE}}"; source escapes the backslash and the literal "{{".
     let diagnostics = TemplateEditorLint.diagnostics(for: segments)
     #expect(diagnostics.count == 1)
@@ -18,8 +19,10 @@ import Testing
 }
 
 @Test func literalLintKeepsUnderliningAfterCanonicalization() {
-    let first = TemplateEditorLint.diagnostics(for: TemplateSegments.parse("{{nope}}"))
-    let saved = TemplateSegments.serialize(TemplateSegments.parse("{{nope}}"))
+    let typed: [TemplateSegment] = [.text("{{nope}}")]
+    let first = TemplateEditorLint.diagnostics(for: typed)
+    let saved = TemplateSegments.serialize(typed)
+    #expect(saved == "\\{{nope}}")
     let second = TemplateEditorLint.diagnostics(for: TemplateSegments.parse(saved))
     #expect(first.map(\.displayRange) == [0..<8])
     #expect(second.map(\.displayRange) == first.map(\.displayRange))
