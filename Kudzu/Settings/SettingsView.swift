@@ -49,7 +49,7 @@ struct SettingsView: View {
 
 // MARK: - General Tab
 
-private struct GeneralSettingsTab: View {
+struct GeneralSettingsTab: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
@@ -190,7 +190,7 @@ private struct GeneralSettingsTab: View {
 
 // MARK: - Sync Tab
 
-private struct SyncSettingsTab: View {
+struct SyncSettingsTab: View {
     @Environment(AppModel.self) private var model
     @State private var deviceID = ""
 
@@ -228,7 +228,7 @@ private struct SyncSettingsTab: View {
 
 // MARK: - Backups Tab
 
-private struct BackupsSettingsTab: View {
+struct BackupsSettingsTab: View {
     struct BackupRow: Identifiable, Hashable {
         var info: BackupInfo
         var snippetCount: Int?
@@ -413,7 +413,7 @@ private struct BackupsSettingsTab: View {
 
 // MARK: - Import & Export Tab
 
-private struct ImportExportSettingsTab: View {
+struct ImportExportSettingsTab: View {
     @Environment(AppModel.self) private var model
 
     @State private var showingEspansoSheet = false
@@ -589,7 +589,7 @@ private struct ImportExportSettingsTab: View {
 
 // MARK: - About Tab
 
-private struct AboutSettingsTab: View {
+struct AboutSettingsTab: View {
     private var appVersion: String {
         let shortVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0"
         let buildNumber = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"

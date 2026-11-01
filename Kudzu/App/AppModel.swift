@@ -22,6 +22,14 @@ final class AppModel {
     /// (creates a snippet with this content, selects it, then sets this back to nil).
     var pendingNewSnippetContent: String?
 
+    /// Library or settings. ⌘, and the menu bar's Settings… switch the main window into settings mode.
+    var mainWindowMode: MainWindowMode = .library
+
+    /// Switches the main window to settings; callers open and activate the window themselves.
+    func showSettings(_ section: SettingsSection = .general) {
+        mainWindowMode = .settings(section)
+    }
+
     /// Snippet the palette's ⌘E asked to edit. The main window consumes it (selects the snippet,
     /// clearing a search or scope that would hide it, then sets this back to nil).
     var pendingSelectSnippetID: UUID?
