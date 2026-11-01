@@ -1,4 +1,4 @@
-import KudzuUI
+@testable import KudzuUI
 import SwiftUI
 import Testing
 
@@ -14,5 +14,18 @@ import Testing
                 KzSegmented("Mode", selection: .constant(1), options: [.init(1, label: "One"), .init(2, label: "Two"), .init(3, label: "Three"), .init(4, label: "Four")]).disabled(true)
             }
         }
+    }
+}
+
+@MainActor
+@Suite struct SegmentedBehaviorTests {
+    /// ← and → change the selection directly and stop at the ends.
+    @Test func arrowsMoveTheSelection() {
+        let values = ["System", "Light", "Dark"]
+        #expect(KzSegmented<String>.moved("System", by: 1, in: values) == "Light")
+        #expect(KzSegmented<String>.moved("Light", by: -1, in: values) == "System")
+        #expect(KzSegmented<String>.moved("Dark", by: 1, in: values) == "Dark")
+        #expect(KzSegmented<String>.moved("System", by: -1, in: values) == "System")
+        #expect(KzSegmented<String>.moved("Missing", by: 1, in: values) == "Missing")
     }
 }
