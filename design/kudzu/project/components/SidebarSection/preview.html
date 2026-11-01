@@ -1,0 +1,12 @@
+<!-- @dsCard group="Navigation" height=150 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>SidebarSection</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" style="width:220px;padding:8px;background:var(--surface)"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(K.SidebarSection, {label:'Groups', action:h(K.IconButton, {icon:'plus', label:'New group', size:'sm'})}, h(K.SidebarItem, {icon:'folder', label:'base', count:15}), h(K.SidebarItem, {icon:'folder', label:'Getting started', count:3})));
+</script>
+</body>
+</html>

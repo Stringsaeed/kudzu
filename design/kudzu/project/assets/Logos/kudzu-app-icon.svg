@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs>
+<linearGradient id="bg" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#2e3f17"></stop><stop offset="0.55" stop-color="#18210c"></stop><stop offset="1" stop-color="#0d1208"></stop></linearGradient>
+<radialGradient id="glow" cx="0.66" cy="0.32" r="0.6"><stop offset="0" stop-color="#c5f03d" stop-opacity="0.12"></stop><stop offset="1" stop-color="#c5f03d" stop-opacity="0"></stop></radialGradient>
+<filter id="shadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.32"></feDropShadow></filter>
+<filter id="lshadow" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.4"></feDropShadow></filter>
+<filter id="noise"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"></feTurbulence><feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.5 0"></feColorMatrix></filter>
+<clipPath id="sq"><rect x="100" y="100" width="824" height="824" rx="185"></rect></clipPath>
+</defs><g filter="url(#shadow)"><rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"></rect></g>
+<g clip-path="url(#sq)"><rect x="100" y="100" width="824" height="824" fill="url(#glow)"></rect></g>
+<rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="3"></rect><g filter="url(#lshadow)">
+<path d="M420 270 V770 M358 270 H482 M358 770 H482" fill="none" stroke="#eef3e2" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M420.0 612.0 C428.5 538.6 352.8 476.1 248.0 470.0 L420.0 612.0Z" fill="#a9d930"></path><path d="M420.0 612.0 L248.0 470.0 C279.0 565.6 354.7 628.1 420.0 612.0Z" fill="#8cba20"></path>
+<path d="M420.0 500.0 C549.0 546.4 707.4 435.5 780.0 248.0 L420.0 500.0Z" fill="#d6f86a"></path><path d="M420.0 500.0 L780.0 248.0 C588.1 265.1 429.7 376.0 420.0 500.0Z" fill="#b4e22e"></path>
+</g></svg>

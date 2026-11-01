@@ -1,0 +1,12 @@
+<!-- @dsCard group="Settings" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>SettingsRow</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" class="kz-stage-col kz-stage-sunk"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h('div', {className:'kz-setgroup-card'}, h(K.SettingsRow, {label:'Launch Kudzu at login'}, h(K.Toggle, {checked:true, label:'Launch at login'})), h(K.SettingsRow, {label:'Theme'}, h(K.Segmented, {options:['System','Light','Dark'], label:'Theme'})), h(K.SettingsRow, {label:'Setup assistant', description:'Walk through permissions and the first snippet again.'}, h(K.Button, {size:'sm'}, 'Show welcome again'))));
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+<!-- @dsCard group="Actions" height=108 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Button</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div class="kz-stage"><div id="a" style="display:contents"></div></div><div class="kz-stage" style="padding-top:0"><div id="b" style="display:contents"></div></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('a')).render(h(React.Fragment, null, h(K.Button, {variant:'primary', icon:'history'}, 'Back up now'), h(K.Button, null, 'Restore\u2026'), h(K.Button, {variant:'ghost'}, 'Reveal in Finder'), h(K.Button, {variant:'danger', icon:'trash'}, 'Delete'), h(K.Button, {disabled:true}, 'Disabled')));
+ReactDOM.createRoot(document.getElementById('b')).render(h(React.Fragment, null, h(K.Button, {variant:'primary', size:'sm'}, 'Save'), h(K.Button, {size:'sm'}, 'Import\u2026'), h(K.Button, {variant:'ghost', size:'sm', icon:'plus', iconEnd:'chevron-down'}, 'Insert')));
+</script>
+</body>
+</html>

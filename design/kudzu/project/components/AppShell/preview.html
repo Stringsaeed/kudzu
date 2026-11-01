@@ -1,0 +1,12 @@
+<!-- @dsCard group="Layout" height=160 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AppShell</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"><style>.demo-desk{padding:16px;background:var(--canvas)}</style></head>
+<body>
+<div class="demo-desk"><div id="root" style="height:128px"></div></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(K.AppShell, {sidebar:h(K.SidebarItem, {icon:'stack', label:'All snippets', count:18, active:true}), list:h(K.ListHeader, {title:'All snippets', subtitle:'18 snippets'}), detail:h('div', {style:{padding:24, color:'var(--ink-muted)'}}, 'Detail')}));
+</script>
+</body>
+</html>
