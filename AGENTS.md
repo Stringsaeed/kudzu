@@ -22,6 +22,8 @@ xcodebuild -project Kudzu.xcodeproj -scheme Kudzu -derivedDataPath build/Derived
 xcodebuild -project Kudzu.xcodeproj -scheme KudzuAppStore -derivedDataPath build/DerivedData build
 ```
 
+Signing defaults to ad-hoc (`Config/Signing.xcconfig`). Ad-hoc signatures change every build, so macOS forgets privacy grants. To keep Accessibility and Input Monitoring grants across rebuilds, create `Config/Local.xcconfig` from the `.example` file with your own team.
+
 The toolchain is Xcode 27 / Swift 6.4, with Swift 6 language mode and strict concurrency. The deployment target is macOS 15.
 
 ## Conventions

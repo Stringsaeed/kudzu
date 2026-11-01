@@ -1,0 +1,4 @@
+// Copy to Config/Local.xcconfig (git-ignored). Find your values with:
+//   security find-identity -v -p codesigning
+CODE_SIGN_IDENTITY = Apple Development
+DEVELOPMENT_TEAM = YOURTEAMID
