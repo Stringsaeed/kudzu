@@ -49,7 +49,7 @@ struct SnippetEditorView: View {
                 }
 
                 section("Content") {
-                    TemplateTextEditor(source: model.binding(\.content), snippets: library.snippets)
+                    TemplateTextEditor(source: model.binding(\.content), snippets: library.snippets, currentSnippetID: snippet.id)
                         .frame(minHeight: 180, idealHeight: 220)
                         .clipShape(RoundedRectangle(cornerRadius: 8))
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
