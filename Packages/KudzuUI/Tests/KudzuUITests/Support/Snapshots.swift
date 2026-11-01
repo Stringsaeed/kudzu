@@ -29,3 +29,10 @@ let repoRoot: URL = snapshotDirectory
     .deletingLastPathComponent() // …/Packages/KudzuUI
     .deletingLastPathComponent() // …/Packages
     .deletingLastPathComponent() // repo root
+
+/// Suspends so queued main-queue work (AppKit bridges that configure themselves a beat after creation)
+/// can run. A synchronous main-actor test can't drain the main queue it is itself running on.
+@MainActor
+func settle(_ seconds: Double = 0.8) async {
+    try? await Task.sleep(for: .seconds(seconds))
+}
