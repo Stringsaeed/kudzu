@@ -30,6 +30,27 @@ public struct TemplateInfo: Equatable, Sendable {
 
 /// Extracts editor and form metadata without resolving nested snippets.
 public enum TemplateAnalysis {
+    /// Resolves fields depth first, with the renderer's path guard and eight-level limit.
+    public static func formFields(in source: String, resolveSnippet: (UUID) -> String?) -> [FormFieldSpec] {
+        var fields: [FormFieldSpec] = []
+        var names = Set<String>()
+        func visit(_ source: String, path: Set<UUID>, depth: Int) {
+            for case .tag(let tag) in TemplateParser.parse(source).nodes {
+                if case .snippet(let id) = tag.typed {
+                    if depth < 8, !path.contains(id), let nested = resolveSnippet(id) {
+                        visit(nested, path: path.union([id]), depth: depth + 1)
+                    }
+                } else {
+                    for field in analyze(ParsedTemplate(nodes: [.tag(tag)], diagnostics: [])).formFields {
+                        if names.insert(field.name).inserted { fields.append(field) }
+                    }
+                }
+            }
+        }
+        visit(source, path: [], depth: 0)
+        return fields
+    }
+
     /// Analyzes recognized tags; the first definition of each form name wins.
     public static func analyze(_ parsed: ParsedTemplate) -> TemplateInfo {
         var result = TemplateInfo(formFields: [], referencedSnippetIDs: [], hasCursor: false, usesClipboard: false)

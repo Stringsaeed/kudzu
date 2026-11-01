@@ -33,6 +33,12 @@ final class ExpansionEngine {
     private var changes: Task<Void, Never>?
     private var insertion: Task<Void, Never>?
     private var deadline: Task<Void, Never>?
+    private var formPanel: FormPanel?
+    private var paletteInserting = false
+    private var preparingForm = false
+    private var formInterrupted = false
+    private var formMemory = UserDefaults.standard.data(forKey: "formMemory")
+        .flatMap { try? JSONDecoder().decode(FormMemory.self, from: $0) } ?? FormMemory()
     private var generation = 0
     private var undoCaretLeftCount = 0
     private var terminationObserver: NSObjectProtocol?
@@ -43,6 +49,14 @@ final class ExpansionEngine {
         self.permissions = permissions
         tap.onKey = { [weak self] event, signal, replay in
             self?.receive(event, signal: signal, replay: replay) ?? false
+        }
+        tap.onMouseDown = { [weak self] event in
+            guard let self else { return }
+            if let panel = self.formPanel {
+                let point = NSEvent.mouseLocation
+                if panel.frame.contains(point) { return }
+            }
+            self.invalidateContext()
         }
         tap.onSignal = { [weak self] _ in self?.invalidateContext() }
         frontmost.onActivation = { [weak self] in self?.invalidateContext() }
@@ -91,6 +105,7 @@ final class ExpansionEngine {
             // Usage saves after every expansion also emit changes. Rebuilding would clear the
             // live key buffer and undo, dropping whatever was typed since, so skip no-op reloads.
             guard records != snippets || library.groups != groups else { return }
+            formMemory.retainSnippets(Set(records.keys))
             snippets = records
             groups = library.groups
             matcher.reload(snippets: library.snippets, groups: groups, config: MatchingConfig())
@@ -100,12 +115,13 @@ final class ExpansionEngine {
     }
 
     private func refresh() {
+        let hadInputMonitoring = permissions.inputMonitoring
         permissions.refresh()
         secureInput.refresh()
         let changed = secureInputActive != secureInput.isEnabled
         secureInputActive = secureInput.isEnabled
         secureInputOwner = secureInput.responsibleApp
-        if changed || !permissions.postEvent { invalidateContext() }
+        if changed || !permissions.postEvent || (hadInputMonitoring && !permissions.inputMonitoring) { invalidateContext() }
         #if APPSTORE
         let desired: ExpansionTapMode = .listenOnly
         #else
@@ -142,6 +158,8 @@ final class ExpansionEngine {
 
     private func invalidateContext() {
         generation += 1
+        formPanel?.cancel(); formPanel = nil
+        preparingForm = false
         insertion?.cancel(); insertion = nil
         deadline?.cancel(); deadline = nil
         resetMatcher()
@@ -150,6 +168,11 @@ final class ExpansionEngine {
     }
 
     private func receive(_ event: CGEvent, signal: EventTap.Signal?, replay: Bool) -> Bool {
+        if preparingForm || formPanel != nil {
+            if signal != nil, formPanel == nil || NSApp.keyWindow !== formPanel { formInterrupted = true }
+            return false
+        }
+        if paletteInserting { resetMatcher(); return false }
         if !replay, tap.mode == .active, held.state == .inserting, let copy = event.copy() {
             return held.enqueue(copy)
         }
@@ -224,17 +247,37 @@ final class ExpansionEngine {
                     let records = self.snippets
                     let clipboard = self.usesClipboard(snippet.content, visited: [])
                         ? NSPasteboard.general.string(forType: .string) : nil
-                    let context = RenderContext(now: .now, calendar: .current, timeZone: .current,
+                    var context = RenderContext(now: .now, calendar: .current, timeZone: .current,
                                                 locale: .current, clipboard: clipboard,
                                                 resolveSnippet: { records[$0]?.content })
-                    // TODO(M3): form panel
+                    let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
+                    var planMode = mode
+                    if !fields.isEmpty {
+                        self.deadline?.cancel(); self.deadline = nil
+                        if mode == .active, let swallowedText { try self.inserter.type(swallowedText) }
+                        let queued = self.held.drain()
+                        self.preparingForm = true
+                        self.formInterrupted = queued.contains { $0.type == .keyDown }
+                        defer { self.preparingForm = false }
+                        self.resetMatcher()
+                        for event in queued { self.post(event, marker: EventTap.syntheticMarker) }
+                        // Let restoration and flushed input reach the target before stealing focus.
+                        try await Task.sleep(for: .milliseconds(50))
+                        guard self.generation == token, self.allowed else { return }
+                        guard let values = await self.requestForm(snippet: snippet, fields: fields, context: context,
+                                                                 initiallyInterrupted: self.formInterrupted, caseStyle: match.caseStyle) else { self.resetMatcher(); return }
+                        try Task.checkCancellation()
+                        guard self.generation == token, self.allowed else { return }
+                        context.formValues = values
+                        planMode = .listenOnly
+                    }
                     let rendered = TemplateRenderer.render(snippet.content, context: context)
                     let text = CasePropagation.apply(match.caseStyle, to: rendered.text)
                     let offset = rendered.cursorOffset.map {
                         let prefix = String(decoding: Array(rendered.text.utf16.prefix($0)), as: UTF16.self)
                         return CasePropagation.apply(match.caseStyle, to: prefix).utf16.count
                     }
-                    let plan = InsertionPlan(match: match, text: text, cursorOffset: offset, mode: mode,
+                    let plan = InsertionPlan(match: match, text: text, cursorOffset: offset, mode: planMode,
                                              swallowedText: mode == .active ? swallowedText : nil)
                     try self.inserter.deleteBackward(count: plan.deleteCount)
                     let method: Inserter.Method = switch match.insertion {
@@ -266,6 +309,77 @@ final class ExpansionEngine {
                 if self.generation == token { self.resetMatcher() }
             }
         }
+    }
+
+    private func requestForm(snippet: SnippetRecord, fields: [FormFieldSpec], context: RenderContext,
+                             initiallyInterrupted: Bool = false, caseStyle: CaseStyle = .asIs) async -> [String: String]? {
+        guard formPanel == nil else { return nil }
+        let panel = FormPanel()
+        formPanel = panel
+        formInterrupted = initiallyInterrupted
+        let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let token = generation
+        let values = await panel.present(name: snippet.name, fields: fields,
+                                         values: formMemory.initialValues(for: snippet.id, fields: fields)) { values in
+            var preview = context
+            preview.formValues = values
+            return CasePropagation.apply(caseStyle, to: TemplateRenderer.render(snippet.content, context: preview).text)
+        }
+        // Keep watching target typing throughout the focus-return delay.
+        if values != nil { try? await Task.sleep(for: .milliseconds(50)) }
+        if formPanel === panel { formPanel = nil }
+        guard let values, !Task.isCancelled, generation == token, !formInterrupted,
+              target == NSWorkspace.shared.frontmostApplication?.processIdentifier, allowed else { return nil }
+        formMemory.record(values, for: snippet.id)
+        if let data = try? JSONEncoder().encode(formMemory) { UserDefaults.standard.set(data, forKey: "formMemory") }
+        return values
+    }
+
+    /// Inserts a palette selection at the target caret, collecting form values when required.
+    func insertSnippet(id: UUID) async {
+        guard allowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy, let snippet = snippets[id] else { return }
+        invalidateContext()
+        let token = generation
+        let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let records = snippets
+        var context = RenderContext(now: .now, calendar: .current, timeZone: .current, locale: .current,
+                                    clipboard: usesClipboard(snippet.content, visited: []) ? NSPasteboard.general.string(forType: .string) : nil,
+                                    resolveSnippet: { records[$0]?.content })
+        let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
+        if !fields.isEmpty {
+            guard let values = await requestForm(snippet: snippet, fields: fields, context: context) else { return }
+            context.formValues = values
+        }
+        guard !Task.isCancelled, token == generation, allowed,
+              target == NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
+        let result = TemplateRenderer.render(snippet.content, context: context)
+        var method = snippet.insertion
+        var rule = snippet.rule
+        var groupID = snippet.groupID
+        var visited = Set<UUID>()
+        while let id = groupID, visited.insert(id).inserted,
+              let group = groups.first(where: { $0.id == id }) {
+            method = method ?? group.insertion
+            rule = rule ?? group.rule
+            groupID = group.parentID
+        }
+        if let rule, let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           rule.bundleIDs.contains(bundleID), let override = rule.insertion { method = override }
+        paletteInserting = true
+        defer { paletteInserting = false }
+        do {
+            try await inserter.insert(result.text, method: insertionMethod(method ?? .automatic))
+            guard token == generation, allowed, !Task.isCancelled else { return }
+            if let offset = result.cursorOffset {
+                let prefix = String(decoding: Array(result.text.utf16.prefix(offset)), as: UTF16.self)
+                try inserter.moveCaretLeft(count: result.text.count - prefix.count)
+            }
+            try store.recordUsage(snippetID: id, charsSaved: result.text.count)
+        } catch { Self.log.error("Palette insertion failed: \(error)") }
+    }
+
+    private func insertionMethod(_ method: InsertionMethod) -> Inserter.Method {
+        switch method { case .automatic: .automatic; case .type: .type; case .paste: .paste }
     }
 
     private func usesClipboard(_ source: String, visited: Set<UUID>) -> Bool {
