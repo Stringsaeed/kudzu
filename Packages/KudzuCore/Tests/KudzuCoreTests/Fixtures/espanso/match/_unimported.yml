@@ -1,0 +1,4 @@
+# Underscore file not referenced by any imports: - must NOT be auto-loaded
+matches:
+  - trigger: ":unimported"
+    replace: "Should never be loaded in directory import"
