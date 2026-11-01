@@ -7,8 +7,16 @@ struct BadgePage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.bolt
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A short status label: backup kind, \"Coming soon\", a favorites marker.")
+        GalleryPageLayout(title: Self.title, summary: "A short status label. The word carries the meaning; the tone supports it.") {
+            SpecimenSection("Tones") {
+                GalleryCard {
+                    HStack(spacing: KzSpace.s2) {
+                        KzBadge("Manual"); KzBadge("On", tone: .vine); KzBadge("Favorite", tone: .bloom)
+                        KzBadge("Overwrites", tone: .warning); KzBadge("Failed", tone: .danger)
+                    }
+                }
+            }
+        }
     }
 }

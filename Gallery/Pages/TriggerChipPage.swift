@@ -7,8 +7,22 @@ struct TriggerChipPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.braces
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "The monospace chip that shows a trigger: Kudzu's signature element, used everywhere a trigger appears.")
+        GalleryPageLayout(title: Self.title, summary: "Kudzu's signature element. Triggers appear exactly as typed; the prefix symbol is set in vine-ink.") {
+            SpecimenSection("Triggers") {
+                GalleryCard {
+                    HStack(spacing: KzSpace.s2) {
+                        KzTriggerChip(":an"); KzTriggerChip(";sig"); KzTriggerChip("//date"); KzTriggerChip("addr")
+                    }
+                }
+            }
+            SpecimenSection("Removable", note: "Only inside TriggerInput.") {
+                GalleryCard {
+                    HStack(spacing: KzSpace.s2) {
+                        KzTriggerChip(":an") {}; KzTriggerChip(";signature") {}
+                    }
+                }
+            }
+        }
     }
 }

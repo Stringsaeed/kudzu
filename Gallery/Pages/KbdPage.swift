@@ -7,8 +7,24 @@ struct KbdPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.keyboard
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A keycap for shortcuts in hints, menus and empty states.")
+        GalleryPageLayout(title: Self.title, summary: "A keycap for shortcuts in hints, menus and empty states. Mac glyphs, never Cmd.") {
+            SpecimenSection("Keys") {
+                GalleryCard {
+                    HStack(spacing: KzSpace.s2) {
+                        KzKbd("⌘N"); KzKbd("⌘F"); KzKbd("⌘,"); KzKbd("/"); KzKbd("⌃⌥Space"); KzKbd("↩")
+                    }
+                }
+            }
+            SpecimenSection("In a hint") {
+                GalleryCard {
+                    HStack(spacing: KzSpace.s1) {
+                        Text("Type").kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
+                        KzKbd("/")
+                        Text("to insert a tag").kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
+                    }
+                }
+            }
+        }
     }
 }
