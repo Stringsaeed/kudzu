@@ -15,14 +15,8 @@ Follow-ups found while reviewing the M0 and M1 branches. These are not scheduled
 
 ## Templates
 
-- Accept bare numbers for string attributes (`{{field name=qty default=5}}`). Today the whole tag becomes literal text.
-- Pass the root snippet's ID into the renderer, so a self-reference is caught before it expands once.
-- **No escape for a literal `{` right before a tag.** The source `{{{date}}` can't be written: it reloads as text, not as a chip. Add an escape (e.g. `\{`) to the grammar.
-- **Malformed or unknown tags get escaped (`\{{DATE}}`) on the first edit.** Output is unchanged, but tags a future version might support stay escaped. Consider keeping unknown tags verbatim on save.
-
-## Interchange
-
-- Replace `TemplateTagFormatter`'s private template scanner with `TemplateParser` and `TemplateSerializer`. It only exists because the layers were built in parallel.
+- Pass `rootSnippetID` into `RenderContext` in `ExpansionEngine`. `SnippetPreviewView` already does; the engine still renders without it, so an expanding snippet that includes itself expands once before the cycle is noticed.
+- A `choice` option that ends with a backslash can't be written: `a\|b` reads as the single option `a|b`. Fixing it needs an escape for backslash in `options`, which changes the meaning of existing sources.
 
 ## Editor polish
 

@@ -84,7 +84,8 @@ public struct ChipLabel: Equatable, Sendable {
             symbolName = "questionmark.diamond"
             // An unrecognized span is shown exactly as written, since that is how it will be saved.
             let source = tag.verbatim ?? tag.source
-            title = source
+            let oneLine = source.split(whereSeparator: \.isNewline).joined(separator: " ")
+            title = oneLine.count > 40 ? String(oneLine.prefix(39)) + "…" : oneLine
             isWarning = true
             accessibilityLabel = "Unrecognized tag \(source), kept as written"
         }

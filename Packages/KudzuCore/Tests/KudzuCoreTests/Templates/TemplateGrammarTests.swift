@@ -234,6 +234,13 @@ func unrecognizedTagsRenderExactlyAsTheyAlwaysDid(tag: String) {
     #expect(TemplateSegments.serialize(TemplateSegments.pasted("{{DATE}}")) == #"\{{DATE}}"#)
 }
 
+@Test func longUnrecognizedChipTitlesAreShortenedToOneLine() {
+    let long = KudzuCore.Tag(name: "", verbatim: "{{future text=\"" + String(repeating: "x", count: 80) + "\nmore\"}}")
+    let title = ChipLabel(tag: long).title
+    #expect(title.count == 40 && title.hasSuffix("…") && !title.contains("\n"))
+    #expect(ChipLabel(tag: long).accessibilityLabel.contains("kept as written"))
+}
+
 @Test func unrecognizedChipsHaveAnUnknownLabelAndLintMessage() {
     let segments = TemplateSegments.parse("{{ Future  x=1 }}{{field}}")
     guard case .chip(let tag) = segments[0] else { Issue.record("Expected a chip"); return }
