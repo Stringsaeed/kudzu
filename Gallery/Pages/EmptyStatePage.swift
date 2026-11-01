@@ -7,8 +7,22 @@ struct EmptyStatePage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.leaf
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "What a pane shows when it has nothing to show: a faint leaf mark, a short title, one sentence that says what to do, and the shortcut.")
+        GalleryPageLayout(title: Self.title, summary: "A faint leaf mark, a short title, one sentence that says what to do (with the shortcut), and optionally an action.") {
+            SpecimenSection("Variants") {
+                GalleryCard {
+                    HStack(alignment: .top, spacing: 0) {
+                        KzEmptyState("No snippet selected") {
+                            KzMessage("Choose a snippet to edit it, or press \(kbd: "⌘N") to create one.")
+                        }
+                        .frame(maxWidth: .infinity)
+                        KzEmptyState("No matches", icon: .search, message: "Try a different search, or clear the filter.") {
+                            PlaceholderButton(title: "Clear search", small: true)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
+            }
+        }
     }
 }

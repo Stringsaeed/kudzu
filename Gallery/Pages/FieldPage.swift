@@ -7,8 +7,17 @@ struct FieldPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.type
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A labelled block in the snippet editor or a settings page: label on top, control, optional hint below.")
+        GalleryPageLayout(title: Self.title, summary: "Label (headline), control, optional aside and hint (callout, ink-muted). Fields stack space-5 apart. The label is linked to the control for VoiceOver.") {
+            SpecimenSection("Stack") {
+                GalleryCard {
+                    KzFieldStack {
+                        KzField("Triggers", aside: "Space or return to add") { PlaceholderField(trigger: ":an") }
+                        KzField("Group", hint: "Snippets in a group share its rules.") { PlaceholderSelect(value: "base") }
+                        KzField("Name") { PlaceholderField(placeholder: "Untitled snippet") }
+                    }
+                }
+            }
+        }
     }
 }
