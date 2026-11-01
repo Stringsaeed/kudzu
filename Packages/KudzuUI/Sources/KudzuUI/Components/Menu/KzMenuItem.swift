@@ -67,7 +67,7 @@ public enum KzMenuItemRole: Sendable {
 /// Use `isChecked` (true or false) for items that are part of a choice, so VoiceOver reads them as
 /// checkable; leave it `nil` for plain commands.
 public struct KzMenuItem: Identifiable {
-    /// Stable identity; defaults to the label.
+    /// Identity. Unique by default, so items with the same label stay distinct; pass `id` to refer to one.
     public var id: String
     /// The text.
     public var label: String
@@ -97,7 +97,7 @@ public struct KzMenuItem: Identifiable {
         id: String? = nil,
         action: @escaping @MainActor () -> Void
     ) {
-        self.id = id ?? label
+        self.id = id ?? UUID().uuidString
         self.label = label
         self.icon = icon
         self.isChecked = isChecked

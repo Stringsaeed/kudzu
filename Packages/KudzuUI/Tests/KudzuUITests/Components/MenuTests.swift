@@ -139,6 +139,29 @@ private let sampleRows: [KzMenuNavigator.Row] = [
         #expect(nav.highlighted == 0)
     }
 
+    /// NSMenu: when the longer prefix matches nothing, the search starts over from the new letter.
+    @Test func missedPrefixRestartsWithTheNewLetter() {
+        var nav = KzMenuNavigator(rows: [.item("Name"), .item("Date"), .item("Narrow")])
+        #expect(nav.handle(.character("n"), at: 0) == .highlight(0))
+        #expect(nav.handle(.character("d"), at: 0.1) == .highlight(1)) // "nd" misses; "d" is Date
+        #expect(nav.typeAhead == "d")
+        #expect(nav.handle(.character("a"), at: 0.2) == .highlight(1)) // "da" still Date
+    }
+
+    /// …and when the new letter alone misses too, the buffer is cleared so the next letter starts fresh.
+    @Test func missedLetterClearsTheBuffer() {
+        var nav = KzMenuNavigator(rows: [.item("Name"), .item("Date"), .item("Narrow")])
+        #expect(nav.handle(.character("n"), at: 0) == .highlight(0))
+        #expect(nav.handle(.character("z"), at: 0.1) == .none)
+        #expect(nav.typeAhead == "")
+        #expect(nav.highlighted == 0)
+        #expect(nav.handle(.character("a"), at: 0.2) == .none)
+        #expect(nav.handle(.character("d"), at: 0.3) == .highlight(1)) // not "nzad"
+        #expect(nav.handle(.character("n"), at: 0.4) == .highlight(0)) // "dn" misses; "n" is Name again
+        #expect(nav.handle(.character("a"), at: 0.5) == .highlight(0))
+        #expect(nav.handle(.character("r"), at: 0.6) == .highlight(2)) // "nar"
+    }
+
     @Test func pauseStartsANewWord() {
         var nav = KzMenuNavigator(rows: rows)
         _ = nav.handle(.character("d"), at: 0)
@@ -171,6 +194,31 @@ private let sampleRows: [KzMenuNavigator.Row] = [
         #expect(KzMenuKey.decode(keyCode: 122, charactersIgnoringModifiers: "\u{F704}", modifiers: []) == .other) // F1
     }
 
+    /// ⌘/⌃ with arrows, Home, End, Page Up and Page Down are key equivalents, not movement.
+    @Test func commandWithNavigationKeysIsAShortcut() {
+        let keys: [(UInt16, KeyEquivalent)] = [
+            (126, .upArrow), (125, .downArrow), (123, .leftArrow), (124, .rightArrow),
+            (115, .home), (119, .end), (116, .pageUp), (121, .pageDown),
+        ]
+        for (code, key) in keys {
+            let characters = String(key.character)
+            for modifiers: EventModifiers in [.command, .control, [.command, .option], [.command, .shift]] {
+                #expect(KzMenuKey.decode(keyCode: code, charactersIgnoringModifiers: characters, modifiers: modifiers)
+                    == .shortcut(characters: characters, modifiers: modifiers))
+            }
+            // Some events carry no characters; the key code still says which key it was.
+            #expect(KzMenuKey.decode(keyCode: code, charactersIgnoringModifiers: nil, modifiers: .command)
+                == .shortcut(characters: characters, modifiers: .command))
+            #expect(KeyboardShortcut(key).matches(charactersIgnoringModifiers: characters, modifiers: .command))
+        }
+        // Without ⌘/⌃ they still move.
+        #expect(KzMenuKey.decode(keyCode: 126, charactersIgnoringModifiers: "\u{F700}", modifiers: .option) == .home)
+        #expect(KzMenuKey.decode(keyCode: 125, charactersIgnoringModifiers: "\u{F701}", modifiers: .option) == .end)
+        #expect(KzMenuKey.decode(keyCode: 123, charactersIgnoringModifiers: "\u{F702}", modifiers: .shift) == .left)
+        #expect(KzMenuKey.decode(keyCode: 116, charactersIgnoringModifiers: "\u{F72C}", modifiers: []) == .home)
+        #expect(KzMenuKey.decode(keyCode: 119, charactersIgnoringModifiers: "\u{F72B}", modifiers: .option) == .end)
+    }
+
     @Test func shortcutGlyphsAndMatching() {
         #expect(KeyboardShortcut("n").kzGlyphs == "⌘N")
         #expect(KeyboardShortcut("n", modifiers: [.shift, .command]).kzGlyphs == "⇧⌘N")
@@ -192,6 +240,7 @@ private let sampleRows: [KzMenuNavigator.Row] = [
         var finishFlash: (@MainActor () -> Void)?
         KzMenuActivation.run(
             flash: { done in log.append("flash"); finishFlash = done },
+            isDismissed: { false },
             close: { log.append("close") },
             restoreFocus: { log.append("restoreFocus") },
             perform: { log.append("perform") }
@@ -200,6 +249,25 @@ private let sampleRows: [KzMenuNavigator.Row] = [
         #expect(log == ["flash"])
         finishFlash?()
         #expect(log == ["flash", "close", "restoreFocus", "perform"])
+    }
+
+    /// A click outside or an app switch during the blink closes the menu; that close wins, so focus
+    /// isn't pulled back (maybe out of another app) and the action doesn't run.
+    @Test func dismissedDuringTheFlashRunsNothing() {
+        var log: [String] = []
+        var finishFlash: (@MainActor () -> Void)?
+        final class Menu { var isClosed = false }
+        let menu = Menu()
+        KzMenuActivation.run(
+            flash: { done in log.append("flash"); finishFlash = done },
+            isDismissed: { menu.isClosed },
+            close: { log.append("close") },
+            restoreFocus: { log.append("restoreFocus") },
+            perform: { log.append("perform") }
+        )
+        menu.isClosed = true // closed by a click outside while the item blinks
+        finishFlash?()
+        #expect(log == ["flash"])
     }
 }
 
@@ -223,10 +291,56 @@ private let sampleRows: [KzMenuNavigator.Row] = [
     }
 
     @Test func itemModifiers() {
-        let item = KzMenuItem("Sort", isChecked: false) {}.checked(true).disabled()
+        let original = KzMenuItem("Sort", isChecked: false) {}
+        let item = original.checked(true).disabled()
         #expect(item.isChecked == true)
         #expect(!item.isEnabled)
-        #expect(item.id == "Sort")
+        #expect(item.id == original.id) // modifiers keep the identity
+    }
+
+    @Test func itemsWithTheSameLabelHaveDistinctIDs() {
+        let menu = KzMenu {
+            KzMenuItem("Copy") {}
+            KzMenuItem("Copy") {}
+            KzSubmenu("More") { KzMenuItem("Copy") {} }
+        }
+        #expect(Set(menu.allItems.map(\.id)).count == 4)
+        #expect(KzMenuItem("Copy", id: "copy-a") {}.id == "copy-a")
+    }
+
+    /// The shortcut finds the row it matched, not the first row with the same label.
+    @Test func shortcutMatchesReportTheirRow() {
+        let menu = KzMenu {
+            KzMenuItem("Copy") {}
+            KzMenuItem("Copy") {}.keyboardShortcut("c")
+            KzSubmenu("More") {
+                KzMenuItem("Copy") {}
+                KzMenuItem("Copy") {}.keyboardShortcut("c", modifiers: [.command, .shift])
+            }
+            KzSubmenu("Off", isEnabled: false) { KzMenuItem("Paste") {}.keyboardShortcut("v") }
+            KzMenuItem("Gone") {}.keyboardShortcut("g").disabled()
+        }
+        #expect(menu.shortcutMatch(characters: "c", modifiers: .command)?.path == [1])
+        #expect(menu.shortcutMatch(characters: "c", modifiers: [.command, .shift])?.path == [2, 1])
+        #expect(menu.shortcutMatch(characters: "v", modifiers: .command) == nil) // inside a disabled submenu
+        #expect(menu.shortcutMatch(characters: "g", modifiers: .command) == nil)
+
+        // Where that row is on screen, if its menu is open.
+        #expect(KzMenuRowLocation(path: [1], parentRows: [nil]) == KzMenuRowLocation(level: 0, row: 1))
+        #expect(KzMenuRowLocation(path: [2, 1], parentRows: [nil]) == nil) // submenu closed
+        #expect(KzMenuRowLocation(path: [2, 1], parentRows: [nil, 2]) == KzMenuRowLocation(level: 1, row: 1))
+        #expect(KzMenuRowLocation(path: [2, 1], parentRows: [nil, 3]) == nil) // another submenu is open
+        #expect(KzMenuRowLocation(path: [1], parentRows: [nil, 2]) == KzMenuRowLocation(level: 0, row: 1))
+    }
+
+    @Test func surfaceHighlightsByIDOrLabel() {
+        let menu = KzMenu {
+            KzMenuItem("Name") {}
+            KzMenuItem("Date", id: "date") {}
+        }
+        #expect(KzMenuSurface.highlightedRow(in: menu, id: "Name") == 0)
+        #expect(KzMenuSurface.highlightedRow(in: menu, id: "date") == 1)
+        #expect(KzMenuSurface.highlightedRow(in: menu, id: nil) == nil)
     }
 }
 

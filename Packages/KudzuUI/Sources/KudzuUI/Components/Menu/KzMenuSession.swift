@@ -66,13 +66,6 @@ final class KzMenuSession: NSObject {
         }
     }
 
-    /// Release within this time of opening chooses the item under the pointer, even without moving.
-    static let holdToChooseDelay: TimeInterval = 0.4
-    /// Hovering a submenu item this long opens it.
-    static let submenuOpenDelay: Duration = .milliseconds(120)
-    /// Leaving an open submenu's item for another this long switches submenus (time to cross over).
-    static let submenuSwitchDelay: Duration = .milliseconds(250)
-
     private let root: KzMenu
     private var levels: [Level] = []
     private weak var parentWindow: NSWindow?
@@ -81,15 +74,14 @@ final class KzMenuSession: NSObject {
     private let onClose: @MainActor () -> Void
     private var localMonitor: Any?
     private var globalMonitor: Any?
-    private let openedAt = ProcessInfo.processInfo.systemUptime
-    private let openLocation = NSEvent.mouseLocation
+    private let openLocation: CGPoint
+    private var press: KzMenuPressTracker
     private var pointerHasMoved = false
     private var pointerInside = false
-    private var dragged = false
-    private var pressedInside = false
     private var isClosed = false
     private var isActivating = false
     private var submenuTask: Task<Void, Never>?
+    private var flashTask: Task<Void, Never>?
     private static let margins = KzFloatingChrome.margins(for: .float)
 
     private init(menu: KzMenu, parentWindow: NSWindow?, trigger: KzMenuTrigger, onClose: @escaping @MainActor () -> Void) {
@@ -98,6 +90,9 @@ final class KzMenuSession: NSObject {
         self.focus = KzFocusMemory.capture()
         self.trigger = trigger
         self.onClose = onClose
+        let location = NSEvent.mouseLocation
+        self.openLocation = location
+        self.press = KzMenuPressTracker(pressLocation: location, openedAt: ProcessInfo.processInfo.systemUptime)
         super.init()
     }
 
@@ -208,6 +203,8 @@ final class KzMenuSession: NSObject {
         guard !isClosed else { return }
         isClosed = true
         submenuTask?.cancel()
+        // A click outside or an app switch during the activation blink: the item doesn't run.
+        flashTask?.cancel()
         removeMonitors()
         for level in levels.reversed() {
             NSAccessibility.post(element: level.container, notification: Self.menuClosed)
@@ -306,7 +303,7 @@ final class KzMenuSession: NSObject {
                 close()
                 return nil
             }
-            pressedInside = true
+            press.mouseDown(at: point, inside: true)
             pointerMoved(to: point, immediate: true)
             return nil
         case .leftMouseUp, .rightMouseUp, .otherMouseUp:
@@ -314,7 +311,7 @@ final class KzMenuSession: NSObject {
             return nil
         case .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
             let point = Self.screenPoint(of: event)
-            if hypot(point.x - openLocation.x, point.y - openLocation.y) > 3 { dragged = true }
+            press.mouseDragged(to: point)
             pointerMoved(to: point)
             return nil
         case .mouseMoved:
@@ -334,57 +331,62 @@ final class KzMenuSession: NSObject {
 
     private func mouseUp(at point: CGPoint) {
         guard !isActivating else { return }
-        guard let index = levelIndex(containing: point) else {
-            // Pressed on the trigger, dragged off and let go somewhere else: nothing chosen.
-            if dragged && !pressedInside { close() }
-            return
+        let index = levelIndex(containing: point)
+        switch press.mouseUp(insideMenu: index != nil, at: ProcessInfo.processInfo.systemUptime) {
+        case .none:
+            break
+        case .close:
+            close()
+        case .choose:
+            guard let index, let row = row(at: point, in: levels[index]) else { return }
+            activateRow(row, in: index)
         }
-        let elapsed = ProcessInfo.processInfo.systemUptime - openedAt
-        let chooses = pressedInside || dragged || elapsed > Self.holdToChooseDelay
-        guard chooses, let row = row(at: point, in: levels[index]) else { return }
-        activateRow(row, in: index)
+    }
+
+    /// The pointer state of the open levels, for `KzMenuPointerRouter`.
+    private var router: KzMenuPointerRouter {
+        KzMenuPointerRouter(highlights: levels.map(\.navigator.highlighted), parentRows: levels.map(\.parentRow),
+                            pointerInside: pointerInside)
     }
 
     /// Hover and drag: highlight the item under the pointer and open or switch submenus.
     func pointerMoved(to point: CGPoint, immediate: Bool = false) {
-        guard !isClosed, !isActivating else { return }
-        if hypot(point.x - openLocation.x, point.y - openLocation.y) > 3 { pointerHasMoved = true }
+        guard !isClosed, !isActivating, !levels.isEmpty else { return }
+        if hypot(point.x - openLocation.x, point.y - openLocation.y) > KzMenuPressTracker.dragThreshold { pointerHasMoved = true }
         guard pointerHasMoved || immediate else { return }
-        guard let index = levelIndex(containing: point) else {
-            // Leaving the menus: the deepest one loses its highlight (a parent keeps the item whose
-            // submenu is open). A keyboard highlight survives the pointer moving around outside.
-            if pointerInside { setHighlight(nil, in: levels.count - 1) }
-            pointerInside = false
-            return
+        let hit = KzMenuHit.locate(point, in: levels.map(\.glassFrame))
+        var row: Int?
+        var rowHasSubmenu = false
+        if case .level(let index) = hit {
+            let level = levels[index]
+            row = self.row(at: point, in: level).flatMap { level.navigator.isSelectable($0) ? $0 : nil }
+            rowHasSubmenu = level.item(row)?.hasSubmenu == true
         }
-        pointerInside = true
-        let level = levels[index]
-        let row = row(at: point, in: level).flatMap { level.navigator.isSelectable($0) ? $0 : nil }
-        if index < levels.count - 1 {
-            // Back in a parent while its submenu is open. Give the pointer time to cross over before switching.
-            if row == levels[index + 1].parentRow {
-                submenuTask?.cancel()
-                setHighlight(row, in: index)
-                return
-            }
-            setHighlight(row, in: index)
-            scheduleSubmenuChange(level: index, row: row, delay: immediate ? .zero : Self.submenuSwitchDelay)
-        } else {
-            if index > 0, let parentRow = level.parentRow { setHighlight(parentRow, in: index - 1) }
-            setHighlight(row, in: index)
-            if let row, level.item(row)?.hasSubmenu == true {
-                scheduleSubmenuChange(level: index, row: row, delay: immediate ? .zero : Self.submenuOpenDelay)
-            } else {
-                submenuTask?.cancel()
-            }
+        var router = router
+        let change = router.pointerMoved(hit, row: row, rowHasSubmenu: rowHasSubmenu, immediate: immediate)
+        pointerInside = router.pointerInside
+        for (index, highlight) in router.highlights.enumerated() where levels[index].navigator.highlighted != highlight {
+            setHighlight(highlight, in: index)
+        }
+        switch change {
+        case .keep:
+            break
+        case .cancel:
+            submenuTask?.cancel()
+        case .schedule(let level, let row, let delay):
+            scheduleSubmenuChange(level: level, row: row, delay: delay)
         }
     }
 
     private func scheduleSubmenuChange(level index: Int, row: Int?, delay: Duration) {
         submenuTask?.cancel()
         submenuTask = Task { [weak self] in
-            if delay > .zero { try? await Task.sleep(for: delay) }
-            guard !Task.isCancelled, let self, !self.isClosed, index < self.levels.count else { return }
+            if delay > .zero {
+                do { try await Task.sleep(for: delay) } catch { return }
+            }
+            guard !Task.isCancelled, let self, !self.isClosed, !self.isActivating, index < self.levels.count,
+                  // The pointer (or the keyboard) may have moved on while this waited.
+                  self.router.isCurrent(level: index, row: row) else { return }
             if let row, self.levels[index].item(row)?.hasSubmenu == true {
                 self.openSubmenu(row, in: index, highlightFirst: false)
             } else {
@@ -406,10 +408,10 @@ final class KzMenuSession: NSObject {
         let key = KzMenuKey.decode(keyCode: event.keyCode, charactersIgnoringModifiers: event.charactersIgnoringModifiers,
                                    modifiers: Self.modifiers(event.modifierFlags))
         if case .shortcut(let characters, let modifiers) = key {
-            let match = root.allItems.first {
-                $0.isEnabled && !$0.hasSubmenu && $0.shortcut?.matches(charactersIgnoringModifiers: characters, modifiers: modifiers) == true
+            if let match = root.shortcutMatch(characters: characters, modifiers: modifiers) {
+                // Blink the row that matched (when its menu is open), not another with the same label.
+                activate(match.item, flashing: KzMenuRowLocation(path: match.path, parentRows: levels.map(\.parentRow)))
             }
-            if let match { activate(match, flashing: location(of: match)) }
             return
         }
         let index = levels.lastIndex { $0.navigator.highlighted != nil } ?? levels.count - 1
@@ -474,7 +476,7 @@ final class KzMenuSession: NSObject {
         if item.hasSubmenu {
             openSubmenu(row, in: index, highlightFirst: false)
         } else {
-            activate(item, flashing: (index, row))
+            activate(item, flashing: KzMenuRowLocation(level: index, row: row))
         }
     }
 
@@ -484,12 +486,12 @@ final class KzMenuSession: NSObject {
         if item.hasSubmenu {
             openSubmenu(row, in: index, highlightFirst: true)
         } else {
-            activate(item, flashing: (index, row))
+            activate(item, flashing: KzMenuRowLocation(level: index, row: row))
         }
         return true
     }
 
-    private func activate(_ item: KzMenuItem, flashing location: (level: Int, row: Int)?) {
+    private func activate(_ item: KzMenuItem, flashing location: KzMenuRowLocation?) {
         guard !isActivating else { return }
         isActivating = true
         submenuTask?.cancel()
@@ -497,6 +499,7 @@ final class KzMenuSession: NSObject {
         let action = item.action
         KzMenuActivation.run(
             flash: { done in self.flash(location, done: done) },
+            isDismissed: { self.isClosed },
             close: { self.close(restoringFocus: false) },
             restoreFocus: { self.focus.restore() },
             perform: {
@@ -507,30 +510,29 @@ final class KzMenuSession: NSObject {
     }
 
     /// NSMenu's confirmation blink: the highlight goes off and on once.
-    private func flash(_ location: (level: Int, row: Int)?, done: @escaping @MainActor () -> Void) {
+    private func flash(_ location: KzMenuRowLocation?, done: @escaping @MainActor () -> Void) {
         guard let location, levels.indices.contains(location.level) else { return done() }
         let model = levels[location.level].model
         model.highlighted = location.row
         model.flashOff = true
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(50))
-            model.flashOff = false
-            try? await Task.sleep(for: .milliseconds(60))
+        // Stored so `close()` can cancel it: a menu closed during the blink never calls `done`.
+        flashTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(50))
+                model.flashOff = false
+                try await Task.sleep(for: .milliseconds(60))
+            } catch {
+                return
+            }
             done()
         }
-    }
-
-    private func location(of item: KzMenuItem) -> (level: Int, row: Int)? {
-        for (index, level) in levels.enumerated() {
-            if let row = level.menu.elements.firstIndex(where: { $0.item?.id == item.id }) { return (index, row) }
-        }
-        return nil
     }
 
     // MARK: - Geometry
 
     private func levelIndex(containing point: CGPoint) -> Int? {
-        levels.lastIndex { $0.glassFrame.contains(point) }
+        if case .level(let index) = KzMenuHit.locate(point, in: levels.map(\.glassFrame)) { return index }
+        return nil
     }
 
     private func row(at point: CGPoint, in level: Level) -> Int? {

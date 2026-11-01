@@ -7,7 +7,8 @@ public struct KzMenuSurface: View {
     private let highlightedID: String?
     private let blending: KzGlassBlending
 
-    /// Draws `menu` with the item `highlightedID` highlighted (`vine-soft`, as on hover or keyboard focus).
+    /// Draws `menu` with one item highlighted (`vine-soft`, as on hover or keyboard focus): the item
+    /// whose `id` is `highlightedID`, or failing that the first whose label is.
     public init(_ menu: KzMenu, highlightedID: String? = nil, blending: KzGlassBlending = .withinWindow) {
         self.menu = menu
         self.highlightedID = highlightedID
@@ -16,11 +17,16 @@ public struct KzMenuSurface: View {
 
     public var body: some View {
         let shape = RoundedRectangle(cornerRadius: KzRadius.lg)
-        let highlighted = highlightedID.flatMap { id in menu.elements.firstIndex { $0.item?.id == id } }
-        KzMenuRows(menu: menu, highlighted: highlighted)
+        KzMenuRows(menu: menu, highlighted: Self.highlightedRow(in: menu, id: highlightedID))
             .fixedSize()
             .clipShape(shape)
             .kzGlass(.strong, in: shape, blending: blending, shadow: .float)
+    }
+
+    /// Item ids are unique by default, so specimens can name the item by its label instead.
+    static func highlightedRow(in menu: KzMenu, id: String?) -> Int? {
+        guard let id else { return nil }
+        return menu.elements.firstIndex { $0.item?.id == id } ?? menu.elements.firstIndex { $0.item?.label == id }
     }
 }
 

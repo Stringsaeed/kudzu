@@ -19,9 +19,14 @@ enum KzMenuKey: Equatable {
     /// Decodes a key-down from its virtual key code, characters and modifiers.
     static func decode(keyCode: UInt16, charactersIgnoringModifiers characters: String?, modifiers: EventModifiers) -> KzMenuKey {
         let command = modifiers.contains(.command) || modifiers.contains(.control)
+        // With ⌘ or ⌃ these are key equivalents (⌘←, ⌃↓, ⌘Home), not movement.
+        if command, let key = navigationKeys[keyCode] {
+            let typed = characters.flatMap { $0.isEmpty ? nil : $0 }
+            return .shortcut(characters: typed ?? String(key.character), modifiers: modifiers)
+        }
         switch keyCode {
-        case 126: return command ? .other : (modifiers.contains(.option) ? .home : .up)
-        case 125: return command ? .other : (modifiers.contains(.option) ? .end : .down)
+        case 126: return modifiers.contains(.option) ? .home : .up
+        case 125: return modifiers.contains(.option) ? .end : .down
         case 123: return .left
         case 124: return .right
         case 115, 116: return .home // Home, Page Up
@@ -40,6 +45,12 @@ enum KzMenuKey: Equatable {
         }
         return .character(characters)
     }
+
+    /// Arrows, Home, End, Page Up and Page Down by virtual key code.
+    private static let navigationKeys: [UInt16: KeyEquivalent] = [
+        126: .upArrow, 125: .downArrow, 123: .leftArrow, 124: .rightArrow,
+        115: .home, 119: .end, 116: .pageUp, 121: .pageDown,
+    ]
 }
 
 /// What an open menu should do in response to an event.
@@ -171,25 +182,38 @@ struct KzMenuNavigator {
 
     /// Type select: highlights the first item whose label starts with what has been typed within
     /// the timeout. Typing the same letter again steps through the items that start with it.
+    /// As in NSMenu, a prefix that matches nothing starts over from the letter just typed, and a
+    /// letter that matches nothing on its own is dropped.
     @discardableResult
     mutating func typeSelect(_ text: String, at time: TimeInterval) -> Int? {
         let fresh = time - lastTypeTime >= Self.typeAheadTimeout
         if fresh { typeAhead = "" }
-        typeAhead += Self.fold(text)
+        let letter = Self.fold(text)
+        typeAhead += letter
         lastTypeTime = time
 
         let buffer = typeAhead
         // "ddd": step through the items starting with "d".
         if buffer.count > 1, let first = buffer.first, buffer.allSatisfy({ $0 == first }) {
-            return cycle(String(first))
+            if let match = cycle(String(first)) { return match }
+            typeAhead = ""
+            return nil
         }
         // Keep the current highlight while it still matches the longer prefix.
         if !fresh, let current = highlighted, matches(current, prefix: buffer) {
             return current
         }
-        guard let match = firstMatch(prefix: buffer, from: 0) else { return nil }
-        highlighted = match
-        return match
+        if let match = firstMatch(prefix: buffer, from: 0) {
+            highlighted = match
+            return match
+        }
+        if buffer != letter, let match = firstMatch(prefix: letter, from: 0) {
+            typeAhead = letter
+            highlighted = match
+            return match
+        }
+        typeAhead = ""
+        return nil
     }
 
     private mutating func cycle(_ prefix: String) -> Int? {
@@ -222,15 +246,20 @@ struct KzMenuNavigator {
 /// The order an activation happens in: the optional selection flash, then the menu closes and
 /// focus goes back, and only then the item's action runs. Native menus behave the same way, so an
 /// action that opens a sheet or another menu starts from a clean state.
+///
+/// If the menu is closed some other way during the flash (a click outside, an app switch), that
+/// close wins: focus isn't pulled back and the action doesn't run.
 @MainActor
 enum KzMenuActivation {
     static func run(
         flash: @escaping @MainActor (_ done: @escaping @MainActor () -> Void) -> Void,
+        isDismissed: @escaping @MainActor () -> Bool,
         close: @escaping @MainActor () -> Void,
         restoreFocus: @escaping @MainActor () -> Void,
         perform: @escaping @MainActor () -> Void
     ) {
         flash {
+            guard !isDismissed() else { return }
             close()
             restoreFocus()
             perform()
