@@ -19,7 +19,7 @@ public struct KzUsageBar: View {
     }
 
     /// The filled share of the track: `value / maximum`, clamped to 2%…100% (0 when `maximum` is 0).
-    static func fraction(value: Int, maximum: Int) -> Double {
+    nonisolated static func fraction(value: Int, maximum: Int) -> Double {
         guard maximum > 0 else { return 0 }
         return min(1, max(0.02, Double(value) / Double(maximum)))
     }
