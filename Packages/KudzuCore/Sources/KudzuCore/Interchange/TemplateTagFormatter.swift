@@ -2,9 +2,9 @@ import Foundation
 
 /// Formats and scans Kudzu template strings without depending on the `Templates/` parser module.
 enum TemplateTagFormatter {
-    /// Escapes literal text so that any `{{` is written as `\{{`.
+    /// Escapes literal text: `\` becomes `\\` and `{{` becomes `\{{`.
     static func escapeLiteral(_ text: String) -> String {
-        text.replacingOccurrences(of: "{{", with: "\\{{")
+        text.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "{{", with: "\\{{")
     }
 
     /// Unescapes `\{{` in literal template segments back to `{{`.
@@ -146,6 +146,13 @@ enum TemplateTagFormatter {
             if chars[i] == "\\", i + 2 < chars.count, chars[i + 1] == "{", chars[i + 2] == "{" {
                 literal += "{{"
                 i += 3
+                continue
+            }
+
+            // `\\` is one escaped literal backslash.
+            if chars[i] == "\\", i + 1 < chars.count, chars[i + 1] == "\\" {
+                literal += "\\"
+                i += 2
                 continue
             }
 

@@ -564,7 +564,12 @@ public enum EspansoImporter {
                 }
             }
 
-            output.append(chars[i])
+            // Kudzu templates read `\\` as one literal backslash, so double every remaining backslash.
+            if chars[i] == "\\" {
+                output += "\\\\"
+            } else {
+                output.append(chars[i])
+            }
             i += 1
         }
 
@@ -632,7 +637,12 @@ public enum EspansoImporter {
                 }
             }
 
-            output.append(chars[i])
+            // Kudzu templates read `\\` as one literal backslash, so double every remaining backslash.
+            if chars[i] == "\\" {
+                output += "\\\\"
+            } else {
+                output.append(chars[i])
+            }
             i += 1
         }
 
