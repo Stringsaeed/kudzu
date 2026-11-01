@@ -119,4 +119,24 @@ struct BackupStoreTests {
         // Next calendar day needs a new daily backup
         #expect(store.needsDailyBackup(now: nextDay) == true)
     }
+
+    @Test("Same reason in the same second never overwrites an earlier backup")
+    func sameSecondBackupsAreKept() throws {
+        let dir = try makeTempDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let cal = makeCalendar()
+        let store = BackupStore(directory: dir, calendar: cal)
+        let now = makeDate(2026, 11, 1, 12, 0, 0, calendar: cal)
+        let first = KudzuLibrary(snippets: [SnippetRecord(name: "Original", triggers: [";o"], content: "o")])
+        let second = KudzuLibrary(snippets: [SnippetRecord(name: "Restored", triggers: [";r"], content: "r")])
+
+        let firstURL = try store.write(first, reason: .manual, now: now)
+        let secondURL = try store.write(second, reason: .manual, now: now)
+
+        #expect(firstURL != secondURL)
+        let listed = try store.list()
+        #expect(listed.count == 2)
+        #expect(listed.first?.filename == secondURL.lastPathComponent, "the later write sorts first")
+        #expect(try store.load(firstURL).snippets.first?.name == "Original")
+    }
 }
