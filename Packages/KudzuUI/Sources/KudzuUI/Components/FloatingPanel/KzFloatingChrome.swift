@@ -102,9 +102,20 @@ final class KzAnchorNSView: NSView {
 
     /// True when `event` (a mouse event in this view's window) lands on the visible part of the view.
     func contains(_ event: NSEvent) -> Bool {
-        guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
-        let point = convert(event.locationInWindow, from: nil)
-        return visibleRect.contains(point)
+        guard let window = event.window else { return false }
+        return contains(event.locationInWindow, in: window)
+    }
+
+    /// True when `point` in `window`'s coordinates lands on the visible part of the view.
+    func contains(_ point: CGPoint, in window: NSWindow) -> Bool {
+        guard self.window === window, !isHiddenOrHasHiddenAncestor else { return false }
+        return visibleBounds.contains(convert(point, from: nil))
+    }
+
+    /// The part of the view's bounds that isn't clipped. Since macOS 14 views don't clip to their
+    /// bounds, so `visibleRect` alone can reach far past the view (to the nearest clipping ancestor).
+    var visibleBounds: CGRect {
+        bounds.intersection(visibleRect)
     }
 }
 

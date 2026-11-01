@@ -235,22 +235,48 @@ final class KzContextMenuRegistry {
     private func handle(_ event: NSEvent) -> NSEvent? {
         let isContextClick = event.type == .rightMouseDown
             || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
-        guard isContextClick, KzMenuSession.current == nil, let window = event.window else { return event }
-        let candidates = entries.compactMap(\.region).filter { $0.anchor.isEnabled && $0.anchor.contains(event) }
-        guard !candidates.isEmpty else { return event }
-        if Self.hitsTextView(event, in: window) { return event }
-        // Nested regions: the smallest one under the pointer is the innermost.
-        let region = candidates.min { lhs, rhs in
-            lhs.anchor.visibleRect.width * lhs.anchor.visibleRect.height < rhs.anchor.visibleRect.width * rhs.anchor.visibleRect.height
+        guard isContextClick, KzMenuSession.current == nil, let window = event.window,
+              let region = region(at: event.locationInWindow, in: window) else { return event }
+        region.open(at: window.convertPoint(toScreen: event.locationInWindow))
+        return nil
+    }
+
+    /// The innermost enabled region under `point` (window coordinates), unless a text view is there.
+    ///
+    /// In a list, the whole row is the target, as in `NSTableView`: a click in the row's side gutter,
+    /// outside the row's content, goes to the outermost region in that row.
+    func region(at point: CGPoint, in window: NSWindow) -> KzContextMenuRegion? {
+        guard !Self.hitsTextView(at: point, in: window) else { return nil }
+        let regions = entries.compactMap(\.region).filter { $0.anchor.isEnabled && $0.anchor.window === window }
+        let area = { (region: KzContextMenuRegion) in region.anchor.visibleBounds.width * region.anchor.visibleBounds.height }
+        let under = regions.filter { $0.anchor.contains(point, in: window) }
+        if !under.isEmpty {
+            // Nested regions: the smallest one under the pointer is the innermost.
+            return under.min { area($0) < area($1) }
         }
-        region?.open(at: window.convertPoint(toScreen: event.locationInWindow))
+        guard let row = Self.tableRow(at: point, in: window) else { return nil }
+        return regions.filter { $0.anchor.isDescendant(of: row) && !$0.anchor.isHiddenOrHasHiddenAncestor }.max { area($0) < area($1) }
+    }
+
+    /// The table row (a `List` row) under `point`, if any.
+    private static func tableRow(at point: CGPoint, in window: NSWindow) -> NSTableRowView? {
+        guard let frameView = window.contentView?.superview else { return nil }
+        var view = frameView.hitTest(frameView.convert(point, from: nil))
+        while let current = view {
+            if let row = current as? NSTableRowView { return row }
+            if let table = current as? NSTableView {
+                let row = table.row(at: table.convert(point, from: nil))
+                return row >= 0 ? table.rowView(atRow: row, makeIfNecessary: false) : nil
+            }
+            view = current.superview
+        }
         return nil
     }
 
     /// Text views keep Cut, Copy, Paste, spelling and Services: the native menu is the right one there.
-    private static func hitsTextView(_ event: NSEvent, in window: NSWindow) -> Bool {
+    private static func hitsTextView(at point: CGPoint, in window: NSWindow) -> Bool {
         guard let content = window.contentView, let frameView = content.superview else { return false }
-        var view = frameView.hitTest(frameView.convert(event.locationInWindow, from: nil))
+        var view = frameView.hitTest(frameView.convert(point, from: nil))
         while let current = view {
             if current is NSTextView || (current as? NSTextField)?.isEditable == true || (current as? NSTextField)?.isSelectable == true {
                 return true
