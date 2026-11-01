@@ -1,0 +1,81 @@
+name: Kudzu
+options:
+  bundleIdPrefix: sh.saeed
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # Ad-hoc signing for local development. Real signing is configured in CI (M5).
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: YES
+
+packages:
+  KudzuCore:
+    path: Packages/KudzuCore
+
+targetTemplates:
+  KudzuApp:
+    type: application
+    platform: macOS
+    sources:
+      - path: Kudzu
+        excludes:
+          - "**/.gitkeep"
+          - "Resources/*.entitlements"
+    dependencies:
+      - package: KudzuCore
+    info:
+      path: Kudzu/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Kudzu
+        CFBundleName: Kudzu
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: "© 2026 Muhammed Ibrahim. MIT License."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu
+        PRODUCT_NAME: Kudzu
+        GENERATE_INFOPLIST_FILE: NO
+
+targets:
+  # Developer ID build: unsandboxed, Sparkle (M5), direct download + Homebrew.
+  Kudzu:
+    templates: [KudzuApp]
+    entitlements:
+      path: Kudzu/Resources/Kudzu.entitlements
+      properties: {}
+
+  # Mac App Store build: sandboxed, no Sparkle. Compiled with APPSTORE.
+  KudzuAppStore:
+    templates: [KudzuApp]
+    entitlements:
+      path: Kudzu/Resources/KudzuAppStore.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.files.user-selected.read-write: true
+    settings:
+      base:
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPSTORE"
+        # Distinct product so both builds can coexist; the user-visible name stays "Kudzu".
+        PRODUCT_NAME: KudzuAppStore
+
+schemes:
+  Kudzu:
+    build:
+      targets:
+        Kudzu: all
+    test:
+      targets: []
+  KudzuAppStore:
+    build:
+      targets:
+        KudzuAppStore: all
