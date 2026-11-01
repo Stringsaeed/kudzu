@@ -40,6 +40,9 @@ public struct BackupStore: @unchecked Sendable {
     }
 
     /// Writes a snapshot of `library` named `kudzu-backup-<yyyy-MM-dd'T'HHmmss>-<reason>.json`.
+    ///
+    /// Never overwrites: a second backup with the same reason in the same second gets a
+    /// `.2`, `.3`, … suffix, so a restore's safety copy can't be replaced by the next one.
     @discardableResult
     public func write(
         _ library: KudzuLibrary,
@@ -48,9 +51,15 @@ public struct BackupStore: @unchecked Sendable {
     ) throws -> URL {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let timestamp = formatTimestamp(now)
-        let filename = "kudzu-backup-\(timestamp)-\(reason.rawValue).json"
-        let fileURL = directory.appendingPathComponent(filename, isDirectory: false)
         let data = try KudzuJSON.encode(library)
+        var sequence = 1
+        var fileURL: URL
+        repeat {
+            let suffix = sequence == 1 ? "" : ".\(sequence)"
+            fileURL = directory.appendingPathComponent(
+                "kudzu-backup-\(timestamp)-\(reason.rawValue)\(suffix).json", isDirectory: false)
+            sequence += 1
+        } while fileManager.fileExists(atPath: fileURL.path)
         try data.write(to: fileURL, options: .atomic)
         return fileURL
     }
@@ -75,7 +84,8 @@ public struct BackupStore: @unchecked Sendable {
             if lhs.createdAt != rhs.createdAt {
                 return lhs.createdAt > rhs.createdAt
             }
-            return lhs.filename > rhs.filename
+            let (l, r) = (Self.sequence(of: lhs.filename), Self.sequence(of: rhs.filename))
+            return l != r ? l > r : lhs.filename > rhs.filename
         }
         return infos
     }
@@ -116,6 +126,13 @@ public struct BackupStore: @unchecked Sendable {
 
     // MARK: - Timestamp helpers
 
+    /// The same-second sequence number in a backup filename (1 when there's no suffix).
+    private static func sequence(of filename: String) -> Int {
+        let stem = filename.hasSuffix(".json") ? String(filename.dropLast(5)) : filename
+        guard let dot = stem.lastIndex(of: "."), let number = Int(stem[stem.index(after: dot)...]) else { return 1 }
+        return number
+    }
+
     private func formatTimestamp(_ date: Date) -> String {
         let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
         let y = comps.year ?? 1970
@@ -139,7 +156,8 @@ public struct BackupStore: @unchecked Sendable {
             return nil
         }
         let timestampPart = String(body[..<lastDash])
-        let reasonPart = String(body[body.index(after: lastDash)...])
+        // Drop an optional same-second sequence suffix (`daily.2`).
+        let reasonPart = String(body[body.index(after: lastDash)...].prefix { $0 != "." })
         guard let reason = BackupReason(rawValue: reasonPart),
               let date = parseTimestamp(timestampPart) else {
             return nil

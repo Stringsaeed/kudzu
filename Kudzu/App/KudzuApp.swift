@@ -22,8 +22,10 @@ struct KudzuApp: App {
         Window("Welcome to Kudzu", id: SceneID.onboarding) {
             OnboardingView()
                 .environment(model)
+                .background(DockPolicyAccessor())
         }
         .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
 
         Settings {
             SettingsView()

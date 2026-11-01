@@ -27,6 +27,7 @@ final class ExpansionEngine {
     private var groups: [GroupRecord] = []
     private var pendingUndo: (match: TriggerMatch, insertedCount: Int)?
     private var capturingSelection = false
+    private var listenOnlyInterrupted = false
     private var held = HoldReplayQueue<CGEvent>()
     private var poll: Task<Void, Never>?
     private var changes: Task<Void, Never>?
@@ -87,18 +88,14 @@ final class ExpansionEngine {
         do {
             let library = try store.library()
             let records = Dictionary(library.snippets.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-            let unchanged = records == snippets && library.groups == groups
+            // Usage saves after every expansion also emit changes. Rebuilding would clear the
+            // live key buffer and undo, dropping whatever was typed since, so skip no-op reloads.
+            guard records != snippets || library.groups != groups else { return }
             snippets = records
             groups = library.groups
             matcher.reload(snippets: library.snippets, groups: groups, config: MatchingConfig())
-            // Usage saves also emit changes. Rebuilding must not disarm an otherwise
-            // untouched expansion's undo just because its usage counter was saved.
-            if unchanged, let pendingUndo {
-                matcher.didExpand(match: pendingUndo.match, insertedCount: pendingUndo.insertedCount)
-            } else {
-                pendingUndo = nil
-                undoCaretLeftCount = 0
-            }
+            pendingUndo = nil
+            undoCaretLeftCount = 0
         } catch { Self.log.error("Library reload failed: \(error)") }
     }
 
@@ -153,6 +150,12 @@ final class ExpansionEngine {
         if !replay, tap.mode == .active, held.state == .inserting, let copy = event.copy() {
             return held.enqueue(copy)
         }
+        // Listen-only can't withhold keys. Anything typed before our backspaces go out would
+        // land inside the deletion range, so the pending expansion is abandoned instead.
+        if !replay, tap.mode == .listenOnly, insertion != nil, signal != nil {
+            listenOnlyInterrupted = true
+            return false
+        }
         guard allowed else {
             resetMatcher()
             if replay { scheduleReplay() }
@@ -163,8 +166,9 @@ final class ExpansionEngine {
             return false
         }
         let input: KeyInput
+        var typed: String?
         switch signal {
-        case .character(let text): input = .character(text)
+        case .character(let text): input = .character(text); typed = text
         case .backspace: input = .backspace
         case .reset: input = .reset
         }
@@ -173,15 +177,16 @@ final class ExpansionEngine {
         undoCaretLeftCount = 0
         if let action = matcher.handle(input, bundleID: frontmost.bundleID) {
             let mode = tap.mode ?? .listenOnly
-            begin(action, mode: mode, undoCaret: oldCaret)
+            begin(action, mode: mode, undoCaret: oldCaret, swallowedText: typed)
             return mode == .active
         }
         if replay { scheduleReplay() }
         return false
     }
 
-    private func begin(_ action: MatcherEvent, mode: ExpansionTapMode, undoCaret: Int) {
+    private func begin(_ action: MatcherEvent, mode: ExpansionTapMode, undoCaret: Int, swallowedText: String?) {
         guard insertion == nil else { resetMatcher(); return }
+        listenOnlyInterrupted = false
         if mode == .active { held.begin() }
         generation += 1
         let token = generation
@@ -209,6 +214,7 @@ final class ExpansionEngine {
                 if mode == .listenOnly { try await Task.sleep(for: .milliseconds(30)) }
                 try Task.checkCancellation()
                 guard self.allowed, self.generation == token else { return }
+                if mode == .listenOnly, self.listenOnlyInterrupted { self.resetMatcher(); return }
                 switch action {
                 case .expand(let match):
                     guard let snippet = self.snippets[match.snippetID] else { break }
@@ -225,7 +231,8 @@ final class ExpansionEngine {
                         let prefix = String(decoding: Array(rendered.text.utf16.prefix($0)), as: UTF16.self)
                         return CasePropagation.apply(match.caseStyle, to: prefix).utf16.count
                     }
-                    let plan = InsertionPlan(match: match, text: text, cursorOffset: offset, mode: mode)
+                    let plan = InsertionPlan(match: match, text: text, cursorOffset: offset, mode: mode,
+                                             swallowedText: mode == .active ? swallowedText : nil)
                     try self.inserter.deleteBackward(count: plan.deleteCount)
                     let method: Inserter.Method = switch match.insertion {
                     case .automatic: .automatic

@@ -20,8 +20,6 @@ final class AppModel {
     /// (creates a snippet with this content, selects it, then sets this back to nil).
     var pendingNewSnippetContent: String?
 
-    @ObservationIgnored private var didPerformLaunchCheck = false
-
     init() {
         let permissions = Permissions()
         let store: KudzuStore
@@ -45,14 +43,18 @@ final class AppModel {
         backupScheduler.start()
     }
 
-    /// Runs once on launch to open the onboarding window if `hasCompletedOnboarding` is false.
-    func performInitialLaunchIfNeeded(openWindow: OpenWindowAction) {
-        guard !didPerformLaunchCheck else { return }
-        didPerformLaunchCheck = true
-        if !UserDefaults.standard.bool(forKey: Self.onboardingCompletedDefaultsKey) {
-            openWindow(id: SceneID.onboarding)
-            NSApplication.shared.activate()
-        }
+    /// Whether the user has finished (or skipped) the welcome flow.
+    static var hasCompletedOnboarding: Bool {
+        UserDefaults.standard.bool(forKey: onboardingCompletedDefaultsKey)
+    }
+
+    @ObservationIgnored private var didCheckOnboarding = false
+
+    /// Opens the welcome window once per launch until onboarding is complete.
+    func openOnboardingIfNeeded(_ openWindow: OpenWindowAction) {
+        guard !didCheckOnboarding else { return }
+        didCheckOnboarding = true
+        if !Self.hasCompletedOnboarding { openWindow(id: SceneID.onboarding) }
     }
 }
 

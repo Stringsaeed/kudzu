@@ -24,6 +24,8 @@ enum EditorFocusTarget {
 @MainActor @Observable
 final class LibraryModel {
     @ObservationIgnored let store: KudzuStore
+    /// Snippets deleted in this window, so a late editor autosave can't recreate them.
+    @ObservationIgnored private var deletedSnippetIDs: Set<UUID> = []
 
     private(set) var isLoaded = false
     /// Bumped whenever the snapshot changes; cheap to observe with `onChange`.
@@ -208,6 +210,9 @@ final class LibraryModel {
 
     /// Saves an editor draft. Patches the snapshot instead of re-fetching, since this runs after every pause in typing.
     func saveEdited(_ snippet: SnippetRecord) -> Bool {
+        // The editor flushes on disappear, which runs after a delete. Upserting then would
+        // resurrect the snippet, so a deleted snippet's pending draft is simply dropped.
+        guard !deletedSnippetIDs.contains(snippet.id) else { return true }
         do {
             try store.upsert(snippet)
         } catch {
@@ -264,6 +269,7 @@ final class LibraryModel {
 
     /// Deletes snippets and their usage.
     func deleteSnippets(_ ids: [UUID]) {
+        deletedSnippetIDs.formUnion(ids)
         perform("Couldn't delete") {
             for id in ids { try store.deleteSnippet(id: id) }
         }
@@ -334,6 +340,7 @@ final class LibraryModel {
             case .deleteContents:
                 let doomed = tree.descendantIDs(of: id)
                 for snippet in snippets where snippet.groupID.map(doomed.contains) ?? false {
+                    deletedSnippetIDs.insert(snippet.id)
                     try store.deleteSnippet(id: snippet.id)
                 }
                 // Deepest first, so no group is deleted while it still has children.

@@ -131,8 +131,8 @@ struct MenuBarIcon: View {
             .symbolRenderingMode(.monochrome)
             .opacity(model.engine.isPaused && !permissionsMissing && !model.engine.secureInputActive ? 0.55 : 1.0)
             .accessibilityLabel("Kudzu")
-            .task {
-                model.performInitialLaunchIfNeeded(openWindow: openWindow)
-            }
+            // The label is the only view built at launch, so it opens the welcome window.
+            // (`defaultLaunchBehavior(.presented)` doesn't open windows for a menu-bar-only app.)
+            .onAppear { model.openOnboardingIfNeeded(openWindow) }
     }
 }

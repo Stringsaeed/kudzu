@@ -9,6 +9,21 @@ struct InsertionPlanTests {
                      insertion: .automatic, caseStyle: .asIs, fireMode: mode)
     }
 
+    @Test func swallowedCombiningMarkLeavesTheBaseCharacterToDelete() {
+        // Trigger "é" typed as "e" + combining acute: the acute is withheld, so the document
+        // still shows "e", one grapheme that must be deleted.
+        let typed = "e\u{0301}"
+        let match = TriggerMatch(snippetID: UUID(), trigger: typed, typedTrigger: typed, deleteCount: 1,
+                                 separator: nil, insertion: .automatic, caseStyle: .asIs, fireMode: .immediate)
+        let plan = InsertionPlan(match: match, text: "x", cursorOffset: nil, mode: .active, swallowedText: "\u{0301}")
+        #expect(plan.deleteCount == 1)
+    }
+
+    @Test func swallowedPlainKeyDeletesTheRestOfTheTrigger() {
+        let plan = InsertionPlan(match: match(.immediate), text: "x", cursorOffset: nil, mode: .active, swallowedText: "z")
+        #expect(plan.deleteCount == 2)
+    }
+
     @Test func deletionAndSeparator() {
         for mode in [ExpansionTapMode.active, .listenOnly] {
             let immediate = InsertionPlan(match: match(.immediate), text: "Hello", cursorOffset: nil, mode: mode)

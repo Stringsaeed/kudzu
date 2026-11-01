@@ -7,7 +7,8 @@ import Carbon
 final class Inserter {
     enum Method { case automatic, type, paste }
     enum Failure: Error { case permissionDenied, eventCreation, pasteboardUnavailable, busy }
-    var restoreDelay: Duration = .milliseconds(250)
+    /// There's no signal that the target consumed ⌘V; Electron apps can take well over 250 ms.
+    var restoreDelay: Duration = .milliseconds(400)
     private(set) var isBusy = false
     private let source = CGEventSource(stateID: .privateState)
     private var pendingRestore: (items: [NSPasteboardItem], changeCount: Int)?
@@ -27,16 +28,18 @@ final class Inserter {
     func copySelection() throws { try press(8, flags: .maskCommand) }
 
     func type(_ text: String) throws {
-        let units = Array(text.utf16)
-        var offset = 0
-        while offset < units.count {
-            var end = min(offset + 20, units.count)
-            // Never split a surrogate pair between events.
-            if end < units.count && (0xD800...0xDBFF).contains(units[end - 1]) { end -= 1 }
-            let chunk = Array(units[offset..<end])
-            try press(0, unicode: chunk)
-            offset = end
+        // Chunk by grapheme cluster so emoji ZWJ sequences and combining marks are never split
+        // across events. A single cluster longer than the limit is sent on its own.
+        var chunk: [UniChar] = []
+        for character in text {
+            let units = Array(String(character).utf16)
+            if !chunk.isEmpty && chunk.count + units.count > 20 {
+                try press(0, unicode: chunk)
+                chunk.removeAll(keepingCapacity: true)
+            }
+            chunk += units
         }
+        if !chunk.isEmpty { try press(0, unicode: chunk) }
     }
 
     func paste(_ text: String) async throws {
@@ -64,9 +67,15 @@ final class Inserter {
             throw Failure.pasteboardUnavailable
         }
         pendingRestore = (saved, board.changeCount)
-        defer { restorePasteboard() }
-        try press(9, flags: .maskCommand)
-        try await Task.sleep(for: restoreDelay)
+        do { try press(9, flags: .maskCommand) } catch { restorePasteboard(); throw error }
+        // Restore on our own schedule. Cancelling the expansion (app switch, pause) must not
+        // pull the old clipboard back before the target app has read the paste. Awaiting an
+        // unstructured task's value doesn't propagate the caller's cancellation into it.
+        let delay = restoreDelay
+        await Task { @MainActor [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.restorePasteboard()
+        }.value
     }
 
     func insert(_ text: String, method: Method = .automatic) async throws {

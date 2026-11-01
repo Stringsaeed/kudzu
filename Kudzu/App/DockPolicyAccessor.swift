@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Gives the main window a Dock icon while it is open (Kudzu is otherwise a menu-bar app).
+/// Gives a window a Dock icon while it is open (Kudzu is otherwise a menu-bar app).
 ///
-/// Attach with `.background(DockPolicyAccessor())`. Opening switches to `.regular` and activates;
+/// Becoming a regular app is also what lets macOS bring the window to the user's current
+/// Space; an accessory app's windows stay behind full-screen apps. Attach with `.background(DockPolicyAccessor())`. Opening switches to `.regular` and activates;
 /// closing returns to `.accessory` unless another ordinary window is still open.
 struct DockPolicyAccessor: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
