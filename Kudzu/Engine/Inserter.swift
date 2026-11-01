@@ -20,6 +20,12 @@ final class Inserter {
         for _ in 0..<max(0, count) { try press(123) }
     }
 
+    func moveCaretRight(count: Int) throws {
+        for _ in 0..<max(0, count) { try press(124) }
+    }
+
+    func copySelection() throws { try press(8, flags: .maskCommand) }
+
     func type(_ text: String) throws {
         let units = Array(text.utf16)
         var offset = 0

@@ -29,6 +29,7 @@ final class AppModel {
         self.store = store
         self.permissions = permissions
         self.engine = ExpansionEngine(store: store, permissions: permissions)
+        self.engine.start()
     }
 }
 
