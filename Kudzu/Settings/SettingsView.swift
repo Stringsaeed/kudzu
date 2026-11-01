@@ -15,6 +15,11 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
+            AppsSettingsTab()
+                .tabItem {
+                    Label("Apps", systemImage: "app.badge.checkmark")
+                }
+
             SyncSettingsTab()
                 .tabItem {
                     Label("Sync", systemImage: "icloud")

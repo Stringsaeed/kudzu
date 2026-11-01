@@ -25,6 +25,7 @@ final class ExpansionEngine {
     private var matcher = ExpansionMatcher()
     private var snippets: [UUID: SnippetRecord] = [:]
     private var groups: [GroupRecord] = []
+    private var config: MatchingConfig?
     private var pendingUndo: (match: TriggerMatch, insertedCount: Int)?
     private var capturingSelection = false
     private var listenOnlyInterrupted = false
@@ -42,6 +43,7 @@ final class ExpansionEngine {
     private var generation = 0
     private var undoCaretLeftCount = 0
     private var terminationObserver: NSObjectProtocol?
+    private var settingsObserver: NSObjectProtocol?
     private static let log = Logger(subsystem: "sh.saeed.kudzu", category: "Engine")
 
     init(store: KudzuStore, permissions: Permissions) {
@@ -78,6 +80,9 @@ final class ExpansionEngine {
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
+        settingsObserver = NotificationCenter.default.addObserver(
+            forName: AppMatchingSettings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.reload() } }
         refresh()
         poll = Task { [weak self] in
             while !Task.isCancelled {
@@ -96,19 +101,22 @@ final class ExpansionEngine {
         inserter.restorePasteboard()
         if let terminationObserver { NotificationCenter.default.removeObserver(terminationObserver) }
         terminationObserver = nil
+        if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver); self.settingsObserver = nil }
     }
 
     private func reload() {
         do {
             let library = try store.library()
             let records = Dictionary(library.snippets.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let newConfig = AppMatchingSettings.shared.matchingConfig
             // Usage saves after every expansion also emit changes. Rebuilding would clear the
             // live key buffer and undo, dropping whatever was typed since, so skip no-op reloads.
-            guard records != snippets || library.groups != groups else { return }
+            guard records != snippets || library.groups != groups || newConfig != config else { return }
             formMemory.retainSnippets(Set(records.keys))
             snippets = records
             groups = library.groups
-            matcher.reload(snippets: library.snippets, groups: groups, config: MatchingConfig())
+            config = newConfig
+            matcher.reload(snippets: library.snippets, groups: groups, config: newConfig)
             pendingUndo = nil
             undoCaretLeftCount = 0
         } catch { Self.log.error("Library reload failed: \(error)") }
@@ -250,6 +258,7 @@ final class ExpansionEngine {
                     var context = RenderContext(now: .now, calendar: .current, timeZone: .current,
                                                 locale: .current, clipboard: clipboard,
                                                 resolveSnippet: { records[$0]?.content })
+                    context.rootSnippetID = snippet.id
                     let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
                     var planMode = mode
                     if !fields.isEmpty {
@@ -337,7 +346,11 @@ final class ExpansionEngine {
 
     /// Inserts a palette selection at the target caret, collecting form values when required.
     func insertSnippet(id: UUID) async {
-        guard allowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy, let snippet = snippets[id] else { return }
+        guard allowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy,
+              let snippet = snippets[id] else { return }
+        // Global exclusions (password managers, login window) apply to explicit inserts too.
+        if let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+           (config ?? MatchingConfig()).deniedBundleIDs.contains(bundleID) { return }
         invalidateContext()
         let token = generation
         let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
@@ -345,6 +358,7 @@ final class ExpansionEngine {
         var context = RenderContext(now: .now, calendar: .current, timeZone: .current, locale: .current,
                                     clipboard: usesClipboard(snippet.content, visited: []) ? NSPasteboard.general.string(forType: .string) : nil,
                                     resolveSnippet: { records[$0]?.content })
+        context.rootSnippetID = id
         let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
         if !fields.isEmpty {
             guard let values = await requestForm(snippet: snippet, fields: fields, context: context) else { return }
@@ -353,22 +367,12 @@ final class ExpansionEngine {
         guard !Task.isCancelled, token == generation, allowed,
               target == NSWorkspace.shared.frontmostApplication?.processIdentifier else { return }
         let result = TemplateRenderer.render(snippet.content, context: context)
-        var method = snippet.insertion
-        var rule = snippet.rule
-        var groupID = snippet.groupID
-        var visited = Set<UUID>()
-        while let id = groupID, visited.insert(id).inserted,
-              let group = groups.first(where: { $0.id == id }) {
-            method = method ?? group.insertion
-            rule = rule ?? group.rule
-            groupID = group.parentID
-        }
-        if let rule, let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           rule.bundleIDs.contains(bundleID), let override = rule.insertion { method = override }
+        let method = EffectiveSnippet(snippet, groups: GroupResolver(groups: groups))
+            .insertion(for: NSWorkspace.shared.frontmostApplication?.bundleIdentifier, config: config ?? MatchingConfig())
         paletteInserting = true
         defer { paletteInserting = false }
         do {
-            try await inserter.insert(result.text, method: insertionMethod(method ?? .automatic))
+            try await inserter.insert(result.text, method: insertionMethod(method))
             guard token == generation, allowed, !Task.isCancelled else { return }
             if let offset = result.cursorOffset {
                 let prefix = String(decoding: Array(result.text.utf16.prefix(offset)), as: UTF16.self)
