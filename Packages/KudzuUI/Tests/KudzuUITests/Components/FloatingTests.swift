@@ -97,14 +97,14 @@ import Testing
         try snapshot("toolbar-group", width: 420) {
             HStack(spacing: KzSpace.s6) {
                 KzToolbarGroup {
-                    SampleIconButton(icon: .star)
-                    SampleIconButton(icon: .bug)
+                    KzIconButton(.star, label: "Favorite") {}
+                    KzIconButton(.bug, label: "Debug") {}
                     KzToolbarSeparator()
-                    SampleIconButton(icon: .more)
+                    KzIconButton(.more, label: "More") {}
                 }
                 KzToolbarGroup {
-                    SampleIconButton(icon: .starFill, tint: KzColor.bloom)
-                    SampleIconButton(icon: .bug, active: true)
+                    KzIconButton(.starFill, label: "Favorite", tone: .bloom) {}
+                    KzIconButton(.bug, label: "Debug", active: true) {}
                 }
             }
             .padding(KzSpace.s6)
@@ -148,19 +148,5 @@ import Testing
             }
             .padding(.bottom, KzSpace.s8)
         }
-    }
-}
-
-/// A stand-in for the controls agent's icon button, drawn to `.kz-iconbtn` inside a toolbar.
-private struct SampleIconButton: View {
-    let icon: KzIconName
-    var tint: Color?
-    var active = false
-
-    var body: some View {
-        KzIcon(icon, size: 16)
-            .foregroundStyle(tint ?? (active ? KzColor.vineInk : KzColor.inkMuted))
-            .frame(width: KzSize.control, height: 28)
-            .background(active ? KzColor.vineSoft : .clear, in: RoundedRectangle(cornerRadius: KzRadius.md))
     }
 }

@@ -9,12 +9,12 @@ import Testing
             VStack(alignment: .leading, spacing: KzSpace.s4) {
                 KzDisclosure("Rules", isInitiallyExpanded: true) {
                     HStack(spacing: KzSpace.s3) {
-                        PlaceholderSegmented(options: ["Inherit from group", "Custom"])
+                        KzSegmented("Rules", selection: .constant(0), options: [.init(0, label: "Inherit from group"), .init(1, label: "Custom")])
                         Text("Works in every app").kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
                     }
                     HStack(spacing: KzSpace.s3) {
                         Text("Insertion").kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink).frame(width: 72, alignment: .leading)
-                        PlaceholderSelect(value: "Inherit")
+                        KzSelect("Insertion", selection: .constant("Inherit"), options: [("Inherit", "Inherit")])
                     }
                 }
                 KzDisclosure("Advanced", summary: "Word boundary, case, undo") { Text("Hidden while closed") }
@@ -32,7 +32,7 @@ import Testing
                 }
                 .frame(maxWidth: .infinity)
                 KzEmptyState("No matches", icon: .search, message: "Try a different search, or clear the filter.") {
-                    PlaceholderButton(title: "Clear search", small: true)
+                    KzButton("Clear search", size: .sm) {}
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -42,9 +42,9 @@ import Testing
     @Test func field() throws {
         try snapshot("field", width: 420, background: .surfaceRaised) {
             KzFieldStack {
-                KzField("Triggers", aside: "Space or return to add") { PlaceholderField(text: ":an") }
-                KzField("Group", hint: "Snippets in a group share its rules.") { PlaceholderSelect(value: "base") }
-                KzField("Name") { PlaceholderField(placeholder: "Untitled snippet") }
+                KzField("Triggers", aside: "Space or return to add") { KzTriggerInput(triggers: .constant([":an"])) }
+                KzField("Group", hint: "Snippets in a group share its rules.") { KzSelect("Group", selection: .constant("base"), options: [("base", "base")]) }
+                KzField("Name") { KzTextInput("Untitled snippet", text: .constant("")) }
             }
         }
     }
@@ -53,17 +53,17 @@ import Testing
         try snapshot("settings-group", width: 560) {
             VStack(alignment: .leading, spacing: KzSpace.s6) {
                 KzSettingsGroup("Startup", description: "Kudzu runs in the menu bar and expands snippets in every app.") {
-                    KzSettingsRow("Launch Kudzu at login", description: "Starts quietly in the menu bar", icon: .keyboard) { PlaceholderToggle(isOn: true) }
-                    KzSettingsRow("Show welcome again") { PlaceholderButton(title: "Show…", small: true) }
-                    KzSettingsRow("Expansion speed", description: "How long Kudzu waits after the trigger") { PlaceholderSegmented(options: ["Fast", "Normal", "Slow"], selected: 1) }
+                    KzSettingsRow("Launch Kudzu at login", description: "Starts quietly in the menu bar", icon: .keyboard) { KzToggle("Launch Kudzu at login", isOn: .constant(true)) }
+                    KzSettingsRow("Show welcome again") { KzButton("Show…", size: .sm) {} }
+                    KzSettingsRow("Expansion speed", description: "How long Kudzu waits after the trigger") { KzSegmented("Speed", selection: .constant(1), options: [.init(0, label: "Fast"), .init(1, label: "Normal"), .init(2, label: "Slow")]) }
                 }
-                KzSettingsGroup("Backups", action: { PlaceholderButton(title: "Back up now", small: true) }) {
-                    KzSettingsRow("Keep backups", description: "Keeps the last 14 snapshots.") { PlaceholderSelect(value: "14 snapshots") }
+                KzSettingsGroup("Backups", action: { KzButton("Back up now", size: .sm) {} }) {
+                    KzSettingsRow("Keep backups", description: "Keeps the last 14 snapshots.") { KzSelect("Keep backups", selection: .constant(14), options: [(14, "14 snapshots")]) }
                 }
                 KzSettingsGroup("iCloud") {
                     KzSettingsRow(description: "Automatic CloudKit sync across your Macs lands in milestone 4.", label: {
                         HStack(spacing: KzSpace.s2) { Text("iCloud sync"); KzBadge("Coming soon") }
-                    }, control: { PlaceholderToggle(isOn: false) })
+                    }, control: { KzToggle("iCloud sync", isOn: .constant(false)) })
                 }
             }
         }

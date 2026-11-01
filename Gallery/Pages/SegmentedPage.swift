@@ -4,7 +4,7 @@ import SwiftUI
 struct SegmentedPage: GalleryPage {
     static let id = "segmented"
     static let title = "Segmented"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.sliders
 
     @State private var mode = "System"

@@ -4,7 +4,7 @@ import SwiftUI
 struct ButtonPage: GalleryPage {
     static let id = "button"
     static let title = "Button"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.compose
 
 

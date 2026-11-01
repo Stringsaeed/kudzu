@@ -75,27 +75,6 @@ struct TokenName: View {
     }
 }
 
-/// A placeholder for a component page that hasn't been built yet.
-struct ComponentPlaceholder: View {
-    let name: String
-    let summary: String
-
-    var body: some View {
-        GalleryPageLayout(title: name, summary: summary) {
-            GalleryCard {
-                HStack(spacing: KzSpace.s3) {
-                    KzIcon(.leaf, size: 28).foregroundStyle(KzColor.inkFaint)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Not built yet").kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink)
-                        Text("Replace this page's body with specimens of every variant and state.")
-                            .kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
-                    }
-                }
-            }
-        }
-    }
-}
-
 /// A colourful backdrop to show glass against.
 struct GlassBackdrop: View {
     var body: some View {

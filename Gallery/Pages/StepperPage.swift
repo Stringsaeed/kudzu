@@ -4,7 +4,7 @@ import SwiftUI
 struct StepperPage: GalleryPage {
     static let id = "stepper"
     static let title = "Stepper"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.plus
 
     @State private var speed = 40

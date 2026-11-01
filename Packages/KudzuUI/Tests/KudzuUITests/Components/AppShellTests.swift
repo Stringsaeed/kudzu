@@ -3,7 +3,7 @@ import SwiftUI
 import Testing
 
 /// The one window with realistic content: sidebar items, a list of snippet rows and a detail pane with
-/// fields and disclosures. Controls owned by other components are placeholders.
+/// fields and disclosures, built from the real controls.
 struct SampleAppShell: View {
     var selection = ":date"
     var body: some View {
@@ -14,20 +14,20 @@ struct SampleAppShell: View {
                 KzSidebarItem("Recently used", icon: .clock) {}
                 KzSidebarItem("Stats", icon: .chart) {}
             }
-            KzSidebarSection("Groups", action: { PlaceholderIconButton(icon: .plus, size: KzSize.controlSm) }) {
+            KzSidebarSection("Groups", action: { KzIconButton(.plus, label: "New group", size: .sm) {} }) {
                 KzSidebarItem("base", icon: .folder, count: 15) {}
                 KzSidebarItem("Getting started", icon: .folder, count: 3) {}
             }
         } sidebarHeader: {
-            PlaceholderIconButton(icon: .sidebar, size: KzSize.controlSm)
+            KzIconButton(.sidebar, label: "Hide sidebar", size: .sm) {}
         } sidebarFooter: {
             KzSidebarItem("Settings", icon: .sliders, shortcut: "⌘,") {}
         } list: {
             KzListHeader("All snippets", subtitle: "18 snippets") {
-                PlaceholderIconButton(icon: .sort)
-                PlaceholderIconButton(icon: .compose)
+                KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") { KzMenuItem("Name", isChecked: true) {} }
+                KzIconButton(.compose, label: "New snippet (⌘N)") {}
             }
-            PlaceholderSearch().padding(.horizontal, KzSpace.s3).padding(.bottom, KzSpace.s2)
+            KzSearchField(text: .constant("")).padding(.horizontal, KzSpace.s3).padding(.bottom, KzSpace.s2)
             VStack(spacing: 1) {
                 KzSnippetRow(name: ":an", triggers: [":an"], preview: "Muhammed Saeed", group: "base", uses: 1, isFavorite: true, isSelected: selection == ":an")
                 KzSnippetRow(name: ":date", triggers: [":date"], preview: "2 Nov 2026", group: "base", isFavorite: true, isSelected: selection == ":date")
@@ -47,21 +47,20 @@ struct SampleAppShell: View {
                 }
                 .foregroundStyle(KzColor.inkMuted)
                 Spacer(minLength: 0)
-                HStack(spacing: 2) {
-                    PlaceholderIconButton(icon: .starFill)
-                    PlaceholderIconButton(icon: .bug)
-                    PlaceholderIconButton(icon: .more)
+                KzToolbarGroup {
+                    KzIconButton(.starFill, label: "Favorite", tone: .bloom) {}
+                    KzIconButton(.bug, label: "Debug", caret: true) { KzMenuItem("Test expansion") {} }
+                    KzToolbarSeparator()
+                    KzIconButton(.more, label: "More") { KzMenuItem("Duplicate") {} }
                 }
-                .padding(3)
-                .kzGlass(.strong, in: RoundedRectangle(cornerRadius: KzRadius.lg), shadow: .glass)
             }
             VStack(alignment: .leading, spacing: KzSpace.s5) {
                 Text(":date")
-                    .kzTextStyle(.titleLg)
+                    .kzMonoTitle()
                     .foregroundStyle(KzColor.ink)
-                KzField("Triggers", aside: "Space or return to add") { PlaceholderField(text: ":date") }
+                KzField("Triggers", aside: "Space or return to add") { KzTriggerInput(triggers: .constant([":date"])) }
                 KzField("Content") {
-                    KzEditorFrame(minHeight: 70, insert: { PlaceholderButton(title: "+ Insert  ⌄", small: true) }) {
+                    KzEditorFrame(minHeight: 70, insert: { KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") { KzMenuItem("Date") {} } }) {
                         KzEditorTextView([.tag("{date:%d %b %Y}")], isEditable: false)
                     }
                 }
@@ -75,8 +74,12 @@ struct SampleAppShell: View {
                 }
                 KzDisclosure("Rules", isInitiallyExpanded: true) {
                     HStack(spacing: KzSpace.s3) {
-                        PlaceholderSegmented(options: ["Inherit from group", "Custom"])
+                        KzSegmented("Rules", selection: .constant(0), options: [.init(0, label: "Inherit from group"), .init(1, label: "Custom")])
                         Text("Works in every app").kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
+                    }
+                    HStack(spacing: KzSpace.s3) {
+                        Text("Insertion").kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink).frame(width: 72, alignment: .leading)
+                        KzSelect("Insertion", selection: .constant("Inherit"), options: [("Inherit", "Inherit")])
                     }
                 }
                 KzDisclosure("Advanced", summary: "Word boundary, case, undo") { Text("") }

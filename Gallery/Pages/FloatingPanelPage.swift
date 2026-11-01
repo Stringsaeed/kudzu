@@ -5,7 +5,7 @@ import SwiftUI
 struct FloatingPanelPage: GalleryPage {
     static let id = "floating-panel"
     static let title = "FloatingPanel"
-    static let section = GallerySection.components
+    static let section = GallerySection.floating
     static let icon = KzIconName.stack
 
     @State private var demo = FloatingPanelDemo()
@@ -23,10 +23,8 @@ struct FloatingPanelPage: GalleryPage {
                 GalleryCard {
                     VStack(alignment: .leading, spacing: KzSpace.s3) {
                         HStack(spacing: KzSpace.s3) {
-                            Button("Open palette") { demo.showPalette() }
-                                .buttonStyle(FloatDemoButtonStyle())
-                            Button("Open form at pointer") { demo.showForm() }
-                                .buttonStyle(FloatDemoButtonStyle())
+                            KzButton("Open palette") { demo.showPalette() }
+                            KzButton("Open form at pointer") { demo.showForm() }
                         }
                         Text(demo.log).kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
                     }
@@ -136,13 +134,11 @@ struct FormDemoView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: KzSpace.s3) {
             Text("Fill in “greeting”").kzTextStyle(.headline).foregroundStyle(KzColor.ink)
-            TextField("Name", text: $name)
-                .textFieldStyle(.roundedBorder)
-                .focused($focused)
+            KzTextInput("Name", text: $name, focus: $focused)
             HStack {
-                Button("Cancel", action: close).buttonStyle(FloatDemoButtonStyle())
+                KzButton("Cancel", action: close)
                 Spacer()
-                Button("Insert", action: close).buttonStyle(FloatDemoButtonStyle())
+                KzButton("Insert", variant: .primary, isDefault: true, action: close)
             }
         }
         .padding(KzSpace.s4)

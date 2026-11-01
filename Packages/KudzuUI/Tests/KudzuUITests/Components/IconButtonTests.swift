@@ -18,8 +18,8 @@ import Testing
                     HStack(spacing: 16) {
                         KzIconButton(.sidebar, label: "Sidebar", active: true, size: size) {}
                         KzIconButton(.starFill, label: "Favorite", size: size, tone: .bloom) {}
-                        KzIconButton(.more, label: "More", menu: true, size: size) {}
-                        KzIconButton(.more, label: "More", menu: true, size: size) {}.kzPreviewInteraction(hovered: true)
+                        KzIconButton(.more, label: "More", caret: true, size: size) {}
+                        KzIconButton(.more, label: "More", caret: true, size: size) {}.kzPreviewInteraction(hovered: true)
                         KzIconButton(.sidebar, label: "Sidebar", active: true, size: size) {}.disabled(true)
                     }
                 }
@@ -34,7 +34,7 @@ import Testing
                         HStack(spacing: 16) {
                             KzIconButton(.sidebar, label: "Sidebar", active: true, size: size) {}
                             KzIconButton(.starFill, label: "Favorite", size: size, tone: .bloom) {}
-                            KzIconButton(.more, label: "More", menu: true, size: size) {}
+                            KzIconButton(.more, label: "More", caret: true, size: size) {}
                         }
                         .kzPreviewInteraction(hovered: state == 1, pressed: state == 2, focused: state == 3)
                         .disabled(state == 4)
@@ -44,4 +44,19 @@ import Testing
         }
     }
 
+    @Test func toolbarSizeAndMenuForm() throws {
+        try snapshot("iconbutton-toolbar", width: 420) {
+            HStack(spacing: 24) {
+                KzToolbarGroup {
+                    KzIconButton(.starFill, label: "Favorite", tone: .bloom) {}
+                    KzIconButton(.bug, label: "Debug", caret: true) {}
+                    KzToolbarSeparator()
+                    KzIconButton(.more, label: "More", active: true) {}
+                }
+                KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") {
+                    KzMenuItem("Name", isChecked: true) {}
+                }
+            }
+        }
+    }
 }

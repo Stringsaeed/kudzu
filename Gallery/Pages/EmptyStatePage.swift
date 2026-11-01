@@ -4,7 +4,7 @@ import SwiftUI
 struct EmptyStatePage: GalleryPage {
     static let id = "empty-state"
     static let title = "EmptyState"
-    static let section = GallerySection.components
+    static let section = GallerySection.structure
     static let icon = KzIconName.leaf
 
     var body: some View {
@@ -17,7 +17,7 @@ struct EmptyStatePage: GalleryPage {
                         }
                         .frame(maxWidth: .infinity)
                         KzEmptyState("No matches", icon: .search, message: "Try a different search, or clear the filter.") {
-                            PlaceholderButton(title: "Clear search", small: true)
+                            KzButton("Clear search", size: .sm) {}
                         }
                         .frame(maxWidth: .infinity)
                     }

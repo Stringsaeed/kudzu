@@ -4,7 +4,7 @@ import SwiftUI
 struct KbdPage: GalleryPage {
     static let id = "kbd"
     static let title = "Kbd"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.keyboard
 
     var body: some View {

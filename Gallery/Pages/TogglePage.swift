@@ -4,7 +4,7 @@ import SwiftUI
 struct TogglePage: GalleryPage {
     static let id = "toggle"
     static let title = "Toggle"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.checkCircle
 
     @State private var on = true

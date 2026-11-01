@@ -99,7 +99,7 @@ Every component must follow these rules.
 ## Adding a component
 
 1. **Code.** Write it in `Sources/KudzuUI/Components/<Name>/`, from `design/kudzu/project/components/<Name>/README.md` and the exact paddings and states in `components/bundle.css`.
-2. **Gallery page.** `Gallery/Pages/<Name>Page.swift` already exists as a placeholder and is already listed in `Gallery/Catalog.swift`. Replace its `body` with a `GalleryPageLayout` showing every variant and state. Use `.kzPreviewInteraction(hovered:pressed:focused:)` to show the hover, pressed and focus states statically.
+2. **Gallery page.** `Gallery/Pages/<Name>Page.swift`, listed in `Gallery/Catalog.swift` under its section (Controls, Lists & structure or Floating). Give it a `GalleryPageLayout` showing every variant and state. Use `.kzPreviewInteraction(hovered:pressed:focused:)` to show the hover, pressed and focus states statically.
 3. **Snapshot test.** Add `Tests/KudzuUITests/Components/<Name>Tests.swift`:
 
    ```swift
@@ -120,10 +120,12 @@ Every component must follow these rules.
    This writes `Snapshots/button-states-light@2x.png` and `-dark@2x.png`.
 4. **Check.** Run `swift test`, open the PNGs, and look at them.
 
-A brand-new page that isn't in the design system needs two steps:
+A brand-new page needs two steps:
 
 1. Create `Gallery/Pages/<Name>Page.swift`, conforming to `GalleryPage` (`id`, `title`, `section`, `icon`).
-2. Add one line, `<Name>Page.self,`, to `Catalog.pages`.
+2. Add one line, `<Name>Page.self,`, to `Catalog.pages`, under its section's comment. Every page appears once.
+
+Gallery pages use the real components, never stand-ins. The shared menus (`GalleryMenus`) and the sample window (`GallerySampleShell`) live in `Gallery/Support/`.
 
 ## Lists and the window
 
@@ -139,9 +141,11 @@ List(selection: $selection) {
 .kzSelectionList()
 ```
 
+Add `.kzContextMenu(isPresented:)` to a row for its right-click menu and `.kzContextTarget(_:)` to outline the row while the menu is open.
+
 `.kzSelectionList()` turns off the system accent highlight (a small `NSTableView` bridge; if the table isn't found the list keeps the system highlight) so `vine-soft` is the only selection.
 
-**The window.** `KzAppShell(mode: .window)` applies `KzWindowChrome` to its window: hidden title, an *empty unified toolbar* (which makes AppKit build the 52pt titlebar and centre the traffic lights on y = 26, the middle of a `size-titlebar` header), full-size content and a clear background. Use `mode: .embedded` for galleries and snapshots; it leaves the window alone and draws mock lights. Build pane headers with `KzListHeader` / `KzPaneHeader`. Their `kzWindowDragArea()` lets the window be dragged by the header.
+**The window.** `KzAppShell(mode: .window)` applies `KzWindowChrome` to its window: hidden title, an *empty unified toolbar* (which makes AppKit build the 52pt titlebar and centre the traffic lights on y = 26, the middle of a `size-titlebar` header), full-size content and a clear background. Use `mode: .embedded` for galleries and snapshots; it leaves the window alone and draws mock lights. Build pane headers with `KzListHeader` / `KzPaneHeader`. Their `kzWindowDragArea()` lets the window be dragged by the header. The snippet's name in the detail pane is mono: `Text(name).kzMonoTitle()`.
 
 **The editor.** The app's `NSTextView` editor adopts the look through `KzEditorStyle` (content attributes, inset, `configure(_:)`) and `KzEditorTag` / `KzEditorTagCell` (the inline tag). `KzEditorFrame` is the chrome around it.
 
@@ -161,37 +165,53 @@ Menus, popovers and panels live in their own borderless, non-activating `NSPanel
 | `.kzPopover(isPresented:edge:alignment:behavior:content:)`, `KzPopoverSurface` | Anchored glass popovers with no arrow. |
 | `KzFloatingPanel`, `KzFloatingPlacement`, `KzFloatingPanelSurface` | The base panel for the search palette and the form at the caret. |
 | `KzToolbarGroup`, `KzToolbarSeparator`, `\.kzInToolbarGroup` | The floating toolbar capsule. |
+| `KzSelect(_:selection:options:)`, `KzSelect(_:value:placement:menu:)`, `KzSelectLabel`, `KzSelectStyle` | The pop-up button, on `KzMenuButton(placement: .select)`. |
+| `KzIconButton(_:label:caret:menuTitle:placement:menu:)`, `KzButton(_:…menuTitle:placement:menu:)` | Icon and text buttons that open a menu. |
+| `.kzContextTarget(_:)` | The outline on the right-clicked row. |
 
 ### Attaching menus
 
 ```swift
 // Select: the checked item opens over the field, like NSPopUpButton.
-KzMenuButton(placement: .select) {
-    for option in options { KzMenuItem(option.name, isChecked: option == value) { value = option } }
-} label: { isOpen in SelectLabel(value.name, isOpen: isOpen) }
-.buttonStyle(KzSelectStyle())
+KzSelect("Group", selection: $group, options: groups.map { ($0.id, $0.name) })
 
-// Sort: a titled pull-down of checkable items.
-KzMenuButton(title: "Sort by") {
+// Select with a custom menu (headers, icons, submenus): the lower-level form.
+KzSelect("Mode", value: mode.title) {
+    for mode in Mode.allCases { KzMenuItem(mode.title, isChecked: mode == current) { current = mode } }
+}
+// ...which is KzMenuButton(placement: .select) { … } label: { isOpen in KzSelectLabel(value, isOpen: isOpen) }
+//    .buttonStyle(KzSelectStyle())
+
+// Sort: an icon button that opens a titled pull-down. It shows the active look while the menu is open.
+KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") {
     for order in SortOrder.allCases { KzMenuItem(order.title, isChecked: sort == order) { sort = order } }
-} label: { isOpen in KzIcon(.sort).foregroundStyle(isOpen ? KzColor.vineInk : KzColor.inkMuted) }
+}
 
-// Insert tag: headers, icons, shortcuts and submenus.
+// A text button that opens a menu: the editor's Insert.
+KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") {
+    KzMenuItem("Date", icon: .clock) { insert("{date}") }
+}
+
+// Any other control: KzMenuButton with your own label. Headers, icons, shortcuts and submenus all work.
 KzMenuButton(title: "Insert tag") {
     KzMenuHeader("Dates")
     KzMenuItem("Date", icon: .clock) { insert("{date}") }
     KzSubmenu("Form field", icon: .type) { KzMenuItem("Text") { insert("{form:text}") } }
-} label: { _ in Text("Insert tag") }
+} label: { isOpen in MyLabel(isOpen: isOpen) }
 
-// Context menu on a row; `isPresented` lets the row draw its "clicked" outline.
-SnippetRow(snippet).kzContextMenu(isPresented: contextBinding(for: snippet)) {
-    KzMenuItem("Duplicate", icon: .copy) { duplicate(snippet) }.keyboardShortcut("d")
-    KzMenuSeparator()
-    KzMenuItem("Delete", icon: .trash, role: .danger) { delete(snippet) }.keyboardShortcut(.delete)
-}
+// Context menu on a row; `kzContextTarget` draws the right-clicked row's outline while it is open.
+KzSnippetRow(name: snippet.name, triggers: snippet.triggers, isSelected: selection == snippet.id)
+    .kzContextMenu(isPresented: contextBinding(for: snippet)) {
+        KzMenuItem("Duplicate", icon: .copy) { duplicate(snippet) }.keyboardShortcut("d")
+        KzMenuItem("Favorite", icon: .star, isChecked: snippet.isFavorite) { toggleFavorite(snippet) }
+        KzSubmenu("Move to group", icon: .folder) { for group in groups { KzMenuItem(group.name) { move(snippet, to: group) } } }
+        KzMenuSeparator()
+        KzMenuItem("Delete", icon: .trash, role: .danger) { delete(snippet) }.keyboardShortcut(.delete)
+    }
+    .kzContextTarget(contextTarget == snippet.id)
 ```
 
-Controls that show their own open state read `isOpen` from the label closure. Inside a `KzToolbarGroup`, `\.kzInToolbarGroup` is true and icon buttons should be 28pt tall.
+Controls that show their own open state read `isOpen` from the label closure; `KzIconButton`, `KzSelect` and the menu form of `KzButton` already do. Inside a `KzToolbarGroup`, `\.kzInToolbarGroup` is true and `KzIconButton` is 28pt tall (30pt wide) instead of 30.
 
 ### How menus behave
 

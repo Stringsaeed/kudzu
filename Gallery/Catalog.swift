@@ -24,7 +24,9 @@ extension GalleryPage {
 /// Sidebar sections, in display order.
 enum GallerySection: String, CaseIterable {
     case foundations = "Foundations"
-    case components = "Components"
+    case controls = "Controls"
+    case structure = "Lists & structure"
+    case floating = "Floating"
 }
 
 /// Every page in the gallery. Adding a page is one line here plus its file in `Pages/`.
@@ -41,37 +43,41 @@ enum Catalog {
         GlassPage.self,
         InteractionPage.self,
 
-        // Components: each file in Pages/ starts as a placeholder; replace its body when you build the component.
-        AppShellPage.self,
-        BadgePage.self,
+        // Controls
         ButtonPage.self,
-        DisclosurePage.self,
-        EditorPage.self,
-        EmptyStatePage.self,
-        FieldPage.self,
-        FloatingPanelPage.self,
         IconButtonPage.self,
-        KbdPage.self,
-        ListHeaderPage.self,
-        ListRowPage.self,
-        MenuPage.self,
-        PopoverPage.self,
-        SearchFieldPage.self,
+        TogglePage.self,
         SegmentedPage.self,
         SelectPage.self,
-        SettingsGroupPage.self,
-        SettingsRowPage.self,
-        SidebarItemPage.self,
-        SidebarSectionPage.self,
-        SnippetRowPage.self,
-        StatTilePage.self,
         StepperPage.self,
         TextInputPage.self,
-        TogglePage.self,
-        ToolbarGroupPage.self,
-        TriggerChipPage.self,
+        SearchFieldPage.self,
         TriggerInputPage.self,
+        TriggerChipPage.self,
+        BadgePage.self,
+        KbdPage.self,
+
+        // Lists & structure
+        AppShellPage.self,
+        SidebarSectionPage.self,
+        SidebarItemPage.self,
+        ListHeaderPage.self,
+        ListRowPage.self,
+        SnippetRowPage.self,
+        EmptyStatePage.self,
+        FieldPage.self,
+        EditorPage.self,
+        DisclosurePage.self,
+        SettingsGroupPage.self,
+        SettingsRowPage.self,
+        StatTilePage.self,
         UsageBarPage.self,
+
+        // Floating
+        MenuPage.self,
+        PopoverPage.self,
+        FloatingPanelPage.self,
+        ToolbarGroupPage.self,
     ]
 
     /// The catalogue as plain values, for lists and the snapshot renderer.

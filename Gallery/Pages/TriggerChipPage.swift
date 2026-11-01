@@ -4,7 +4,7 @@ import SwiftUI
 struct TriggerChipPage: GalleryPage {
     static let id = "trigger-chip"
     static let title = "TriggerChip"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.braces
 
     var body: some View {

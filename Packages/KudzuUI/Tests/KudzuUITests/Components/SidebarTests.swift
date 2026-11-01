@@ -41,7 +41,7 @@ import Testing
                     KzSidebarItem("Favorites", icon: .star, count: 3) {}
                 }
                 Color.clear.frame(height: KzSpace.s3)
-                KzSidebarSection("Groups", action: { PlaceholderIconButton(icon: .plus, size: KzSize.controlSm) }) {
+                KzSidebarSection("Groups", action: { KzIconButton(.plus, label: "New group", size: .sm) {} }) {
                     KzSidebarItem("base", icon: .folder, count: 15) {}
                     KzSidebarItem("Getting started", icon: .folder, count: 3) {}
                 }

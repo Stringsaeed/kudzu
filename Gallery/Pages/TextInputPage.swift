@@ -4,7 +4,7 @@ import SwiftUI
 struct TextInputPage: GalleryPage {
     static let id = "text-input"
     static let title = "TextInput"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.cursor
 
     @State private var text = ""

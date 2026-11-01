@@ -114,13 +114,14 @@ extension View {
 /// can press, drag to an item and release; a click leaves it open; Space opens it from the keyboard
 /// with the first (or checked) item highlighted.
 ///
-/// Style the button as usual; the label gets `isOpen` to draw its open state.
+/// Style the button as usual; the label gets `isOpen` to draw its open state. `KzSelect`,
+/// `KzIconButton(…menu:)` and `KzButton(…menu:)` are built on this; use it directly for other labels:
 ///
 /// ```swift
 /// KzMenuButton(placement: .select) {
-///     ForEach(options) { option in KzMenuItem(option.name, isChecked: option == value) { value = option } }
+///     for option in options { KzMenuItem(option.name, isChecked: option == value) { value = option } }
 /// } label: { isOpen in
-///     SelectLabel(value.name, isOpen: isOpen)
+///     KzSelectLabel(value.name, isOpen: isOpen)
 /// }
 /// .buttonStyle(KzSelectStyle())
 /// ```

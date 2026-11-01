@@ -12,28 +12,51 @@ public struct KzButton: View {
     private let icon: KzIconName?
     private let iconEnd: KzIconName?
     private let isDefault: Bool
-    private let action: () -> Void
+    private let action: (() -> Void)?
+    private let menu: (title: String?, placement: KzMenuPlacement, content: () -> [KzMenuElement])?
 
     /// Creates a command; `isDefault` opts into native Return activation.
     public init(_ title: String, variant: Variant = .secondary, size: Size = .md,
                 icon: KzIconName? = nil, iconEnd: KzIconName? = nil,
                 isDefault: Bool = false, action: @escaping () -> Void) {
         self.title = title; self.variant = variant; self.size = size
-        self.icon = icon; self.iconEnd = iconEnd; self.isDefault = isDefault; self.action = action
+        self.icon = icon; self.iconEnd = iconEnd; self.isDefault = isDefault; self.action = action; self.menu = nil
+    }
+
+    /// Creates a button that opens a Kudzu menu instead of running an action (the editor's
+    /// "Insert", for example), built on `KzMenuButton`: it opens on mouse-down and supports
+    /// press-drag-release. Pass `iconEnd: .chevronDown` to mark it as a pull-down.
+    public init(_ title: String, variant: Variant = .secondary, size: Size = .md,
+                icon: KzIconName? = nil, iconEnd: KzIconName? = nil,
+                menuTitle: String? = nil, placement: KzMenuPlacement = .below,
+                @KzMenuBuilder menu: @escaping () -> [KzMenuElement]) {
+        self.title = title; self.variant = variant; self.size = size
+        self.icon = icon; self.iconEnd = iconEnd; self.isDefault = false; self.action = nil
+        self.menu = (menuTitle, placement, menu)
     }
 
     public var body: some View {
-        if isDefault { button.keyboardShortcut(.defaultAction) } else { button }
+        if let menu {
+            KzMenuButton(title: menu.title, placement: menu.placement, menu: menu.content) { _ in content }
+                .buttonStyle(KzButtonStyle(variant: variant, size: size))
+        } else if isDefault {
+            button.keyboardShortcut(.defaultAction)
+        } else {
+            button
+        }
     }
 
     private var button: some View {
-        Button(action: action) {
-            HStack(spacing: size == .sm ? 4 : 6) {
-                if let icon { KzIcon(icon, size: size == .sm ? 14 : 16) }
-                Text(title).fixedSize().kzTextStyle(size == .sm ? .callout : .bodyStrong, matchLineBox: false).fontWeight(.medium)
-                if let iconEnd { KzIcon(iconEnd, size: 12).opacity(0.8).padding(.leading, -2) }
-            }
-        }.buttonStyle(KzButtonStyle(variant: variant, size: size))
+        Button(action: action ?? {}) { content }
+            .buttonStyle(KzButtonStyle(variant: variant, size: size))
+    }
+
+    private var content: some View {
+        HStack(spacing: size == .sm ? 4 : 6) {
+            if let icon { KzIcon(icon, size: size == .sm ? 14 : 16) }
+            Text(title).fixedSize().kzTextStyle(size == .sm ? .callout : .bodyStrong, matchLineBox: false).fontWeight(.medium)
+            if let iconEnd { KzIcon(iconEnd, size: 12).opacity(0.8).padding(.leading, -2) }
+        }
     }
 }
 

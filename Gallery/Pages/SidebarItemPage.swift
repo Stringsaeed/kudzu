@@ -4,7 +4,7 @@ import SwiftUI
 struct SidebarItemPage: GalleryPage {
     static let id = "sidebar-item"
     static let title = "SidebarItem"
-    static let section = GallerySection.components
+    static let section = GallerySection.structure
     static let icon = KzIconName.sidebar
 
     var body: some View {

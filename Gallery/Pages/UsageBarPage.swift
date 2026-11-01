@@ -4,7 +4,7 @@ import SwiftUI
 struct UsageBarPage: GalleryPage {
     static let id = "usage-bar"
     static let title = "UsageBar"
-    static let section = GallerySection.components
+    static let section = GallerySection.structure
     static let icon = KzIconName.chart
 
     var body: some View {

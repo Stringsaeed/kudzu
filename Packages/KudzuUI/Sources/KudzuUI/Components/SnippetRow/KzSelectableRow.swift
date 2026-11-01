@@ -11,6 +11,23 @@ extension View {
         modifier(KzSelectableRowModifier(isSelected: isSelected))
     }
 
+    /// Outlines a row while its context menu is open, as native lists do for the right-clicked row.
+    ///
+    /// Pair it with `.kzContextMenu(isPresented:)` and apply it to the row view (inside `.kzListRow()`):
+    ///
+    /// ```swift
+    /// KzSnippetRow(…).kzContextMenu(isPresented: $targeted) { … }.kzContextTarget(targeted)
+    /// ```
+    public func kzContextTarget(_ isTarget: Bool) -> some View {
+        overlay {
+            // Same inset 2px outline as keyboard focus, in `focus` (an alias of `vine-ink`).
+            if isTarget {
+                RoundedRectangle(cornerRadius: KzRadius.md).inset(by: 1).stroke(KzColor.focus, lineWidth: 2)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
     /// Configures a view as a row of a `List`: no separator, no system row background, and a 1px gap
     /// between rows. The plain list style already adds the design system's 8px side gutter.
     ///

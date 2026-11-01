@@ -4,7 +4,7 @@ import SwiftUI
 struct BadgePage: GalleryPage {
     static let id = "badge"
     static let title = "Badge"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.bolt
 
     var body: some View {

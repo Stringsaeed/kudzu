@@ -13,10 +13,10 @@ import Testing
     @Test func frame() throws {
         try snapshot("editor", width: 560, background: .surfaceRaised) {
             VStack(spacing: KzSpace.s5) {
-                KzEditorFrame(minHeight: 120, insert: { PlaceholderButton(title: "+ Insert  ⌄", small: true) }) {
+                KzEditorFrame(minHeight: 120, insert: { KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") { KzMenuItem("Date") {} } }) {
                     KzEditorTextView(Self.sample, isEditable: false)
                 }
-                KzEditorFrame(minHeight: 60, isFocused: true, insert: { PlaceholderButton(title: "+ Insert  ⌄", small: true) }) {
+                KzEditorFrame(minHeight: 60, isFocused: true, insert: { KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") { KzMenuItem("Date") {} } }) {
                     KzEditorTextView([.text("Focused: the frame shows a 2px "), .tag("{vine-ink}"), .text(" edge.")], isEditable: false)
                 }
             }

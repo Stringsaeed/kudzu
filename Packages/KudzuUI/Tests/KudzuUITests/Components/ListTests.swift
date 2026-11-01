@@ -9,12 +9,12 @@ import Testing
         try snapshot("list-header", width: KzSize.list) {
             VStack(spacing: KzSpace.s4) {
                 KzListHeader("All snippets", subtitle: "18 snippets") {
-                    PlaceholderIconButton(icon: .sort)
-                    PlaceholderIconButton(icon: .compose)
+                    KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") { KzMenuItem("Name", isChecked: true) {} }
+                    KzIconButton(.compose, label: "New snippet (⌘N)") {}
                 }
                 KzListHeader("Settings", subtitle: "Kudzu 1.0")
                 KzListHeader("A group with a very long name that must truncate", subtitle: "3 snippets") {
-                    PlaceholderIconButton(icon: .compose)
+                    KzIconButton(.compose, label: "New snippet (⌘N)") {}
                 }
             }
             .background(KzColor.surface)

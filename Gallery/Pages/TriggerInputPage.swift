@@ -4,7 +4,7 @@ import SwiftUI
 struct TriggerInputPage: GalleryPage {
     static let id = "trigger-input"
     static let title = "TriggerInput"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.textPlus
 
     @State private var triggers = [":an", ";sig"]

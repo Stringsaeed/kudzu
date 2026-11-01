@@ -4,7 +4,7 @@ import SwiftUI
 struct StatTilePage: GalleryPage {
     static let id = "stat-tile"
     static let title = "StatTile"
-    static let section = GallerySection.components
+    static let section = GallerySection.structure
     static let icon = KzIconName.chart
 
     var body: some View {

@@ -4,7 +4,7 @@ import SwiftUI
 struct PopoverPage: GalleryPage {
     static let id = "popover"
     static let title = "Popover"
-    static let section = GallerySection.components
+    static let section = GallerySection.floating
     static let icon = KzIconName.info
 
     @State private var showsInspector = false
@@ -17,7 +17,7 @@ struct PopoverPage: GalleryPage {
         GalleryPageLayout(title: Self.title, summary: "A glass floating layer with no arrow, anchored to a view: chip-editor inspectors and similar. It takes keyboard focus without activating Kudzu, Esc closes it, and focus goes back where it was.") {
             SpecimenSection("Specimen", note: "glass-strong, shadow-float, radius-lg, 12pt content inset.") {
                 HStack(alignment: .top, spacing: KzSpace.s6) {
-                    KzPopoverSurface { inspector(interactive: false) }
+                    KzPopoverSurface { inspector }
                 }
                 .padding(.bottom, KzSpace.s8)
             }
@@ -32,11 +32,10 @@ struct PopoverPage: GalleryPage {
                             .buttonStyle(.plain)
                             .accessibilityLabel("Edit date tag")
                             .kzPopover(isPresented: $showsInspector) {
-                                inspector(interactive: true)
+                                inspector
                             }
 
-                            Button("Pinned popover") { showsPinned.toggle() }
-                                .buttonStyle(FloatDemoButtonStyle())
+                            KzButton("Pinned popover") { showsPinned.toggle() }
                                 .kzPopover(isPresented: $showsPinned, behavior: .applicationDefined) {
                                     VStack(alignment: .leading, spacing: KzSpace.s2) {
                                         Text("Stays open").kzTextStyle(.headline).foregroundStyle(KzColor.ink)
@@ -47,8 +46,7 @@ struct PopoverPage: GalleryPage {
                         }
                         HStack(spacing: KzSpace.s3) {
                             ForEach([Edge.top, .bottom, .leading, .trailing], id: \.self) { edge in
-                                Button(name(of: edge)) { edgeShown = edge }
-                                    .buttonStyle(FloatDemoButtonStyle())
+                                KzButton(name(of: edge)) { edgeShown = edge }
                                     .kzPopover(isPresented: edgeBinding(edge), edge: edge) {
                                         Text("Opens on the \(name(of: edge).lowercased()) edge")
                                             .kzTextStyle(.body).foregroundStyle(KzColor.ink)
@@ -61,25 +59,17 @@ struct PopoverPage: GalleryPage {
         }
     }
 
-    private func inspector(interactive: Bool) -> some View {
+    private var inspector: some View {
         VStack(alignment: .leading, spacing: KzSpace.s3) {
             Text("Date tag").kzTextStyle(.headline).foregroundStyle(KzColor.ink)
             VStack(alignment: .leading, spacing: KzSpace.s1) {
                 Text("Format").kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)
-                if interactive {
-                    TextField("Format", text: $format)
-                        .textFieldStyle(.roundedBorder)
-                        .font(KzTextStyle.code.font)
-                } else {
-                    // Specimens render offscreen, where AppKit-backed fields can't draw.
-                    Text(format).kzTextStyle(.code).foregroundStyle(KzColor.ink)
-                        .padding(.horizontal, KzSpace.s2)
-                        .frame(maxWidth: .infinity, minHeight: 24, alignment: .leading)
-                        .background(KzColor.surfaceSunken, in: RoundedRectangle(cornerRadius: KzRadius.sm))
-                }
+                KzTextInput("Format", text: $format, mono: true)
             }
-            if interactive {
-                Toggle("Uppercase", isOn: $uppercase)
+            HStack {
+                Text("Uppercase").kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink)
+                Spacer()
+                KzToggle("Uppercase", isOn: $uppercase)
             }
             Text("Preview: \(Date.now.formatted(date: .abbreviated, time: .omitted))")
                 .kzTextStyle(.callout).foregroundStyle(KzColor.inkMuted)

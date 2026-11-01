@@ -4,7 +4,7 @@ import SwiftUI
 struct SearchFieldPage: GalleryPage {
     static let id = "search-field"
     static let title = "SearchField"
-    static let section = GallerySection.components
+    static let section = GallerySection.controls
     static let icon = KzIconName.search
 
     @State private var text = ""
