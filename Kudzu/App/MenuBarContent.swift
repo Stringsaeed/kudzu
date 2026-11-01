@@ -1,26 +1,138 @@
+import AppKit
 import SwiftUI
-
-// Placeholder: owned by the app-shell task (menu bar, onboarding, settings).
 
 /// Menu shown from the menu bar icon.
 struct MenuBarContent: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    private var permissionsMissing: Bool {
+        !model.permissions.accessibility || !model.permissions.inputMonitoring
+    }
+
     var body: some View {
-        Button("Open Kudzu") { openWindow(id: SceneID.main) }
-        Button("Welcome…") { openWindow(id: SceneID.onboarding) }
+        @Bindable var engine = model.engine
+
+        Text(model.engine.statusText)
+
+        if let storeError = model.storeError {
+            Text(storeError)
+        }
+
+        if permissionsMissing {
+            Button {
+                openWindow(id: SceneID.onboarding)
+                NSApplication.shared.activate()
+            } label: {
+                Label("Permissions needed — Fix…", systemImage: "exclamationmark.triangle")
+            }
+        }
+
+        if model.engine.secureInputActive {
+            let owner = model.engine.secureInputOwner ?? "another app"
+            Text("Secure Input on (\(owner)) — expansion blocked")
+            Button("Why?") {
+                presentSecureInputAlert(owner: model.engine.secureInputOwner)
+            }
+        }
+
+        Toggle("Pause Kudzu", isOn: $engine.isPaused)
+
         Divider()
-        Button("Quit Kudzu") { NSApplication.shared.terminate(nil) }
-            .keyboardShortcut("q")
+
+        Button("Open Kudzu") {
+            openWindow(id: SceneID.main)
+            NSApplication.shared.activate()
+        }
+
+        Button("New Snippet from Selection") {
+            Task { @MainActor in
+                if let selection = await model.engine.captureSelection(),
+                   !selection.isEmpty {
+                    model.pendingNewSnippetContent = selection
+                    openWindow(id: SceneID.main)
+                    NSApplication.shared.activate()
+                } else {
+                    presentNoSelectionAlert()
+                }
+            }
+        }
+
+        Button("Search Snippets… (coming soon)") {}
+            .keyboardShortcut(.space, modifiers: [.control, .option])
+            .disabled(true)
+
+        Divider()
+
+        SettingsLink {
+            Text("Settings…")
+        }
+        .keyboardShortcut(",", modifiers: .command)
+
+        Divider()
+
+        Button("Quit Kudzu") {
+            NSApplication.shared.terminate(nil)
+        }
+        .keyboardShortcut("q")
+    }
+
+    @MainActor
+    private func presentSecureInputAlert(owner: String?) {
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "Secure Input Is Active"
+        let appDescription = owner.map { " (\($0))" } ?? ""
+        alert.informativeText =
+            "A password field, terminal, or security tool\(appDescription) enabled macOS Secure Event Input. " +
+            "While Secure Input is active, macOS prevents apps like Kudzu from monitoring keystrokes to protect sensitive text. " +
+            "Expansion will resume automatically once you leave the secure field or close the app that enabled it."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    @MainActor
+    private func presentNoSelectionAlert() {
+        NSApplication.shared.activate()
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "No Text Selected"
+        alert.informativeText = "Select some text in the active application first, then choose “New Snippet from Selection”."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 
 /// Menu bar icon; reflects paused, Secure Input and permission state.
 struct MenuBarIcon: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
+
+    private var permissionsMissing: Bool {
+        !model.permissions.accessibility || !model.permissions.inputMonitoring
+    }
+
+    private var symbolName: String {
+        if permissionsMissing {
+            return "exclamationmark.triangle.fill"
+        }
+        if model.engine.secureInputActive {
+            return "lock.fill"
+        }
+        if model.engine.isPaused {
+            return "text.badge.minus"
+        }
+        return "text.badge.plus"
+    }
 
     var body: some View {
-        Image(systemName: "text.badge.plus")
+        Image(systemName: symbolName)
+            .symbolRenderingMode(.monochrome)
+            .opacity(model.engine.isPaused && !permissionsMissing && !model.engine.secureInputActive ? 0.55 : 1.0)
+            .accessibilityLabel("Kudzu")
+            .task {
+                model.performInitialLaunchIfNeeded(openWindow: openWindow)
+            }
     }
 }
