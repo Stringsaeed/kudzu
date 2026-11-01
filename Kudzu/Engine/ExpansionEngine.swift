@@ -25,6 +25,7 @@ final class ExpansionEngine {
     private var matcher = ExpansionMatcher()
     private var snippets: [UUID: SnippetRecord] = [:]
     private var groups: [GroupRecord] = []
+    private var config: MatchingConfig?
     private var pendingUndo: (match: TriggerMatch, insertedCount: Int)?
     private var capturingSelection = false
     private var listenOnlyInterrupted = false
@@ -36,6 +37,7 @@ final class ExpansionEngine {
     private var generation = 0
     private var undoCaretLeftCount = 0
     private var terminationObserver: NSObjectProtocol?
+    private var settingsObserver: NSObjectProtocol?
     private static let log = Logger(subsystem: "sh.saeed.kudzu", category: "Engine")
 
     init(store: KudzuStore, permissions: Permissions) {
@@ -64,6 +66,9 @@ final class ExpansionEngine {
         terminationObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.stop() } }
+        settingsObserver = NotificationCenter.default.addObserver(
+            forName: AppMatchingSettings.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.reload() } }
         refresh()
         poll = Task { [weak self] in
             while !Task.isCancelled {
@@ -82,18 +87,21 @@ final class ExpansionEngine {
         inserter.restorePasteboard()
         if let terminationObserver { NotificationCenter.default.removeObserver(terminationObserver) }
         terminationObserver = nil
+        if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver); self.settingsObserver = nil }
     }
 
     private func reload() {
         do {
             let library = try store.library()
             let records = Dictionary(library.snippets.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+            let newConfig = AppMatchingSettings.shared.matchingConfig
             // Usage saves after every expansion also emit changes. Rebuilding would clear the
             // live key buffer and undo, dropping whatever was typed since, so skip no-op reloads.
-            guard records != snippets || library.groups != groups else { return }
+            guard records != snippets || library.groups != groups || newConfig != config else { return }
             snippets = records
             groups = library.groups
-            matcher.reload(snippets: library.snippets, groups: groups, config: MatchingConfig())
+            config = newConfig
+            matcher.reload(snippets: library.snippets, groups: groups, config: newConfig)
             pendingUndo = nil
             undoCaretLeftCount = 0
         } catch { Self.log.error("Library reload failed: \(error)") }

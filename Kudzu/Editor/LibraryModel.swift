@@ -330,6 +330,14 @@ final class LibraryModel {
         perform("Couldn't update the group") { try store.upsert(group) }
     }
 
+    /// Updates a group's app rule and insertion override.
+    func setGroupRules(_ id: UUID, rule: AppRule?, insertion: InsertionMethod?) {
+        guard var group = tree.group(id), group.rule != rule || group.insertion != insertion else { return }
+        group.rule = rule
+        group.insertion = insertion
+        perform("Couldn't update the group") { try store.upsert(group) }
+    }
+
     /// Deletes a group, either moving its contents up a level or deleting them too.
     func deleteGroup(_ id: UUID, _ strategy: GroupDeletion) {
         guard tree.group(id) != nil else { return }

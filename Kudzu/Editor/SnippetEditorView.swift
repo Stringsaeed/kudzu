@@ -58,9 +58,14 @@ struct SnippetEditorView: View {
                 SnippetPreviewView(content: draft.content)
 
                 DisclosureGroup("Rules", isExpanded: $rulesExpanded) {
-                    RulesSection(model: model)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 10)
+                    RulesSection(
+                        rule: model.binding(\.rule),
+                        insertion: model.binding(\.insertion),
+                        inherited: library.tree.inheritedSettings(forGroup: draft.groupID),
+                        defaultInsertion: AppMatchingSettings.shared.defaultInsertion
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 10)
                 }
                 .font(.headline)
 
