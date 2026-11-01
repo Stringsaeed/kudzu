@@ -137,9 +137,10 @@ struct KzVisualEffect: NSViewRepresentable {
         switch blending {
         case .behindWindow:
             view.blendingMode = .behindWindow
-            view.material = .sidebar
-            // Like a native sidebar, the blur goes flat when the window is inactive.
-            view.state = .followsWindowActiveState
+            view.material = style == .strong ? .popover : .sidebar
+            // Like a native sidebar, the blur goes flat when the window is inactive. Strong glass in its
+            // own window (menus, popovers, panels) is never key, so it stays active like a native menu.
+            view.state = style == .strong ? .active : .followsWindowActiveState
         case .withinWindow:
             view.blendingMode = .withinWindow
             view.material = style == .strong ? .popover : .headerView
