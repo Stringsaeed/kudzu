@@ -1,8 +1,14 @@
+import KudzuUI
 import SwiftUI
 
 @main
 struct KudzuApp: App {
     @State private var model = AppModel()
+
+    init() {
+        // Geist and Geist Mono for KudzuUI; idempotent, and KudzuUI also registers lazily.
+        KzFonts.register()
+    }
 
     var body: some Scene {
         MenuBarExtra {
