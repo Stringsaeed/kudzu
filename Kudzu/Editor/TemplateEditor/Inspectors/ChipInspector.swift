@@ -22,6 +22,14 @@ struct ChipInspector: View {
     }
 
     @ViewBuilder private var content: some View {
+        if let verbatim = tag.verbatim {
+            UnrecognizedChipInspector(tag: tag, source: verbatim)
+        } else {
+            recognizedContent
+        }
+    }
+
+    @ViewBuilder private var recognizedContent: some View {
         switch tag.name {
         case "date", "time": DateChipInspector(tag: tag, onChange: onChange)
         case "clipboard": ClipboardChipInspector(tag: tag, onChange: onChange)
@@ -67,6 +75,29 @@ struct ValidationMessage: View {
                 .font(.caption)
                 .foregroundStyle(.red)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// An unknown or malformed tag has no settings; the inspector shows what will be saved.
+struct UnrecognizedChipInspector: View {
+    let tag: KudzuCore.Tag
+    let source: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            InspectorHeader(tag: tag, title: "Unrecognized tag",
+                            subtitle: "Kudzu doesn't understand this tag, so it is left exactly as written and inserted as plain text. "
+                                + "Delete the chip to remove it.")
+            Text(source)
+                .font(.system(.callout, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+                .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 6))
+            ForEach(Array(TemplateParser.parse(source).diagnostics.prefix(1).enumerated()), id: \.offset) { _, diagnostic in
+                ValidationMessage(text: diagnostic.message)
+            }
         }
     }
 }

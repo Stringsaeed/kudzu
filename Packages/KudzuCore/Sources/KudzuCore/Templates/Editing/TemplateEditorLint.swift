@@ -23,8 +23,8 @@ public struct EditorDiagnostic: Equatable, Sendable {
 public enum TemplateEditorLint {
     /// Lints literal text that looks like a broken tag, plus chip-level issues.
     ///
-    /// Literal text is checked as typed, so an unknown `{{tag}}` keeps its underline even though canonical
-    /// serialization escapes it. `knownSnippetIDs` (when given) flags missing references.
+    /// Literal text is checked as typed, so an unknown `{{tag}}` typed by hand keeps its underline even though
+    /// canonical serialization escapes it. Unrecognized tags loaded from source are chips and are reported per chip. `knownSnippetIDs` (when given) flags missing references.
     public static func diagnostics(for segments: [TemplateSegment], knownSnippetIDs: Set<UUID>? = nil,
                                    currentSnippetID: UUID? = nil) -> [EditorDiagnostic] {
         var result = [EditorDiagnostic]()
@@ -37,7 +37,7 @@ public enum TemplateEditorLint {
             case .text(let text):
                 let parsed = TemplateParser.parse(text)
                 let tagRanges = Set(parsed.nodes.compactMap { node -> Range<Int>? in
-                    if case .tag(let tag) = node { tag.range } else { nil }
+                    if case .tag(let tag) = node, tag.verbatim == nil { tag.range } else { nil }
                 })
                 for diagnostic in parsed.diagnostics where !tagRanges.contains(diagnostic.range) {
                     let lower = escapedLength(text, upTo: diagnostic.range.lowerBound)
@@ -65,8 +65,12 @@ public enum TemplateEditorLint {
                 case .snippet(let id):
                     if id == currentSnippetID { messages.append("A snippet can't include itself") }
                     else if let knownSnippetIDs, !knownSnippetIDs.contains(id) { messages.append("Missing snippet") }
-                case .clipboard, .unknown:
+                case .clipboard:
                     break
+                case .unknown:
+                    if let verbatim = tag.verbatim, let problem = TemplateParser.parse(verbatim).diagnostics.first {
+                        messages.append(problem.message)
+                    }
                 }
                 for message in messages {
                     result.append(EditorDiagnostic(

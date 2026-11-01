@@ -5,6 +5,8 @@ import SwiftUI
 struct SnippetPreviewView: View {
     @Environment(LibraryModel.self) private var library
     var content: String
+    /// The snippet being edited, so that including itself is reported before it expands once.
+    var rootSnippetID: UUID?
 
     var body: some View {
         let result = render()
@@ -47,7 +49,8 @@ struct SnippetPreviewView: View {
             locale: .current,
             clipboard: "‹clipboard›",
             formValues: formValues,
-            resolveSnippet: { contents[$0] }
+            resolveSnippet: { contents[$0] },
+            rootSnippetID: rootSnippetID
         )
         return TemplateRenderer.render(content, context: context)
     }

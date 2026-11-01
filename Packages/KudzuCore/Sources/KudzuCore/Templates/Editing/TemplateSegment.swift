@@ -42,11 +42,11 @@ public enum TemplateSegments {
         })
     }
 
-    /// Interprets pasted plain text: as template source when it contains a valid tag, otherwise verbatim.
+    /// Interprets pasted plain text: as template source when it contains a valid tag, otherwise as literal text.
     public static func pasted(_ text: String) -> [TemplateSegment] {
         let cleaned = text.replacingOccurrences(of: String(TemplateSegment.chipCharacter), with: "")
         let segments = parse(cleaned)
-        guard segments.contains(where: { if case .chip = $0 { true } else { false } }) else {
+        guard segments.contains(where: { if case .chip(let tag) = $0 { tag.verbatim == nil } else { false } }) else {
             return cleaned.isEmpty ? [] : [.text(cleaned)]
         }
         return segments
@@ -88,7 +88,7 @@ public enum TemplateSegments {
         // "{{{date}}" should chip the inner tag, so prefer the rightmost "{{".
         if start > 0, units[start - 1] == backslash { return nil }
         let candidate = parse(String(decoding: units[start..<end], as: UTF16.self))
-        guard candidate.count == 1, case .chip(let tag) = candidate[0] else { return nil }
+        guard candidate.count == 1, case .chip(let tag) = candidate[0], tag.verbatim == nil else { return nil }
         return (start..<end, tag)
     }
 }

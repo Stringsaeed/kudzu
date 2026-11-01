@@ -8,7 +8,7 @@ private func canonical(_ source: String) -> String { TemplateSerializer.serializ
     "", "hello", "Hi {{field name=who}}, today is {{date}}.", "{{date format=\"EEEE\" offset=+1d locale=en_US}}",
     "\\{{literal}} and \\\\ backslash", "{{DATE}} unknown", "{{", "a\\", "a\\{{cursor}}", "😀{{cursor}}é\n{{clipboard trim=true}}",
     "{{choice name=tone options=\"a\\|b|c\" default=c}}", "{{snippet id=\"\(UUID())\"}}", "{{ field   name = x custom = 2 }}",
-    "{{{date}}", "}}{{time}}{{", "{{date offset=nope}}",
+    "{{{date}}", "{{{{date}}", "{{{{{x}}", "}}{{time}}{{", "{{date offset=nope}}",
 ])
 func roundTripMatchesSerializer(source: String) {
     #expect(TemplateSegments.serialize(TemplateSegments.parse(source)) == canonical(source))
@@ -21,9 +21,7 @@ func roundTripMatchesSerializer(source: String) {
         let source = (0..<Int.random(in: 0...8, using: &generator)).map { _ in pieces.randomElement(using: &generator)! }.joined()
         let segments = TemplateSegments.parse(source)
         #expect(TemplateSegments.serialize(segments) == canonical(source), "source: \(source)")
-        // Re-loading is stable, except that the syntax cannot express a literal "{" right before a tag.
-        let saved = TemplateSegments.serialize(segments)
-        if saved.contains("{{{") { continue }
+        // Re-loading is stable, including a literal "{" right before a tag.
         #expect(TemplateSegments.parse(TemplateSegments.serialize(segments)) == segments, "source: \(source)")
     }
 }

@@ -55,7 +55,7 @@ struct SnippetEditorView: View {
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
                 }
 
-                SnippetPreviewView(content: draft.content)
+                SnippetPreviewView(content: draft.content, rootSnippetID: snippet.id)
 
                 DisclosureGroup("Rules", isExpanded: $rulesExpanded) {
                     RulesSection(model: model)

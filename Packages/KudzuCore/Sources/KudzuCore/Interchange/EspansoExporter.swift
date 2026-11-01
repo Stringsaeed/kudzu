@@ -86,16 +86,16 @@ public enum EspansoExporter {
             pairs.append((Yams.Node("label"), Yams.Node(snippet.name)))
         }
 
-        let segments = TemplateTagFormatter.parseSegments(snippet.content)
-        let hasFormTags = segments.contains { seg in
-            if case .tag(let name, _, _) = seg {
-                return name == "field" || name == "choice"
+        let segments = TemplateParser.parse(snippet.content).nodes
+        let hasFormTags = segments.contains { node in
+            if case .tag(let tag) = node {
+                return tag.name == "field" || tag.name == "choice"
             }
             return false
         }
-        let hasNonFormVariableTags = segments.contains { seg in
-            if case .tag(let name, _, _) = seg {
-                return name == "date" || name == "time" || name == "clipboard" || name == "snippet"
+        let hasNonFormVariableTags = segments.contains { node in
+            if case .tag(let tag) = node {
+                return tag.name == "date" || tag.name == "time" || tag.name == "clipboard" || tag.name == "snippet"
             }
             return false
         }
@@ -138,7 +138,7 @@ public enum EspansoExporter {
     }
 
     private static func buildFormShorthand(
-        from segments: [TemplateTagFormatter.Segment]
+        from segments: [TemplateNode]
     ) -> (String, Yams.Node?) {
         var formText = ""
         var fieldConfigs: [(String, Yams.Node)] = []
@@ -146,45 +146,42 @@ public enum EspansoExporter {
 
         for segment in segments {
             switch segment {
-            case .literal(let text):
+            case .text(let text, _):
                 formText += escapeEspansoBraces(text)
-            case .tag(let name, let attrs, let raw):
-                switch name {
-                case "cursor":
+            case .tag(let tag):
+                switch tag.typed {
+                case .cursor:
                     formText += "$|$"
-                case "field":
-                    let fieldName = attrs["name"] ?? "field"
+                case .field(let fieldName, let defaultValue, let multiline):
                     formText += "[[\(fieldName)]]"
                     if !seenFields.contains(fieldName) {
                         seenFields.insert(fieldName)
                         var fieldPairs: [(Yams.Node, Yams.Node)] = []
-                        if attrs["multiline"] == "true" {
+                        if multiline {
                             fieldPairs.append((Yams.Node("multiline"), boolNode(true)))
                         }
-                        if let def = attrs["default"], !def.isEmpty {
+                        if let def = defaultValue, !def.isEmpty {
                             fieldPairs.append((Yams.Node("default"), Yams.Node(def)))
                         }
                         if !fieldPairs.isEmpty {
                             fieldConfigs.append((fieldName, Yams.Node.mapping(Yams.Node.Mapping(fieldPairs))))
                         }
                     }
-                case "choice":
-                    let fieldName = attrs["name"] ?? "choice"
+                case .choice(let fieldName, let options, let defaultValue):
                     formText += "[[\(fieldName)]]"
                     if !seenFields.contains(fieldName) {
                         seenFields.insert(fieldName)
-                        let options = TemplateTagFormatter.splitChoiceOptions(attrs["options"] ?? "")
                         var fieldPairs: [(Yams.Node, Yams.Node)] = [
                             (Yams.Node("type"), Yams.Node("choice")),
                             (Yams.Node("values"), Yams.Node.sequence(Yams.Node.Sequence(options.map { Yams.Node($0) }))),
                         ]
-                        if let def = attrs["default"], !def.isEmpty {
+                        if let def = defaultValue, !def.isEmpty {
                             fieldPairs.append((Yams.Node("default"), Yams.Node(def)))
                         }
                         fieldConfigs.append((fieldName, Yams.Node.mapping(Yams.Node.Mapping(fieldPairs))))
                     }
                 default:
-                    formText += escapeEspansoBraces(raw)
+                    formText += escapeEspansoBraces(source(of: tag))
                 }
             }
         }
@@ -201,7 +198,7 @@ public enum EspansoExporter {
     }
 
     private static func buildReplaceAndVars(
-        from segments: [TemplateTagFormatter.Segment],
+        from segments: [TemplateNode],
         snippetsByID: [UUID: SnippetRecord]
     ) -> (String, [Yams.Node]) {
         var replaceText = ""
@@ -215,29 +212,27 @@ public enum EspansoExporter {
 
         for segment in segments {
             switch segment {
-            case .literal(let text):
+            case .text(let text, _):
                 replaceText += escapeEspansoBraces(text)
-            case .tag(let name, let attrs, let raw):
-                switch name {
-                case "cursor":
+            case .tag(let tag):
+                switch tag.typed {
+                case .cursor:
                     replaceText += "$|$"
 
-                case "date", "time":
+                case .date(let icuFormat, _, let locale), .time(let icuFormat, _, let locale):
                     counter += 1
                     let varName = "date_\(counter)"
-                    let defaultICU = (name == "time") ? "HH:mm" : "yyyy-MM-dd"
-                    let icuFormat = attrs["format"] ?? defaultICU
                     let strftimeFormat = StrftimeConverter.toStrftime(icuFormat)
 
                     var paramPairs: [(Yams.Node, Yams.Node)] = [
                         (Yams.Node("format"), Yams.Node(strftimeFormat))
                     ]
-                    if let offsetStr = attrs["offset"],
+                    if let offsetStr = tag.string("offset"),
                        let seconds = StrftimeConverter.kudzuOffsetToSeconds(offsetStr),
                        seconds != 0 {
                         paramPairs.append((Yams.Node("offset"), intNode(seconds)))
                     }
-                    if let localeStr = attrs["locale"], !localeStr.isEmpty {
+                    if let localeStr = locale, !localeStr.isEmpty {
                         paramPairs.append((Yams.Node("locale"), Yams.Node(localeStr)))
                     }
 
@@ -249,7 +244,7 @@ public enum EspansoExporter {
                     varsNodes.append(varNode)
                     replaceText += "{{\(varName)}}"
 
-                case "clipboard":
+                case .clipboard:
                     counter += 1
                     let varName = "clipboard_\(counter)"
                     let varNode = Yams.Node.mapping(Yams.Node.Mapping([
@@ -259,10 +254,8 @@ public enum EspansoExporter {
                     varsNodes.append(varNode)
                     replaceText += "{{\(varName)}}"
 
-                case "snippet":
-                    if let idStr = attrs["id"],
-                       let uuid = UUID(uuidString: idStr),
-                       let targetSnippet = snippetsByID[uuid],
+                case .snippet(let uuid):
+                    if let targetSnippet = snippetsByID[uuid],
                        let targetTrigger = targetSnippet.triggers.first {
                         counter += 1
                         let varName = "match_\(counter)"
@@ -276,20 +269,19 @@ public enum EspansoExporter {
                         varsNodes.append(varNode)
                         replaceText += "{{\(varName)}}"
                     } else {
-                        replaceText += escapeEspansoBraces(raw)
+                        replaceText += escapeEspansoBraces(source(of: tag))
                     }
 
-                case "field":
-                    let fieldName = attrs["name"] ?? "field"
+                case .field(let fieldName, let defaultValue, let multiline):
                     replaceText += "{{form1.\(fieldName)}}"
                     if !seenFormFields.contains(fieldName) {
                         seenFormFields.insert(fieldName)
                         formLayoutParts.append("\(fieldName): [[\(fieldName)]]")
                         var fieldPairs: [(Yams.Node, Yams.Node)] = []
-                        if attrs["multiline"] == "true" {
+                        if multiline {
                             fieldPairs.append((Yams.Node("multiline"), boolNode(true)))
                         }
-                        if let def = attrs["default"], !def.isEmpty {
+                        if let def = defaultValue, !def.isEmpty {
                             fieldPairs.append((Yams.Node("default"), Yams.Node(def)))
                         }
                         if !fieldPairs.isEmpty {
@@ -297,25 +289,23 @@ public enum EspansoExporter {
                         }
                     }
 
-                case "choice":
-                    let fieldName = attrs["name"] ?? "choice"
+                case .choice(let fieldName, let options, let defaultValue):
                     replaceText += "{{form1.\(fieldName)}}"
                     if !seenFormFields.contains(fieldName) {
                         seenFormFields.insert(fieldName)
                         formLayoutParts.append("\(fieldName): [[\(fieldName)]]")
-                        let options = TemplateTagFormatter.splitChoiceOptions(attrs["options"] ?? "")
                         var fieldPairs: [(Yams.Node, Yams.Node)] = [
                             (Yams.Node("type"), Yams.Node("choice")),
                             (Yams.Node("values"), Yams.Node.sequence(Yams.Node.Sequence(options.map { Yams.Node($0) }))),
                         ]
-                        if let def = attrs["default"], !def.isEmpty {
+                        if let def = defaultValue, !def.isEmpty {
                             fieldPairs.append((Yams.Node("default"), Yams.Node(def)))
                         }
                         formFieldsPairs.append((Yams.Node(fieldName), Yams.Node.mapping(Yams.Node.Mapping(fieldPairs))))
                     }
 
-                default:
-                    replaceText += escapeEspansoBraces(raw)
+                case .unknown:
+                    replaceText += escapeEspansoBraces(source(of: tag))
                 }
             }
         }
@@ -336,6 +326,11 @@ public enum EspansoExporter {
         }
 
         return (replaceText, varsNodes)
+    }
+
+    /// The tag as it appears in the template: verbatim for unrecognized tags, canonical otherwise.
+    private static func source(of tag: KudzuCore.Tag) -> String {
+        TemplateSerializer.serialize([.tag(tag)])
     }
 
     private static func escapeEspansoBraces(_ literal: String) -> String {
