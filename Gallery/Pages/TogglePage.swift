@@ -7,8 +7,30 @@ struct TogglePage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.checkCircle
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
+    @State private var on = true
+
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "An on/off switch for settings that apply immediately.")
+        GalleryPageLayout(title: Self.title, summary: "Native controls with Kudzu metrics. States below: rest, hover, press, focus, disabled.") {
+            SpecimenSection("Interactive") {
+                GalleryCard {
+                    KzToggle("Expansion", isOn: $on)
+                }
+            }
+            SpecimenSection("Variants and states") {
+                GalleryCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        ForEach([false, true], id: \.self) { on in
+                            HStack(spacing: 20) {
+                                KzToggle("Expansion", isOn: .constant(on))
+                                KzToggle("Expansion", isOn: .constant(on)).kzPreviewInteraction(hovered: true)
+                                KzToggle("Expansion", isOn: .constant(on)).kzPreviewInteraction(pressed: true)
+                                KzToggle("Expansion", isOn: .constant(on)).kzPreviewInteraction(focused: true)
+                                KzToggle("Expansion", isOn: .constant(on)).disabled(true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

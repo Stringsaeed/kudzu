@@ -7,8 +7,31 @@ struct TextInputPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.cursor
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
+    @State private var text = ""
+
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A single-line text field: a `surface-sunken` well at rest, `surface-raised` with a 2px `vine-ink` edge on focus.")
+        GalleryPageLayout(title: Self.title, summary: "Native controls with Kudzu metrics. States below: rest, hover, press, focus, disabled.") {
+            SpecimenSection("Interactive") {
+                GalleryCard {
+                    KzTextInput("Snippet name", text: $text).frame(width: 300)
+                }
+            }
+            SpecimenSection("Variants and states") {
+                GalleryCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        KzTextInput("Snippet name", text: .constant(""))
+                        KzTextInput("Snippet name", text: .constant("Address")).kzPreviewInteraction(hovered: true)
+                        KzTextInput("Snippet name", text: .constant("Address")).kzPreviewInteraction(pressed: true)
+                        KzTextInput("Snippet name", text: .constant("Address")).kzPreviewInteraction(focused: true)
+                        KzTextInput("Snippet name", text: .constant("Address")).disabled(true)
+                        KzTextInput("Prefix", text: .constant(":addr"), mono: true)
+                        KzTextInput("Prefix", text: .constant(":addr"), mono: true).kzPreviewInteraction(focused: true)
+                        KzTextInput("Prefix", text: .constant(":addr"), mono: true).kzPreviewInteraction(hovered: true)
+                    KzTextInput("Prefix", text: .constant(":addr"), mono: true).kzPreviewInteraction(pressed: true)
+                    KzTextInput("Prefix", text: .constant(":addr"), mono: true).disabled(true)
+                    }.frame(width: 300)
+                }
+            }
+        }
     }
 }

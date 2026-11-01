@@ -7,8 +7,28 @@ struct SearchFieldPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.search
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
+    @State private var text = ""
+    @FocusState private var searchFocused: Bool
+
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "The search field at the top of the list pane; it filters the list below it, so it lives with the list, not in the window toolbar.")
+        GalleryPageLayout(title: Self.title, summary: "Native controls with Kudzu metrics. States below: rest, hover, press, focus, disabled.") {
+            SpecimenSection("Interactive") {
+                GalleryCard {
+                    VStack { KzSearchField(text: $text, focus: $searchFocused); KzButton("Find") { searchFocused = true }.keyboardShortcut("f", modifiers: .command) }.frame(width: 300)
+                }
+            }
+            SpecimenSection("Variants and states") {
+                GalleryCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        KzSearchField(text: .constant(""))
+                        KzSearchField(text: .constant("address")).kzPreviewInteraction(hovered: true)
+                        KzSearchField(text: .constant("address")).kzPreviewInteraction(pressed: true)
+                        KzSearchField(text: .constant("address")).kzPreviewInteraction(focused: true)
+                        KzSearchField(text: .constant("address")).disabled(true)
+                        KzSearchField(text: .constant(""), shortcut: nil)
+                    }.frame(width: 300)
+                }
+            }
+        }
     }
 }

@@ -7,8 +7,25 @@ struct SelectPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.chevronsV
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
+
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A pop-up button that shows the current choice and opens a Menu of options.")
+        GalleryPageLayout(title: Self.title, summary: "Native controls with Kudzu metrics. States below: rest, hover, press, focus, disabled.") {
+            SpecimenSection("Interactive") {
+                GalleryCard {
+                    KzSelect("All apps") {}
+                }
+            }
+            SpecimenSection("Variants and states") {
+                GalleryCard {
+                    VStack(alignment: .leading, spacing: 16) {
+                        KzSelect("All apps") {}
+                        KzSelect("All apps") {}.kzPreviewInteraction(hovered: true)
+                        KzSelect("All apps") {}.kzPreviewInteraction(pressed: true)
+                        KzSelect("All apps") {}.kzPreviewInteraction(focused: true)
+                        KzSelect("All apps") {}.disabled(true)
+                    }.frame(width: 220)
+                }
+            }
+        }
     }
 }
