@@ -7,8 +7,20 @@ struct UsageBarPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.chart
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A ranked usage bar for \"Most used\": trigger chip, a thin `vine-ink` bar on a `surface-sunken` track, and the count.")
+        GalleryPageLayout(title: Self.title, summary: "A ranked usage bar: a trigger chip in a 96pt column, an 8pt vine-ink bar on a surface-sunken track, and the count. VoiceOver reads the value as a fraction (\"64 of 128\").") {
+            SpecimenSection("Ranking") {
+                KzSettingsGroup("Most used") {
+                    VStack(spacing: 4) {
+                        KzUsageBar(":m", value: 128, maximum: 128)
+                        KzUsageBar(":an", value: 64, maximum: 128)
+                        KzUsageBar(";sig", value: 12, maximum: 128)
+                        KzUsageBar(":date", value: 1, maximum: 128)
+                    }
+                    .padding(.horizontal, KzSpace.s4)
+                    .padding(.vertical, KzSpace.s3)
+                }
+            }
+        }
     }
 }

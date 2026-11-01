@@ -7,8 +7,23 @@ struct SidebarSectionPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.folder
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A titled block of SidebarItems (\"Groups\"), with an optional action at the right of its heading (the + for a new group).")
+        GalleryPageLayout(title: Self.title, summary: "A titled block of SidebarItems with an optional action at the right of its heading. The heading is caption in ink-muted, sentence case, never uppercase. The + is a placeholder for a small IconButton.") {
+            SpecimenSection("Sections") {
+                VStack(alignment: .leading, spacing: KzSpace.s4) {
+                    KzSidebarSection {
+                        KzSidebarItem("All snippets", icon: .stack, count: 18, isActive: true) {}
+                        KzSidebarItem("Favorites", icon: .star, count: 3) {}
+                    }
+                    KzSidebarSection("Groups", action: { PlaceholderIconButton(icon: .plus, size: KzSize.controlSm) }) {
+                        KzSidebarItem("base", icon: .folder, count: 15) {}
+                        KzSidebarItem("Getting started", icon: .folder, count: 3) {}
+                    }
+                }
+                .padding(KzSpace.s2)
+                .frame(width: KzSize.sidebar, alignment: .leading)
+                .kzGlass(.regular, in: Rectangle(), blending: .withinWindow)
+            }
+        }
     }
 }

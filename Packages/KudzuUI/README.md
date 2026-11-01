@@ -125,6 +125,26 @@ A brand-new page that isn't in the design system needs two steps:
 1. Create `Gallery/Pages/<Name>Page.swift`, conforming to `GalleryPage` (`id`, `title`, `section`, `icon`).
 2. Add one line, `<Name>Page.self,`, to `Catalog.pages`.
 
+## Lists and the window
+
+**Selectable lists.** Use `List(selection:)`, not a `LazyVStack`: it is backed by `NSTableView`, so it recycles rows (thousands are fine) and gives arrow-key and type-to-select navigation, multi-select, context menus and VoiceOver selection for free. Kudzu rows (`KzSnippetRow`, `KzListRow`) are plain views; the list owns selection and you pass `isSelected`:
+
+```swift
+List(selection: $selection) {
+    ForEach(rows) { row in
+        KzSnippetRow(name: row.name, triggers: row.triggers, isSelected: selection == row.id)
+            .kzListRow().tag(row.id)
+    }
+}
+.kzSelectionList()
+```
+
+`.kzSelectionList()` turns off the system accent highlight (a small `NSTableView` bridge; if the table isn't found the list keeps the system highlight) so `vine-soft` is the only selection.
+
+**The window.** `KzAppShell(mode: .window)` applies `KzWindowChrome` to its window: hidden title, an *empty unified toolbar* (which makes AppKit build the 52pt titlebar and centre the traffic lights on y = 26, the middle of a `size-titlebar` header), full-size content and a clear background. Use `mode: .embedded` for galleries and snapshots; it leaves the window alone and draws mock lights. Build pane headers with `KzListHeader` / `KzPaneHeader`. Their `kzWindowDragArea()` lets the window be dragged by the header.
+
+**The editor.** The app's `NSTextView` editor adopts the look through `KzEditorStyle` (content attributes, inset, `configure(_:)`) and `KzEditorTag` / `KzEditorTagCell` (the inline tag). `KzEditorFrame` is the chrome around it.
+
 ## Tokens
 
 `Sources/KudzuUI/Tokens/Tokens.generated.swift` is generated from `design/kudzu/project/tokens.json`. Never edit it by hand.

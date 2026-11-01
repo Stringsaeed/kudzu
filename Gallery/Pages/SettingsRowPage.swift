@@ -7,8 +7,19 @@ struct SettingsRowPage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.sliders
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "One setting: label and optional description on the left, its control on the right. Rows inside a SettingsGroup are split by `line` hairlines.")
+        GalleryPageLayout(title: Self.title, summary: "Label (body-strong) and optional description (callout, ink-muted) and icon on the left; the control on the right. At least 52pt tall. Controls are placeholders.") {
+            SpecimenSection("Variants") {
+                KzSettingsGroup {
+                    KzSettingsRow("Label only") { PlaceholderToggle(isOn: false) }
+                    KzSettingsRow("With description", description: "One sentence, no trailing period for fragments") { PlaceholderToggle(isOn: true) }
+                    KzSettingsRow("With icon", description: "A 16pt ink-muted glyph", icon: .keyboard) { PlaceholderSelect(value: "Normal") }
+                    KzSettingsRow(description: "A custom label view, here a title and a badge", label: {
+                        HStack(spacing: KzSpace.s2) { Text("iCloud sync"); KzBadge("Coming soon") }
+                    }, control: { PlaceholderToggle(isOn: false) })
+                    KzSettingsRow("Segmented control") { PlaceholderSegmented(options: ["Fast", "Normal", "Slow"], selected: 1) }
+                }
+            }
+        }
     }
 }

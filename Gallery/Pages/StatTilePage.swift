@@ -7,8 +7,15 @@ struct StatTilePage: GalleryPage {
     static let section = GallerySection.components
     static let icon = KzIconName.chart
 
-    // Placeholder: replace with specimens of every variant and state (see Packages/KudzuUI/README.md).
     var body: some View {
-        ComponentPlaceholder(name: Self.title, summary: "A single headline number on the Stats view.")
+        GalleryPageLayout(title: Self.title, summary: "A headline number on the Stats view: label, stat value (tabular), optional icon and note. Three across with space-3 gaps; tiles stretch to the tallest.") {
+            SpecimenSection("Row") {
+                KzStatTileRow {
+                    KzStatTile("Expansions", value: "1,284", icon: .bolt, note: "+12% on last week")
+                    KzStatTile("Characters saved", value: "30", icon: .type)
+                    KzStatTile("Time saved", value: "2h 14m", icon: .timer)
+                }
+            }
+        }
     }
 }
