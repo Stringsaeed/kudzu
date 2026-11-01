@@ -33,6 +33,27 @@ struct IconTests {
         #expect(throws: KzSVGPath.ParseError.self) { try KzSVGPath.parse("M8") }
     }
 
+    @Test("Z takes no coordinates: a number after it throws instead of looping forever")
+    func closeTakesNoCoordinates() {
+        // Run on a separate thread so a regression fails the test instead of hanging the run.
+        final class Outcome: @unchecked Sendable { var threw: [Bool] = [] }
+        let outcome = Outcome()
+        let finished = DispatchSemaphore(value: 0)
+        Thread {
+            for d in ["M0 0Z10 10", "M0 0 z 1", "M0 0z,5"] {
+                outcome.threw.append((try? KzSVGPath.parse(d)) == nil)
+            }
+            finished.signal()
+        }.start()
+        guard finished.wait(timeout: .now() + 5) == .success else {
+            Issue.record("KzSVGPath.parse did not return")
+            return
+        }
+        #expect(outcome.threw == [true, true, true])
+        // A command after Z is still fine.
+        #expect(throws: Never.self) { try KzSVGPath.parse("M0 0h4v4zm6 0h2v2Z M1 1 L2 2z") }
+    }
+
     @Test("Every glyph parses and stays on the 16 grid", arguments: KzIconName.allCases)
     func glyphParses(_ name: KzIconName) throws {
         for part in name.parts {

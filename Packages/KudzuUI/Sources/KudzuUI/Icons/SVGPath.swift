@@ -103,6 +103,12 @@ public enum KzSVGPath {
             case "Z":
                 path.closeSubpath()
                 current = subpathStart
+                // Z takes no arguments, so it has no implicit repeat: a number after it would be read
+                // as another Z forever.
+                scanner.skipSeparators()
+                if !scanner.atEnd, scanner.peekCommand() == nil {
+                    throw ParseError(message: "closepath takes no coordinates", offset: scanner.offset)
+                }
             default:
                 throw ParseError(message: "unknown command \(cmd)", offset: scanner.offset)
             }
