@@ -26,5 +26,18 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Muhammed Ibrahim. MIT License.</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Kudzu Library Item</string>
+			<key>UTTypeIdentifier</key>
+			<string>sh.saeed.kudzu.drag</string>
+		</dict>
+	</array>
 </dict>
 </plist>

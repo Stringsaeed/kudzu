@@ -41,6 +41,11 @@ targetTemplates:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: "© 2026 Muhammed Ibrahim. MIT License."
+        # In-app drag type for moving snippets and groups in the sidebar.
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: sh.saeed.kudzu.drag
+            UTTypeDescription: Kudzu Library Item
+            UTTypeConformsTo: [public.data]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu
