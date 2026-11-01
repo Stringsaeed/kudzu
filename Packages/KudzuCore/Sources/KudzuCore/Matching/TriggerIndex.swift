@@ -47,7 +47,7 @@ public struct TriggerIndex: Sendable {
                     updatedAt: snippet.updatedAt,
                     caseMode: snippet.caseMode,
                     rule: effective.rule.map(IndexedRule.init),
-                    insertion: effective.insertion ?? config.defaultInsertion
+                    insertion: effective.insertion
                 )
             )
             for (text, chars) in triggers {
@@ -73,6 +73,13 @@ public struct TriggerIndex: Sendable {
     ///   it end with the trigger, and the character before the trigger is a separator or the start of the buffer.
     ///
     /// When several triggers match, the longest wins, then the most recently updated snippet.
+    ///
+    /// Insertion method precedence for a matched snippet:
+    /// 1. The matching snippet/group `AppRule.insertion` (when `bundleID` is listed in `rule.bundleIDs`).
+    /// 2. `snippet.insertion`.
+    /// 3. The nearest ancestor group's `insertion`.
+    /// 4. The global per-app override in `config.appInsertions[bundleID]`.
+    /// 5. `config.defaultInsertion`.
     public func match(buffer: KeyBuffer, lastInput: KeyInput, bundleID: String?) -> TriggerMatch? {
         guard case .character = lastInput, !entries.isEmpty else { return nil }
         let chars = buffer.characters
@@ -97,7 +104,7 @@ public struct TriggerIndex: Sendable {
             typedTrigger: typed,
             deleteCount: entry.length,
             separator: separator,
-            insertion: snippet.insertion(for: bundleID),
+            insertion: snippet.insertion(for: bundleID, config: config),
             caseStyle: snippet.caseMode == .propagate ? CasePropagation.detect(typedTrigger: typed) : .asIs,
             fireMode: entry.fireMode
         )
@@ -194,8 +201,12 @@ private struct IndexedRule: Sendable {
     /// An unknown app (`nil`) cannot satisfy an allow-list and is not caught by a deny-list.
     func permits(_ bundleID: String?) -> Bool {
         switch mode {
-        case .allow: return bundleID.map(bundleIDs.contains) ?? false
-        case .deny: return bundleID.map { !bundleIDs.contains($0) } ?? true
+        case .allow:
+            guard let bundleID else { return false }
+            return bundleIDs.contains(bundleID)
+        case .deny:
+            guard let bundleID else { return true }
+            return !bundleIDs.contains(bundleID)
         }
     }
 }
@@ -205,15 +216,26 @@ private struct IndexedSnippet: Sendable {
     var updatedAt: Date
     var caseMode: CaseMode
     var rule: IndexedRule?
-    /// snippet ▸ nearest group ▸ config default, before any per-app override.
-    var insertion: InsertionMethod
+    /// `snippet.insertion` ▸ nearest group's `insertion`, before any per-app or config fallback.
+    var insertion: InsertionMethod?
 
-    /// The rule's per-app insertion override wins when the frontmost app is in the rule's list.
-    func insertion(for bundleID: String?) -> InsertionMethod {
+    /// Resolves the insertion method for `bundleID` in precedence order:
+    /// 1. The matching snippet/group `AppRule.insertion`, when `bundleID` is in the rule's `bundleIDs`.
+    /// 2. `snippet.insertion`.
+    /// 3. The nearest ancestor group's `insertion`.
+    /// 4. The global per-app override in `config.appInsertions[bundleID]`.
+    /// 5. `config.defaultInsertion`.
+    func insertion(for bundleID: String?, config: MatchingConfig) -> InsertionMethod {
         if let override = rule?.insertion, let bundleID, rule?.bundleIDs.contains(bundleID) == true {
             return override
         }
-        return insertion
+        if let insertion {
+            return insertion
+        }
+        if let bundleID, let appOverride = config.appInsertions[bundleID] {
+            return appOverride
+        }
+        return config.defaultInsertion
     }
 }
 

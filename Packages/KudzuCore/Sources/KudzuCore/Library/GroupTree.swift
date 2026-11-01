@@ -18,6 +18,8 @@ public struct GroupNode: Identifiable, Hashable, Sendable {
 public struct GroupTree: Sendable {
     /// Top-level groups in display order, with their subtrees.
     public private(set) var roots: [GroupNode] = []
+    /// Inheritance resolver over this tree's groups.
+    public let resolver: GroupResolver
 
     private var byID: [UUID: GroupRecord] = [:]
     private var childIDs: [UUID?: [UUID]] = [:]
@@ -25,6 +27,7 @@ public struct GroupTree: Sendable {
 
     /// Builds the tree from flat group records.
     public init(groups: [GroupRecord]) {
+        self.resolver = GroupResolver(groups: groups)
         for group in groups where byID[group.id] == nil { byID[group.id] = group }
         let ordered = byID.values.sorted(by: Self.displayOrder)
 
@@ -105,26 +108,28 @@ public struct GroupTree: Sendable {
 
     /// Whether the group and all its ancestors are enabled.
     public func isEffectivelyEnabled(_ id: UUID) -> Bool {
-        guard let group = byID[id], group.isEnabled else { return false }
-        return ancestorIDs(of: id).allSatisfy { byID[$0]?.isEnabled ?? true }
+        guard byID[id] != nil else { return false }
+        return resolver.settings(forGroup: id).isEnabled
+    }
+
+    /// Settings inherited by a snippet in `groupID` (including `groupID` itself and its ancestors).
+    public func inheritedSettings(forGroup groupID: UUID?) -> InheritedGroupSettings {
+        resolver.settings(forGroup: groupID)
+    }
+
+    /// Settings inherited by `groupID` itself from its parent chain (excluding `groupID`'s own rule/insertion).
+    public func inheritedSettings(forGroupItself groupID: UUID) -> InheritedGroupSettings {
+        resolver.inheritedSettings(forGroupItself: groupID)
     }
 
     /// The nearest rule set on `groupID` or one of its ancestors, with the group that sets it.
     public func inheritedRule(forGroup groupID: UUID?) -> (rule: AppRule, from: GroupRecord)? {
-        guard let groupID else { return nil }
-        for id in [groupID] + ancestorIDs(of: groupID) {
-            if let group = byID[id], let rule = group.rule { return (rule, group) }
-        }
-        return nil
+        resolver.inheritedRule(forGroup: groupID)
     }
 
     /// The nearest insertion override on `groupID` or one of its ancestors, with the group that sets it.
     public func inheritedInsertion(forGroup groupID: UUID?) -> (method: InsertionMethod, from: GroupRecord)? {
-        guard let groupID else { return nil }
-        for id in [groupID] + ancestorIDs(of: groupID) {
-            if let group = byID[id], let method = group.insertion { return (method, group) }
-        }
-        return nil
+        resolver.inheritedInsertion(forGroup: groupID)
     }
 
     // MARK: - Counts

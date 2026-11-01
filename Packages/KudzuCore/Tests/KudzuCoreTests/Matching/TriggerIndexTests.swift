@@ -544,6 +544,73 @@ struct TriggerIndexRuleTests {
         let index = makeIndex([snip([";x"], insertion: .type, rule: rule)])
         #expect(try #require(type(";x", on: index, bundleID: "com.term")).insertion == .type)
     }
+
+    @Test func defaultConfigUsesPasteForDefaultTerminals() throws {
+        let index = makeIndex([snip([";x"])])
+        let terminals = [
+            "com.apple.Terminal",
+            "com.googlecode.iterm2",
+            "dev.warp.Warp-Stable",
+            "com.mitchellh.ghostty",
+            "org.alacritty",
+            "net.kovidgoyal.kitty",
+            "com.github.wez.wezterm",
+        ]
+        for bundleID in terminals {
+            let match = try #require(type(";x", on: index, bundleID: bundleID))
+            #expect(match.insertion == .paste, "\(bundleID) should default to paste")
+        }
+        #expect(try #require(type(";x", on: index, bundleID: "com.apple.Notes")).insertion == .automatic)
+    }
+
+    @Test func globalPerAppInsertionOverrideAppliesBeforeDefault() throws {
+        let config = MatchingConfig(
+            defaultInsertion: .automatic,
+            appInsertions: ["com.custom.app": .type]
+        )
+        let index = makeIndex([snip([";x"])], config: config)
+        #expect(try #require(type(";x", on: index, bundleID: "com.custom.app")).insertion == .type)
+        #expect(try #require(type(";x", on: index, bundleID: "com.other.app")).insertion == .automatic)
+        #expect(try #require(type(";x", on: index, bundleID: nil)).insertion == .automatic)
+    }
+
+    @Test func fullInsertionPrecedenceOrder() throws {
+        // Precedence:
+        // 1. Matching snippet/group AppRule.insertion
+        // 2. snippet.insertion
+        // 3. group.insertion
+        // 4. global per-app override (config.appInsertions)
+        // 5. config.defaultInsertion
+        let app = "com.target.app"
+        let otherApp = "com.other.app"
+        let config = MatchingConfig(
+            defaultInsertion: .automatic,
+            appInsertions: [app: .paste]
+        )
+
+        // Level 1 beats Level 2, 3, 4, 5
+        let ruleWithInsertion = AppRule(mode: .allow, bundleIDs: [app], insertion: .type)
+        let g1 = group("g1", insertion: .automatic)
+        let s1 = snip([";1"], group: g1.id, insertion: .automatic, rule: ruleWithInsertion)
+
+        // Level 2 (snippet.insertion) beats Level 3, 4, 5
+        let g2 = group("g2", insertion: .automatic)
+        let s2 = snip([";2"], group: g2.id, insertion: .type)
+
+        // Level 3 (group.insertion) beats Level 4, 5
+        let g3 = group("g3", insertion: .type)
+        let s3 = snip([";3"], group: g3.id)
+
+        // Level 4 (global per-app override) beats Level 5 in `app`, falls back to Level 5 in `otherApp`
+        let s4 = snip([";4"])
+
+        let index = makeIndex([s1, s2, s3, s4], groups: [g1, g2, g3], config: config)
+        #expect(try #require(type(";1", on: index, bundleID: app)).insertion == .type)
+        #expect(try #require(type(";2", on: index, bundleID: app)).insertion == .type)
+        #expect(try #require(type(";3", on: index, bundleID: app)).insertion == .type)
+        #expect(try #require(type(";4", on: index, bundleID: app)).insertion == .paste)
+        #expect(try #require(type(";4", on: index, bundleID: otherApp)).insertion == .automatic)
+    }
 }
 
 @Suite("TriggerIndex – performance")
