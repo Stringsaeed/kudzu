@@ -21,7 +21,7 @@ func roundTripMatchesSerializer(source: String) {
         let source = (0..<Int.random(in: 0...8, using: &generator)).map { _ in pieces.randomElement(using: &generator)! }.joined()
         let segments = TemplateSegments.parse(source)
         #expect(TemplateSegments.serialize(segments) == canonical(source), "source: \(source)")
-        // Re-loading the saved source is stable, except for the known "{" + tag gap (see BACKLOG).
+        // Re-loading is stable, except that the syntax cannot express a literal "{" right before a tag.
         let saved = TemplateSegments.serialize(segments)
         if saved.contains("{{{") { continue }
         #expect(TemplateSegments.parse(TemplateSegments.serialize(segments)) == segments, "source: \(source)")
