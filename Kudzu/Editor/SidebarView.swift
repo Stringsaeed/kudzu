@@ -21,6 +21,7 @@ struct SidebarView: View {
     @State private var renaming: UUID?
     @State private var renameText = ""
     @State private var deleting: GroupRecord?
+    @State private var editingRules: GroupRecord?
     @State private var indicator: DropIndicator?
     @FocusState private var renameFocused: Bool
 
@@ -71,6 +72,9 @@ struct SidebarView: View {
         } message: { group in
             Text(deletionMessage(for: group))
         }
+        .sheet(item: $editingRules) { group in
+            GroupRulesSheet(groupID: group.id)
+        }
     }
 
     // MARK: - Selection
@@ -101,6 +105,7 @@ struct SidebarView: View {
             indicator: $indicator,
             onNewGroup: createGroup(under:),
             onRename: beginRename,
+            onEditRules: { editingRules = $0 },
             onDelete: requestDelete
         )
     }
@@ -174,6 +179,7 @@ struct GroupRowContext {
     var indicator: Binding<DropIndicator?>
     var onNewGroup: (UUID?) -> Void
     var onRename: (UUID) -> Void
+    var onEditRules: (GroupRecord) -> Void
     var onDelete: (GroupRecord) -> Void
 }
 
@@ -276,11 +282,67 @@ private struct GroupRow: View {
         Button("New Subgroup") { ctx.onNewGroup(group.id) }
         Divider()
         Button("Rename") { ctx.onRename(group.id) }
+        Button("Rules…") { ctx.onEditRules(group) }
         Button(group.isEnabled ? "Disable" : "Enable") {
             ctx.library.setGroupEnabled(group.id, !group.isEnabled)
         }
         Divider()
         Button("Delete…", role: .destructive) { ctx.onDelete(group) }
+    }
+}
+
+/// Sheet for editing a group's `AppRule` and `InsertionMethod` override via `RulesSection`.
+private struct GroupRulesSheet: View {
+    @Environment(LibraryModel.self) private var library
+    @Environment(\.dismiss) private var dismiss
+    let groupID: UUID
+
+    private var group: GroupRecord? {
+        library.tree.group(groupID)
+    }
+
+    private var ruleBinding: Binding<AppRule?> {
+        Binding(
+            get: { group?.rule },
+            set: { newRule in
+                library.setGroupRules(groupID, rule: newRule, insertion: group?.insertion)
+            }
+        )
+    }
+
+    private var insertionBinding: Binding<InsertionMethod?> {
+        Binding(
+            get: { group?.insertion },
+            set: { newInsertion in
+                library.setGroupRules(groupID, rule: group?.rule, insertion: newInsertion)
+            }
+        )
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Label(group?.name ?? "Group", systemImage: "folder")
+                    .font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+
+            Text("Snippets and subgroups in this group inherit these settings unless they set their own.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            RulesSection(
+                rule: ruleBinding,
+                insertion: insertionBinding,
+                inherited: library.tree.inheritedSettings(forGroupItself: groupID),
+                defaultInsertion: AppMatchingSettings.shared.defaultInsertion,
+                inheritOptionTitle: group?.parentID == nil ? "All apps" : "Inherit from group"
+            )
+        }
+        .padding(20)
+        .frame(minWidth: 420, idealWidth: 460)
     }
 }
 

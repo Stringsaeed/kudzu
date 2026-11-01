@@ -7,6 +7,7 @@ final class EventTap {
     enum Signal { case character(String), backspace, reset }
     nonisolated static let replayMarker: Int64 = 0x4B5552504C
     nonisolated static let syntheticMarker: Int64 = 0x4B55445A55
+    var onMouseDown: ((CGEvent) -> Void)?
     var onSignal: ((Signal) -> Void)?
     var onKey: ((CGEvent, Signal?, Bool) -> Bool)?
     private(set) var mode: ExpansionTapMode?
@@ -73,7 +74,10 @@ final class EventTap {
         }
         let marker = event.getIntegerValueField(.eventSourceUserData)
         guard marker != Self.syntheticMarker else { return false }
-        guard type == .keyDown || type == .keyUp else { onSignal?(.reset); return false }
+        guard type == .keyDown || type == .keyUp else {
+            if let onMouseDown { onMouseDown(event) } else { onSignal?(.reset) }
+            return false
+        }
         let swallow = onKey?(event, type == .keyDown ? signal(for: event) : nil,
                              marker == Self.replayMarker) ?? false
         return mode == .active && swallow

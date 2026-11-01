@@ -55,12 +55,17 @@ struct SnippetEditorView: View {
                         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.secondary.opacity(0.25)))
                 }
 
-                SnippetPreviewView(content: draft.content)
+                SnippetPreviewView(content: draft.content, rootSnippetID: snippet.id)
 
                 DisclosureGroup("Rules", isExpanded: $rulesExpanded) {
-                    RulesSection(model: model)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 10)
+                    RulesSection(
+                        rule: model.binding(\.rule),
+                        insertion: model.binding(\.insertion),
+                        inherited: library.tree.inheritedSettings(forGroup: draft.groupID),
+                        defaultInsertion: AppMatchingSettings.shared.defaultInsertion
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 10)
                 }
                 .font(.headline)
 

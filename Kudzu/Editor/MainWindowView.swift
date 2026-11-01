@@ -66,6 +66,7 @@ private struct MainWindowContent: View {
         }
         .onChange(of: library.revision) { browser.prune(using: library) }
         .onChange(of: model.pendingNewSnippetContent) { if started { consumePendingContent() } }
+        .onChange(of: model.pendingSelectSnippetID) { if started { consumePendingSelection() } }
     }
 
     // MARK: - Startup
@@ -82,6 +83,7 @@ private struct MainWindowContent: View {
         }
         started = true
         consumePendingContent()
+        consumePendingSelection()
         await library.observeChanges()
     }
 
@@ -95,6 +97,15 @@ private struct MainWindowContent: View {
             nameHint: UniqueName.name(fromContent: content, fallback: "New Snippet"),
             focus: .trigger
         )
+    }
+
+    /// The palette's ⌘E hands over a snippet to select.
+    private func consumePendingSelection() {
+        guard let id = model.pendingSelectSnippetID else { return }
+        model.pendingSelectSnippetID = nil
+        // The palette may know about a snippet this window hasn't reloaded yet.
+        if library.snippetsByID[id] == nil { library.reload() }
+        browser.reveal(id, in: library)
     }
 
     // MARK: - Columns

@@ -15,6 +15,11 @@ struct SettingsView: View {
                     Label("General", systemImage: "gearshape")
                 }
 
+            AppsSettingsTab()
+                .tabItem {
+                    Label("Apps", systemImage: "app.badge.checkmark")
+                }
+
             SyncSettingsTab()
                 .tabItem {
                     Label("Sync", systemImage: "icloud")
@@ -99,6 +104,8 @@ private struct GeneralSettingsTab: View {
                     .frame(width: 80)
                     .textFieldStyle(.roundedBorder)
                 }
+
+                LabeledContent("Search palette shortcut") { PaletteShortcutSetting() }
             }
 
             Section("Onboarding") {

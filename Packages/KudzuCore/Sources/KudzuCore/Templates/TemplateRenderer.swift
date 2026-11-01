@@ -16,12 +16,16 @@ public struct RenderContext: Sendable {
     public var formValues: [String: String]
     /// Resolves an ID to template source, never pre-rendered text.
     public var resolveSnippet: @Sendable (UUID) -> String?
+    /// The snippet being rendered, if known; a reference to it is a cycle even at the top level.
+    public var rootSnippetID: UUID?
     /// Creates a rendering context with explicit temporal inputs.
     public init(now: Date, calendar: Calendar, timeZone: TimeZone, locale: Locale,
                 clipboard: String? = nil, formValues: [String: String] = [:],
-                resolveSnippet: @escaping @Sendable (UUID) -> String? = { _ in nil }) {
+                resolveSnippet: @escaping @Sendable (UUID) -> String? = { _ in nil },
+                rootSnippetID: UUID? = nil) {
         self.now = now; self.calendar = calendar; self.timeZone = timeZone; self.locale = locale
         self.clipboard = clipboard; self.formValues = formValues; self.resolveSnippet = resolveSnippet
+        self.rootSnippetID = rootSnippetID
     }
 }
 
@@ -40,7 +44,7 @@ public enum TemplateRenderer {
     /// Renders source with a maximum of eight nested snippet levels.
     public static func render(_ source: String, context: RenderContext) -> RenderResult {
         var state = Renderer(context: context)
-        state.render(source, path: [], depth: 0)
+        state.render(source, path: context.rootSnippetID.map { [$0] } ?? [], depth: 0)
         return state.result
     }
 }
@@ -93,7 +97,7 @@ private struct Renderer {
                         formatters[key] = formatter
                     }
                     append(formatter.string(from: date))
-                case .unknown: append(TemplateSerializer.serialize([node]))
+                case .unknown: append(TemplateSerializer.serialize([node]))  // verbatim source for unrecognized tags
                 }
             }
         }
