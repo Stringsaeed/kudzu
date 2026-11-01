@@ -127,7 +127,10 @@ final class ExpansionEngine {
     }
 
     private var allowed: Bool {
+        // A key non-activating panel (palette, form) receives typing while another app stays
+        // frontmost, so the frontmost check alone would expand triggers typed into our own panels.
         !capturingSelection && !isPaused && !secureInputActive && permissions.postEvent &&
+        NSApp.keyWindow == nil &&
         NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier
     }
 
