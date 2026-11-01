@@ -403,3 +403,12 @@ This is how to review visual changes without a screen. PNGs go to `Packages/Kudz
 - **Limits.**
   - `NSVisualEffectView` can't render offscreen, so `kzGlass` draws only its tint when `\.kzSnapshotRendering` is set. `KzSnapshot` sets it for you.
   - Hover, press and focus can't happen offscreen. Force them with `.kzPreviewInteraction(…)`.
+
+## Design decisions
+
+These are cases where the design system contradicts itself, and the user's choice (2026-11-02). Don't reopen them. If the design system is updated, update its CSS to match.
+
+| Question | Decision | Why |
+| --- | --- | --- |
+| Menu item icon colour (the CSS uses `vine-ink`, the icon rule says `ink-muted`) | `ink-muted` at rest, `ink` when highlighted; only the check mark is `vine-ink` | Principle 1: a menu with many accent icons buries the one mark that carries state (the check). |
+| EmptyState title (CSS 15/20/600, `tokens.json` says `title-lg`) | `title-lg` (20/26/600) | The user preferred the larger title in the gallery. |
