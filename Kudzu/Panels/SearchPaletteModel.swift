@@ -152,12 +152,11 @@ final class SearchPaletteModel {
     /// The preview passes `placeholders: true`, so empty fields and the clipboard show as ‹name›
     /// instead of reading the real clipboard on every selection change.
     func render(_ snippet: SnippetRecord, placeholders: Bool) -> RenderResult {
-        let info = TemplateAnalysis.analyze(TemplateParser.parse(snippet.content))
+        let contents = contents
         var formValues: [String: String] = [:]
-        for field in info.formFields {
+        for field in TemplateAnalysis.formFields(in: snippet.content, resolveSnippet: { contents[$0] }) {
             formValues[field.name] = field.defaultValue ?? field.options.first ?? (placeholders ? "‹\(field.name)›" : "")
         }
-        let contents = contents
         let context = RenderContext(
             now: .now,
             calendar: .current,
@@ -165,13 +164,15 @@ final class SearchPaletteModel {
             locale: .current,
             clipboard: placeholders ? "‹clipboard›" : NSPasteboard.general.string(forType: .string),
             formValues: formValues,
-            resolveSnippet: { contents[$0] }
+            resolveSnippet: { contents[$0] },
+            rootSnippetID: snippet.id
         )
         return TemplateRenderer.render(snippet.content, context: context)
     }
 
     /// Whether the snippet has form fields (the preview notes that defaults are shown).
     func hasFormFields(_ snippet: SnippetRecord) -> Bool {
-        !TemplateAnalysis.analyze(TemplateParser.parse(snippet.content)).formFields.isEmpty
+        let contents = contents
+        return !TemplateAnalysis.formFields(in: snippet.content, resolveSnippet: { contents[$0] }).isEmpty
     }
 }
