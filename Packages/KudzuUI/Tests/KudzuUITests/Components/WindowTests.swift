@@ -44,8 +44,8 @@ import Testing
         #expect(window.styleMask.contains(.fullSizeContentView))
         #expect(window.toolbar?.identifier == KzWindowChrome.toolbarIdentifier)
         #expect(window.toolbar?.items.isEmpty == true)
-        #expect(window.isOpaque == false)
-        #expect(window.backgroundColor == .clear)
+        #expect(window.isOpaque)
+        #expect(window.backgroundColor == KzColorToken.surfaceRaised.nsColor)
         #expect(window.standardWindowButton(.closeButton)?.isHidden == false)
 
         // Idempotent, and an app's own toolbar is respected.
@@ -66,7 +66,7 @@ import Testing
             await settle(0.05)
         }
         #expect(window.titleVisibility == .hidden)
-        #expect(window.isOpaque == false)
+        #expect(window.isOpaque)
         #expect(window.toolbar != nil)
     }
 }

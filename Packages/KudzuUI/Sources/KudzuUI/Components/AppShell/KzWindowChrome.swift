@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 /// Window chrome for Kudzu's one window: no title, no toolbar, traffic lights kept, content drawn
-/// edge to edge and a clear window background, so the sidebar's behind-window blur reaches the desktop.
+/// edge to edge on an opaque `surface-raised` window; the sidebar's behind-window blur still reaches the desktop.
 ///
 /// ## Traffic-light alignment
 ///
@@ -64,11 +64,11 @@ public enum KzWindowChrome {
             window.toolbar = toolbar
         }
         window.toolbarStyle = .unified
-        // No fill: the sidebar's `.behindWindow` visual effect needs a transparent window to blur the desktop.
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        // A transparent window computes its shadow from what is drawn, which isn't settled yet.
-        DispatchQueue.main.async { [weak window] in window?.invalidateShadow() }
+        // An opaque fill. The sidebar's `.behindWindow` effect still blurs the desktop (as in Finder), and
+        // anything macOS fades under the titlebar (the macOS 26 scroll edge effect) fades into the
+        // window colour instead of showing the desktop through a see-through strip.
+        window.isOpaque = true
+        window.backgroundColor = KzColorToken.surfaceRaised.nsColor
     }
 
     /// The close button's vertical centre measured from the top of the window, or `nil` without a close button.

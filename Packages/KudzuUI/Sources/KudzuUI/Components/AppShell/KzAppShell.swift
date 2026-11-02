@@ -4,7 +4,7 @@ import SwiftUI
 /// How a `KzAppShell` relates to its window.
 public enum KzAppShellMode: Sendable {
     /// The shell is the content of a real window: it applies `KzWindowChrome` (hidden title and toolbar,
-    /// full-size content, clear background) and the system draws the traffic lights.
+    /// full-size content, opaque background) and the system draws the traffic lights.
     case window
     /// The shell is shown inside something else (the gallery, a snapshot): the window is left alone,
     /// and the shell draws mock traffic lights, rounded corners and a window shadow.
@@ -16,7 +16,7 @@ public enum KzAppShellMode: Sendable {
 ///
 /// Widths come from `size-sidebar` (220) and `size-list` (300); the detail pane takes the rest. Every
 /// pane's header row is `size-titlebar` tall, so the headers line up with the traffic lights; build
-/// them with `KzListHeader` and `KzPaneHeader`. In `.window` mode the shell has no fill, so the
+/// them with `KzListHeader` and `KzPaneHeader`. In `.window` mode the sidebar uses behind-window glass, so the
 /// sidebar's backdrop blur reaches the desktop as a macOS sidebar does.
 public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View, ListPane: View, Detail: View>: View {
     private let mode: KzAppShellMode
@@ -68,6 +68,7 @@ public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View
             // The 52pt titlebar would otherwise be a top safe-area inset and push every pane down.
             shell
                 .ignoresSafeArea()
+                .modifier(KzHiddenTopScrollEdgeEffect())
                 .kzWindowChrome()
         case .embedded:
             let window = RoundedRectangle(cornerRadius: KzRadius.xl, style: .continuous)
@@ -166,5 +167,17 @@ private struct KzMockTrafficLights: View {
         .padding(.top, KzWindowChrome.Lights.top)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+}
+
+/// Turns off the macOS 26 scroll edge effect under the titlebar. Every pane draws its own opaque
+/// 52pt header there, and the effect would blur those headers (and the sidebar's) into a band.
+private struct KzHiddenTopScrollEdgeEffect: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            content.scrollEdgeEffectHidden(true, for: .top)
+        } else {
+            content
+        }
     }
 }

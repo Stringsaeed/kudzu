@@ -15,8 +15,8 @@
         },
         {
           "glass" : false,
-          "image-name" : "01-paper-keycap.svg",
-          "name" : "01-paper-keycap"
+          "image-name" : "01-paper-keycap-realistic-1024.png",
+          "name" : "01-paper-keycap-realistic-1024"
         }
       ],
       "name" : "Porcelain key · flush legend",
