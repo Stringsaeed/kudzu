@@ -1,75 +1,108 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
-/// Middle column: the snippets in the selected scope, with search, sort, multi-select and context menu.
+/// The list pane: header, search, and the snippets in the selected scope, with sort, multi-select,
+/// drag into groups and a right-click menu.
 struct SnippetListView: View {
     @Environment(LibraryModel.self) private var library
     @Environment(BrowserState.self) private var browser
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
     @AppStorage("snippetSortOrder") private var sortRaw = SnippetSortOrder.name.rawValue
 
-    @State private var deleteRequest: [UUID] = []
-    @State private var showDeleteConfirmation = false
+    let searchFocus: FocusState<Bool>.Binding
+    @State private var contextTarget: UUID?
 
     private var sort: SnippetSortOrder { SnippetSortOrder(rawValue: sortRaw) ?? .name }
 
     var body: some View {
         @Bindable var browser = browser
         let rows = library.snippets(in: browser.scope, query: browser.query, sort: sort)
-        List(rows, selection: $browser.selection) { snippet in
-            SnippetRow(snippet: snippet, showsGroup: showsGroup(for: snippet))
-                .onDrag {
-                    let ids = browser.selection.contains(snippet.id) ? Array(browser.selection) : [snippet.id]
-                    browser.dragging = .snippets(ids)
-                    return .kudzuDragMarker()
+        KzListHeader(title, subtitle: subtitle(count: rows.count)) {
+            KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") {
+                for order in SnippetSortOrder.allCases {
+                    KzMenuItem(order.sentenceTitle, isChecked: sort == order) { sortRaw = order.rawValue }
                 }
+            }
+            // Recently used is always newest first.
+            .disabled(browser.scope == .recent)
+            KzIconButton(.compose, label: "New snippet (⌘N)") { browser.newSnippet(library: library) }
         }
-        .contextMenu(forSelectionType: UUID.self) { ids in
-            menu(for: Array(ids))
-        } primaryAction: { _ in }
-        .onDeleteCommand { requestDelete(Array(browser.selection)) }
-        .overlay { emptyState(rowCount: rows.count) }
-        .searchable(text: $browser.query, placement: .toolbar, prompt: "Search snippets")
-        .navigationTitle(title)
-        .navigationSubtitle(subtitle(count: rows.count))
-        .toolbar {
-            ToolbarItem {
-                Menu {
-                    Picker("Sort By", selection: $sortRaw) {
-                        ForEach(SnippetSortOrder.allCases) { order in
-                            Text(order.title).tag(order.rawValue)
+        KzSearchField(text: $browser.query, focus: searchFocus)
+            .padding(.horizontal, KzSpace.s3)
+            .padding(.bottom, KzSpace.s2)
+        list(rows)
+            .overlay { emptyState(rowCount: rows.count) }
+    }
+
+    @ViewBuilder
+    private func list(_ rows: [SnippetRecord]) -> some View {
+        @Bindable var browser = browser
+        if snapshotRendering {
+            // `NSTableView` can't render offscreen: snapshots show the same rows in a plain column.
+            VStack(spacing: 1) {
+                ForEach(rows) { row($0) }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, KzSpace.s2)
+            .frame(maxHeight: .infinity, alignment: .top)
+        } else {
+            List(selection: $browser.selection) {
+                ForEach(rows) { snippet in
+                    row(snippet)
+                        .onDrag {
+                            browser.dragging = .snippets(browser.targets(for: snippet.id))
+                            return .kudzuDragMarker()
                         }
-                    }
-                    .pickerStyle(.inline)
-                } label: {
-                    Label("Sort", systemImage: "arrow.up.arrow.down")
+                        .kzListRow()
+                        .tag(snippet.id)
                 }
-                .help("Sort snippets")
-                .disabled(browser.scope == .recent)
+            }
+            .kzSelectionList()
+            .onDeleteCommand { browser.requestDelete(Array(browser.selection), in: library) }
+            // Right-clicking the empty space below the rows.
+            .kzContextMenu {
+                KzMenuItem("New snippet", icon: .compose) { browser.newSnippet(library: library) }
+                    .keyboardShortcut("n")
             }
         }
-        .confirmationDialog(
-            deleteTitle,
-            isPresented: $showDeleteConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Delete", role: .destructive) {
-                library.deleteSnippets(deleteRequest)
-                browser.prune(using: library)
-                deleteRequest = []
-            }
-            Button("Cancel", role: .cancel) { deleteRequest = [] }
-        } message: {
-            Text("This also removes their usage history. You can't undo this.")
+    }
+
+    private func row(_ snippet: SnippetRecord) -> some View {
+        let isTarget = contextTarget.map { browser.targets(for: $0).contains(snippet.id) } ?? false
+        return KzSnippetRow(
+            name: snippet.name.isEmpty ? "Untitled" : snippet.name,
+            triggers: snippet.triggers,
+            preview: SnippetPreviewText.line(for: snippet, contents: library.contentByID),
+            group: showsGroup(for: snippet) ? library.groupPath(of: snippet) : nil,
+            uses: library.stats[snippet.id]?.count,
+            isFavorite: snippet.isFavorite,
+            isSelected: browser.selection.contains(snippet.id)
+        )
+        // Disabled snippets, and snippets in a disabled group, never expand.
+        .opacity(library.isActive(snippet) ? 1 : 0.5)
+        .kzContextMenu(isPresented: contextBinding(snippet.id)) {
+            SnippetMenus.actions(for: browser.targets(for: snippet.id), library: library, browser: browser)
         }
+        .kzContextTarget(isTarget)
+    }
+
+    private func contextBinding(_ id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { contextTarget == id },
+            set: { open in
+                if open { contextTarget = id } else if contextTarget == id { contextTarget = nil }
+            }
+        )
     }
 
     // MARK: - Titles
 
     private var title: String {
         switch browser.scope {
-        case .all: "All Snippets"
+        case .all: "All snippets"
         case .favorites: "Favorites"
-        case .recent: "Recently Used"
+        case .recent: "Recently used"
         case .stats: "Stats"
         case .group(let id): library.tree.group(id)?.name ?? "Group"
         }
@@ -86,162 +119,94 @@ struct SnippetListView: View {
         return true
     }
 
-    // MARK: - Deleting
-
-    private var deleteTitle: String {
-        if deleteRequest.count == 1, let snippet = library.snippetsByID[deleteRequest[0]] {
-            return "Delete “\(snippet.name)”?"
-        }
-        return "Delete \(deleteRequest.count) snippets?"
-    }
-
-    private func requestDelete(_ ids: [UUID]) {
-        let existing = ids.filter { library.snippetsByID[$0] != nil }
-        guard !existing.isEmpty else { return }
-        deleteRequest = existing
-        showDeleteConfirmation = true
-    }
-
-    // MARK: - Context menu
-
-    @ViewBuilder
-    private func menu(for ids: [UUID]) -> some View {
-        if ids.isEmpty {
-            Button("New Snippet") { browser.newSnippet(library: library) }
-        } else {
-            let snippets = ids.compactMap { library.snippetsByID[$0] }
-            let allFavorite = snippets.allSatisfy(\.isFavorite)
-            let allEnabled = snippets.allSatisfy(\.isEnabled)
-
-            Button("Duplicate") {
-                let copies = library.duplicate(ids)
-                if !copies.isEmpty { browser.selection = Set(copies) }
-            }
-            Button(allFavorite ? "Remove from Favorites" : "Add to Favorites") {
-                library.update(ids) { $0.isFavorite = !allFavorite }
-            }
-            Button(allEnabled ? "Disable" : "Enable") {
-                library.update(ids) { $0.isEnabled = !allEnabled }
-            }
-            moveMenu(for: ids, snippets: snippets)
-            Divider()
-            Button("Delete…", role: .destructive) { requestDelete(ids) }
-        }
-    }
-
-    private func moveMenu(for ids: [UUID], snippets: [SnippetRecord]) -> some View {
-        let currentGroups = Set(snippets.map(\.groupID))
-        return Menu("Move to Group") {
-            Button {
-                library.moveSnippets(ids, to: nil)
-            } label: {
-                if currentGroups == [nil] { Label("No Group", systemImage: "checkmark") } else { Text("No Group") }
-            }
-            if !library.tree.allGroups.isEmpty { Divider() }
-            ForEach(library.tree.allGroups) { group in
-                Button {
-                    library.moveSnippets(ids, to: group.id)
-                } label: {
-                    let name = library.tree.path(to: group.id).joined(separator: " / ")
-                    if currentGroups == [group.id] { Label(name, systemImage: "checkmark") } else { Text(name) }
-                }
-            }
-        }
-    }
-
     // MARK: - Empty states
 
     @ViewBuilder
     private func emptyState(rowCount: Int) -> some View {
         if rowCount == 0, library.isLoaded {
-            if !browser.query.isEmpty {
-                ContentUnavailableView.search(text: browser.query)
-            } else {
-                switch browser.scope {
-                case .all:
-                    ContentUnavailableView {
-                        Label("No Snippets Yet", systemImage: "text.badge.plus")
-                    } description: {
-                        Text("Create a snippet and type its trigger anywhere to expand it.")
-                    } actions: {
-                        Button("New Snippet") { browser.newSnippet(library: library) }
-                            .buttonStyle(.borderedProminent)
+            Group {
+                if !browser.query.isEmpty {
+                    KzEmptyState("No results", icon: .search, message: "No snippets match “\(browser.query)”. Check the spelling or try a trigger.")
+                } else {
+                    switch browser.scope {
+                    case .all:
+                        KzEmptyState("No snippets yet", message: "Create a snippet and type its trigger anywhere to expand it.") {
+                            KzButton("New snippet", variant: .primary, icon: .compose) { browser.newSnippet(library: library) }
+                                .padding(.top, KzSpace.s2)
+                        }
+                    case .favorites:
+                        KzEmptyState("No favorites", icon: .star, message: "Mark a snippet as a favorite to find it here.")
+                    case .recent:
+                        KzEmptyState("Nothing used yet", icon: .clock, message: "Snippets you expand show up here.")
+                    case .group:
+                        KzEmptyState("This group is empty", icon: .folder,
+                                     message: "Create a snippet here, or drag snippets onto the group in the sidebar.") {
+                            KzButton("New snippet", icon: .compose) { browser.newSnippet(library: library) }
+                                .padding(.top, KzSpace.s2)
+                        }
+                    case .stats:
+                        EmptyView()
                     }
-                case .favorites:
-                    ContentUnavailableView("No Favorites", systemImage: "star",
-                                           description: Text("Mark a snippet as a favorite to find it here."))
-                case .recent:
-                    ContentUnavailableView("Nothing Used Yet", systemImage: "clock",
-                                           description: Text("Snippets you expand show up here."))
-                case .group:
-                    ContentUnavailableView {
-                        Label("This Group Is Empty", systemImage: "folder")
-                    } description: {
-                        Text("Create a snippet here, or drag snippets onto the group in the sidebar.")
-                    } actions: {
-                        Button("New Snippet") { browser.newSnippet(library: library) }
-                    }
-                case .stats:
-                    EmptyView()
                 }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .padding(.top, KzSpace.s8)
         }
     }
 }
 
-/// One snippet in the list: name, trigger capsules, use count.
-private struct SnippetRow: View {
-    @Environment(LibraryModel.self) private var library
-    let snippet: SnippetRecord
-    let showsGroup: Bool
+extension SnippetSortOrder {
+    /// The menu title in sentence case.
+    var sentenceTitle: String {
+        switch self {
+        case .name: "Name"
+        case .recentlyUsed: "Recently used"
+        case .mostUsed: "Most used"
+        case .recentlyEdited: "Recently edited"
+        }
+    }
+}
 
-    var body: some View {
-        let count = library.stats[snippet.id]?.count ?? 0
-        let isActive = library.isActive(snippet)
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(snippet.name.isEmpty ? "Untitled" : snippet.name)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                if snippet.isFavorite {
-                    Image(systemName: "star.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.yellow)
-                        .accessibilityLabel("Favorite")
-                }
-                Spacer(minLength: 8)
-                if count > 0 {
-                    Text(count.formatted())
-                        .font(.caption.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .help("Used \(count) time\(count == 1 ? "" : "s")")
-                }
-            }
-            HStack(spacing: 4) {
-                ForEach(snippet.triggers.prefix(3), id: \.self) { trigger in
-                    Text(trigger)
-                        .font(.system(.caption, design: .monospaced))
-                        .lineLimit(1)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 1)
-                        .background(Color.primary.opacity(0.12), in: Capsule())
-                }
-                if snippet.triggers.count > 3 {
-                    Text("+\(snippet.triggers.count - 3)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if showsGroup, let path = library.groupPath(of: snippet) {
-                    Text(path)
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.head)
+/// Snippet commands shared by the list's right-click menu and the detail toolbar's More menu.
+@MainActor
+enum SnippetMenus {
+    /// Duplicate, favorite, enable, move to group and delete, for one snippet or several.
+    @KzMenuBuilder
+    static func actions(for ids: [UUID], library: LibraryModel, browser: BrowserState) -> [KzMenuElement] {
+        let snippets = ids.compactMap { library.snippetsByID[$0] }
+        let allFavorite = !snippets.isEmpty && snippets.allSatisfy(\.isFavorite)
+        let allEnabled = !snippets.isEmpty && snippets.allSatisfy(\.isEnabled)
+
+        KzMenuItem("Duplicate", icon: .copy) {
+            let copies = library.duplicate(ids)
+            if !copies.isEmpty { browser.selection = Set(copies) }
+        }
+        .keyboardShortcut("d")
+        KzMenuItem("Favorite", icon: .star, isChecked: allFavorite) {
+            library.update(ids) { $0.isFavorite = !allFavorite }
+        }
+        KzMenuItem("Enabled", icon: allEnabled ? .pause : .play, isChecked: allEnabled) {
+            library.update(ids) { $0.isEnabled = !allEnabled }
+        }
+        moveMenu(for: ids, snippets: snippets, library: library)
+        KzMenuSeparator()
+        KzMenuItem(ids.count > 1 ? "Delete \(ids.count) snippets…" : "Delete…", icon: .trash, role: .danger) {
+            browser.requestDelete(ids, in: library)
+        }
+        .keyboardShortcut(.delete, modifiers: [])
+    }
+
+    private static func moveMenu(for ids: [UUID], snippets: [SnippetRecord], library: LibraryModel) -> KzSubmenu {
+        let currentGroups = Set(snippets.map(\.groupID))
+        let groups = library.tree.allGroups
+        return KzSubmenu("Move to group", icon: .folder) {
+            KzMenuItem("No group", isChecked: currentGroups == [nil]) { library.moveSnippets(ids, to: nil) }
+            if !groups.isEmpty { KzMenuSeparator() }
+            for group in groups {
+                KzMenuItem(library.tree.path(to: group.id).joined(separator: " / "), isChecked: currentGroups == [group.id]) {
+                    library.moveSnippets(ids, to: group.id)
                 }
             }
         }
-        .padding(.vertical, 2)
-        .opacity(isActive ? 1 : 0.5)
-        .accessibilityElement(children: .combine)
     }
 }

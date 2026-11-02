@@ -69,6 +69,20 @@ final class BrowserState {
     var selection: Set<UUID> = []
     var query = ""
     var dragging: DragPayload?
+    /// Snippets waiting for the user to confirm their deletion; the window shows the dialog while it's non-empty.
+    var deleteRequest: [UUID] = []
+
+    /// Asks to delete snippets; the window confirms first. IDs that no longer exist are dropped.
+    func requestDelete(_ ids: [UUID], in library: LibraryModel) {
+        let existing = ids.filter { library.snippetsByID[$0] != nil }
+        guard !existing.isEmpty else { return }
+        deleteRequest = existing
+    }
+
+    /// The snippets a command acts on: the selection when `id` is part of it, otherwise just `id`.
+    func targets(for id: UUID) -> [UUID] {
+        selection.contains(id) ? Array(selection) : [id]
+    }
 
     /// Selects a snippet, switching away from a scope or search that would hide it.
     func reveal(_ id: UUID, in library: LibraryModel) {

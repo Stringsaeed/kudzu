@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -12,10 +13,20 @@ struct DropIndicator: Equatable {
     var zone: DropZone
 }
 
-/// Fixed library views plus the nested group tree.
+/// The sidebar's sections: the library views, then the nested group tree.
+///
+/// Rows are `KzSidebarItem`-style buttons on the glass, as the design system draws them, rather than
+/// an outline `List`: the shell's sidebar is a scrolling stack. Groups keep their native behaviours:
+/// drag to reorder or nest (and drop snippets on them), right-click for the group menu, ← and → to
+/// collapse and expand, and an inline rename field.
 struct SidebarView: View {
     @Environment(LibraryModel.self) private var library
     @Environment(BrowserState.self) private var browser
+
+    /// In settings mode no library item is active.
+    var isSettings: Bool
+    /// Chooses a scope and leaves settings.
+    var choose: (SidebarScope) -> Void
 
     @SceneStorage("sidebar.collapsedGroups") private var collapsedRaw = ""
     @State private var renaming: UUID?
@@ -23,44 +34,20 @@ struct SidebarView: View {
     @State private var deleting: GroupRecord?
     @State private var editingRules: GroupRecord?
     @State private var indicator: DropIndicator?
+    @State private var contextTarget: UUID?
     @FocusState private var renameFocused: Bool
 
     var body: some View {
-        List(selection: scopeSelection) {
-            Section {
-                fixedRow("All Snippets", systemImage: "tray.full", scope: .all, count: library.snippets.count)
-                fixedRow("Favorites", systemImage: "star", scope: .favorites,
-                         count: library.snippets.lazy.filter(\.isFavorite).count)
-                fixedRow("Recently Used", systemImage: "clock", scope: .recent, count: 0)
-                fixedRow("Stats", systemImage: "chart.bar", scope: .stats, count: 0)
+        VStack(alignment: .leading, spacing: KzSpace.s4) {
+            KzSidebarSection {
+                libraryItem("All snippets", icon: .stack, scope: .all, count: library.snippets.count)
+                libraryItem("Favorites", icon: .star, scope: .favorites,
+                            count: library.snippets.lazy.filter(\.isFavorite).count)
+                libraryItem("Recently used", icon: .clock, scope: .recent, count: nil)
+                libraryItem("Stats", icon: .chart, scope: .stats, count: nil)
             }
 
-            Section {
-                ForEach(library.tree.roots) { node in
-                    GroupBranch(node: node, ctx: context)
-                }
-            } header: {
-                Text("Groups")
-                    .padding(.vertical, 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(indicator?.groupID == nil && indicator != nil ? Color.accentColor.opacity(0.2) : .clear)
-                    .onDrop(of: [.kudzuDrag], delegate: RootDropDelegate(library: library, browser: browser, indicator: $indicator))
-            }
-        }
-        .listStyle(.sidebar)
-        .safeAreaInset(edge: .bottom) {
-            HStack {
-                Button {
-                    createGroup(under: nil)
-                } label: {
-                    Label("New Group", systemImage: "folder.badge.plus")
-                }
-                .buttonStyle(.borderless)
-                .help("Create a group")
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            groupsSection
         }
         .confirmationDialog(
             deleting.map { "Delete “\($0.name)”?" } ?? "",
@@ -74,35 +61,62 @@ struct SidebarView: View {
         }
         .sheet(item: $editingRules) { group in
             GroupRulesSheet(groupID: group.id)
+                .environment(library)
         }
     }
 
-    // MARK: - Selection
-
-    private var scopeSelection: Binding<SidebarScope?> {
-        Binding(
-            get: { browser.scope },
-            set: { if let scope = $0 { browser.scope = scope } }
-        )
+    private func libraryItem(_ title: String, icon: KzIconName, scope: SidebarScope, count: Int?) -> some View {
+        KzSidebarItem(title, icon: icon, count: count, isActive: !isSettings && browser.scope == scope) {
+            choose(scope)
+        }
     }
 
-    private func fixedRow(_ title: String, systemImage: String, scope: SidebarScope, count: Int) -> some View {
-        Label(title, systemImage: systemImage)
-            .badge(count)
-            .tag(scope)
-    }
+    // MARK: - Groups
 
-    // MARK: - Context passed down the recursion
+    private var groupsSection: some View {
+        let rootTargeted = indicator == DropIndicator(groupID: nil, zone: .into)
+        return VStack(alignment: .leading, spacing: 0) {
+            KzSidebarSection("Groups", action: {
+                KzIconButton(.plus, label: "New group", size: .sm) { createGroup(under: nil) }
+            }) {
+                ForEach(library.tree.roots) { node in
+                    GroupBranch(node: node, depth: 0, ctx: context)
+                }
+            }
+            // Dropping below the groups (or on the heading) moves a group to the top level and takes snippets out of their group.
+            Color.clear
+                .frame(maxWidth: .infinity, minHeight: 28)
+                .contentShape(Rectangle())
+                .liveOnly { $0.onDrop(of: [.kudzuDrag], delegate: RootDropDelegate(library: library, browser: browser, indicator: $indicator)) }
+        }
+        .overlay(alignment: .top) {
+            // The heading row, leaving its + button clear.
+            Color.clear
+                .frame(height: 22)
+                .contentShape(Rectangle())
+                .padding(.trailing, 36)
+                .liveOnly { $0.onDrop(of: [.kudzuDrag], delegate: RootDropDelegate(library: library, browser: browser, indicator: $indicator)) }
+        }
+        .background(alignment: .top) {
+            if rootTargeted {
+                RoundedRectangle(cornerRadius: KzRadius.md).fill(KzColor.vineSoft).frame(height: 22)
+            }
+        }
+    }
 
     private var context: GroupRowContext {
         GroupRowContext(
             library: library,
             browser: browser,
+            isSettings: isSettings,
+            showsDisclosure: library.tree.allGroups.contains { !library.tree.children(of: $0.id).isEmpty },
             collapsed: collapsedBinding,
             renaming: $renaming,
             renameText: $renameText,
             renameFocused: $renameFocused,
             indicator: $indicator,
+            contextTarget: $contextTarget,
+            choose: choose,
             onNewGroup: createGroup(under:),
             onRename: beginRename,
             onEditRules: { editingRules = $0 },
@@ -147,11 +161,11 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func deletionButtons(for group: GroupRecord) -> some View {
-        Button("Move Contents Up") {
+        Button("Move contents up") {
             library.deleteGroup(group.id, .moveContentsUp)
             browser.prune(using: library)
         }
-        Button("Delete Group and Contents", role: .destructive) {
+        Button("Delete group and contents", role: .destructive) {
             library.deleteGroup(group.id, .deleteContents)
             browser.prune(using: library)
         }
@@ -172,11 +186,16 @@ struct SidebarView: View {
 struct GroupRowContext {
     var library: LibraryModel
     var browser: BrowserState
+    var isSettings: Bool
+    /// Whether any group has subgroups; rows then keep a chevron column so names line up.
+    var showsDisclosure: Bool
     var collapsed: Binding<Set<UUID>>
     var renaming: Binding<UUID?>
     var renameText: Binding<String>
     var renameFocused: FocusState<Bool>.Binding
     var indicator: Binding<DropIndicator?>
+    var contextTarget: Binding<UUID?>
+    var choose: (SidebarScope) -> Void
     var onNewGroup: (UUID?) -> Void
     var onRename: (UUID) -> Void
     var onEditRules: (GroupRecord) -> Void
@@ -186,83 +205,162 @@ struct GroupRowContext {
 /// A group row and, recursively, its subgroups.
 private struct GroupBranch: View {
     let node: GroupNode
+    let depth: Int
     let ctx: GroupRowContext
 
     var body: some View {
-        if node.children.isEmpty {
-            GroupRow(group: node.group, ctx: ctx)
-                .tag(SidebarScope.group(node.id))
-        } else {
-            DisclosureGroup(isExpanded: expanded) {
-                ForEach(node.children) { child in
-                    GroupBranch(node: child, ctx: ctx)
-                }
-            } label: {
-                GroupRow(group: node.group, ctx: ctx)
+        let isExpanded = !ctx.collapsed.wrappedValue.contains(node.id)
+        GroupRow(group: node.group, depth: depth, hasChildren: !node.children.isEmpty, isExpanded: isExpanded,
+                 setExpanded: setExpanded, ctx: ctx)
+        if isExpanded {
+            ForEach(node.children) { child in
+                GroupBranch(node: child, depth: depth + 1, ctx: ctx)
             }
-            .tag(SidebarScope.group(node.id))
         }
     }
 
-    private var expanded: Binding<Bool> {
-        Binding(
-            get: { !ctx.collapsed.wrappedValue.contains(node.id) },
-            set: { isOpen in
-                if isOpen { ctx.collapsed.wrappedValue.remove(node.id) } else { ctx.collapsed.wrappedValue.insert(node.id) }
-            }
-        )
+    private func setExpanded(_ isOpen: Bool) {
+        if isOpen { ctx.collapsed.wrappedValue.remove(node.id) } else { ctx.collapsed.wrappedValue.insert(node.id) }
     }
 }
 
 private struct GroupRow: View {
     let group: GroupRecord
+    let depth: Int
+    let hasChildren: Bool
+    let isExpanded: Bool
+    let setExpanded: (Bool) -> Void
     let ctx: GroupRowContext
-    @State private var height: CGFloat = 28
+    @State private var height: CGFloat = KzSize.control
+
+    private static let indent: CGFloat = 14
+    private static let chevronColumn: CGFloat = 16
+
+    private var isActive: Bool { !ctx.isSettings && ctx.browser.scope == .group(group.id) }
+    private var leadingInset: CGFloat {
+        CGFloat(depth) * Self.indent + (ctx.showsDisclosure ? Self.chevronColumn : 0)
+    }
 
     var body: some View {
         let isEnabled = ctx.library.tree.isEffectivelyEnabled(group.id)
         Group {
             if ctx.renaming.wrappedValue == group.id {
-                HStack {
-                    Image(systemName: "folder")
-                    TextField("Name", text: ctx.renameText)
-                        .textFieldStyle(.plain)
-                        .focused(ctx.renameFocused)
-                        .onSubmit(commitRename)
-                        .onExitCommand { ctx.renaming.wrappedValue = nil }
-                        .onChange(of: ctx.renameFocused.wrappedValue) { _, focused in
-                            if !focused { commitRename() }
-                        }
-                }
+                renameField
             } else {
-                Label(group.name, systemImage: isEnabled ? "folder" : "folder.badge.minus")
-                    .badge(ctx.library.groupCounts[group.id] ?? 0)
+                row(isEnabled: isEnabled)
             }
         }
-        .opacity(isEnabled ? 1 : 0.5)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
         .overlay(alignment: .top) { line(for: .before) }
         .overlay(alignment: .bottom) { line(for: .after) }
-        .background {
+        .overlay {
             if ctx.indicator.wrappedValue == DropIndicator(groupID: group.id, zone: .into) {
-                RoundedRectangle(cornerRadius: 6).fill(Color.accentColor.opacity(0.25))
-                    .padding(.horizontal, -6)
+                RoundedRectangle(cornerRadius: KzRadius.md).strokeBorder(KzColor.vineInk, lineWidth: 2)
+                    .background(KzColor.vineSoft, in: RoundedRectangle(cornerRadius: KzRadius.md))
+                    .allowsHitTesting(false)
             }
         }
-        .contextMenu { menu }
-        .onDrag {
-            ctx.browser.dragging = .group(group.id)
-            return .kudzuDragMarker()
+        .liveOnly {
+            $0.onDrag {
+                ctx.browser.dragging = .group(group.id)
+                return .kudzuDragMarker()
+            }
+            .onDrop(of: [.kudzuDrag], delegate: GroupDropDelegate(
+                group: group, height: height, library: ctx.library, browser: ctx.browser, indicator: ctx.indicator
+            ))
         }
-        .onDrop(of: [.kudzuDrag], delegate: GroupDropDelegate(
-            group: group, height: height, library: ctx.library, browser: ctx.browser, indicator: ctx.indicator
-        ))
+    }
+
+    private func row(isEnabled: Bool) -> some View {
+        Button { ctx.choose(.group(group.id)) } label: {
+            HStack(spacing: 10) {
+                KzIcon(isEnabled ? .folder : .folderMinus, size: 16)
+                    .foregroundStyle(isActive ? KzColor.vineInk : KzColor.inkMuted)
+                Text(group.name)
+                    .kzTextStyle(.bodyStrong, matchLineBox: false)
+                    .foregroundStyle(isEnabled ? KzColor.ink : KzColor.inkMuted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                let count = ctx.library.groupCounts[group.id] ?? 0
+                if count > 0 {
+                    Text("\(count)")
+                        .kzTextStyle(.caption, matchLineBox: false)
+                        .monospacedDigit()
+                        .foregroundStyle(KzColor.inkMuted)
+                }
+            }
+            .padding(.leading, leadingInset)
+        }
+        .buttonStyle(KzSidebarItemStyle(isActive: isActive))
+        .overlay(alignment: .leading) {
+            if hasChildren {
+                Button { setExpanded(!isExpanded) } label: {
+                    KzIcon(.chevronRight, size: 12)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .kzAnimation(.color, value: isExpanded)
+                        .frame(width: Self.chevronColumn, height: KzSize.control)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ChevronStyle())
+                .padding(.leading, 10 + CGFloat(depth) * Self.indent - 2)
+                .accessibilityLabel(isExpanded ? "Collapse \(group.name)" : "Expand \(group.name)")
+            }
+        }
+        .onKeyPress(.leftArrow) {
+            guard hasChildren, isExpanded else { return .ignored }
+            setExpanded(false)
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            guard hasChildren, !isExpanded else { return .ignored }
+            setExpanded(true)
+            return .handled
+        }
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+        .accessibilityValue(isEnabled ? "" : "Disabled")
+        .kzContextMenu(isPresented: contextBinding) { menu }
+        .kzContextTarget(ctx.contextTarget.wrappedValue == group.id)
+    }
+
+    private var renameField: some View {
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
+        return HStack(spacing: 10) {
+            KzIcon(.folder, size: 16).foregroundStyle(KzColor.inkMuted)
+            TextField("Group name", text: ctx.renameText)
+                .textFieldStyle(.plain)
+                .font(KzTextStyle.bodyStrong.font)
+                .foregroundStyle(KzColor.ink)
+                .focused(ctx.renameFocused)
+                .onSubmit(commitRename)
+                .onExitCommand { ctx.renaming.wrappedValue = nil }
+                .onChange(of: ctx.renameFocused.wrappedValue) { _, focused in
+                    if !focused { commitRename() }
+                }
+        }
+        .padding(.leading, 10 + leadingInset)
+        .padding(.trailing, 10)
+        .frame(height: KzSize.control)
+        .background(KzColor.surfaceRaised, in: shape)
+        .overlay(shape.strokeBorder(KzColor.vineInk, lineWidth: 2))
+    }
+
+    private var contextBinding: Binding<Bool> {
+        Binding(
+            get: { ctx.contextTarget.wrappedValue == group.id },
+            set: { open in
+                if open {
+                    ctx.contextTarget.wrappedValue = group.id
+                } else if ctx.contextTarget.wrappedValue == group.id {
+                    ctx.contextTarget.wrappedValue = nil
+                }
+            }
+        )
     }
 
     @ViewBuilder
     private func line(for zone: DropZone) -> some View {
         if ctx.indicator.wrappedValue == DropIndicator(groupID: group.id, zone: zone) {
-            Capsule().fill(Color.accentColor).frame(height: 2).padding(.horizontal, -4)
+            Capsule().fill(KzColor.vineInk).frame(height: 2).padding(.leading, leadingInset)
         }
     }
 
@@ -272,26 +370,37 @@ private struct GroupRow: View {
         ctx.library.renameGroup(group.id, to: ctx.renameText.wrappedValue)
     }
 
-    @ViewBuilder
-    private var menu: some View {
-        Button("New Snippet Here") {
+    @KzMenuBuilder
+    private var menu: [KzMenuElement] {
+        KzMenuItem("New snippet here", icon: .compose) {
+            ctx.choose(.group(group.id))
             ctx.browser.newSnippet(library: ctx.library, in: group.id)
         }
-        Divider()
-        Button("New Group") { ctx.onNewGroup(group.parentID) }
-        Button("New Subgroup") { ctx.onNewGroup(group.id) }
-        Divider()
-        Button("Rename") { ctx.onRename(group.id) }
-        Button("Rules…") { ctx.onEditRules(group) }
-        Button(group.isEnabled ? "Disable" : "Enable") {
+        KzMenuSeparator()
+        KzMenuItem("New group", icon: .folderPlus) { ctx.onNewGroup(group.parentID) }
+        KzMenuItem("New subgroup", icon: .folderPlus) { ctx.onNewGroup(group.id) }
+        KzMenuSeparator()
+        KzMenuItem("Rename", icon: .type) { ctx.onRename(group.id) }
+        KzMenuItem("Rules…", icon: .app) { ctx.onEditRules(group) }
+        KzMenuItem(group.isEnabled ? "Disable" : "Enable", icon: group.isEnabled ? .pause : .play) {
             ctx.library.setGroupEnabled(group.id, !group.isEnabled)
         }
-        Divider()
-        Button("Delete…", role: .destructive) { ctx.onDelete(group) }
+        KzMenuSeparator()
+        KzMenuItem("Delete…", icon: .trash, role: .danger) { ctx.onDelete(group) }
+    }
+
+    /// The disclosure chevron: `ink-muted`, `ink` on hover, no fill of its own.
+    private struct ChevronStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            KzInteractive(RoundedRectangle(cornerRadius: KzRadius.xs), isPressed: configuration.isPressed, stateLayer: false) { state in
+                configuration.label
+                    .foregroundStyle(state.isHovered ? KzColor.ink : KzColor.inkMuted)
+            }
+        }
     }
 }
 
-/// Sheet for editing a group's `AppRule` and `InsertionMethod` override via `RulesSection`.
+/// Edits a group's `AppRule` and `InsertionMethod` override with `RulesSection`, in a sheet on `surface-raised`.
 private struct GroupRulesSheet: View {
     @Environment(LibraryModel.self) private var library
     @Environment(\.dismiss) private var dismiss
@@ -320,18 +429,21 @@ private struct GroupRulesSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Label(group?.name ?? "Group", systemImage: "folder")
-                    .font(.headline)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .keyboardShortcut(.defaultAction)
+        VStack(alignment: .leading, spacing: KzSpace.s5) {
+            HStack(spacing: KzSpace.s2) {
+                KzIcon(.folder, size: 16).foregroundStyle(KzColor.inkMuted)
+                Text(group.map { "Rules for \($0.name)" } ?? "Group rules")
+                    .kzTextStyle(.title)
+                    .foregroundStyle(KzColor.ink)
+                    .lineLimit(1)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: KzSpace.s2)
             }
 
             Text("Snippets and subgroups in this group inherit these settings unless they set their own.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .kzTextStyle(.callout)
+                .foregroundStyle(KzColor.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
 
             RulesSection(
                 rule: ruleBinding,
@@ -340,13 +452,37 @@ private struct GroupRulesSheet: View {
                 defaultInsertion: AppMatchingSettings.shared.defaultInsertion,
                 inheritOptionTitle: group?.parentID == nil ? "All apps" : "Inherit from group"
             )
+
+            HStack {
+                Spacer()
+                KzButton("Done", variant: .primary, isDefault: true) { dismiss() }
+            }
         }
-        .padding(20)
-        .frame(minWidth: 420, idealWidth: 460)
+        .padding(KzSpace.s6)
+        .frame(width: 480, alignment: .leading)
+        .background(KzColor.surfaceRaised)
+        .presentationBackground(KzColor.surfaceRaised)
     }
 }
 
 // MARK: - Drop handling
+
+extension View {
+    /// Applies `transform` except in offscreen snapshots, where drag and drop draw AppKit placeholders.
+    func liveOnly(@ViewBuilder _ transform: (Self) -> some View) -> some View {
+        modifier(LiveOnlyModifier(live: transform(self), snapshot: self))
+    }
+}
+
+private struct LiveOnlyModifier<Live: View, Snapshot: View>: ViewModifier {
+    let live: Live
+    let snapshot: Snapshot
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
+
+    func body(content: Content) -> some View {
+        if snapshotRendering { snapshot } else { live }
+    }
+}
 
 private struct GroupDropDelegate: DropDelegate {
     let group: GroupRecord
@@ -421,7 +557,8 @@ private struct GroupDropDelegate: DropDelegate {
     }
 }
 
-/// The "Groups" header: dropping a group makes it top-level, dropping snippets removes them from their group.
+/// The "Groups" heading and the space below the groups: dropping a group makes it top-level,
+/// dropping snippets removes them from their group.
 private struct RootDropDelegate: DropDelegate {
     let library: LibraryModel
     let browser: BrowserState
