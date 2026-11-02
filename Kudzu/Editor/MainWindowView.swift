@@ -2,7 +2,7 @@ import KudzuCore
 import KudzuUI
 import SwiftUI
 
-/// The one Kudzu window: sidebar, list pane and detail pane, in library or settings mode.
+/// The library stays mounted while settings is presented inside the same window.
 struct MainWindowView: View {
     @Environment(AppModel.self) private var model
 
@@ -93,7 +93,7 @@ private struct MainWindowContent: View {
         let canDuplicate = !isSettings && browser.scope != .stats && !browser.selection.isEmpty
         return MainWindowActions(
             newSnippet: {
-                model.mainWindowMode = .library
+                guard !isSettings else { return }
                 browser.newSnippet(library: library)
             },
             openSettings: {
@@ -103,17 +103,23 @@ private struct MainWindowContent: View {
                 let copies = library.duplicate(Array(browser.selection))
                 if !copies.isEmpty { browser.selection = Set(copies) }
             } : nil,
-            leaveSettings: isSettings ? { model.mainWindowMode = .library } : nil
+            leaveSettings: isSettings ? {
+                guard let window = NSApp.mainWindow,
+                      SettingsModalFocusSession.canHandleKeys(in: window, keyWindow: NSApp.keyWindow,
+                          hasNestedPresentation: SettingsModalFocusSession.hasNestedPresentation(in: window)) else { return }
+                model.mainWindowMode = .library
+            } : nil
         )
     }
 
-    /// ⌘F: the search field filters the snippet list, so leave settings or Stats first.
+    /// Library Find is intentionally unavailable while settings owns keyboard interaction.
     private func focusSearch() {
-        model.mainWindowMode = .library
+        guard model.mainWindowMode == .library else { return }
         if browser.scope == .stats { browser.scope = .all }
         Task {
             // The field may only just have appeared.
             try? await Task.sleep(for: .milliseconds(30))
+            guard model.mainWindowMode == .library else { return }
             searchFocused = true
         }
     }
@@ -186,7 +192,7 @@ private struct FindShortcut: View {
 
 // MARK: - Shell
 
-/// The window's three panes for a mode, built from `LibraryModel` and `BrowserState` in the environment.
+/// The persistent library panes and optional settings overlay, using the library and browser environment.
 ///
 /// Separate from `MainWindowContent` so snapshots can render it embedded, without an `AppModel`.
 struct MainWindowShell<SettingsDetail: View>: View {
@@ -205,12 +211,8 @@ struct MainWindowShell<SettingsDetail: View>: View {
         if case .settings(let section) = windowMode { section } else { nil }
     }
 
-    private var shellChrome: KzAppShellChrome {
-        settingsSection == nil ? .library : .settings
-    }
-
     var body: some View {
-        KzAppShell(mode: shellMode, chrome: shellChrome) {
+        KzAppShell(mode: shellMode) {
             SidebarView(isSettings: settingsSection != nil) { scope in
                 browser.scope = scope
                 windowMode = .library
@@ -224,12 +226,7 @@ struct MainWindowShell<SettingsDetail: View>: View {
                 if settingsSection == nil { windowMode = .settings(lastSettingsSection) }
             }
         } list: {
-            if let section = settingsSection {
-                SettingsSectionList(
-                    selection: Binding(get: { section }, set: { windowMode = .settings($0) }),
-                    returnToLibrary: { windowMode = .library }
-                )
-            } else if browser.scope == .stats {
+            if browser.scope == .stats {
                 StatsLeaderboardView()
             } else {
                 SnippetListView(searchFocus: searchFocus)
@@ -239,17 +236,22 @@ struct MainWindowShell<SettingsDetail: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .safeAreaInset(edge: .bottom, spacing: 0) { banners }
         }
+        .allowsHitTesting(settingsSection == nil)
+        .accessibilityHidden(settingsSection != nil)
+        .overlay {
+            if let section = settingsSection {
+                SettingsModalView(
+                    selection: Binding(get: { section }, set: { windowMode = .settings($0) }),
+                    close: { windowMode = .library },
+                    content: settingsDetail
+                )
+            }
+        }
     }
 
     @ViewBuilder
     private var detail: some View {
-        if let section = settingsSection {
-            // Settings pages own their scrolling and padding (see `SettingsPageLayout`).
-            settingsDetail(section)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(KzColor.surface)
-            .id(section)
-        } else if browser.scope == .stats {
+        if browser.scope == .stats {
             StatsView()
         } else if browser.selection.count == 1, let id = browser.selection.first, let snippet = library.editableSnippet(id) {
             SnippetEditorView(snippet: snippet, library: library)
@@ -307,35 +309,6 @@ struct CenteredEmptyState<Content: View>: View {
             Spacer(minLength: 0)
             Color.clear.frame(height: KzSize.titlebar)
         }
-    }
-}
-
-// MARK: - Settings section list
-
-/// The list pane in settings mode: one row per section.
-private struct SettingsSectionList: View {
-    @Binding var selection: SettingsSection
-    var returnToLibrary: () -> Void
-
-    private static let version: String? = {
-        let info = Bundle.main.infoDictionary
-        return (info?["CFBundleShortVersionString"] as? String).map { "Kudzu \($0)" }
-    }()
-
-    var body: some View {
-        KzListHeader("Settings", subtitle: Self.version)
-            .padding(.leading, KzWindowChrome.Lights.trailingEdge)
-        VStack(alignment: .leading, spacing: 1) {
-            KzSidebarItem("Library", icon: .stack) { returnToLibrary() }
-            ForEach(SettingsSection.allCases) { section in
-                KzSidebarItem(section.title, icon: section.icon, isActive: section == selection) {
-                    selection = section
-                }
-            }
-        }
-        .padding(.horizontal, KzSpace.s2)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Settings sections")
     }
 }
 

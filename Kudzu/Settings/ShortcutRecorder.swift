@@ -41,6 +41,7 @@ struct ShortcutRecorder: View {
     var onRecord: (HotKeyShortcut) -> Void
 
     @State private var recorder = Recorder()
+    @Environment(\.settingsModalFocusSession) private var modalFocusSession
 
     var body: some View {
         Button {
@@ -62,8 +63,14 @@ struct ShortcutRecorder: View {
 
     private func start() {
         recorder.start(
-            onBegin: onBegin,
-            onEnd: onEnd,
+            onBegin: {
+                modalFocusSession?.keyboardCaptured = true
+                onBegin()
+            },
+            onEnd: {
+                modalFocusSession?.keyboardCaptured = false
+                onEnd()
+            },
             onRecord: onRecord
         )
     }

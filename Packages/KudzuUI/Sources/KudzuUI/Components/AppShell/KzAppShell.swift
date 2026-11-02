@@ -1,14 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Which panes the main window shows. Settings drops the library sidebar so the section list is not redundant.
-public enum KzAppShellChrome: Sendable, Equatable {
-    /// Sidebar, snippet list and detail (or stats).
-    case library
-    /// Settings section list and detail only.
-    case settings
-}
-
 /// How a `KzAppShell` relates to its window.
 public enum KzAppShellMode: Sendable {
     /// The shell is the content of a real window: it applies `KzWindowChrome` (hidden title and toolbar,
@@ -28,7 +20,6 @@ public enum KzAppShellMode: Sendable {
 /// sidebar's backdrop blur reaches the desktop as a macOS sidebar does.
 public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View, ListPane: View, Detail: View>: View {
     private let mode: KzAppShellMode
-    private let chrome: KzAppShellChrome
     private let sidebar: Sidebar
     private let sidebarHeader: SidebarHeader
     private let sidebarFooter: SidebarFooter
@@ -36,17 +27,10 @@ public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View
     private let detail: Detail
     @Environment(\.kzSnapshotRendering) private var snapshotRendering
 
-    /// The smallest comfortable window size for `chrome`.
-    public static func minimumSize(chrome: KzAppShellChrome = .library) -> CGSize {
-        let width = switch chrome {
-        case .library: KzSize.sidebar + KzSize.list + KzSize.detailMin
-        case .settings: KzSize.list + KzSize.detailMin
-        }
-        return CGSize(width: width, height: 480)
-    }
-
     /// The smallest comfortable library window size.
-    public static var minimumSize: CGSize { minimumSize(chrome: .library) }
+    public static var minimumSize: CGSize {
+        CGSize(width: KzSize.sidebar + KzSize.list + KzSize.detailMin, height: 480)
+    }
 
     /// Creates the shell.
     /// - Parameters:
@@ -58,7 +42,6 @@ public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View
     ///   - detail: The detail content, starting with a `KzPaneHeader`.
     public init(
         mode: KzAppShellMode = .window,
-        chrome: KzAppShellChrome = .library,
         @ViewBuilder sidebar: () -> Sidebar,
         @ViewBuilder sidebarHeader: () -> SidebarHeader,
         @ViewBuilder sidebarFooter: () -> SidebarFooter,
@@ -66,7 +49,6 @@ public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View
         @ViewBuilder detail: () -> Detail
     ) {
         self.mode = mode
-        self.chrome = chrome
         self.sidebar = sidebar()
         self.sidebarHeader = sidebarHeader()
         self.sidebarFooter = sidebarFooter()
@@ -76,13 +58,11 @@ public struct KzAppShell<Sidebar: View, SidebarHeader: View, SidebarFooter: View
 
     public var body: some View {
         let shell = HStack(spacing: 0) {
-            if chrome == .library {
-                sidebarColumn.frame(width: KzSize.sidebar)
-            }
+            sidebarColumn.frame(width: KzSize.sidebar)
             listColumn.frame(width: KzSize.list)
             detailColumn.layoutPriority(1)
         }
-        .frame(minWidth: Self.minimumSize(chrome: chrome).width, minHeight: Self.minimumSize(chrome: chrome).height)
+        .frame(minWidth: Self.minimumSize.width, minHeight: Self.minimumSize.height)
         switch mode {
         case .window:
             // The 52pt titlebar would otherwise be a top safe-area inset and push every pane down.
@@ -155,13 +135,12 @@ extension KzAppShell where SidebarHeader == EmptyView {
     /// Creates the shell with the four standard slots.
     public init(
         mode: KzAppShellMode = .window,
-        chrome: KzAppShellChrome = .library,
         @ViewBuilder sidebar: () -> Sidebar,
         @ViewBuilder sidebarFooter: () -> SidebarFooter,
         @ViewBuilder list: () -> ListPane,
         @ViewBuilder detail: () -> Detail
     ) {
-        self.init(mode: mode, chrome: chrome, sidebar: sidebar, sidebarHeader: { EmptyView() }, sidebarFooter: sidebarFooter, list: list, detail: detail)
+        self.init(mode: mode, sidebar: sidebar, sidebarHeader: { EmptyView() }, sidebarFooter: sidebarFooter, list: list, detail: detail)
     }
 }
 

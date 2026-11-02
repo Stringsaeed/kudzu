@@ -17,6 +17,7 @@ struct SettingsPageLayout<Content: View>: View {
     @ViewBuilder var content: Content
 
     @Environment(\.kzSnapshotRendering) private var snapshotRendering
+    @Environment(\.settingsModalPresentation) private var inModal
 
     var body: some View {
         Group {
@@ -30,18 +31,22 @@ struct SettingsPageLayout<Content: View>: View {
 
     private var pageContent: some View {
         VStack(alignment: .leading, spacing: KzSpace.s6) {
-            VStack(alignment: .leading, spacing: KzSpace.s1) {
-                Text(title).kzTextStyle(.titleLg).foregroundStyle(KzColor.ink)
-                    .accessibilityAddTraits(.isHeader)
-                if let description {
-                    Text(description).kzTextStyle(.body).foregroundStyle(KzColor.inkMuted)
+            if !inModal || description != nil {
+                VStack(alignment: .leading, spacing: KzSpace.s1) {
+                    if !inModal {
+                        Text(title).kzTextStyle(.titleLg).foregroundStyle(KzColor.ink)
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    if let description {
+                        Text(description).kzTextStyle(.body).foregroundStyle(KzColor.inkMuted)
+                    }
                 }
             }
             content
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, KzSpace.s6)
-        .padding(.top, KzSpace.s8)
+        .padding(.top, inModal ? KzSpace.s4 : KzSpace.s8)
         .padding(.bottom, KzSpace.s6)
     }
 }

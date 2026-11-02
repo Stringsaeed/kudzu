@@ -107,7 +107,5 @@ struct SampleAppShell: View {
     @Test func paneWidthsComeFromTokens() {
         #expect(KzAppShell<EmptyView, EmptyView, EmptyView, EmptyView, EmptyView>.minimumSize.width
             == KzSize.sidebar + KzSize.list + KzSize.detailMin)
-        #expect(KzAppShell<EmptyView, EmptyView, EmptyView, EmptyView, EmptyView>.minimumSize(chrome: .settings).width
-            == KzSize.list + KzSize.detailMin)
     }
 }
