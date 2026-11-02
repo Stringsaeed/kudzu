@@ -13,6 +13,11 @@ enum GalleryMain {
         if let index = arguments.firstIndex(of: "--snapshot") {
             exit(GallerySnapshots.run(arguments: Array(arguments[(index + 1)...])))
         }
+        if arguments.contains("--window-diagnostics") {
+            if arguments.contains("--as-menu-bar-app") { NSApplication.shared.setActivationPolicy(.accessory) }
+            WindowDiagnosticsApp.main()
+            return
+        }
         GalleryApp.main()
     }
 }

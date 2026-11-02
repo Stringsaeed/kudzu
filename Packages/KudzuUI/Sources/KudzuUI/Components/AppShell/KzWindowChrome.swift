@@ -89,6 +89,10 @@ public enum KzWindowChrome {
 
 extension View {
     /// Applies `KzWindowChrome` to the window that hosts this view.
+    ///
+    /// In a SwiftUI `Window` or `WindowGroup`, also give the scene `.windowStyle(.hiddenTitleBar)`.
+    /// Otherwise SwiftUI resets `titlebarAppearsTransparent` and macOS draws an opaque 32pt titlebar
+    /// over the top of the pane headers (`KudzuGallery --window-diagnostics` shows the titlebar views).
     public func kzWindowChrome() -> some View {
         background { KzWindowChromeView().frame(width: 0, height: 0).accessibilityHidden(true) }
     }
@@ -140,6 +144,8 @@ private struct KzWindowChromeView: NSViewRepresentable {
             // Moving the buttons can make AppKit re-lay the titlebar and post a frame change; don't recurse.
             guard !isLayingOut, let window else { return }
             isLayingOut = true
+            // SwiftUI can turn this back off when it updates the window (see `kzWindowChrome()`).
+            if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
             KzWindowChrome.layoutTrafficLights(in: window)
             isLayingOut = false
         }

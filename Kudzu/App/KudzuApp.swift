@@ -29,6 +29,9 @@ struct KudzuApp: App {
             MainWindowView()
                 .environment(model)
         }
+        // Keeps the titlebar transparent. Without it SwiftUI turns `titlebarAppearsTransparent` back off
+        // and macOS draws an opaque titlebar over the top of the pane headers.
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1080, height: 700)
         .commands { KudzuCommands(model: model) }
 

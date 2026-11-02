@@ -111,6 +111,15 @@ struct KzSelectionListSample: View {
         host.layoutSubtreeIfNeeded()
 
         let table = try #require(Self.firstTable(in: host))
+        // The List lays its rows out over a few main-loop turns; wait until the gutter of the last
+        // checked row resolves before asserting, so a slow run doesn't read half-laid-out rows.
+        for _ in 0..<40 {
+            let rect = table.rect(ofRow: 1)
+            let gutter = table.convert(CGPoint(x: rect.minX + 2, y: rect.midY), to: nil)
+            if KzContextMenuRegistry.shared.region(at: gutter, in: window)?.makeMenu?().title == "Row 1" { break }
+            host.layoutSubtreeIfNeeded()
+            await settle(0.05)
+        }
         for row in [0, 3, 1] {
             let rowRect = table.rect(ofRow: row)
             let point = table.convert(CGPoint(x: rowRect.midX, y: rowRect.midY), to: nil)
