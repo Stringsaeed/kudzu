@@ -1,5 +1,6 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Reusable editor for a snippet's or group's `AppRule` and `InsertionMethod` override.
@@ -67,93 +68,76 @@ struct RulesSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Picker("Apps", selection: source) {
-                    Text(inheritOptionTitle).tag(RuleSource.inherit)
-                    Text("Custom").tag(RuleSource.custom)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-
+        VStack(alignment: .leading, spacing: KzSpace.s3) {
+            HStack(spacing: KzSpace.s3) {
+                KzSegmented("Apps", selection: source, options: [
+                    .init(.inherit, label: inheritOptionTitle),
+                    .init(.custom, label: "Custom"),
+                ])
+                .fixedSize()
                 if rule == nil {
-                    inheritedRuleSummary
-                } else {
-                    customRule
+                    summary(inheritedRuleDescription, inherited: hasInheritedRule)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                LabeledContent("Insertion") {
-                    Picker("Insertion", selection: $insertion) {
-                        Text(inheritedInsertionDescription).tag(InsertionMethod?.none)
-                        Divider()
-                        Text(InsertionMethod.automatic.title).tag(InsertionMethod?.some(.automatic))
-                        Text(InsertionMethod.type.title).tag(InsertionMethod?.some(.type))
-                        Text(InsertionMethod.paste.title).tag(InsertionMethod?.some(.paste))
+            if rule != nil {
+                customRule
+            }
+
+            RulesOptionRow("Insertion") {
+                KzSelect("Insertion", value: insertionTitle) {
+                    KzMenuItem(inheritedInsertionDescription, isChecked: insertion == nil) { insertion = nil }
+                    KzMenuSeparator()
+                    for method in [InsertionMethod.automatic, .type, .paste] {
+                        KzMenuItem(method.title, isChecked: insertion == method) { insertion = method }
                     }
-                    .labelsHidden()
-                    .fixedSize()
                 }
                 .help("Automatic types short plain text and pastes the rest. Choose Paste for apps that drop typed characters.")
-
-                if insertion == nil {
-                    inheritedInsertionSummary
-                }
             }
         }
     }
 
-    // MARK: - Inherited
-
-    private var inheritedRuleSummary: some View {
-        Label {
-            Text(inheritedRuleDescription)
-        } icon: {
-            Image(systemName: hasInheritedRule ? "arrow.turn.down.right" : "checkmark.circle")
-        }
-        .font(.callout)
-        .foregroundStyle(.secondary)
+    private var insertionTitle: String {
+        insertion?.title ?? inheritedInsertionDescription
     }
 
-    private var inheritedInsertionSummary: some View {
-        Label {
-            Text(inheritedInsertionDescription)
-        } icon: {
-            Image(systemName: hasInheritedInsertion ? "arrow.turn.down.right" : "checkmark.circle")
+    /// One muted line: an inherit arrow when a group sets it, a check when nothing does.
+    private func summary(_ text: String, inherited: Bool) -> some View {
+        HStack(spacing: 6) {
+            KzIcon(inherited ? .inherit : .check, size: 14)
+            Text(text)
+                .kzTextStyle(.caption)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.callout)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(KzColor.inkMuted)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Custom
 
     private var customRule: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Picker("Mode", selection: ruleMode) {
-                Text("Allow only in").tag(AppRuleMode.allow)
-                Text("Block in").tag(AppRuleMode.deny)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+        VStack(alignment: .leading, spacing: KzSpace.s3) {
+            KzSegmented("Mode", selection: ruleMode, options: [
+                .init(.allow, label: "Allow only in"),
+                .init(.deny, label: "Block in"),
+            ])
+            .fixedSize()
 
             let bundleIDs = rule?.bundleIDs ?? []
             if bundleIDs.isEmpty {
-                Text(rule?.mode == .allow
-                     ? "No apps chosen, so snippets won't expand anywhere."
-                     : "No apps blocked yet.")
-                    .font(.callout)
-                    .foregroundStyle(rule?.mode == .allow ? Color.orange : Color.secondary)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(bundleIDs, id: \.self) { id in
-                        AppRow(bundleID: id) {
-                            rule?.bundleIDs.removeAll { $0 == id }
-                        }
-                        if id != bundleIDs.last { Divider() }
-                    }
+                if rule?.mode == .allow {
+                    EditorNote(icon: .warning, tone: .warning,
+                               text: AttributedString("No apps chosen, so this won't expand anywhere."))
+                } else {
+                    Text("No apps blocked yet.")
+                        .kzTextStyle(.callout)
+                        .foregroundStyle(KzColor.inkMuted)
                 }
-                .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            } else {
+                AppList(bundleIDs: bundleIDs) { id in
+                    rule?.bundleIDs.removeAll { $0 == id }
+                }
             }
 
             AddAppMenu(existing: Set(bundleIDs)) { bundleID in
@@ -169,78 +153,109 @@ struct RulesSection: View {
     }
 }
 
-/// Menu button that adds a running app or opens a file chooser for `/Applications`.
+/// A label and a control on one line, as in the Window preview's "Insertion" row.
+struct RulesOptionRow<Control: View>: View {
+    private let label: String
+    private let width: CGFloat
+    private let control: Control
+
+    init(_ label: String, width: CGFloat = 72, @ViewBuilder control: () -> Control) {
+        self.label = label
+        self.width = width
+        self.control = control()
+    }
+
+    var body: some View {
+        HStack(spacing: KzSpace.s3) {
+            Text(label)
+                .kzTextStyle(.bodyStrong)
+                .foregroundStyle(KzColor.ink)
+                .frame(width: width, alignment: .leading)
+            control
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+/// The apps in a rule, on a `surface-sunken` well, each with a remove button.
+struct AppList: View {
+    var bundleIDs: [String]
+    var remove: (String) -> Void
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
+        VStack(spacing: 0) {
+            ForEach(bundleIDs, id: \.self) { id in
+                AppRow(bundleID: id) { remove(id) }
+                if id != bundleIDs.last {
+                    Rectangle().fill(KzColor.line).frame(height: 1).padding(.leading, 44)
+                }
+            }
+        }
+        .background(KzColor.surfaceSunken, in: shape)
+        .frame(maxWidth: 420, alignment: .leading)
+    }
+}
+
+/// Pull-down that adds a running app or opens a file chooser in `/Applications`.
 struct AddAppMenu: View {
     var existing: Set<String>
     var onAdd: (String) -> Void
 
     var body: some View {
-        Menu {
+        KzButton("Add app", size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Add app") {
+            // Built when the menu opens, so the running apps are current.
             let running = AppCatalog.runningApps(excluding: existing)
             if !running.isEmpty {
-                Section("Running Apps") {
-                    ForEach(running) { app in
-                        Button {
-                            onAdd(app.bundleID)
-                        } label: {
-                            Label {
-                                Text(app.name)
-                            } icon: {
-                                Image(nsImage: Self.menuIcon(for: app.bundleID))
-                            }
-                        }
-                    }
+                KzMenuHeader("Running apps")
+                for app in running {
+                    KzMenuItem(app.name, icon: .app) { onAdd(app.bundleID) }
                 }
+                KzMenuSeparator()
             }
-            Divider()
-            Button("Choose App…") {
+            KzMenuItem("Choose app…", icon: .folder) {
                 if let id = AppCatalog.chooseApp() { onAdd(id) }
             }
-        } label: {
-            Label("Add App", systemImage: "plus")
         }
-        .menuStyle(.button)
-        .fixedSize()
-    }
-
-    /// Menu images render at their natural size, so shrink app icons to menu size.
-    private static func menuIcon(for bundleID: String) -> NSImage {
-        let icon = AppCatalog.info(for: bundleID).icon.copy() as? NSImage ?? AppCatalog.info(for: bundleID).icon
-        icon.size = NSSize(width: 16, height: 16)
-        return icon
     }
 }
 
-/// A row displaying an app's icon, name, bundle ID, and a remove button.
+/// An app's icon, name and bundle ID, with a remove button.
 struct AppRow: View {
     var bundleID: String
     var remove: () -> Void
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
 
     var body: some View {
         let info = AppCatalog.info(for: bundleID)
         HStack(spacing: 10) {
-            Image(nsImage: info.icon)
-                .resizable()
-                .frame(width: 24, height: 24)
-                .opacity(info.isInstalled ? 1 : 0.5)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(info.name)
-                if info.isInstalled {
-                    Text(bundleID).font(.caption).foregroundStyle(.secondary)
+            Group {
+                if snapshotRendering {
+                    // NSWorkspace icons composite badly in ImageRenderer (they dim the whole image).
+                    KzIcon(.app, size: 20).foregroundStyle(KzColor.inkMuted)
                 } else {
-                    Text("Not installed").font(.caption).foregroundStyle(.secondary)
+                    Image(nsImage: info.icon).resizable()
                 }
             }
-            Spacer()
-            Button(action: remove) {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundStyle(.secondary)
+            .frame(width: 24, height: 24)
+            .opacity(info.isInstalled ? 1 : 0.5)
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(info.name)
+                    .kzTextStyle(.bodyStrong)
+                    .foregroundStyle(KzColor.ink)
+                    .lineLimit(1)
+                Text(info.isInstalled ? bundleID : "Not installed")
+                    .kzTextStyle(.monoCaption)
+                    .foregroundStyle(KzColor.inkMuted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            .buttonStyle(.plain)
-            .help("Remove \(info.name)")
-            .accessibilityLabel("Remove \(info.name)")
+            Spacer(minLength: KzSpace.s2)
+            KzIconButton(.x, label: "Remove \(info.name)", size: .sm, action: remove)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
+        .accessibilityElement(children: .contain)
     }
 }
