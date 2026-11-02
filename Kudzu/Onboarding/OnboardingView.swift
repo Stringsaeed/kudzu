@@ -55,9 +55,14 @@ struct OnboardingView: View {
             Rectangle().fill(KzColor.line).frame(height: 1)
             footerNavigation
         }
-        .padding(KzSpace.s6)
+        .padding(.horizontal, KzSpace.s6)
+        .padding(.top, KzSpace.s3)
+        .padding(.bottom, KzSpace.s6)
         .frame(width: 600, height: 520)
-        .background(KzColor.surface)
+        // The hidden titlebar sits above the content; fill it with the same paper so the window reads
+        // as one surface, with only the traffic lights at its corner.
+        .background(KzColor.surface.ignoresSafeArea())
+        .background(WelcomeWindowChrome())
         .task {
             NSApplication.shared.activate()
             while !Task.isCancelled {

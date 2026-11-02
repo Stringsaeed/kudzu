@@ -37,6 +37,7 @@ struct KudzuApp: App {
                 .environment(model)
                 .background(DockPolicyAccessor())
         }
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
     }
