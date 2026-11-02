@@ -35,6 +35,12 @@ struct MenuBarContent: View {
             }
         }
 
+        Button(model.syncMonitor.statusText) {
+            model.showSettings(.sync)
+            openWindow(id: SceneID.main)
+            NSApplication.shared.activate()
+        }
+
         Toggle("Pause Kudzu", isOn: $engine.isPaused)
 
         Divider()

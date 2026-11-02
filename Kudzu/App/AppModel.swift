@@ -1,5 +1,6 @@
 import KudzuCore
 import Observation
+import os
 import SwiftUI
 
 /// Composition root shared by every scene. Owns the store, permissions, expansion engine,
@@ -14,6 +15,9 @@ final class AppModel {
     let backupStore: BackupStore
     let backupScheduler: BackupScheduler
     let palette: SearchPaletteController
+    let syncMonitor: SyncMonitor
+
+    private static let log = Logger(subsystem: "sh.saeed.kudzu", category: "app")
 
     /// Set when the store could not be opened; the UI shows it instead of crashing.
     private(set) var storeError: String?
@@ -56,16 +60,30 @@ final class AppModel {
 
     init() {
         let permissions = Permissions()
-        let store: KudzuStore
-        do {
-            // iCloud sync needs the CloudKit entitlement, which lands in M4.
-            store = try KudzuStore(syncEnabled: false)
-        } catch {
-            storeError = "Couldn't open the snippet library: \(error.localizedDescription)"
-            store = try! KudzuStore.inMemory()
+        let preference = SyncPreference.isEnabled(in: .standard)
+        let block = CloudSyncProbe.block()
+        let opened = Self.openStore(wantsSync: block == nil && preference)
+        let store = opened.store
+        storeError = opened.storeError
+        if opened.storeError == nil {
+            do {
+                try store.reconcileDevice(hardwareID: PlatformIdentity.hardwareUUID())
+                if try store.localSettings().syncEnabled != preference {
+                    try store.updateLocalSettings { $0.syncEnabled = preference }
+                }
+            } catch {
+                Self.log.error("Couldn't prepare local settings: \(error)")
+            }
         }
+
         let backupStore = BackupStore(directory: BackupScheduler.defaultBackupDirectory())
         let backupScheduler = BackupScheduler(store: store, backupStore: backupStore)
+        let syncMonitor = SyncMonitor(snapshot: SyncSnapshot(
+            preferenceEnabled: preference,
+            runningEnabled: opened.runningEnabled,
+            blocked: block,
+            openError: opened.openError
+        ))
 
         self.store = store
         self.permissions = permissions
@@ -73,11 +91,59 @@ final class AppModel {
         self.backupStore = backupStore
         self.backupScheduler = backupScheduler
         self.palette = SearchPaletteController(store: store)
+        self.syncMonitor = syncMonitor
         self.paletteShortcut = HotKeyShortcut.savedPaletteShortcut()
 
+        syncMonitor.start(store: store)
         engine.start()
         backupScheduler.start()
         startPalette()
+    }
+
+    /// Records the iCloud switch. The open container keeps its current flag until the next launch.
+    func setCloudSyncEnabled(_ enabled: Bool) {
+        SyncPreference.setEnabled(enabled, in: .standard)
+        do {
+            try store.updateLocalSettings { $0.syncEnabled = enabled }
+        } catch {
+            Self.log.error("Couldn't save the iCloud switch: \(error)")
+        }
+        syncMonitor.setPreference(enabled)
+    }
+
+    private struct OpenedStore {
+        var store: KudzuStore
+        var runningEnabled: Bool
+        var openError: String?
+        var storeError: String?
+    }
+
+    /// Opens the on-disk library. A CloudKit failure falls back to the same files with sync off,
+    /// and only a failure of that local open replaces the library with an empty memory store.
+    private static func openStore(wantsSync: Bool) -> OpenedStore {
+        if wantsSync {
+            do {
+                return OpenedStore(store: try KudzuStore(syncEnabled: true), runningEnabled: true, openError: nil, storeError: nil)
+            } catch {
+                let openError = "Couldn't start iCloud sync (\(error.localizedDescription)). Snippets on this Mac stay local until it can."
+                Self.log.error("\(openError)")
+                return openLocalStore(openError: openError)
+            }
+        }
+        return openLocalStore(openError: nil)
+    }
+
+    private static func openLocalStore(openError: String?) -> OpenedStore {
+        do {
+            return OpenedStore(store: try KudzuStore(syncEnabled: false), runningEnabled: false, openError: openError, storeError: nil)
+        } catch {
+            return OpenedStore(
+                store: try! KudzuStore.inMemory(),
+                runningEnabled: false,
+                openError: openError,
+                storeError: "Couldn't open the snippet library: \(error.localizedDescription)"
+            )
+        }
     }
 
     // MARK: - Search palette

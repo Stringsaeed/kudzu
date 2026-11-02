@@ -22,9 +22,15 @@ public final class SyncedSettingsModel {
 @Model
 public final class LocalSettingsModel {
     public var id: UUID = UUID()
-    /// Identifies this device in usage records. Generated once.
+    /// Identifies this device in usage records. Generated once, and again if the library is opened on different hardware.
     public var deviceID: String = ""
-    /// Whether the synced configuration uses CloudKit. Takes effect on next container creation.
+    /// Hardware UUID this `deviceID` was minted for. Empty until the app stamps it.
+    ///
+    /// A Time Machine or disk restore onto another Mac keeps the store file but not the machine.
+    /// When the UUID changes, the store mints a new `deviceID` so both Macs can sync usage without
+    /// writing the same per-device row.
+    public var hardwareID: String = ""
+    /// Whether the synced configuration uses CloudKit. Takes effect the next time the container is created.
     public var syncEnabled: Bool = true
     /// Search-palette hotkey, serialized by the app layer. Placeholder until the hotkey format is defined.
     public var paletteHotkey: String?

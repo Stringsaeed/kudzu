@@ -179,20 +179,37 @@ struct SyncSettingsTab: View {
     @Environment(AppModel.self) private var model
     @State private var deviceID = ""
 
+    private var phase: SyncPhase { model.syncMonitor.snapshot.phase }
+
     var body: some View {
-        SettingsPageLayout(title: "Sync", description: "Keep your library the same on every Mac.") {
+        SettingsPageLayout(title: "Sync", description: "Keep your library the same on every Mac signed in to your iCloud account.") {
             KzSettingsGroup("iCloud") {
-                KzSettingsRow(description: "Automatic CloudKit sync across your Macs lands in milestone 4.", label: {
-                    HStack(spacing: KzSpace.s2) {
-                        Text("iCloud sync").kzTextStyle(.bodyStrong)
-                        KzBadge("Coming soon")
-                    }
+                KzSettingsRow(description: phase.statusText, label: {
+                    Text("iCloud sync").kzTextStyle(.bodyStrong)
                 }, control: {
-                    KzToggle("iCloud sync", isOn: .constant(false)).disabled(true)
+                    KzToggle("iCloud sync", isOn: Binding(
+                        get: {
+                            model.syncMonitor.snapshot.blocked == nil
+                                && model.syncMonitor.snapshot.preferenceEnabled
+                        },
+                        set: { model.setCloudSyncEnabled($0) }
+                    ))
+                    .disabled(model.syncMonitor.snapshot.blocked != nil)
                 })
+                if case .upToDate(let date?) = phase {
+                    KzSettingsRow("Last synced") {
+                        Text(date.formatted(date: .abbreviated, time: .shortened))
+                            .kzTextStyle(.monoCaption).foregroundStyle(KzColor.inkMuted)
+                    }
+                }
+                if case .needsRestart = phase {
+                    KzSettingsRow("Apply the change", description: "The library that's open keeps its current sync mode.") {
+                        KzButton("Quit and reopen", size: .sm) { NSApp.terminate(nil) }
+                    }
+                }
             }
             KzSettingsGroup("This Mac") {
-                KzSettingsRow("Device ID") {
+                KzSettingsRow("Device ID", description: "Usage is counted separately on each Mac, then added together.") {
                     Text(deviceID.isEmpty ? "—" : deviceID)
                         .kzTextStyle(.monoCaption).foregroundStyle(KzColor.inkMuted)
                         .textSelection(.enabled)

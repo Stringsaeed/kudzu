@@ -64,21 +64,19 @@ targets:
   # Developer ID build: unsandboxed, Sparkle (M5), direct download + Homebrew.
   Kudzu:
     templates: [KudzuApp]
-    entitlements:
-      path: Kudzu/Resources/Kudzu.entitlements
-      properties: {}
+    settings:
+      base:
+        # Signing.xcconfig points this at Kudzu.entitlements. Local.xcconfig can
+        # switch it to Kudzu.icloud.entitlements for the team that owns the container.
+        CODE_SIGN_ENTITLEMENTS: $(KUDZU_DIRECT_ENTITLEMENTS)
 
   # Mac App Store build: sandboxed, no Sparkle. Compiled with APPSTORE.
   KudzuAppStore:
     templates: [KudzuApp]
-    entitlements:
-      path: Kudzu/Resources/KudzuAppStore.entitlements
-      properties:
-        com.apple.security.app-sandbox: true
-        com.apple.security.files.user-selected.read-write: true
     settings:
       base:
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) APPSTORE"
+        CODE_SIGN_ENTITLEMENTS: $(KUDZU_APPSTORE_ENTITLEMENTS)
         # Distinct product so both builds can coexist; the user-visible name stays "Kudzu".
         PRODUCT_NAME: KudzuAppStore
 
