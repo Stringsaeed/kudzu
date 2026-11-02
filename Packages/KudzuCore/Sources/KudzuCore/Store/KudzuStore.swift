@@ -266,6 +266,31 @@ public final class KudzuStore {
         return id
     }
 
+    /// Stamps `hardwareID` on this Mac, or mints a new `deviceID` when the library was restored onto different hardware.
+    ///
+    /// An empty `hardwareID` (the probe failed) leaves the existing device id alone.
+    /// The first successful probe records the UUID without rotating the id, so a normal install keeps its stats.
+    @discardableResult
+    public func reconcileDevice(hardwareID: String) throws -> String {
+        let settings = try localSettings()
+        let hardwareID = hardwareID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !hardwareID.isEmpty else {
+            cachedDeviceID = settings.deviceID
+            return settings.deviceID
+        }
+        if settings.hardwareID.isEmpty {
+            settings.hardwareID = hardwareID
+            try save()
+        } else if settings.hardwareID != hardwareID {
+            settings.hardwareID = hardwareID
+            settings.deviceID = UUID().uuidString
+            try save()
+            Self.log.info("Hardware changed; minted a new device ID so usage rows stay per Mac")
+        }
+        cachedDeviceID = settings.deviceID
+        return settings.deviceID
+    }
+
     /// Counts one expansion on this device only, creating its usage row if needed.
     public func recordUsage(snippetID: UUID, charsSaved: Int, at date: Date = .now) throws {
         let device = try deviceID()
@@ -302,6 +327,14 @@ public final class KudzuStore {
         try body(settings)
         settings.updatedAt = .now
         try save()
+    }
+
+    /// Edits this Mac's local settings and refreshes the cached device id.
+    public func updateLocalSettings(_ body: (LocalSettingsModel) throws -> Void) throws {
+        let settings = try localSettings()
+        try body(settings)
+        try save()
+        cachedDeviceID = settings.deviceID
     }
 
     /// This device's local settings, created (with a fresh device ID) if missing.

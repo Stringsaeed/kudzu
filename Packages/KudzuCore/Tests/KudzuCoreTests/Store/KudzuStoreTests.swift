@@ -242,6 +242,24 @@ import Testing
         #expect(try store.syncedSettings().typingSpeedWPM == 90)
     }
 
+    @Test func deviceIDFollowsHardware() throws {
+        let store = try KudzuStore.inMemory()
+        let original = try store.deviceID()
+
+        #expect(try store.reconcileDevice(hardwareID: "   ") == original)
+        #expect(try store.localSettings().hardwareID == "")
+
+        #expect(try store.reconcileDevice(hardwareID: "mac-a") == original)
+        #expect(try store.localSettings().hardwareID == "mac-a")
+        #expect(try store.reconcileDevice(hardwareID: "mac-a") == original)
+
+        let moved = try store.reconcileDevice(hardwareID: "mac-b")
+        #expect(moved != original)
+        #expect(try store.deviceID() == moved)
+        #expect(try store.localSettings().hardwareID == "mac-b")
+        #expect(try store.localSettings().deviceID == moved)
+    }
+
     @Test func settingsDefaultsAndUpdates() throws {
         let store = try KudzuStore.inMemory()
         let settings = try store.syncedSettings()

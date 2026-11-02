@@ -4,6 +4,8 @@ import Foundation
 public enum KudzuStoreConstants {
     /// CloudKit container for the synced configuration. Tied to our team, so unsigned builds can't sync.
     public static let cloudKitContainerID = "iCloud.sh.saeed.kudzu"
+    /// Apple Developer team that owns `cloudKitContainerID`. Other teams' builds stay local.
+    public static let cloudKitTeamID = "V3HN8HXZYK"
     /// Configuration holding snippets, groups, usage and synced settings.
     public static let syncedConfigurationName = "Synced"
     /// Configuration holding per-device settings; never synced.
