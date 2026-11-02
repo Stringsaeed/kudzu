@@ -96,5 +96,10 @@ import Testing
         #expect(window.toolbar == nil)
         let center = try #require(KzWindowChrome.closeButtonCenterY(in: window))
         #expect(abs(center - KzSize.titlebar / 2) < 0.5, "centre \(center)")
+
+        window.collectionBehavior = [.fullScreenNone, .canJoinAllSpaces]
+        #expect(window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.fullScreenNone))
+        #expect(!window.collectionBehavior.contains(.canJoinAllSpaces))
     }
 }

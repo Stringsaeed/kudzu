@@ -107,6 +107,7 @@ private struct KzWindowChromeView: NSViewRepresentable {
 
     final class Probe: NSView {
         private var observers: [NSObjectProtocol] = []
+        private var collectionObservation: NSKeyValueObservation?
         private var isLayingOut = false
 
         override func viewDidMoveToWindow() {
@@ -121,6 +122,9 @@ private struct KzWindowChromeView: NSViewRepresentable {
         }
 
         private func observe(_ window: NSWindow) {
+            collectionObservation = window.observe(\.collectionBehavior, options: [.new]) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.relayout() }
+            }
             let center = NotificationCenter.default
             let names: [Notification.Name] = [
                 NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
@@ -149,11 +153,15 @@ private struct KzWindowChromeView: NSViewRepresentable {
             isLayingOut = true
             // SwiftUI can turn this back off when it updates the window (see `kzWindowChrome()`).
             if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
+            // Scene updates can replace the collection policy when switching library/settings.
+            let behavior: NSWindow.CollectionBehavior = [.fullScreenPrimary, .managed]
+            if window.collectionBehavior != behavior { window.collectionBehavior = behavior }
             KzWindowChrome.layoutTrafficLights(in: window)
             isLayingOut = false
         }
 
         private func removeObservers() {
+            collectionObservation = nil
             observers.forEach(NotificationCenter.default.removeObserver)
             observers.removeAll()
         }

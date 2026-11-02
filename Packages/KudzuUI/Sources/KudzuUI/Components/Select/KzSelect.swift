@@ -96,8 +96,6 @@ public struct KzSelectLabel: View {
         .padding(.trailing, 6)
         .frame(minWidth: 140)
         .frame(height: KzSize.control)
-        // `.kz-select` is inline-flex: its natural width, never stretched to its container.
-        .fixedSize(horizontal: true, vertical: false)
         .overlay {
             if isOpen { RoundedRectangle(cornerRadius: KzRadius.md).strokeBorder(KzColor.line) }
         }
