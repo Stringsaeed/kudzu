@@ -39,6 +39,8 @@ import Testing
 
     @Test func chromeSettings() {
         let window = makeWindow()
+        window.level = .floating
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         KzWindowChrome.apply(to: window)
         #expect(window.titleVisibility == .hidden)
         #expect(window.titlebarAppearsTransparent)
@@ -48,6 +50,11 @@ import Testing
         #expect(window.isOpaque)
         #expect(window.backgroundColor == KzColorToken.surfaceRaised.nsColor)
         #expect(window.standardWindowButton(.closeButton)?.isHidden == false)
+        #expect(window.level == .normal)
+        #expect(window.styleMask.contains(.resizable))
+        #expect(window.collectionBehavior.contains(.fullScreenPrimary))
+        #expect(!window.collectionBehavior.contains(.canJoinAllSpaces))
+        #expect(!window.collectionBehavior.contains(.fullScreenAuxiliary))
 
         // Idempotent, and an app's own toolbar is respected.
         let own = NSToolbar(identifier: "app")

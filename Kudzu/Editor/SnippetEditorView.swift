@@ -21,6 +21,7 @@ struct SnippetEditorView: View {
     @FocusState private var nameFocused: Bool
     @AppStorage("editor.rulesExpanded") private var rulesExpanded = false
     @AppStorage("editor.advancedExpanded") private var advancedExpanded = false
+    @AppStorage("editor.previewExpanded") private var previewExpanded = false
 
     init(snippet: SnippetRecord, library: LibraryModel) {
         self.snippet = snippet
@@ -53,7 +54,9 @@ struct SnippetEditorView: View {
             nameField(draft)
             triggersField(draft)
             contentField
-            SnippetPreviewView(content: draft.content, rootSnippetID: snippet.id)
+            KzDisclosure("Preview", isExpanded: $previewExpanded) {
+                SnippetPreviewView(content: draft.content, rootSnippetID: snippet.id, showsLabel: false)
+            }
             KzDisclosure("Rules", summary: rulesSummary(draft), isExpanded: $rulesExpanded) {
                 RulesSection(
                     rule: model.binding(\.rule),
@@ -66,10 +69,9 @@ struct SnippetEditorView: View {
                 AdvancedSection(model: model)
             }
         }
-        .padding(.horizontal, KzSpace.s6)
+        .padding(.horizontal, KzSpace.s4)
         .padding(.top, KzSpace.s2)
         .padding(.bottom, KzSpace.s6)
-        .frame(maxWidth: 760, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -140,13 +142,13 @@ struct SnippetEditorView: View {
     private func nameField(_ draft: SnippetRecord) -> some View {
         if snapshotRendering {
             Text(draft.name.isEmpty ? "Untitled" : draft.name)
-                .kzMonoTitle()
+                .kzTextStyle(.titleLg)
                 .foregroundStyle(KzColor.ink)
-                .lineLimit(1)
+                .lineLimit(2)
         } else {
             TextField("Name", text: model.binding(\.name), prompt: Text("Untitled").foregroundStyle(KzColor.inkFaint))
                 .textFieldStyle(.plain)
-                .kzMonoTitle()
+                .kzTextStyle(.titleLg)
                 .foregroundStyle(KzColor.ink)
                 .focused($nameFocused)
                 .accessibilityLabel("Name")
@@ -220,7 +222,7 @@ struct SnippetEditorView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, KzSpace.s3)
             .overlay(alignment: .top) { Rectangle().fill(KzColor.line).frame(height: 1) }
-            .padding(.horizontal, KzSpace.s6)
+            .padding(.horizontal, KzSpace.s4)
     }
 
     // MARK: - Summaries

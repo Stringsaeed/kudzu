@@ -212,7 +212,10 @@ struct SyncSettingsTab: View {
                 KzSettingsRow("Device ID", description: "Usage is counted separately on each Mac, then added together.") {
                     Text(deviceID.isEmpty ? "—" : deviceID)
                         .kzTextStyle(.monoCaption).foregroundStyle(KzColor.inkMuted)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                         .textSelection(.enabled)
+                        .frame(maxWidth: 200, alignment: .trailing)
                 }
             }
         }

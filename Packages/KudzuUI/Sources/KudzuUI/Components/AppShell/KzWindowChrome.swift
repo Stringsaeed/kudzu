@@ -55,6 +55,9 @@ public enum KzWindowChrome {
         // window colour instead of showing the desktop through a see-through strip.
         window.isOpaque = true
         window.backgroundColor = KzColorToken.surfaceRaised.nsColor
+        // One Space, native full screen; never float above other apps or follow every desktop.
+        window.collectionBehavior = [.fullScreenPrimary, .managed]
+        window.level = .normal
         layoutTrafficLights(in: window)
     }
 

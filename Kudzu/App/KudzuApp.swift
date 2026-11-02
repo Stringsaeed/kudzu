@@ -33,6 +33,7 @@ struct KudzuApp: App {
         // and macOS draws an opaque titlebar over the top of the pane headers.
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1080, height: 700)
+        .windowResizability(.contentMinSize)
         .commands { KudzuCommands(model: model) }
 
         Window("Welcome to Kudzu", id: SceneID.onboarding) {

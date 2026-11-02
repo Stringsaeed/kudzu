@@ -3,7 +3,7 @@ import SwiftUI
 /// One setting: label and optional description on the left, its control on the right.
 ///
 /// Put rows inside a `KzSettingsGroup`, which splits them with `line` hairlines. The row is at least
-/// 52pt tall with 16pt side padding.
+/// 44pt tall with 16pt side padding.
 public struct KzSettingsRow<Label: View, Control: View>: View {
     private let icon: KzIconName?
     private let descriptionText: String?
@@ -32,6 +32,7 @@ public struct KzSettingsRow<Label: View, Control: View>: View {
                 label
                     .kzTextStyle(.bodyStrong)
                     .foregroundStyle(KzColor.ink)
+                    .lineLimit(2)
                 if let descriptionText {
                     Text(descriptionText)
                         .kzTextStyle(.callout)
@@ -39,13 +40,14 @@ public struct KzSettingsRow<Label: View, Control: View>: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             HStack(spacing: KzSpace.s2) { control }
-                .fixedSize()
+                .frame(minWidth: 0, alignment: .trailing)
         }
         .padding(.horizontal, KzSpace.s4)
-        .padding(.vertical, 10)
-        .frame(minHeight: 52)
+        .padding(.vertical, 8)
+        .frame(minHeight: 44)
         .accessibilityElement(children: .contain)
     }
 }

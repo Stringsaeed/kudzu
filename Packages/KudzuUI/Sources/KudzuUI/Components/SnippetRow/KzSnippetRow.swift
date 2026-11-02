@@ -63,7 +63,10 @@ public struct KzSnippetRow: View {
                 }
             }
             HStack(spacing: 6) {
-                ForEach(triggers, id: \.self) { KzTriggerChip($0) }
+                if !triggers.isEmpty {
+                    KzTriggerList(triggers)
+                        .frame(minWidth: 0, maxWidth: triggers.count > 1 ? 120 : 96, alignment: .leading)
+                }
                 if let preview, !preview.isEmpty {
                     Text(preview)
                         .kzTextStyle(.callout)
@@ -75,7 +78,7 @@ public struct KzSnippetRow: View {
                 }
             }
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, 8)
         .padding(.horizontal, KzSpace.s3)
         .frame(maxWidth: .infinity, alignment: .leading)
         .kzSelectableRow(isSelected: isSelected)

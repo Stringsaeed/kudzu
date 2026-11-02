@@ -8,11 +8,12 @@ struct SnippetPreviewView: View {
     var content: String
     /// The snippet being edited, so that including itself is reported before it expands once.
     var rootSnippetID: UUID?
+    /// When false, only the preview well is shown (inside a disclosure).
+    var showsLabel = true
 
     var body: some View {
         let result = Self.render(content, rootSnippetID: rootSnippetID, contents: library.contentByID)
-        KzField("Preview") {
-            VStack(alignment: .leading, spacing: KzSpace.s2) {
+        let well = VStack(alignment: .leading, spacing: KzSpace.s2) {
                 Group {
                     if content.isEmpty {
                         Text("The expanded text appears here.")
@@ -34,6 +35,10 @@ struct SnippetPreviewView: View {
                     DiagnosticsList(diagnostics: result.diagnostics)
                 }
             }
+        if showsLabel {
+            KzField("Preview") { well }
+        } else {
+            well
         }
     }
 

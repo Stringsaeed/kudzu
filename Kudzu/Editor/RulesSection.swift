@@ -69,14 +69,18 @@ struct RulesSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KzSpace.s3) {
-            HStack(spacing: KzSpace.s3) {
-                KzSegmented("Apps", selection: source, options: [
-                    .init(.inherit, label: inheritOptionTitle),
-                    .init(.custom, label: "Custom"),
-                ])
-                .fixedSize()
-                if rule == nil {
-                    summary(inheritedRuleDescription, inherited: hasInheritedRule)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: KzSpace.s3) {
+                    ruleSourceControl.frame(maxWidth: .infinity, alignment: .leading)
+                    if rule == nil {
+                        summary(inheritedRuleDescription, inherited: hasInheritedRule)
+                    }
+                }
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    ruleSourceControl
+                    if rule == nil {
+                        summary(inheritedRuleDescription, inherited: hasInheritedRule)
+                    }
                 }
             }
 
@@ -116,13 +120,20 @@ struct RulesSection: View {
 
     // MARK: - Custom
 
+    private var ruleSourceControl: some View {
+        KzSegmented("Apps", selection: source, options: [
+            .init(.inherit, label: inheritOptionTitle),
+            .init(.custom, label: "Custom"),
+        ])
+    }
+
     private var customRule: some View {
         VStack(alignment: .leading, spacing: KzSpace.s3) {
             KzSegmented("Mode", selection: ruleMode, options: [
                 .init(.allow, label: "Allow only in"),
                 .init(.deny, label: "Block in"),
             ])
-            .fixedSize()
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             let bundleIDs = rule?.bundleIDs ?? []
             if bundleIDs.isEmpty {

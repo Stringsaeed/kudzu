@@ -5,12 +5,22 @@ import SwiftUI
 /// A leading symbol (`:` or `;`) is set in `vine-ink` so the prefix reads as syntax. `onRemove`
 /// adds a remove button; use it only inside `KzTriggerInput`.
 public struct KzTriggerChip: View {
+    /// Whether the chip keeps its natural width or truncates inside a narrow row.
+    public enum WidthPolicy: Sendable {
+        /// Full trigger width (editor chips, palette).
+        case natural
+        /// One line, tail truncation when space is tight (list rows).
+        case constrained
+    }
+
     private let trigger: String
+    private let widthPolicy: WidthPolicy
     private let onRemove: (() -> Void)?
 
     /// Creates a chip for `trigger`, removable when `onRemove` is given.
-    public init(_ trigger: String, onRemove: (() -> Void)? = nil) {
+    public init(_ trigger: String, widthPolicy: WidthPolicy = .natural, onRemove: (() -> Void)? = nil) {
         self.trigger = trigger
+        self.widthPolicy = widthPolicy
         self.onRemove = onRemove
     }
 
@@ -23,10 +33,12 @@ public struct KzTriggerChip: View {
     public var body: some View {
         let parts = Self.split(trigger)
         HStack(spacing: 0) {
-            (Text(parts.lead).foregroundStyle(KzColor.vineInk) + Text(parts.body).foregroundStyle(KzColor.ink))
-                .kzTextStyle(.trigger, matchLineBox: false)
-                .lineLimit(1)
-                .fixedSize()
+            Group {
+                (Text(parts.lead).foregroundStyle(KzColor.vineInk) + Text(parts.body).foregroundStyle(KzColor.ink))
+                    .kzTextStyle(.trigger, matchLineBox: false)
+                    .lineLimit(1)
+            }
+            .modifier(ChipTextWidth(policy: widthPolicy))
             if let onRemove {
                 Button(action: onRemove) { KzIcon(.x, size: 10) }
                     .buttonStyle(RemoveStyle())
@@ -52,5 +64,43 @@ public struct KzTriggerChip: View {
                     .background(state.isHovered || state.isPressed ? KzColor.surfacePressed : .clear, in: shape)
             }
         }
+    }
+}
+
+private struct ChipTextWidth: ViewModifier {
+    let policy: KzTriggerChip.WidthPolicy
+
+    func body(content: Content) -> some View {
+        switch policy {
+        case .natural:
+            content.fixedSize()
+        case .constrained:
+            content.truncationMode(.tail).frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// Shows the first trigger and a +N overflow badge for list rows.
+public struct KzTriggerList: View {
+    private let triggers: [String]
+
+    /// Creates a compact trigger row.
+    public init(_ triggers: [String]) { self.triggers = triggers }
+
+    public var body: some View {
+        HStack(spacing: 6) {
+            if let first = triggers.first {
+                KzTriggerChip(first, widthPolicy: .constrained)
+                    .frame(maxWidth: 96, alignment: .leading)
+            }
+            if triggers.count > 1 {
+                Text("+\(triggers.count - 1)")
+                    .kzTextStyle(.caption)
+                    .foregroundStyle(KzColor.inkMuted)
+                    .layoutPriority(1)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(triggers.joined(separator: ", "))
     }
 }

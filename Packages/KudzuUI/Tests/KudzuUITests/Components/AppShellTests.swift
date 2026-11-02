@@ -56,7 +56,7 @@ struct SampleAppShell: View {
             }
             VStack(alignment: .leading, spacing: KzSpace.s5) {
                 Text(":date")
-                    .kzMonoTitle()
+                    .kzTextStyle(.titleLg)
                     .foregroundStyle(KzColor.ink)
                 KzField("Triggers", aside: "Space or return to add") { KzTriggerInput(triggers: .constant([":date"])) }
                 KzField("Content") {
@@ -105,6 +105,9 @@ struct SampleAppShell: View {
     }
 
     @Test func paneWidthsComeFromTokens() {
-        #expect(KzAppShell<EmptyView, EmptyView, EmptyView, EmptyView, EmptyView>.minimumSize.width == KzSize.sidebar + KzSize.list + 360)
+        #expect(KzAppShell<EmptyView, EmptyView, EmptyView, EmptyView, EmptyView>.minimumSize.width
+            == KzSize.sidebar + KzSize.list + KzSize.detailMin)
+        #expect(KzAppShell<EmptyView, EmptyView, EmptyView, EmptyView, EmptyView>.minimumSize(chrome: .settings).width
+            == KzSize.list + KzSize.detailMin)
     }
 }

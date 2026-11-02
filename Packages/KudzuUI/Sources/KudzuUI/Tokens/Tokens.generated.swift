@@ -9,7 +9,7 @@ import SwiftUI
 /// Metadata about the generated tokens.
 public enum KzTokens {
     /// SHA-256 of tokens.json plus the generator script; a test compares it to catch a stale file.
-    public static let sourceFingerprint = "cc8910a5501e51a924e08f6814495dfc0b56710b7f6ef394fd530def49ffcfcf"
+    public static let sourceFingerprint = "6a97dbe53358260cec69721c0b1e6f182421f7a879f991f285882ad8359d6860"
     /// The design system's name and version from tokens.json.
     public static let designSystem = "Kudzu v1"
 }
@@ -489,9 +489,11 @@ public enum KzSize {
     /// Height of every pane's header row, aligned with the traffic lights.
     public static let titlebar: CGFloat = 52
     /// Sidebar width (glass).
-    public static let sidebar: CGFloat = 220
+    public static let sidebar: CGFloat = 200
     /// Snippet list / settings section list width.
-    public static let list: CGFloat = 300
+    public static let list: CGFloat = 260
+    /// Minimum width of the detail pane in the main window.
+    public static let detailMin: CGFloat = 300
 
     /// Every token in this group, in design-system order, for galleries and docs.
     public static let all: [KzMetric] = [
@@ -499,8 +501,9 @@ public enum KzSize {
         KzMetric(token: "size-control", name: "control", value: 30, usage: "Buttons, toolbar icon buttons, search, sidebar items."),
         KzMetric(token: "size-field", name: "field", value: 34, usage: "Text fields, select, trigger input."),
         KzMetric(token: "size-titlebar", name: "titlebar", value: 52, usage: "Height of every pane's header row, aligned with the traffic lights."),
-        KzMetric(token: "size-sidebar", name: "sidebar", value: 220, usage: "Sidebar width (glass)."),
-        KzMetric(token: "size-list", name: "list", value: 300, usage: "Snippet list / settings section list width."),
+        KzMetric(token: "size-sidebar", name: "sidebar", value: 200, usage: "Sidebar width (glass)."),
+        KzMetric(token: "size-list", name: "list", value: 260, usage: "Snippet list / settings section list width."),
+        KzMetric(token: "size-detail-min", name: "detailMin", value: 300, usage: "Minimum width of the detail pane in the main window."),
     ]
 }
 

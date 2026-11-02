@@ -205,8 +205,12 @@ struct MainWindowShell<SettingsDetail: View>: View {
         if case .settings(let section) = windowMode { section } else { nil }
     }
 
+    private var shellChrome: KzAppShellChrome {
+        settingsSection == nil ? .library : .settings
+    }
+
     var body: some View {
-        KzAppShell(mode: shellMode) {
+        KzAppShell(mode: shellMode, chrome: shellChrome) {
             SidebarView(isSettings: settingsSection != nil) { scope in
                 browser.scope = scope
                 windowMode = .library
@@ -221,7 +225,10 @@ struct MainWindowShell<SettingsDetail: View>: View {
             }
         } list: {
             if let section = settingsSection {
-                SettingsSectionList(selection: Binding(get: { section }, set: { windowMode = .settings($0) }))
+                SettingsSectionList(
+                    selection: Binding(get: { section }, set: { windowMode = .settings($0) }),
+                    returnToLibrary: { windowMode = .library }
+                )
             } else if browser.scope == .stats {
                 StatsLeaderboardView()
             } else {
@@ -300,6 +307,7 @@ struct CenteredEmptyState<Content: View>: View {
 /// The list pane in settings mode: one row per section.
 private struct SettingsSectionList: View {
     @Binding var selection: SettingsSection
+    var returnToLibrary: () -> Void
 
     private static let version: String? = {
         let info = Bundle.main.infoDictionary
@@ -308,7 +316,9 @@ private struct SettingsSectionList: View {
 
     var body: some View {
         KzListHeader("Settings", subtitle: Self.version)
+            .padding(.leading, KzWindowChrome.Lights.trailingEdge)
         VStack(alignment: .leading, spacing: 1) {
+            KzSidebarItem("Library", icon: .stack) { returnToLibrary() }
             ForEach(SettingsSection.allCases) { section in
                 KzSidebarItem(section.title, icon: section.icon, isActive: section == selection) {
                     selection = section

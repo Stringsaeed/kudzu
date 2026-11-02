@@ -4,6 +4,12 @@ import Testing
 
 @MainActor
 @Suite struct SmallComponentTests {
+    @Test func triggerListShowsOverflowCount() throws {
+        try snapshot("trigger-list-overflow", width: KzSize.list - KzSpace.s4) {
+            KzTriggerList([";signature", ";sig", ";s"])
+        }
+    }
+
     @Test func triggerChipSplitsLeadingSymbol() {
         #expect(KzTriggerChip.split(":an") == (":", "an"))
         #expect(KzTriggerChip.split("addr") == ("", "addr"))
