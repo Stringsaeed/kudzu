@@ -1,71 +1,87 @@
 import AppKit
-import SwiftUI
+import Carbon
 import KudzuCore
+import KudzuUI
+import SwiftUI
 
-/// A form that takes keyboard focus without activating Kudzu.
+/// A form that takes keyboard focus without activating Kudzu, hosted on a `KzFloatingPanel`.
 @MainActor
-final class FormPanel: NSPanel {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
+final class FormPanel: KzFloatingPanel {
     private var completion: (([String: String]?) -> Void)?
     private var monitor: Any?
 
     init() {
-        super.init(contentRect: NSRect(x: 0, y: 0, width: 400, height: 460),
-                   styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
-        level = .floating
-        hidesOnDeactivate = false
-        isReleasedWhenClosed = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        super.init(sizing: .fitting, chrome: .glass(), behavior: .modeless, level: .floating) {
+            EmptyView()
+        }
+        onClose = { [weak self] _ in
+            self?.finish(nil)
+        }
     }
 
     func present(name: String, fields: [FormFieldSpec], values: [String: String],
                  preview: @escaping ([String: String]) -> String) async -> [String: String]? {
         let location = CaretLocator().locate()
         title = name
-        let model = FormModel(fields: fields, values: values)
-        contentView = NSHostingView(rootView: FormPanelView(model: model, preview: preview,
-            submit: { [weak self] in self?.finish(model.values) }, cancel: { [weak self] in self?.finish(nil) }))
+        let model = FormModel(name: name, fields: fields, values: values)
+        setContent {
+            FormPanelView(
+                model: model,
+                preview: preview,
+                submit: { [weak self] in self?.finish(model.values) },
+                cancel: { [weak self] in self?.finish(nil) }
+            )
+        }
+
+        let placement: KzFloatingPlacement
+        if location.source == .mouse {
+            placement = .centered()
+        } else {
+            placement = .edge(.bottom, anchor: location.rect, gap: 6)
+        }
+
         let screen = NSScreen.screens.first { $0.frame.contains(location.rect.origin) } ?? NSScreen.main
-        if let frame = screen?.visibleFrame {
-            let size = self.frame.size
-            var origin = NSPoint(x: location.rect.minX, y: location.rect.minY - size.height - 6)
-            if origin.y < frame.minY { origin.y = location.rect.maxY + 6 }
-            if location.source == .mouse {
-                origin = NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2)
-            }
-            origin.x = min(max(origin.x, frame.minX), max(frame.minX, frame.maxX - size.width))
-            origin.y = min(max(origin.y, frame.minY), max(frame.minY, frame.maxY - size.height))
-            setFrameOrigin(origin)
-        }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, event.window === self else { return event }
-            switch event.keyCode {
-            case 53: self.finish(nil); return nil
-            case 48:
-                model.moveFocus(backward: event.modifierFlags.contains(.shift))
-                return nil
-            case 36, 76:
+
+        keyHandler = { [weak self] event in
+            guard let self else { return false }
+            if self.isComposingText { return false }
+            let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            switch Int(event.keyCode) {
+            case kVK_Escape:
+                self.finish(nil)
+                return true
+            case kVK_Tab:
+                model.moveFocus(backward: flags.contains(.shift))
+                return true
+            case kVK_Return, kVK_ANSI_KeypadEnter:
                 let multiline = fields.first { $0.name == model.focus }?.kind == .multiline
-                if !multiline || event.modifierFlags.contains(.command) {
+                if !multiline || flags.contains(.command) {
                     self.finish(model.values)
-                    return nil
+                    return true
                 }
-            default: break
+            default:
+                break
             }
-            return event
+            return false
         }
+
         return await withCheckedContinuation { continuation in
             completion = { continuation.resume(returning: $0) }
-            makeKeyAndOrderFront(nil)
+            super.present(placement, on: screen, makeKey: true)
         }
     }
 
-    func cancel() { finish(nil) }
+    func cancel() {
+        finish(nil)
+    }
 
     private func finish(_ values: [String: String]?) {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
+        keyHandler = nil
+        if isPresented {
+            dismiss(.programmatic)
+        }
         orderOut(nil)
         let callback = completion
         completion = nil
@@ -74,12 +90,14 @@ final class FormPanel: NSPanel {
 }
 
 @MainActor @Observable
-private final class FormModel {
+final class FormModel {
+    let name: String
     let fields: [FormFieldSpec]
     var values: [String: String]
     var focus: String?
 
-    init(fields: [FormFieldSpec], values: [String: String]) {
+    init(name: String, fields: [FormFieldSpec], values: [String: String]) {
+        self.name = name
         self.fields = fields
         self.values = values
         focus = fields.first?.name
@@ -92,7 +110,7 @@ private final class FormModel {
     }
 }
 
-private struct FormPanelView: View {
+struct FormPanelView: View {
     @Bindable var model: FormModel
     let preview: ([String: String]) -> String
     let submit: () -> Void
@@ -100,44 +118,176 @@ private struct FormPanelView: View {
     @FocusState private var focus: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            HStack(spacing: KzSpace.s2) {
+                Text(model.name.isEmpty ? "Fill in snippet" : model.name)
+                    .kzTextStyle(.title)
+                    .foregroundStyle(KzColor.ink)
+                    .lineLimit(1)
+                Spacer(minLength: KzSpace.s2)
+                KzKbd("esc")
+            }
+            .padding(.horizontal, KzSpace.s4)
+            .padding(.top, KzSpace.s4)
+            .padding(.bottom, KzSpace.s3)
+
+            Rectangle().fill(KzColor.line).frame(height: 1)
+
+            // Fields & Live Preview
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(model.fields, id: \.name) { field in
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(field.name).font(.headline)
-                            control(field).focused($focus, equals: field.name)
+                VStack(alignment: .leading, spacing: KzSpace.s4) {
+                    KzFieldStack {
+                        ForEach(model.fields, id: \.name) { field in
+                            KzField(field.name) {
+                                control(field)
+                            }
                         }
                     }
-                    Divider()
-                    Text("Preview").font(.headline)
-                    Text(preview(model.values)).textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }.padding(2)
+
+                    VStack(alignment: .leading, spacing: KzSpace.s2) {
+                        Text("Preview")
+                            .kzTextStyle(.headline)
+                            .foregroundStyle(KzColor.ink)
+                        let rendered = preview(model.values)
+                        let previewShape = RoundedRectangle(cornerRadius: KzRadius.md, style: .continuous)
+                        Text(rendered.isEmpty ? " " : rendered)
+                            .kzTextStyle(.content)
+                            .foregroundStyle(KzColor.ink)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, KzSpace.s3)
+                            .padding(.vertical, KzSpace.s2)
+                            .background(KzColor.surfaceRaised, in: previewShape)
+                            .overlay(previewShape.strokeBorder(KzColor.line))
+                    }
+                }
+                .padding(KzSpace.s4)
             }
-            HStack {
-                Button("Cancel", action: cancel)
+            .frame(maxHeight: 340)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Rectangle().fill(KzColor.line).frame(height: 1)
+
+            // Footer actions
+            HStack(spacing: KzSpace.s3) {
+                KzButton("Cancel", variant: .secondary, action: cancel)
                 Spacer()
-                Text("⌘↵ to insert").font(.caption).foregroundStyle(.secondary)
-                Button("Insert", action: submit)
+                HStack(spacing: KzSpace.s1) {
+                    KzKbd("⌘↵")
+                    Text("to insert")
+                        .kzTextStyle(.caption)
+                        .foregroundStyle(KzColor.inkMuted)
+                }
+                KzButton("Insert", variant: .primary, isDefault: true, action: submit)
             }
+            .padding(.horizontal, KzSpace.s4)
+            .padding(.vertical, KzSpace.s3)
         }
-        .padding(16)
-        .frame(width: 400, height: 460)
+        .frame(width: 400)
         .onAppear { focus = model.focus }
         .onChange(of: model.focus) { _, value in focus = value }
         .onChange(of: focus) { _, value in model.focus = value }
     }
 
-    @ViewBuilder private func control(_ field: FormFieldSpec) -> some View {
-        let value = Binding(get: { model.values[field.name] ?? "" }, set: { model.values[field.name] = $0 })
+    @ViewBuilder
+    private func control(_ field: FormFieldSpec) -> some View {
+        let value = Binding(
+            get: { model.values[field.name] ?? "" },
+            set: { model.values[field.name] = $0 }
+        )
         switch field.kind {
-        case .text: TextField(field.name, text: value).labelsHidden()
-        case .multiline: TextEditor(text: value).frame(height: 80).border(.separator)
+        case .text:
+            FormSingleLineField(
+                placeholder: field.defaultValue ?? "",
+                text: value,
+                fieldName: field.name,
+                focus: $focus
+            )
+        case .multiline:
+            KzMultilineTextInput(
+                text: value,
+                fieldName: field.name,
+                focus: $focus
+            )
         case .choice:
-            Picker(field.name, selection: value) {
-                ForEach(Array(field.options.enumerated()), id: \.offset) { _, option in Text(option).tag(option) }
-            }.labelsHidden()
+            KzSelect(
+                field.name,
+                selection: value,
+                options: field.options.map { ($0, $0) }
+            )
+            .focused($focus, equals: field.name)
+        }
+    }
+}
+
+/// Bridges a string-keyed `@FocusState` to `KzTextInput`'s boolean `FocusState<Bool>.Binding`.
+private struct FormSingleLineField: View {
+    let placeholder: String
+    @Binding var text: String
+    let fieldName: String
+    var focus: FocusState<String?>.Binding
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        KzTextInput(placeholder, text: $text, focus: $isFocused)
+            .onAppear {
+                isFocused = (focus.wrappedValue == fieldName)
+            }
+            .onChange(of: focus.wrappedValue) { _, newValue in
+                let shouldFocus = (newValue == fieldName)
+                if isFocused != shouldFocus { isFocused = shouldFocus }
+            }
+            .onChange(of: isFocused) { _, focused in
+                if focused, focus.wrappedValue != fieldName {
+                    focus.wrappedValue = fieldName
+                }
+            }
+    }
+}
+
+/// Minimal KudzuUI-styled multiline text editor for `FormPanel` (`KudzuUI` provides single-line
+/// `KzTextInput` and the chip-based `KzEditorTextView`, so `Panels` supplies this plain multiline well).
+struct KzMultilineTextInput: View {
+    @Binding var text: String
+    let fieldName: String
+    var focus: FocusState<String?>.Binding
+    @Environment(\.kzSnapshotRendering) private var isSnapshot
+    @Environment(\.isEnabled) private var isEnabled
+
+    private var isFocused: Bool {
+        focus.wrappedValue == fieldName
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md, style: .continuous)
+        KzInteractive(shape, stateLayer: false, focusRing: .edge, isFocused: isFocused) { state in
+            Group {
+                if isSnapshot {
+                    Text(text.isEmpty ? " " : text)
+                        .kzTextStyle(.body)
+                        .foregroundStyle(state.isEnabled ? KzColor.ink : KzDisabled.foreground)
+                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, KzSpace.s2)
+                } else {
+                    TextEditor(text: $text)
+                        .focused(focus, equals: fieldName)
+                        .font(KzTextStyle.body.font)
+                        .foregroundStyle(state.isEnabled ? KzColor.ink : KzDisabled.foreground)
+                        .scrollContentBackground(.hidden)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, KzSpace.s2)
+                        .frame(minHeight: 78, maxHeight: 110)
+                }
+            }
+            .background(
+                state.isFocused && state.isEnabled ? KzColor.surfaceRaised : KzColor.surfaceSunken,
+                in: shape
+            )
+            .overlay(
+                shape.strokeBorder(state.isHovered && !state.isFocused ? KzColor.line : .clear)
+            )
         }
     }
 }
