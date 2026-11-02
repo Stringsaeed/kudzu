@@ -1,0 +1,73 @@
+{
+  "v": 3,
+  "assetGroups": {
+    "Logos": {
+      "name": "Logos",
+      "tile": "l",
+      "order": [
+        "kudzu-app-icon.svg",
+        "kudzu-app-icon-1024.png",
+        "kudzu-menubar.svg",
+        "kudzu-menubar-paused.svg"
+      ],
+      "files": {
+        "kudzu-app-icon.svg": {
+          "name": "kudzu-app-icon.svg",
+          "blob": "651d0aa5043227b42e1af9bcef6de95a",
+          "size": 2106,
+          "type": "image/svg+xml"
+        },
+        "kudzu-app-icon-1024.png": {
+          "name": "kudzu-app-icon-1024.png",
+          "blob": "3414cb830d2ff70d0cb2fb43a567e474",
+          "size": 919143,
+          "type": "image/png"
+        },
+        "kudzu-menubar.svg": {
+          "name": "kudzu-menubar.svg",
+          "blob": "5e2b975553243d51d633ca183abaf889",
+          "size": 364,
+          "type": "image/svg+xml"
+        },
+        "kudzu-menubar-paused.svg": {
+          "name": "kudzu-menubar-paused.svg",
+          "blob": "d194488ca9bcd9974da6fc44f5b52a00",
+          "size": 452,
+          "type": "image/svg+xml"
+        }
+      }
+    }
+  },
+  "blobs": {},
+  "createdOnFiles": {
+    "at": "2026-11-01T21:13:46Z",
+    "v": 1
+  },
+  "docs": {
+    "readme": "project/README.md",
+    "sections": []
+  },
+  "groups": [
+    "Logos"
+  ],
+  "lastChange": {
+    "by": "Muhammed Saeed",
+    "at": "2026-11-01T21:26:59Z",
+    "via": "Claude",
+    "note": "Added app icon and menu bar icons (Logos)"
+  },
+  "layout": "files",
+  "libraries": [
+    {
+      "name": "react",
+      "version": "18"
+    },
+    {
+      "name": "react-dom",
+      "version": "18"
+    }
+  ],
+  "namespace": "Kudzu",
+  "sections": {},
+  "title": "Kudzu"
+}

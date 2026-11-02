@@ -1,0 +1,12 @@
+<!-- @dsCard group="Data" height=150 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>StatTile</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:16px;background:var(--surface)"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null, h(K.StatTile, {icon:'bolt', label:'Expansions', value:'1,284'}), h(K.StatTile, {icon:'type', label:'Characters saved', value:'38,412'}), h(K.StatTile, {icon:'timer', label:'Time saved', value:'2h 14m', note:'At 40 wpm'})));
+</script>
+</body>
+</html>

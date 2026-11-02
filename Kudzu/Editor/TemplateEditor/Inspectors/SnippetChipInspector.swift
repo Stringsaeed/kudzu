@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Snippet chips: a searchable picker over the other snippets.
@@ -29,35 +30,35 @@ struct SnippetChipInspector: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: "Snippet", subtitle: "Inserts another snippet's content, expanded in place.")
-            TextField("Search snippets", text: $query, prompt: Text("Search by name or trigger"))
-                .textFieldStyle(.roundedBorder)
-                .focused($searchFocused)
-                .onSubmit { if let first = candidates.first { pick(first.id) } }
-            if candidates.isEmpty {
-                Text(context.snippets.count <= (context.currentSnippetID == nil ? 0 : 1)
-                     ? "There are no other snippets yet." : "No snippets match “\(query)”.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 60)
-            } else {
-                List(candidates, selection: Binding(get: { selection }, set: { if let id = $0 { pick(id) } })) { snippet in
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(snippet.name.isEmpty ? "Untitled snippet" : snippet.name)
-                        if !snippet.triggers.isEmpty {
-                            Text(snippet.triggers.joined(separator: "  "))
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .tag(snippet.id)
-                }
-                .listStyle(.bordered)
-                .frame(height: min(CGFloat(candidates.count) * 36 + 8, 200))
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                KzSearchField("Search by name or trigger", text: $query, shortcut: nil, focus: $searchFocused)
+                    .onSubmit { if let first = candidates.first { pick(first.id) } }
+                results
             }
         }
         .onAppear { searchFocused = true }
+    }
+
+    @ViewBuilder private var results: some View {
+        if candidates.isEmpty {
+            Text(context.snippets.count <= (context.currentSnippetID == nil ? 0 : 1)
+                 ? "There are no other snippets yet." : "No snippets match “\(query)”.")
+                .kzTextStyle(.callout, matchLineBox: false)
+                .foregroundStyle(KzColor.inkMuted)
+                .frame(maxWidth: .infinity, minHeight: 60)
+        } else {
+            let list = List(candidates, selection: Binding(get: { selection }, set: { if let id = $0 { pick(id) } })) { snippet in
+                KzSnippetRow(name: snippet.name.isEmpty ? "Untitled snippet" : snippet.name, triggers: snippet.triggers,
+                             isSelected: snippet.id == selection)
+                    .kzListRow()
+                    .tag(snippet.id)
+            }
+            list
+                .kzSelectionList()
+                .frame(height: min(CGFloat(candidates.count) * 46 + 8, 208))
+        }
     }
 
     private func pick(_ id: UUID) {

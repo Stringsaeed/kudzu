@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Text field chips: name, default value and multiline.
@@ -31,17 +32,19 @@ struct FieldChipInspector: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: "Text Field",
                             subtitle: "Asks for text before expanding. Fields with the same name share one value.")
-            Form {
-                TextField("Name", text: $name, prompt: Text("e.g. email"))
-                    .focused($nameFocused)
-                ValidationMessage(text: problem)
-                TextField("Default", text: $defaultValue, prompt: Text("Optional"))
-                Toggle("Multiline", isOn: $multiline)
+            KzField("Name") {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    KzTextInput("e.g. email", text: $name, focus: $nameFocused)
+                    ValidationMessage(text: problem)
+                }
             }
-            .formStyle(.columns)
+            KzField("Default") {
+                KzTextInput("Optional", text: $defaultValue)
+            }
+            InspectorToggleRow(title: "Multiline", isOn: $multiline)
         }
         .onAppear { nameFocused = true }
         .onChange(of: name) { commit() }

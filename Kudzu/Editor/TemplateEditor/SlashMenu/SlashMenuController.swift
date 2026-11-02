@@ -1,23 +1,22 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
-/// Observable state behind the `/` menu.
-@MainActor @Observable
-final class SlashMenuModel {
-    var items: [TemplateInsertItem] = []
-    var query = ""
-    var selection: TemplateInsertItem?
-}
-
-/// A compact insert menu floating at the caret. It never becomes key, so typing keeps going to the editor,
-/// which forwards arrow keys, Return and Escape here.
+/// The `/` insert menu, floating under the caret on the Kudzu menu surface.
+///
+/// It never becomes key, so typing keeps going to the editor, which filters the list and forwards ↑/↓, Return,
+/// Tab and Esc here (see `TemplateEditorCoordinator.textView(_:doCommandBy:)`). Hover highlights a row and a click
+/// picks it, like a menu.
 @MainActor
 final class SlashMenuController {
     private let model = SlashMenuModel()
     private let onPick: (TemplateInsertItem) -> Void
-    private var panel: NSPanel?
-    private var hostingView: FirstMouseHostingView<SlashMenuView>?
+    private var panel: SlashMenuPanel?
+    private var hostingView: SlashMenuHostingView?
+    /// The glass in screen coordinates (the panel is larger by the shadow margins).
+    private var glassFrame: CGRect = .zero
+    private var pressedRow: Int?
 
     init(onPick: @escaping (TemplateInsertItem) -> Void) {
         self.onPick = onPick
@@ -34,14 +33,19 @@ final class SlashMenuController {
         model.query = query
         let panel = panel ?? makePanel()
         guard let hostingView else { return }
+        panel.appearance = window.effectiveAppearance
         // Reassigning the root view applies the model change now, so `fittingSize` is current.
-        hostingView.rootView = makeRootView()
-        let size = hostingView.fittingSize
-        let screen = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .infinite
-        var origin = NSPoint(x: caret.minX - 10, y: caret.minY - size.height - 4)
-        if origin.y < screen.minY { origin.y = caret.maxY + 4 }
-        origin.x = min(max(origin.x, screen.minX + 4), screen.maxX - size.width - 4)
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        hostingView.rootView = SlashMenuView(model: model)
+        let margins = SlashMenuMetrics.margins
+        let fitting = hostingView.fittingSize
+        let glassSize = CGSize(width: fitting.width - margins.left - margins.right,
+                               height: fitting.height - margins.top - margins.bottom)
+        let visible = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .infinite
+        // The row icons sit under the slash: pull the glass left by the menu padding plus the item inset.
+        let anchor = caret.offsetBy(dx: -10, dy: 0)
+        glassFrame = KzFloatingPlacement.edge(.bottom, anchor: anchor, gap: 4, alignment: .leading).frame(for: glassSize, in: visible)
+        panel.setFrame(NSRect(x: glassFrame.minX - margins.left, y: glassFrame.minY - margins.bottom,
+                              width: fitting.width, height: fitting.height), display: true)
         if panel.parent !== window {
             panel.parent?.removeChildWindow(panel)
             window.addChildWindow(panel, ordered: .above)
@@ -51,6 +55,7 @@ final class SlashMenuController {
 
     func hide() {
         model.items = []
+        pressedRow = nil
         guard let panel, panel.isVisible else { return }
         panel.parent?.removeChildWindow(panel)
         panel.orderOut(nil)
@@ -63,37 +68,47 @@ final class SlashMenuController {
         model.selection = model.items[next]
     }
 
-    private func makeRootView() -> SlashMenuView {
-        SlashMenuView(model: model) { [weak self] item in self?.onPick(item) }
+    // MARK: Pointer
+
+    private func row(for event: NSEvent) -> Int? {
+        guard let window = event.window else { return nil }
+        let point = window.convertPoint(toScreen: event.locationInWindow)
+        guard glassFrame.contains(point) else { return nil }
+        // Screen coordinates grow upwards; the metrics are measured from the glass's top edge.
+        return SlashMenuMetrics.row(atY: glassFrame.maxY - point.y, itemCount: model.items.count)
     }
 
-    private func makePanel() -> NSPanel {
-        let panel = NonKeyPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
+    private func pointerMoved(_ event: NSEvent) {
+        if let row = row(for: event) { model.selection = model.items[row] }
+    }
+
+    private func pointerDown(_ event: NSEvent) {
+        pressedRow = row(for: event)
+        pointerMoved(event)
+    }
+
+    private func pointerUp(_ event: NSEvent) {
+        defer { pressedRow = nil }
+        guard let pressed = pressedRow, row(for: event) == pressed, model.items.indices.contains(pressed) else { return }
+        onPick(model.items[pressed])
+    }
+
+    private func makePanel() -> SlashMenuPanel {
+        let panel = SlashMenuPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: true)
         panel.isFloatingPanel = true
-        panel.hasShadow = true
+        // The shadow is drawn by the menu surface like the CSS; the window itself has none.
+        panel.hasShadow = false
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hidesOnDeactivate = true
-        panel.animationBehavior = .utilityWindow
+        panel.animationBehavior = .none
+        panel.acceptsMouseMovedEvents = true
 
-        let effect = NSVisualEffectView()
-        effect.material = .menu
-        effect.state = .active
-        effect.blendingMode = .behindWindow
-        effect.wantsLayer = true
-        effect.layer?.cornerRadius = 8
-        effect.layer?.masksToBounds = true
-
-        let host = FirstMouseHostingView(rootView: makeRootView())
-        host.translatesAutoresizingMaskIntoConstraints = false
-        effect.addSubview(host)
-        NSLayoutConstraint.activate([
-            host.leadingAnchor.constraint(equalTo: effect.leadingAnchor),
-            host.trailingAnchor.constraint(equalTo: effect.trailingAnchor),
-            host.topAnchor.constraint(equalTo: effect.topAnchor),
-            host.bottomAnchor.constraint(equalTo: effect.bottomAnchor),
-        ])
-        panel.contentView = effect
+        let host = SlashMenuHostingView(rootView: SlashMenuView(model: model))
+        host.onMove = { [weak self] in self?.pointerMoved($0) }
+        host.onDown = { [weak self] in self?.pointerDown($0) }
+        host.onUp = { [weak self] in self?.pointerUp($0) }
+        panel.contentView = host
         self.panel = panel
         hostingView = host
         return panel
@@ -101,12 +116,30 @@ final class SlashMenuController {
 }
 
 /// A panel that never takes key status away from the editor.
-private final class NonKeyPanel: NSPanel {
+private final class SlashMenuPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
 
-/// Lets a click on a menu row act immediately even though the panel is not key.
-final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+/// Hosts the menu and reports the pointer. A click acts at once even though the panel is not key.
+final class SlashMenuHostingView: NSHostingView<SlashMenuView> {
+    var onMove: ((NSEvent) -> Void)?
+    var onDown: ((NSEvent) -> Void)?
+    var onUp: ((NSEvent) -> Void)?
+    private var trackingArea: NSTrackingArea?
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeAlways, .inVisibleRect], owner: self, userInfo: nil)
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) { onMove?(event) }
+    override func mouseDown(with event: NSEvent) { onDown?(event) }
+    override func mouseDragged(with event: NSEvent) { onMove?(event) }
+    override func mouseUp(with event: NSEvent) { onUp?(event) }
 }

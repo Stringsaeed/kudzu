@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Date and time chips: format preset or custom ICU pattern, offset, locale and a live preview.
@@ -42,45 +43,43 @@ struct DateChipInspector: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: isTime ? "Time" : "Date",
                             subtitle: isTime ? "Inserts the current time." : "Inserts today's date, or one relative to it.")
-            Form {
-                Picker("Format", selection: $presetID) {
-                    ForEach(DateFormatPreset.all) { preset in Text(preset.title).tag(preset.id) }
-                    Divider()
-                    Text("Custom…").tag(Self.customID)
-                }
-                if presetID == Self.customID {
-                    LabeledContent("Pattern") {
-                        TextField("Pattern", text: $format, prompt: Text("ICU, e.g. EEE d MMM"))
-                            .labelsHidden()
-                            .font(.body.monospaced())
-                    }
-                }
-                LabeledContent("Offset") {
-                    HStack(spacing: 4) {
-                        TextField("Offset", text: $offset, prompt: Text("+3d, -1w"))
-                            .labelsHidden()
-                        Stepper("Days", value: stepperDays, in: -3650...3650).labelsHidden()
-                        Menu {
-                            ForEach(Self.quickOffsets, id: \.1) { title, value in Button(title) { offset = value } }
-                        } label: { Image(systemName: "ellipsis.circle") }
-                            .menuStyle(.borderlessButton)
-                            .menuIndicator(.hidden)
-                            .fixedSize()
-                            .accessibilityLabel("Common offsets")
-                    }
-                }
-                if !offsetIsValid {
-                    ValidationMessage(text: "Use a sign, then amounts with d, w, m, y, h or min, e.g. +1w2d.")
-                }
-                TextField("Locale", text: $locale, prompt: Text("System (\(Locale.current.identifier))"))
-                if !localeIsKnown {
-                    ValidationMessage(text: "Unknown locale identifier; the system will fall back.")
+            KzField("Format") {
+                KzSelect("Format", selection: $presetID,
+                         options: DateFormatPreset.all.map { ($0.id, $0.title) } + [(Self.customID, "Custom…")])
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if presetID == Self.customID {
+                KzField("Pattern") {
+                    KzTextInput("ICU, e.g. EEE d MMM", text: $format, mono: true)
                 }
             }
-            .formStyle(.columns)
+            KzField("Offset") {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    HStack(spacing: KzSpace.s2) {
+                        KzTextInput("+3d, -1w", text: $offset, mono: true)
+                        KzStepper("Days", value: stepperDays, min: -3650, max: 3650, unit: "d")
+                        KzIconButton(.more, label: "Common offsets", menuTitle: "Offset") {
+                            for (title, value) in Self.quickOffsets {
+                                KzMenuItem(title, isChecked: offset == value) { offset = value }
+                            }
+                        }
+                    }
+                    if !offsetIsValid {
+                        ValidationMessage(text: "Use a sign, then amounts with d, w, m, y, h or min, e.g. +1w2d.")
+                    }
+                }
+            }
+            KzField("Locale") {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    KzTextInput("System (\(Locale.current.identifier))", text: $locale)
+                    if !localeIsKnown {
+                        ValidationMessage(text: "Unknown locale identifier; the system will fall back.")
+                    }
+                }
+            }
             preview
         }
         .onChange(of: presetID) {
@@ -93,18 +92,21 @@ struct DateChipInspector: View {
 
     private var preview: some View {
         TimelineView(.everyMinute) { context in
-            HStack {
-                Text("Preview").foregroundStyle(.secondary)
-                Spacer()
+            HStack(spacing: KzSpace.s3) {
+                Text("Preview")
+                    .kzTextStyle(.callout, matchLineBox: false)
+                    .foregroundStyle(KzColor.inkMuted)
+                Spacer(minLength: 0)
                 Text(rendered(at: context.date))
-                    .font(.body.monospacedDigit())
+                    .kzTextStyle(.code, matchLineBox: false)
+                    .foregroundStyle(KzColor.ink)
                     .textSelection(.enabled)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
-            .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(.quaternary.opacity(0.6)))
+            .padding(.horizontal, KzSpace.s3)
+            .frame(height: 34)
+            .background(KzColor.surfaceSunken, in: RoundedRectangle(cornerRadius: KzRadius.md))
             .accessibilityElement(children: .combine)
         }
     }

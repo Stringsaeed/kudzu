@@ -1,10 +1,14 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Rich editor for snippet template source that shows tags as inline chips.
 ///
-/// Type `/` at the start of a line or after a space to insert a tag, or use the "+" menu. Click a chip,
-/// or select it and press Return, to edit it.
+/// Type `/` at the start of a line or after a space to insert a tag. Click a chip, or select it and press
+/// Return, to edit it.
+///
+/// This is the text area only: the surrounding window supplies the `KzEditorFrame`, the Insert button and the
+/// hint bar. To drive them, create a `TemplateEditorController` and attach it with `.templateEditorController(_:)`.
 struct TemplateTextEditor: View {
     /// Template source in docs/TEMPLATE_SYNTAX.md format. The editor reads and writes only this.
     @Binding var source: String
@@ -15,7 +19,8 @@ struct TemplateTextEditor: View {
     /// Called with editor diagnostics (ranges in canonical source) whenever they change.
     var onDiagnostics: ([TemplateDiagnostic]) -> Void = { _ in }
 
-    @State private var controller = TemplateEditorController()
+    @State private var ownController = TemplateEditorController()
+    @Environment(\.templateEditorController) private var injectedController
 
     /// Creates an editor bound to template source.
     init(source: Binding<String>, snippets: [SnippetRecord] = [], currentSnippetID: UUID? = nil,
@@ -27,40 +32,8 @@ struct TemplateTextEditor: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            ChipTextViewRepresentable(source: $source, snippets: snippets, currentSnippetID: currentSnippetID,
-                                      controller: controller, onDiagnostics: onDiagnostics)
-        }
-        .background(Color(nsColor: .textBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
-    }
-
-    private var toolbar: some View {
-        HStack(spacing: 8) {
-            Menu {
-                ForEach(TemplateInsertItem.allCases) { item in
-                    Button {
-                        controller.insert(item)
-                    } label: {
-                        Label(item.title, systemImage: item.symbolName)
-                    }
-                }
-            } label: {
-                Label("Insert", systemImage: "plus")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Insert a date, field, snippet or other tag")
-            Spacer()
-            Text("Type / to insert a tag")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
+        ChipTextViewRepresentable(source: $source, snippets: snippets, currentSnippetID: currentSnippetID,
+                                  controller: injectedController ?? ownController, onDiagnostics: onDiagnostics)
     }
 }
 
@@ -75,14 +48,22 @@ struct TemplateTextEditor: View {
         Broken: {{DATE}} and {{unknown tag}}
         {{cursor}}
         """
+    @Previewable @State var controller = TemplateEditorController()
     let signature = SnippetRecord(id: UUID(uuidString: "5F0B8E4A-3C1D-4C6B-9E8F-2A7D6B1C0E93")!, name: "Signature",
                                   triggers: [";sig"], content: "— Ada")
     VStack(alignment: .leading, spacing: 8) {
-        TemplateTextEditor(source: $source, snippets: [signature])
-            .frame(height: 260)
+        KzEditorFrame(isFocused: controller.isFocused) {
+            KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") {
+                controller.insertMenu()
+            }
+        } content: {
+            TemplateTextEditor(source: $source, snippets: [signature])
+                .templateEditorController(controller)
+        }
+        .frame(height: 260)
         Text(source)
-            .font(.caption.monospaced())
-            .foregroundStyle(.secondary)
+            .kzTextStyle(.code, matchLineBox: false)
+            .foregroundStyle(KzColor.inkMuted)
             .textSelection(.enabled)
     }
     .padding()

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="vine" cx="0.55" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#D3F66B"/>
+      <stop offset="0.45" stop-color="#C5F03D"/>
+      <stop offset="1" stop-color="#B5E22A"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#vine)" d="M454 431C427 407 427 365 453 339C472 320 496 317 518 321C547 325 570 305 590 289C588 316 581 340 570 360C582 388 572 418 550 437C523 461 480 455 454 431Z"/>
+  <path fill="#6E981B" fill-opacity="0.48" d="M472 419C503 391 538 352 568 320C543 357 511 395 475 422C472 424 470 422 472 419Z"/>
+</svg>

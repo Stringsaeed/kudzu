@@ -1,63 +1,63 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
-/// Rows of the `/` insert menu.
-struct SlashMenuView: View {
-    let model: SlashMenuModel
-    let onPick: (TemplateInsertItem) -> Void
+/// Observable state behind the `/` menu.
+@MainActor @Observable
+final class SlashMenuModel {
+    var items: [TemplateInsertItem] = []
+    var query = ""
+    var selection: TemplateInsertItem?
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(model.query.isEmpty ? "Insert" : "Insert “\(model.query)”")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.top, 2)
-                .padding(.bottom, 3)
-            ForEach(model.items) { item in
-                InsertItemRow(item: item, isSelected: item == model.selection)
-                    .contentShape(.rect)
-                    .onTapGesture { onPick(item) }
-                    .onHover { inside in if inside { model.selection = item } }
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAddTraits(item == model.selection ? .isSelected : [])
-            }
-        }
-        .padding(5)
-        .frame(width: 250)
-        .fixedSize(horizontal: false, vertical: true)
+    /// The menu as `KzMenuSurface` draws it: a titled list of the matching tags. Picking is handled by the panel,
+    /// so the items carry no action.
+    var menu: KzMenu {
+        KzMenu(title: query.isEmpty ? "Insert" : "Insert “\(query)”", elements: items.map {
+            .item(KzMenuItem($0.title, icon: ChipStyle.icon(for: $0), id: $0.id) {})
+        })
     }
 }
 
-/// One menu entry: tinted symbol, title and a short explanation.
-struct InsertItemRow: View {
-    let item: TemplateInsertItem
-    var isSelected = false
+/// The Kudzu menu surface, padded by the shadow's reach because the panel is larger than the glass.
+///
+/// `KzMenuSurface` is the design system's menu, so it looks the same as every other Kudzu menu. It is not the live
+/// `KzMenu` session because that takes every key while it is open, and here the keys must keep reaching the text.
+struct SlashMenuView: View {
+    let model: SlashMenuModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: item.symbolName)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(isSelected ? Color.white : Color(nsColor: ChipStyle.tint(forItem: item)))
-                .frame(width: 22, height: 22)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(isSelected ? Color.white.opacity(0.2) : Color(nsColor: ChipStyle.tint(forItem: item)).opacity(0.14)))
-            VStack(alignment: .leading, spacing: 0) {
-                Text(item.title)
-                    .font(.body)
-                Text(item.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(Color.white.opacity(0.8)) : AnyShapeStyle(.secondary))
-            }
-            Spacer(minLength: 0)
+        KzMenuSurface(model.menu, highlightedID: model.selection?.id, blending: .behindWindow)
+            .padding(EdgeInsets(top: SlashMenuMetrics.margins.top, leading: SlashMenuMetrics.margins.left,
+                                bottom: SlashMenuMetrics.margins.bottom, trailing: SlashMenuMetrics.margins.right))
+            .fixedSize()
+    }
+}
+
+/// The geometry of `KzMenuSurface`, needed to turn a pointer position into a row. These are the menu CSS metrics
+/// (`.kz-menu` padding 4, `.kz-menu-title` 24, `.kz-menu-item` 28); KudzuUI's own `KzMenuLayout` is internal.
+enum SlashMenuMetrics {
+    static let padding: CGFloat = 4
+    static let titleHeight: CGFloat = 24
+    static let itemHeight: CGFloat = 28
+
+    /// Room the `shadow-float` drop needs around the glass: the furthest any outer layer reaches on each side.
+    static let margins: NSEdgeInsets = {
+        let shadow = KzShadow.float
+        var top: CGFloat = 0, bottom: CGFloat = 0, side: CGFloat = 0
+        for layer in shadow.lightLayers + shadow.darkLayers where !layer.inset {
+            let reach = layer.blur + layer.spread
+            top = max(top, reach - layer.y)
+            bottom = max(bottom, reach + layer.y)
+            side = max(side, reach + abs(layer.x))
         }
-        .foregroundStyle(isSelected ? Color.white : Color.primary)
-        .padding(.horizontal, 6)
-        .padding(.vertical, 3)
-        .background(
-            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .fill(isSelected ? Color.accentColor : Color.clear))
-        .accessibilityElement(children: .combine)
+        return NSEdgeInsets(top: ceil(top) + 4, left: ceil(side) + 4, bottom: ceil(bottom) + 4, right: ceil(side) + 4)
+    }()
+
+    /// The item row under `y` (points below the glass's top edge), or nil over the title, the padding or past the end.
+    static func row(atY y: CGFloat, itemCount: Int) -> Int? {
+        let offset = y - padding - titleHeight
+        guard offset >= 0 else { return nil }
+        let row = Int(offset / itemHeight)
+        return row < itemCount ? row : nil
     }
 }

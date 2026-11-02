@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Editor state a chip inspector needs beyond the tag itself.
@@ -10,15 +11,20 @@ struct ChipInspectorContext {
 }
 
 /// Routes a chip to the inspector for its tag kind. Each inspector reports every valid change through `onChange`.
+///
+/// The popover chrome (glass, padding) comes from the panel that hosts this view; the content is `KzField`s and the
+/// other Kudzu controls, `space-4` apart.
 struct ChipInspector: View {
+    /// The inspector's content width.
+    static let width: CGFloat = 288
+
     let tag: KudzuCore.Tag
     let context: ChipInspectorContext
     let onChange: (KudzuCore.Tag) -> Void
 
     var body: some View {
         content
-            .padding(14)
-            .frame(width: 300)
+            .frame(width: Self.width, alignment: .leading)
     }
 
     @ViewBuilder private var content: some View {
@@ -41,7 +47,7 @@ struct ChipInspector: View {
     }
 }
 
-/// Symbol, title and one-line explanation at the top of every inspector.
+/// Icon, title and one-line explanation at the top of every inspector.
 struct InspectorHeader: View {
     let tag: KudzuCore.Tag
     let title: String
@@ -49,33 +55,72 @@ struct InspectorHeader: View {
 
     var body: some View {
         let label = ChipLabel(tag: tag)
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: label.symbolName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color(nsColor: ChipStyle.tint(for: label.kind)))
-                .frame(width: 28, height: 28)
-                .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color(nsColor: ChipStyle.tint(for: label.kind)).opacity(0.15)))
+        let isError = label.kind == .unknown
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
+        HStack(alignment: .top, spacing: KzSpace.s3) {
+            // The tag's own colours: `vine-ink` on `vine-soft`, or `danger` on `danger-soft` for an unrecognized tag.
+            KzIcon(ChipStyle.icon(for: label.kind), size: 16)
+                .foregroundStyle(isError ? KzColor.danger : KzColor.vineInk)
+                .frame(width: 32, height: 32)
+                .background(isError ? KzColor.dangerSoft : KzColor.vineSoft, in: shape)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
-                Text(subtitle).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(title)
+                    .kzTextStyle(.headline)
+                    .foregroundStyle(KzColor.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Text(subtitle)
+                    .kzTextStyle(.callout)
+                    .foregroundStyle(KzColor.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 }
 
-/// A small red explanation under an invalid control.
+/// A short explanation under an invalid control: `danger` with a warning icon, so colour is never the only signal.
 struct ValidationMessage: View {
     let text: String?
 
     var body: some View {
         if let text {
-            Label(text, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption)
-                .foregroundStyle(.red)
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .firstTextBaseline, spacing: KzSpace.s2) {
+                KzIcon(.warning, size: 12)
+                    .accessibilityHidden(true)
+                Text(text)
+                    .kzTextStyle(.callout, matchLineBox: false)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundStyle(KzColor.danger)
+            .accessibilityElement(children: .combine)
         }
+    }
+}
+
+/// A labelled switch row, as in settings: the label on the left, a `KzToggle` on the right.
+struct InspectorToggleRow: View {
+    let title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: KzSpace.s3) {
+            Text(title)
+                .kzTextStyle(.body)
+                .foregroundStyle(KzColor.ink)
+            Spacer(minLength: 0)
+            KzToggle(title, isOn: $isOn)
+        }
+    }
+}
+
+/// The inspectors' vertical rhythm.
+struct InspectorStack<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: KzSpace.s4) { content }
     }
 }
 
@@ -85,16 +130,17 @@ struct UnrecognizedChipInspector: View {
     let source: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: "Unrecognized tag",
                             subtitle: "Kudzu doesn't understand this tag, so it is left exactly as written and inserted as plain text. "
                                 + "Delete the chip to remove it.")
             Text(source)
-                .font(.system(.callout, design: .monospaced))
+                .kzTextStyle(.code, matchLineBox: false)
+                .foregroundStyle(KzColor.danger)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
-                .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                .padding(KzSpace.s2)
+                .background(KzColor.dangerSoft, in: RoundedRectangle(cornerRadius: KzRadius.md))
             ForEach(Array(TemplateParser.parse(source).diagnostics.prefix(1).enumerated()), id: \.offset) { _, diagnostic in
                 ValidationMessage(text: diagnostic.message)
             }
@@ -125,9 +171,9 @@ struct ClipboardChipInspector: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: "Clipboard", subtitle: "Inserts the clipboard's plain text.")
-            Toggle("Trim whitespace and newlines", isOn: $trim)
+            InspectorToggleRow(title: "Trim whitespace and newlines", isOn: $trim)
         }
         .onChange(of: trim) { onChange(tag.setting("trim", flag: trim)) }
     }

@@ -1,0 +1,12 @@
+<!-- @dsCard group="Content" height=150 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>ListRow</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" style="padding:8px;display:flex;flex-direction:column;gap:1px;max-width:560px"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null, h(K.ListRow, {title:'2 Nov 2026, 00:35', meta:'kudzu-backup-2026-11-02T003536-daily.json', aside:'18 snippets', badge:h(K.Badge, null, 'Daily'), selected:true}), h(K.ListRow, {title:'1 Nov 2026, 21:20', meta:'kudzu-backup-2026-11-01T212022-preImport.json', aside:'0 snippets', badge:h(K.Badge, {tone:'warning'}, 'Pre-import')})));
+</script>
+</body>
+</html>

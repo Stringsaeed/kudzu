@@ -1,0 +1,12 @@
+<!-- @dsCard group="Inputs" height=64 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Select</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" class="kz-stage"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null, h(K.Select, {value:'Inherit'}), h(K.Select, {value:'Paste (clipboard)'})));
+</script>
+</body>
+</html>

@@ -56,7 +56,8 @@ final class ExpansionEngine {
             guard let self else { return }
             if let panel = self.formPanel {
                 let point = NSEvent.mouseLocation
-                if panel.frame.contains(point) { return }
+                // The panel's window includes its shadow margins; only the visible glass counts.
+                if panel.chromeFrame.contains(point) { return }
             }
             self.invalidateContext()
         }

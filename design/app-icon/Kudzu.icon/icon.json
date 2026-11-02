@@ -1,0 +1,40 @@
+{
+  "fill" : "system-light",
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "glass" : false,
+          "image-name" : "03-sprouting-dot.svg",
+          "name" : "03-sprouting-dot"
+        },
+        {
+          "glass" : false,
+          "image-name" : "02-olive-dot.svg",
+          "name" : "02-olive-dot"
+        },
+        {
+          "glass" : false,
+          "image-name" : "01-paper-keycap-realistic-1024.png",
+          "name" : "01-paper-keycap-realistic-1024"
+        }
+      ],
+      "name" : "Porcelain key · flush legend",
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "specular" : false,
+      "translucency" : {
+        "enabled" : false,
+        "value" : 0.3
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}

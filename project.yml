@@ -21,6 +21,8 @@ configFiles:
 packages:
   KudzuCore:
     path: Packages/KudzuCore
+  KudzuUI:
+    path: Packages/KudzuUI
 
 targetTemplates:
   KudzuApp:
@@ -31,8 +33,13 @@ targetTemplates:
         excludes:
           - "**/.gitkeep"
           - "Resources/*.entitlements"
+      # The app icon, built in Icon Composer. Xcode compiles the .icon document itself.
+      - path: design/app-icon/Kudzu.icon
+        type: file
+        buildPhase: resources
     dependencies:
       - package: KudzuCore
+      - package: KudzuUI
     info:
       path: Kudzu/Resources/Info.plist
       properties:
@@ -51,6 +58,7 @@ targetTemplates:
         PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu
         PRODUCT_NAME: Kudzu
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: Kudzu
 
 targets:
   # Developer ID build: unsandboxed, Sparkle (M5), direct download + Homebrew.
@@ -74,6 +82,24 @@ targets:
         # Distinct product so both builds can coexist; the user-visible name stays "Kudzu".
         PRODUCT_NAME: KudzuAppStore
 
+  # Design-system gallery: every KudzuUI foundation and component on one page each.
+  # `KudzuGallery --snapshot [dir]` renders the pages to PNG without opening a window.
+  KudzuGallery:
+    type: application
+    platform: macOS
+    sources:
+      - path: Gallery
+    dependencies:
+      - package: KudzuUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu.gallery
+        PRODUCT_NAME: KudzuGallery
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Kudzu Gallery
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Muhammed Ibrahim. MIT License."
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+
 schemes:
   Kudzu:
     build:
@@ -85,3 +111,9 @@ schemes:
     build:
       targets:
         KudzuAppStore: all
+  KudzuGallery:
+    build:
+      targets:
+        KudzuGallery: all
+    run:
+      config: Debug

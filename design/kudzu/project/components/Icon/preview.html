@@ -1,0 +1,12 @@
+<!-- @dsCard group="Foundations" height=160 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Icon</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" class="kz-stage" style="gap:18px;color:var(--ink)"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null, K.Icon.names.map(function(n){ return h('span', {key:n, title:n, style:{display:'inline-flex',width:28,height:28,alignItems:'center',justifyContent:'center'}}, h(K.Icon, {name:n, className: n==='star-fill' ? 'kz-fav' : ''})); })));
+</script>
+</body>
+</html>

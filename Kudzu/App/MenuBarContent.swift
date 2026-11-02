@@ -1,4 +1,5 @@
 import AppKit
+import KudzuUI
 import SwiftUI
 
 /// Menu shown from the menu bar icon.
@@ -20,11 +21,9 @@ struct MenuBarContent: View {
         }
 
         if permissionsMissing {
-            Button {
+            Button("Permissions needed — Fix…") {
                 openWindow(id: SceneID.onboarding)
                 NSApplication.shared.activate()
-            } label: {
-                Label("Permissions needed — Fix…", systemImage: "exclamationmark.triangle")
             }
         }
 
@@ -45,7 +44,7 @@ struct MenuBarContent: View {
             NSApplication.shared.activate()
         }
 
-        Button("New Snippet from Selection") {
+        Button("New snippet from selection") {
             Task { @MainActor in
                 if let selection = await model.engine.captureSelection(),
                    !selection.isEmpty {
@@ -62,10 +61,11 @@ struct MenuBarContent: View {
 
         Divider()
 
-        SettingsLink {
-            Text("Settings…")
+        Button("Settings…") {
+            model.showSettings()
+            openWindow(id: SceneID.main)
+            NSApplication.shared.activate()
         }
-        .keyboardShortcut(",", modifiers: .command)
 
         Divider()
 
@@ -81,12 +81,12 @@ struct MenuBarContent: View {
         let shortcut = model.paletteShortcut
         let registered = model.paletteShortcutError == nil
         if registered, let key = shortcut.keyEquivalent {
-            Button("Search Snippets…", action: openPalette)
+            Button("Search snippets…", action: openPalette)
                 .keyboardShortcut(key, modifiers: shortcut.eventModifiers)
         } else if registered {
-            Button("Search Snippets…  \(shortcut.displayString)", action: openPalette)
+            Button("Search snippets…  \(shortcut.displayString)", action: openPalette)
         } else {
-            Button("Search Snippets…", action: openPalette)
+            Button("Search snippets…", action: openPalette)
         }
     }
 
@@ -100,7 +100,7 @@ struct MenuBarContent: View {
         NSApplication.shared.activate()
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "Secure Input Is Active"
+        alert.messageText = "Secure Input is active"
         let appDescription = owner.map { " (\($0))" } ?? ""
         alert.informativeText =
             "A password field, terminal, or security tool\(appDescription) enabled macOS Secure Event Input. " +
@@ -115,8 +115,8 @@ struct MenuBarContent: View {
         NSApplication.shared.activate()
         let alert = NSAlert()
         alert.alertStyle = .informational
-        alert.messageText = "No Text Selected"
-        alert.informativeText = "Select some text in the active application first, then choose “New Snippet from Selection”."
+        alert.messageText = "No text selected"
+        alert.informativeText = "Select some text in the active application first, then choose “New snippet from selection”."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
@@ -127,28 +127,35 @@ struct MenuBarIcon: View {
     @Environment(AppModel.self) private var model
     @Environment(\.openWindow) private var openWindow
 
+    private static let images: [KzMenuBarIcon: NSImage] = {
+        var result: [KzMenuBarIcon: NSImage] = [:]
+        for state in KzMenuBarIcon.allCases {
+            result[state] = state.image()
+        }
+        return result
+    }()
+
     private var permissionsMissing: Bool {
         !model.permissions.accessibility || !model.permissions.inputMonitoring
     }
 
-    private var symbolName: String {
+    private var icon: KzMenuBarIcon {
         if permissionsMissing {
-            return "exclamationmark.triangle.fill"
+            return .permissionsMissing
         }
         if model.engine.secureInputActive {
-            return "lock.fill"
+            return .secureInput
         }
         if model.engine.isPaused {
-            return "text.badge.minus"
+            return .paused
         }
-        return "text.badge.plus"
+        return .active
     }
 
     var body: some View {
-        Image(systemName: symbolName)
-            .symbolRenderingMode(.monochrome)
-            .opacity(model.engine.isPaused && !permissionsMissing && !model.engine.secureInputActive ? 0.55 : 1.0)
-            .accessibilityLabel("Kudzu")
+        let state = icon
+        Image(nsImage: Self.images[state] ?? state.image())
+            .accessibilityLabel(state.accessibilityDescription)
             // The label is the only view built at launch, so it opens the welcome window.
             // (`defaultLaunchBehavior(.presented)` doesn't open windows for a menu-bar-only app.)
             .onAppear {

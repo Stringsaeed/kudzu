@@ -1,20 +1,15 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 
 /// Builds editor attributed content from segments and reads segments back out of text storage.
 @MainActor
 struct ChipFactory {
-    /// Editor body font; chips size themselves against it.
-    var font: NSFont = .preferredFont(forTextStyle: .body)
     /// Snippet names by ID, for snippet chip labels.
     var snippetNames: [UUID: String] = [:]
 
-    /// Attributes for literal text typed or loaded into the editor.
-    var textAttributes: [NSAttributedString.Key: Any] {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = 3
-        return [.font: font, .foregroundColor: NSColor.textColor, .paragraphStyle: paragraph]
-    }
+    /// Attributes for literal text typed or loaded into the editor: the `content` style, `ink`.
+    var textAttributes: [NSAttributedString.Key: Any] { KzEditorStyle.contentAttributes() }
 
     /// The presentation of `tag` given the current snippet names.
     func label(for tag: KudzuCore.Tag) -> ChipLabel {
@@ -23,7 +18,7 @@ struct ChipFactory {
 
     /// A one-character attributed string holding a chip for `tag`.
     func chip(_ tag: KudzuCore.Tag) -> NSAttributedString {
-        let attachment = ChipAttachment(tag: tag, label: label(for: tag), font: font)
+        let attachment = ChipAttachment(tag: tag, label: label(for: tag))
         let result = NSMutableAttributedString(attachment: attachment)
         result.addAttributes(textAttributes, range: NSRange(location: 0, length: result.length))
         return result

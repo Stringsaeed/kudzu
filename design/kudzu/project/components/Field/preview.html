@@ -1,0 +1,12 @@
+<!-- @dsCard group="Inputs" height=120 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Field</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"></head>
+<body>
+<div id="root" class="kz-stage-col" style="max-width:420px"></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(K.Field, {label:'Name', hint:'Shown in the list and in search.'}, h(K.TextInput, {defaultValue:'Signature'})));
+</script>
+</body>
+</html>

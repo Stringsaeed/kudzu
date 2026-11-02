@@ -1,7 +1,8 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
-/// Three-pane main window: sidebar, snippet list, editor.
+/// The one Kudzu window: sidebar, list pane and detail pane, in library or settings mode.
 struct MainWindowView: View {
     @Environment(AppModel.self) private var model
 
@@ -17,44 +18,57 @@ private struct MainWindowContent: View {
 
     @SceneStorage("main.scope") private var scopeRaw = SidebarScope.all.rawValue
     @SceneStorage("main.selection") private var selectionRaw = ""
-    // Column widths aren't stored here: the split view autosaves them natively.
+    @SceneStorage("main.settingsSection") private var settingsSectionRaw = SettingsSection.general.rawValue
     @State private var started = false
+    @FocusState private var searchFocused: Bool
 
     init(model: AppModel) {
         self.model = model
         _library = State(initialValue: LibraryModel(store: model.store))
     }
 
+    private var lastSettingsSection: SettingsSection {
+        SettingsSection(rawValue: settingsSectionRaw) ?? .general
+    }
+
+    private var windowMode: Binding<MainWindowMode> {
+        Binding(get: { model.mainWindowMode }, set: { model.mainWindowMode = $0 })
+    }
+
     var body: some View {
-        NavigationSplitView {
-            SidebarView()
-                .navigationSplitViewColumnWidth(min: 190, ideal: 220, max: 320)
-        } content: {
-            contentColumn
-                .navigationSplitViewColumnWidth(min: 280, ideal: 330, max: 480)
-        } detail: {
-            detailColumn
+        MainWindowShell(
+            shellMode: .window,
+            windowMode: windowMode,
+            lastSettingsSection: lastSettingsSection,
+            storeError: model.storeError,
+            searchFocus: $searchFocused
+        ) { section in
+            SettingsPage(section: section)
         }
-        .frame(minWidth: 940, minHeight: 540)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    browser.newSnippet(library: library)
-                } label: {
-                    Label("New Snippet", systemImage: "square.and.pencil")
-                }
-                .keyboardShortcut("n", modifiers: .command)
-                .help("New snippet (⌘N)")
-            }
-            #if DEBUG
-            ToolbarItem(placement: .automatic) { DebugMenu() }
-            #endif
-        }
-        .safeAreaInset(edge: .top, spacing: 0) { banners }
+        .background { FindShortcut(action: focusSearch) }
         .background(DockPolicyAccessor())
         .environment(library)
         .environment(browser)
+        .focusedSceneValue(\.mainWindowActions, actions)
+        .confirmationDialog(
+            deleteTitle,
+            isPresented: Binding(get: { !browser.deleteRequest.isEmpty }, set: { if !$0 { browser.deleteRequest = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) {
+                library.deleteSnippets(browser.deleteRequest)
+                browser.prune(using: library)
+                browser.deleteRequest = []
+            }
+            Button("Cancel", role: .cancel) { browser.deleteRequest = [] }
+        } message: {
+            Text("This also removes their usage history. You can't undo this.")
+        }
         .task { await start() }
+        .onDisappear {
+            // The window opens on the library next time, unless ⌘, opens it.
+            model.mainWindowMode = .library
+        }
         .onChange(of: browser.scope) { _, scope in
             scopeRaw = scope.rawValue
             // Keep the editor in step with the list: drop selected snippets the new scope doesn't show.
@@ -64,9 +78,52 @@ private struct MainWindowContent: View {
         .onChange(of: browser.selection) { _, selection in
             selectionRaw = selection.count == 1 ? (selection.first?.uuidString ?? "") : ""
         }
+        .onChange(of: model.mainWindowMode) { _, mode in
+            if case .settings(let section) = mode { settingsSectionRaw = section.rawValue }
+        }
         .onChange(of: library.revision) { browser.prune(using: library) }
         .onChange(of: model.pendingNewSnippetContent) { if started { consumePendingContent() } }
         .onChange(of: model.pendingSelectSnippetID) { if started { consumePendingSelection() } }
+    }
+
+    // MARK: - Commands
+
+    private var actions: MainWindowActions {
+        let isSettings = model.mainWindowMode != .library
+        let canDuplicate = !isSettings && browser.scope != .stats && !browser.selection.isEmpty
+        return MainWindowActions(
+            newSnippet: {
+                model.mainWindowMode = .library
+                browser.newSnippet(library: library)
+            },
+            openSettings: {
+                if !isSettings { model.showSettings(lastSettingsSection) }
+            },
+            duplicate: canDuplicate ? {
+                let copies = library.duplicate(Array(browser.selection))
+                if !copies.isEmpty { browser.selection = Set(copies) }
+            } : nil,
+            leaveSettings: isSettings ? { model.mainWindowMode = .library } : nil
+        )
+    }
+
+    /// ⌘F: the search field filters the snippet list, so leave settings or Stats first.
+    private func focusSearch() {
+        model.mainWindowMode = .library
+        if browser.scope == .stats { browser.scope = .all }
+        Task {
+            // The field may only just have appeared.
+            try? await Task.sleep(for: .milliseconds(30))
+            searchFocused = true
+        }
+    }
+
+    private var deleteTitle: String {
+        let ids = browser.deleteRequest
+        if ids.count == 1, let snippet = library.snippetsByID[ids[0]] {
+            return "Delete “\(snippet.name)”?"
+        }
+        return "Delete \(ids.count) snippets?"
     }
 
     // MARK: - Startup
@@ -91,6 +148,7 @@ private struct MainWindowContent: View {
     private func consumePendingContent() {
         guard let content = model.pendingNewSnippetContent else { return }
         model.pendingNewSnippetContent = nil
+        model.mainWindowMode = .library
         browser.newSnippet(
             library: library,
             content: content,
@@ -103,92 +161,214 @@ private struct MainWindowContent: View {
     private func consumePendingSelection() {
         guard let id = model.pendingSelectSnippetID else { return }
         model.pendingSelectSnippetID = nil
+        model.mainWindowMode = .library
         // The palette may know about a snippet this window hasn't reloaded yet.
         if library.snippetsByID[id] == nil { library.reload() }
         browser.reveal(id, in: library)
     }
+}
 
-    // MARK: - Columns
+/// ⌘F focuses the list's search field. A view-level shortcut, so it wins over the Edit menu's Find,
+/// as the old `.searchable` field did.
+private struct FindShortcut: View {
+    let action: () -> Void
 
-    @ViewBuilder
-    private var contentColumn: some View {
-        if browser.scope == .stats {
-            StatsLeaderboardView()
-        } else {
-            SnippetListView()
+    var body: some View {
+        Button("Find snippets", action: action)
+            .keyboardShortcut("f", modifiers: .command)
+            .buttonStyle(.plain)
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .focusable(false)
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Shell
+
+/// The window's three panes for a mode, built from `LibraryModel` and `BrowserState` in the environment.
+///
+/// Separate from `MainWindowContent` so snapshots can render it embedded, without an `AppModel`.
+struct MainWindowShell<SettingsDetail: View>: View {
+    @Environment(LibraryModel.self) private var library
+    @Environment(BrowserState.self) private var browser
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
+
+    let shellMode: KzAppShellMode
+    @Binding var windowMode: MainWindowMode
+    let lastSettingsSection: SettingsSection
+    let storeError: String?
+    let searchFocus: FocusState<Bool>.Binding
+    @ViewBuilder let settingsDetail: (SettingsSection) -> SettingsDetail
+
+    private var settingsSection: SettingsSection? {
+        if case .settings(let section) = windowMode { section } else { nil }
+    }
+
+    var body: some View {
+        KzAppShell(mode: shellMode) {
+            SidebarView(isSettings: settingsSection != nil) { scope in
+                browser.scope = scope
+                windowMode = .library
+            }
+        } sidebarHeader: {
+            #if DEBUG
+            DebugDataButton()
+            #endif
+        } sidebarFooter: {
+            KzSidebarItem("Settings", icon: .sliders, shortcut: "⌘,", isActive: settingsSection != nil) {
+                if settingsSection == nil { windowMode = .settings(lastSettingsSection) }
+            }
+        } list: {
+            if let section = settingsSection {
+                SettingsSectionList(selection: Binding(get: { section }, set: { windowMode = .settings($0) }))
+            } else if browser.scope == .stats {
+                StatsLeaderboardView()
+            } else {
+                SnippetListView(searchFocus: searchFocus)
+            }
+        } detail: {
+            detail
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .safeAreaInset(edge: .bottom, spacing: 0) { banners }
         }
     }
 
     @ViewBuilder
-    private var detailColumn: some View {
-        if browser.scope == .stats {
+    private var detail: some View {
+        if let section = settingsSection {
+            // Settings pages own their scrolling and padding (see `SettingsPageLayout`).
+            settingsDetail(section)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(KzColor.surface)
+            .id(section)
+        } else if browser.scope == .stats {
             StatsView()
         } else if browser.selection.count == 1, let id = browser.selection.first, let snippet = library.snippetsByID[id] {
             SnippetEditorView(snippet: snippet, library: library)
                 .id(id)
         } else if browser.selection.count > 1 {
-            ContentUnavailableView(
-                "\(browser.selection.count) Snippets Selected",
-                systemImage: "square.stack",
-                description: Text("Right-click to move, favorite or delete them together, or press Delete.")
-            )
-        } else {
-            ContentUnavailableView(
-                "No Snippet Selected",
-                systemImage: "text.cursor",
-                description: Text("Choose a snippet to edit it, or press ⌘N to create one.")
-            )
-        }
-    }
-
-    // MARK: - Banners
-
-    @ViewBuilder
-    private var banners: some View {
-        VStack(spacing: 0) {
-            if let storeError = model.storeError {
-                Banner(
-                    message: storeError + " Changes will not be saved.",
-                    systemImage: "exclamationmark.octagon.fill",
-                    tint: .red,
-                    dismiss: nil
-                )
+            CenteredEmptyState {
+                KzEmptyState("\(browser.selection.count) snippets selected", icon: .stack) {
+                    KzMessage("Right-click to move, favorite or delete them together, or press \(kbd: "⌫").")
+                }
             }
-            if let message = library.errorMessage {
-                Banner(message: message, systemImage: "exclamationmark.triangle.fill", tint: .orange) {
-                    library.errorMessage = nil
+        } else {
+            CenteredEmptyState {
+                KzEmptyState("No snippet selected") {
+                    KzMessage("Choose a snippet to edit it, or press \(kbd: "⌘N") to create one.")
                 }
             }
         }
     }
+
+    // MARK: Banners
+
+    @ViewBuilder
+    private var banners: some View {
+        if storeError != nil || library.errorMessage != nil {
+            VStack(spacing: KzSpace.s2) {
+                if let storeError {
+                    WindowBanner(message: storeError + " Changes will not be saved.", tone: .danger, dismiss: nil)
+                }
+                if let message = library.errorMessage {
+                    WindowBanner(message: message, tone: .warning) { library.errorMessage = nil }
+                }
+            }
+            .padding(KzSpace.s3)
+        }
+    }
 }
 
-/// A full-width notice at the top of the window.
-private struct Banner: View {
+/// Centres an empty state in its pane, with the header row's height kept clear for dragging the window.
+struct CenteredEmptyState<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Color.clear.frame(height: KzSize.titlebar).kzWindowDragArea()
+            Spacer(minLength: 0)
+            content.frame(maxWidth: .infinity)
+            Spacer(minLength: 0)
+            Color.clear.frame(height: KzSize.titlebar)
+        }
+    }
+}
+
+// MARK: - Settings section list
+
+/// The list pane in settings mode: one row per section.
+private struct SettingsSectionList: View {
+    @Binding var selection: SettingsSection
+
+    private static let version: String? = {
+        let info = Bundle.main.infoDictionary
+        return (info?["CFBundleShortVersionString"] as? String).map { "Kudzu \($0)" }
+    }()
+
+    var body: some View {
+        KzListHeader("Settings", subtitle: Self.version)
+        VStack(alignment: .leading, spacing: 1) {
+            ForEach(SettingsSection.allCases) { section in
+                KzSidebarItem(section.title, icon: section.icon, isActive: section == selection) {
+                    selection = section
+                }
+            }
+        }
+        .padding(.horizontal, KzSpace.s2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Settings sections")
+    }
+}
+
+// MARK: - Banner
+
+/// A notice at the bottom of the detail pane: an error the user should know about, with an optional Dismiss.
+struct WindowBanner: View {
+    enum Tone { case warning, danger }
+
     var message: String
-    var systemImage: String
-    var tint: Color
+    var tone: Tone
     var dismiss: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: systemImage)
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
+        HStack(alignment: .center, spacing: KzSpace.s2) {
+            KzIcon(tone == .danger ? .error : .warning, size: 14)
+                .foregroundStyle(tone == .danger ? KzColor.danger : KzColor.warning)
             Text(message)
+                .kzTextStyle(.callout)
+                .foregroundStyle(KzColor.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
-            Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
             if let dismiss {
-                Button("Dismiss", action: dismiss)
-                    .buttonStyle(.borderless)
+                KzButton("Dismiss", variant: .ghost, size: .sm, action: dismiss)
             }
         }
-        .font(.callout)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(tint.opacity(0.18))
-        .overlay(alignment: .bottom) { Rectangle().fill(tint.opacity(0.4)).frame(height: 1) }
-        .foregroundStyle(tint == .red ? Color.red : Color.primary)
+        .padding(.horizontal, KzSpace.s3)
+        .padding(.vertical, KzSpace.s2)
+        .background(tone == .danger ? KzColor.dangerSoft : KzColor.warningSoft, in: shape)
+        .overlay(shape.strokeBorder(KzColor.line))
         .accessibilityElement(children: .combine)
     }
 }
+
+// MARK: - Debug
+
+#if DEBUG
+/// DEBUG builds only: loads sample data from the sidebar header.
+private struct DebugDataButton: View {
+    @Environment(LibraryModel.self) private var library
+
+    var body: some View {
+        KzIconButton(.bug, label: "Sample data (debug builds only)", size: .sm, menuTitle: "Sample data",
+                     placement: .pullDown(.trailing)) {
+            KzMenuItem("Seed demo data", icon: .plus) { DebugSeed.demo(library: library) }
+            KzMenuItem("Seed 3,000 snippets", icon: .stack) { DebugSeed.bulk(3000, library: library) }
+            KzMenuSeparator()
+            KzMenuItem("Remove demo data", icon: .trash, role: .danger) { DebugSeed.removeDemoData(library: library) }
+        }
+    }
+}
+#endif

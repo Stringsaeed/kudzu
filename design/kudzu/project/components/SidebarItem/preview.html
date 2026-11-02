@@ -1,0 +1,12 @@
+<!-- @dsCard group="Navigation" height=196 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>SidebarItem</title><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..700&family=Geist+Mono:wght@400;500&display=swap"><style>.demo-glass{display:flex;padding:12px;background:var(--canvas)} .demo-glass > div{background:var(--glass);border-radius:var(--radius-lg);border:1px solid var(--glass-edge);box-shadow:inset 0 1px 0 var(--glass-stroke)}</style></head>
+<body>
+<div class="demo-glass"><div id="root" style="width:220px;padding:8px"></div></div>
+<script>
+var K = window.Kudzu, h = React.createElement;
+ReactDOM.createRoot(document.getElementById('root')).render(h(React.Fragment, null, h(K.SidebarSection, null, h(K.SidebarItem, {icon:'stack', label:'All snippets', count:18}), h(K.SidebarItem, {icon:'star', label:'Favorites', count:3, active:true}), h(K.SidebarItem, {icon:'clock', label:'Recently used'})), h('div', {style:{height:8}}), h(K.SidebarItem, {icon:'sliders', label:'Settings', shortcut:'\u2318,'})));
+</script>
+</body>
+</html>

@@ -22,6 +22,27 @@ final class AppModel {
     /// (creates a snippet with this content, selects it, then sets this back to nil).
     var pendingNewSnippetContent: String?
 
+    /// Library or settings. ⌘, and the menu bar's Settings… switch the main window into settings mode.
+    var mainWindowMode: MainWindowMode = .library {
+        didSet {
+            if case .settings(let section) = mainWindowMode {
+                UserDefaults.standard.set(section.rawValue, forKey: Self.lastSettingsSectionKey)
+            }
+        }
+    }
+
+    private static let lastSettingsSectionKey = "settings.lastSection"
+
+    /// The settings section shown last, so reopening settings returns to it.
+    var lastSettingsSection: SettingsSection {
+        UserDefaults.standard.string(forKey: Self.lastSettingsSectionKey).flatMap(SettingsSection.init) ?? .general
+    }
+
+    /// Switches the main window to settings (the last section by default); callers open and activate the window.
+    func showSettings(_ section: SettingsSection? = nil) {
+        mainWindowMode = .settings(section ?? lastSettingsSection)
+    }
+
     /// Snippet the palette's ⌘E asked to edit. The main window consumes it (selects the snippet,
     /// clearing a search or scope that would hide it, then sets this back to nil).
     var pendingSelectSnippetID: UUID?

@@ -96,20 +96,4 @@ enum DebugSeed {
     }
 }
 
-/// Toolbar menu for loading sample data. DEBUG builds only.
-struct DebugMenu: View {
-    @Environment(LibraryModel.self) private var library
-
-    var body: some View {
-        Menu {
-            Button("Seed Demo Data") { DebugSeed.demo(library: library) }
-            Button("Seed 3,000 Snippets") { DebugSeed.bulk(3000, library: library) }
-            Divider()
-            Button("Remove Demo Data") { DebugSeed.removeDemoData(library: library) }
-        } label: {
-            Label("Debug", systemImage: "ladybug")
-        }
-        .help("DEBUG build only: load sample data")
-    }
-}
 #endif

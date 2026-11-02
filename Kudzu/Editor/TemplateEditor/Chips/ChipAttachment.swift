@@ -1,5 +1,6 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 
 /// A text attachment that stands for exactly one template tag.
 ///
@@ -10,10 +11,10 @@ final class ChipAttachment: NSTextAttachment {
     let tag: KudzuCore.Tag
 
     @MainActor
-    init(tag: KudzuCore.Tag, label: ChipLabel, font: NSFont) {
+    init(tag: KudzuCore.Tag, label: ChipLabel) {
         self.tag = tag
         super.init(data: nil, ofType: nil)
-        attachmentCell = ChipCell(label: label, font: font)
+        attachmentCell = ChipCell(label: label)
     }
 
     required init?(coder: NSCoder) {
@@ -24,28 +25,24 @@ final class ChipAttachment: NSTextAttachment {
     @MainActor var chipCell: ChipCell? { attachmentCell as? ChipCell }
 }
 
-/// Draws a chip as a tinted capsule with an SF Symbol and label, aligned to the text baseline.
+/// Draws a chip as the design system's tag: `code` mono in `vine-ink` on `vine-soft` (`radius-xs`), 20pt tall,
+/// raised off the baseline by `KzEditorTag`'s metrics. Problems recolour it (`warning` or `danger` on their soft fills).
 final class ChipCell: NSTextAttachmentCell {
     /// What the chip shows; changing it invalidates the cached size.
     var label: ChipLabel {
         didSet {
             guard label != oldValue else { return }
             cachedSize = nil
-            cachedSymbol = nil
             updateAccessibility()
         }
     }
     /// Set by editor lint (duplicate cursor, conflicting names, ...).
-    var hasLintWarning = false
-    /// Editor body font; the chip occupies that font's ascender-to-descender box.
-    var bodyFont: NSFont { didSet { cachedSize = nil; cachedSymbol = nil } }
+    var lintSeverity: ChipSeverity?
 
     private var cachedSize: NSSize?
-    private var cachedSymbol: NSImage??
 
-    init(label: ChipLabel, font: NSFont) {
+    init(label: ChipLabel) {
         self.label = label
-        self.bodyFont = font
         super.init(textCell: "")
         updateAccessibility()
     }
@@ -54,8 +51,12 @@ final class ChipCell: NSTextAttachmentCell {
         fatalError("ChipCell is not archived")
     }
 
-    private var isWarning: Bool { label.isWarning || hasLintWarning }
-    private var labelFont: NSFont { ChipStyle.labelFont(for: bodyFont) }
+    /// The chip's problem, if any. Unrecognized tags are errors, shown as written in `danger`, never the accent.
+    var severity: ChipSeverity? {
+        if label.kind == .unknown { return .error }
+        if let lintSeverity { return lintSeverity }
+        return label.isWarning ? .warning : nil
+    }
 
     private func updateAccessibility() {
         setAccessibilityLabel(label.accessibilityLabel)
@@ -71,18 +72,14 @@ final class ChipCell: NSTextAttachmentCell {
 
     private func computeSize() -> NSSize {
         if let cachedSize { return cachedSize }
-        let height = bodyFont.ascender - bodyFont.descender
-        let textWidth = ceil(attributedTitle(color: .labelColor, detailColor: .labelColor).size().width)
-        let width = ChipStyle.outerMargin * 2 + ChipStyle.horizontalPadding * 2 + iconSize.width + ChipStyle.iconGap + textWidth
-        let size = NSSize(width: ceil(width), height: height)
-        cachedSize = size
-        return size
+        let size = KzEditorTag.cellSize(forTitleWidth: ceil(attributedTitle(color: .labelColor).size().width))
+        let rounded = NSSize(width: ceil(size.width), height: size.height)
+        cachedSize = rounded
+        return rounded
     }
 
-    /// Spanning exactly descender to ascender (unrounded) keeps the chip inside the line box, so inserting one
-    /// never changes line height.
     nonisolated override func cellBaselineOffset() -> NSPoint {
-        MainActor.assumeIsolated { NSPoint(x: 0, y: bodyFont.descender) }
+        MainActor.assumeIsolated { NSPoint(x: 0, y: KzEditorTag.baselineOffset) }
     }
 
     override func wantsToTrackMouse() -> Bool { true }
@@ -90,90 +87,65 @@ final class ChipCell: NSTextAttachmentCell {
     // MARK: Drawing
 
     override func draw(withFrame cellFrame: NSRect, in controlView: NSView?) {
-        drawChip(in: cellFrame, controlView: controlView, selected: false)
+        drawChip(in: cellFrame, controlView: controlView, selected: false, hovered: false)
     }
 
     override func draw(withFrame cellFrame: NSRect, in controlView: NSView?, characterIndex charIndex: Int,
                        layoutManager: NSLayoutManager) {
         var selected = false
+        var hovered = false
         if let textView = controlView as? NSTextView {
             selected = textView.selectedRanges.contains { NSLocationInRange(charIndex, $0.rangeValue) }
+            hovered = (textView as? ChipTextView)?.hoveredChipIndex == charIndex
         }
-        drawChip(in: cellFrame, controlView: controlView, selected: selected)
+        drawChip(in: cellFrame, controlView: controlView, selected: selected, hovered: hovered)
     }
 
-    private func drawChip(in frame: NSRect, controlView: NSView?, selected: Bool) {
+    /// States: rest, hover (a tint of the chip's ink), selected in the focused editor (solid fill, like
+    /// a selected row's emphasis) and selected while the editor is not focused (the soft fill with a 1pt outline).
+    private func drawChip(in frame: NSRect, controlView: NSView?, selected: Bool, hovered: Bool) {
         let appearance = controlView?.effectiveAppearance ?? NSAppearance.currentDrawing()
         appearance.performAsCurrentDrawingAppearance {
-            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-            let isActive = (controlView?.window?.isKeyWindow ?? false)
-                && controlView?.window?.firstResponder === controlView
-            let tint = ChipStyle.tint(for: label.kind, warning: isWarning).usingColorSpace(.sRGB) ?? .systemBlue
-            let capsule = frame.insetBy(dx: ChipStyle.outerMargin, dy: 0.5)
-            let path = NSBezierPath(roundedRect: capsule, xRadius: capsule.height / 2, yRadius: capsule.height / 2)
+            let palette = ChipPalette.palette(for: severity)
+            let isActive = (controlView?.window?.isKeyWindow ?? false) && controlView?.window?.firstResponder === controlView
+            let box = NSRect(x: frame.minX + KzEditorTag.horizontalMargin, y: frame.midY - KzEditorTag.height / 2,
+                             width: frame.width - 2 * KzEditorTag.horizontalMargin, height: KzEditorTag.height)
+            let radius = KzEditorTag.cornerRadius
+            let path = NSBezierPath(roundedRect: box, xRadius: radius, yRadius: radius)
 
-            let foreground: NSColor
-            let detailColor: NSColor
-            if selected {
-                (isActive ? tint : tint.withAlphaComponent(isDark ? 0.55 : 0.45)).setFill()
+            let solid = selected && isActive
+            (solid ? palette.selectedFill : palette.fill).setFill()
+            path.fill()
+            if hovered, !solid {
+                // Tinted with the chip's own ink: the shared `surface-hover` layer is too faint on a soft fill.
+                palette.ink.withAlphaComponent(0.14).setFill()
                 path.fill()
-                foreground = .white
-                detailColor = NSColor.white.withAlphaComponent(0.85)
-            } else {
-                tint.withAlphaComponent(isDark ? 0.26 : 0.13).setFill()
-                path.fill()
-                tint.withAlphaComponent(isDark ? 0.45 : 0.32).setStroke()
-                path.lineWidth = 0.75
-                let inset = NSBezierPath(roundedRect: capsule.insetBy(dx: 0.375, dy: 0.375),
-                                         xRadius: (capsule.height - 0.75) / 2, yRadius: (capsule.height - 0.75) / 2)
-                inset.lineWidth = 0.75
-                inset.stroke()
-                foreground = isDark ? tint.blended(withFraction: 0.35, of: .white) ?? tint
-                    : tint.blended(withFraction: 0.25, of: .black) ?? tint
-                detailColor = foreground.withAlphaComponent(0.75)
+            }
+            if selected, !isActive {
+                let outline = NSBezierPath(roundedRect: box.insetBy(dx: 0.5, dy: 0.5), xRadius: radius - 0.5, yRadius: radius - 0.5)
+                outline.lineWidth = 1
+                palette.ink.setStroke()
+                outline.stroke()
             }
 
-            var x = capsule.minX + ChipStyle.horizontalPadding
-            if let icon = symbolImage(color: foreground) {
-                let rect = NSRect(x: x, y: capsule.midY - iconSize.height / 2, width: iconSize.width, height: iconSize.height)
-                icon.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
-            }
-            x += iconSize.width + ChipStyle.iconGap
-            let title = attributedTitle(color: foreground, detailColor: detailColor)
-            let textHeight = labelFont.ascender - labelFont.descender
-            // Centering the glyph box works in flipped and unflipped views alike.
-            title.draw(at: NSPoint(x: x, y: (capsule.midY - textHeight / 2).rounded()))
+            let title = attributedTitle(color: solid ? palette.selectedInk : palette.ink, detailAlpha: solid ? 0.85 : 0.72)
+            let textHeight = KzEditorTag.font.ascender - KzEditorTag.font.descender
+            // Centring the glyph box matches CSS half-leading, in flipped and unflipped views alike.
+            title.draw(at: NSPoint(x: box.minX + KzEditorTag.horizontalPadding, y: box.midY - textHeight / 2))
         }
     }
 
     // MARK: Content
 
-    private func attributedTitle(color: NSColor, detailColor: NSColor) -> NSAttributedString {
-        let result = NSMutableAttributedString(string: label.title, attributes: [.font: labelFont, .foregroundColor: color])
+    /// The title in the tag font, with the detail after a middle dot a little quieter.
+    private func attributedTitle(color: NSColor, detailAlpha: CGFloat = 0.72) -> NSAttributedString {
+        let font = KzEditorTag.font
+        let result = NSMutableAttributedString(string: label.title, attributes: [.font: font, .foregroundColor: color])
         if let detail = label.detail {
             result.append(NSAttributedString(string: " · " + detail, attributes: [
-                .font: NSFont.systemFont(ofSize: labelFont.pointSize, weight: .regular), .foregroundColor: detailColor,
+                .font: font, .foregroundColor: color.withAlphaComponent(detailAlpha),
             ]))
         }
         return result
-    }
-
-    private var symbolConfiguration: NSImage.SymbolConfiguration {
-        NSImage.SymbolConfiguration(pointSize: labelFont.pointSize - 0.5, weight: .medium, scale: .small)
-    }
-
-    /// The untinted symbol at label size, cached because drawing happens on every redraw.
-    private var baseSymbol: NSImage? {
-        if let cachedSymbol { return cachedSymbol }
-        let image = NSImage(systemSymbolName: label.symbolName, accessibilityDescription: nil)?
-            .withSymbolConfiguration(symbolConfiguration)
-        cachedSymbol = .some(image)
-        return image
-    }
-
-    private var iconSize: NSSize { baseSymbol?.size ?? NSSize(width: 10, height: 10) }
-
-    private func symbolImage(color: NSColor) -> NSImage? {
-        baseSymbol?.withSymbolConfiguration(symbolConfiguration.applying(.init(paletteColors: [color])))
     }
 }
