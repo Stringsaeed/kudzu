@@ -127,15 +127,8 @@ struct OnboardingView: View {
     }
 
     private static func loadAppIcon() -> NSImage? {
-        if let url = Bundle.main.url(forResource: "kudzu-app-icon", withExtension: "png"),
-           let image = NSImage(contentsOf: url) {
-            return image
-        }
-        let fallback = URL(fileURLWithPath: "Kudzu/Resources/kudzu-app-icon.png")
-        if let image = NSImage(contentsOf: fallback) {
-            return image
-        }
-        return nil
+        // The compiled app icon (from design/app-icon/Kudzu.icon), so the welcome window always matches the Dock.
+        NSApp.applicationIconImage
     }
 
     // MARK: - Step 1: Permissions

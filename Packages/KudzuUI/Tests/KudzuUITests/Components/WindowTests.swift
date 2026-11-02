@@ -29,9 +29,10 @@ import Testing
         #expect(abs(after - KzSize.titlebar / 2) < 0.5, "lights centre at \(after), header centre at \(KzSize.titlebar / 2)")
         #expect(abs(after - KzWindowChrome.Lights.centerY) < 0.5)
 
+        // Only the buttons move: a taller titlebar would be drawn as an opaque strip over the headers.
         let button = try #require(window.standardWindowButton(.closeButton))
         let container = try #require(button.superview?.superview)
-        #expect(container.frame.height == KzSize.titlebar, "titlebar is \(container.frame.height)pt")
+        #expect(container.frame.height < KzSize.titlebar, "titlebar is \(container.frame.height)pt")
     }
 
     private func makeWindowReusing(_ window: NSWindow) -> NSWindow { window }

@@ -8,8 +8,10 @@ import SwiftUI
 ///
 /// Every pane header is `size-titlebar` (52pt) tall and must line up with the traffic lights. Without
 /// a toolbar AppKit builds a 32pt titlebar with the lights centred 16pt from the top, so the chrome
-/// lays them out itself: it grows the titlebar container to 52pt and puts the 14pt buttons at
-/// y = 19…33, whose centre (26) is `size-titlebar / 2`, with the close button at x = 19.
+/// moves just the three buttons: the 14pt buttons go to y = 19…33, whose centre (26) is
+/// `size-titlebar / 2`, with the close button at x = 19. The titlebar itself keeps its own size;
+/// growing it makes macOS draw it as an opaque strip over the pane headers. The buttons overhang its
+/// 32pt bottom edge by 1pt, which is drawn (views don't clip by default) and too small to miss a click.
 ///
 /// It re-applies that layout whenever AppKit may have redone the titlebar: resizes, full-screen exit,
 /// key and main changes, screen and backing changes, and frame changes of the titlebar container.
@@ -61,16 +63,8 @@ public enum KzWindowChrome {
     public static func layoutTrafficLights(in window: NSWindow) {
         guard !window.styleMask.contains(.fullScreen),
               let close = window.standardWindowButton(.closeButton),
-              let titlebar = close.superview, let container = titlebar.superview else { return }
-        let height = KzSize.titlebar
+              close.superview != nil else { return }
         let windowHeight = window.frame.height
-        var frame = container.frame
-        if frame.height != height || frame.minY != windowHeight - height {
-            frame.size.height = height
-            frame.origin.y = windowHeight - height
-            container.frame = frame
-            container.layoutSubtreeIfNeeded()
-        }
         let types: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
         for (index, type) in types.enumerated() {
             guard let button = window.standardWindowButton(type), let parent = button.superview else { continue }
@@ -143,7 +137,7 @@ private struct KzWindowChromeView: NSViewRepresentable {
         }
 
         private func relayout() {
-            // Setting the container's frame posts a frame change; don't recurse into it.
+            // Moving the buttons can make AppKit re-lay the titlebar and post a frame change; don't recurse.
             guard !isLayingOut, let window else { return }
             isLayingOut = true
             KzWindowChrome.layoutTrafficLights(in: window)
