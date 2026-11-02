@@ -17,7 +17,7 @@ struct SnippetEditorView: View {
     let snippet: SnippetRecord
     @State private var model: SnippetEditorModel
     @State private var triggerAnchor = ViewAnchor()
-    @State private var editorAnchor = ViewAnchor()
+    @State private var editor = TemplateEditorController()
     @FocusState private var nameFocused: Bool
     @AppStorage("editor.rulesExpanded") private var rulesExpanded = false
     @AppStorage("editor.advancedExpanded") private var advancedExpanded = false
@@ -186,8 +186,8 @@ struct SnippetEditorView: View {
 
     private var contentField: some View {
         KzField("Content") {
-            KzEditorFrame(minHeight: 160) {
-                InsertTagButton { insert($0) }
+            KzEditorFrame(minHeight: 160, isFocused: editor.isFocused) {
+                InsertTagButton { editor.insert($0) }
             } content: {
                 if snapshotRendering {
                     Text(model.draft.content)
@@ -199,17 +199,10 @@ struct SnippetEditorView: View {
                 } else {
                     TemplateTextEditor(source: model.binding(\.content), snippets: library.snippets, currentSnippetID: snippet.id)
                         .frame(minHeight: 180, idealHeight: 220)
-                        .viewAnchor(editorAnchor)
+                        .templateEditorController(editor)
                 }
             }
         }
-    }
-
-    /// Inserts a tag at the chip editor's selection, as its own `/` menu does.
-    private func insert(_ item: TemplateInsertItem) {
-        guard let textView = editorAnchor.nearest(ChipTextView.self),
-              let coordinator = textView.delegate as? TemplateEditorCoordinator else { return }
-        coordinator.insertFromMenu(item)
     }
 
     // MARK: - Footer
