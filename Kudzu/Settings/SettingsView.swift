@@ -1,49 +1,61 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Settings window (⌘,).
+/// Compatibility entry point until the main-window settings mode replaces the Settings scene.
 struct SettingsView: View {
-    @Environment(AppModel.self) private var model
+    var body: some View { SettingsPage(section: .general) }
+}
+
+/// Shared settings layout. Pages own their scrolling; hosts should not wrap them in a ScrollView.
+struct SettingsPageLayout<Content: View>: View {
+    let title: String
+    var description: String? = nil
+    @ViewBuilder var content: Content
+
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
 
     var body: some View {
-        TabView {
-            GeneralSettingsTab()
-                .tabItem {
-                    Label("General", systemImage: "gearshape")
-                }
+        Group {
+            if snapshotRendering {
+                pageContent.frame(maxHeight: .infinity, alignment: .top)
+            } else {
+                ScrollView { pageContent }
+            }
+        }.background(KzColor.surface)
+    }
 
-            AppsSettingsTab()
-                .tabItem {
-                    Label("Apps", systemImage: "app.badge.checkmark")
+    private var pageContent: some View {
+        VStack(alignment: .leading, spacing: KzSpace.s6) {
+            VStack(alignment: .leading, spacing: KzSpace.s1) {
+                Text(title).kzTextStyle(.titleLg).foregroundStyle(KzColor.ink)
+                    .accessibilityAddTraits(.isHeader)
+                if let description {
+                    Text(description).kzTextStyle(.body).foregroundStyle(KzColor.inkMuted)
                 }
-
-            SyncSettingsTab()
-                .tabItem {
-                    Label("Sync", systemImage: "icloud")
-                }
-
-            BackupsSettingsTab()
-                .tabItem {
-                    Label("Backups", systemImage: "clock.arrow.circlepath")
-                }
-
-            ImportExportSettingsTab()
-                .tabItem {
-                    Label("Import & Export", systemImage: "arrow.up.arrow.down.square")
-                }
-
-            AboutSettingsTab()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
+            }
+            content
         }
-        .frame(width: 600, height: 440)
-        .onAppear {
-            NSApplication.shared.activate()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, KzSpace.s6)
+        .padding(.top, KzSpace.s8)
+        .padding(.bottom, KzSpace.s6)
+    }
+}
+
+struct SettingsMessage: View {
+    var text: String
+    var isError = false
+    var body: some View {
+        HStack(alignment: .top, spacing: KzSpace.s2) {
+            KzIcon(isError ? .error : .checkCircle, size: 14)
+            Text(text).kzTextStyle(.callout).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .foregroundStyle(isError ? KzColor.danger : KzColor.inkMuted)
     }
 }
 
@@ -61,71 +73,44 @@ struct GeneralSettingsTab: View {
     @State private var settingsError: String?
 
     var body: some View {
-        Form {
-            Section("Startup") {
-                Toggle("Launch Kudzu at login", isOn: Binding(
-                    get: { launchAtLogin },
-                    set: { setLaunchAtLogin($0) }
-                ))
-
-                if launchAtLoginRequiresApproval {
-                    Text("Requires approval in System Settings → General → Login Items.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
-                if let launchAtLoginError {
-                    Text(launchAtLoginError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-
-            Section("Snippets & Stats") {
-                Stepper(
-                    value: Binding(
-                        get: { typingSpeedWPM },
-                        set: { updateTypingSpeed($0) }
-                    ),
-                    in: 10...240,
-                    step: 5
-                ) {
-                    LabeledContent("Typing speed") {
-                        Text("\(typingSpeedWPM) WPM")
-                            .monospacedDigit()
-                    }
-                }
-
-                LabeledContent("Default trigger prefix") {
-                    TextField("Prefix", text: Binding(
-                        get: { defaultTriggerPrefix },
-                        set: { updateDefaultTriggerPrefix($0) }
+        SettingsPageLayout(title: "General") {
+            KzSettingsGroup("Startup") {
+                KzSettingsRow("Launch Kudzu at login") {
+                    KzToggle("Launch Kudzu at login", isOn: Binding(
+                        get: { launchAtLogin }, set: { setLaunchAtLogin($0) }
                     ))
-                    .frame(width: 80)
-                    .textFieldStyle(.roundedBorder)
                 }
-
-                LabeledContent("Search palette shortcut") { PaletteShortcutSetting() }
+                if launchAtLoginRequiresApproval {
+                    SettingsMessage(text: "Requires approval in System Settings → General → Login Items.")
+                        .padding(KzSpace.s4)
+                }
+                if let launchAtLoginError {
+                    SettingsMessage(text: launchAtLoginError, isError: true).padding(KzSpace.s4)
+                }
             }
-
-            Section("Onboarding") {
-                LabeledContent("Setup assistant") {
-                    Button("Show Welcome Again…") {
+            KzSettingsGroup("Snippets & stats") {
+                KzSettingsRow("Typing speed", description: "Used to estimate time saved") {
+                    KzStepper("Typing speed", value: Binding(
+                        get: { typingSpeedWPM }, set: { updateTypingSpeed($0) }
+                    ), step: 5, min: 10, max: 240, unit: "wpm")
+                }
+                KzSettingsRow("Default trigger prefix", description: "Added to new triggers you type") {
+                    KzTextInput("Prefix", text: Binding(
+                        get: { defaultTriggerPrefix }, set: { updateDefaultTriggerPrefix($0) }
+                    ), mono: true).frame(width: 64).accessibilityLabel("Default trigger prefix")
+                }
+                KzSettingsRow("Search palette shortcut") { PaletteShortcutSetting() }
+            }
+            KzSettingsGroup("Onboarding") {
+                KzSettingsRow("Setup assistant") {
+                    KzButton("Show welcome again", size: .sm) {
                         openWindow(id: SceneID.onboarding)
                         NSApplication.shared.activate()
                     }
                 }
             }
-
-            if let settingsError {
-                Section {
-                    Text(settingsError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
+            if let settingsError { SettingsMessage(text: settingsError, isError: true) }
         }
-        .formStyle(.grouped)
         .onAppear {
             loadSettings()
         }
@@ -195,29 +180,25 @@ struct SyncSettingsTab: View {
     @State private var deviceID = ""
 
     var body: some View {
-        Form {
-            Section("CloudKit Sync") {
-                Toggle(isOn: .constant(false)) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("iCloud Sync")
-                        Text("Coming soon — automatic CloudKit sync across your Macs lands in Milestone 4.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        SettingsPageLayout(title: "Sync", description: "Keep your library the same on every Mac.") {
+            KzSettingsGroup("iCloud") {
+                KzSettingsRow(description: "Automatic CloudKit sync across your Macs lands in milestone 4.", label: {
+                    HStack(spacing: KzSpace.s2) {
+                        Text("iCloud sync").kzTextStyle(.bodyStrong)
+                        KzBadge("Coming soon")
                     }
-                }
-                .disabled(true)
+                }, control: {
+                    KzToggle("iCloud sync", isOn: .constant(false)).disabled(true)
+                })
             }
-
-            Section("Device") {
-                LabeledContent("Device ID") {
+            KzSettingsGroup("This Mac") {
+                KzSettingsRow("Device ID") {
                     Text(deviceID.isEmpty ? "—" : deviceID)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+                        .kzTextStyle(.monoCaption).foregroundStyle(KzColor.inkMuted)
                         .textSelection(.enabled)
                 }
             }
         }
-        .formStyle(.grouped)
         .onAppear {
             if let local = try? model.store.localSettings() {
                 deviceID = local.deviceID
@@ -237,7 +218,13 @@ struct BackupsSettingsTab: View {
 
     @Environment(AppModel.self) private var model
 
+    @Environment(\.kzSnapshotRendering) private var snapshotRendering
     @State private var rows: [BackupRow] = []
+
+    init(snapshotRows: [BackupRow] = []) {
+        _rows = State(initialValue: snapshotRows)
+        _selectedBackupURL = State(initialValue: snapshotRows.first?.info.url)
+    }
     @State private var selectedBackupURL: URL?
     @State private var backupPendingRestore: BackupRow?
     @State private var statusMessage: String?
@@ -248,87 +235,35 @@ struct BackupsSettingsTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Local Library Backups")
-                        .font(.headline)
-                    Text("Automatic backups run daily, keeping the last 14 snapshots (plus a snapshot before every import).")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Back Up Now") {
-                    createManualBackup()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-
-            List(selection: $selectedBackupURL) {
+        SettingsPageLayout(title: "Backups", description: "Daily snapshots of your library, plus one before every import.") {
+            KzSettingsGroup("Snapshots", description: "Keeps the last 14 snapshots.", action: {
+                KzButton("Back up now", variant: .primary, size: .sm, icon: .history) { createManualBackup() }
+            }) {
                 if rows.isEmpty {
-                    ContentUnavailableView(
-                        "No Backups Yet",
-                        systemImage: "clock.arrow.circlepath",
-                        description: Text("Click “Back Up Now” to create a snapshot immediately.")
-                    )
+                    KzSettingsRow("No backups yet", description: "Choose Back up now to save your first snapshot.") { EmptyView() }
                 } else {
-                    ForEach(rows) { row in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.info.createdAt.formatted(date: .abbreviated, time: .standard))
-                                    .font(.body.weight(.medium))
-                                Text(row.info.filename)
-                                    .font(.caption2.monospaced())
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if let count = row.snippetCount {
-                                Text("\(count) snippet\(count == 1 ? "" : "s")")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Text(reasonLabel(row.info.reason))
-                                .font(.caption.weight(.medium))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 2)
-                                .background(.quaternary, in: Capsule())
-                        }
-                        .tag(row.info.url)
+                    if snapshotRendering {
+                        VStack(spacing: 0) { backupRows }.padding(KzSpace.s1)
+                    } else {
+                        List(selection: $selectedBackupURL) { backupRows }
+                            .kzSelectionList()
+                            .frame(height: min(360, CGFloat(rows.count) * 64 + 8))
                     }
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            HStack {
-                Button("Restore…") {
-                    backupPendingRestore = selectedRow
-                }
-                .disabled(selectedRow == nil)
-
-                Button("Reveal in Finder") {
-                    revealInFinder()
-                }
-
-                Spacer()
-
-                if let statusMessage {
-                    Text(statusMessage)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
+            HStack(spacing: KzSpace.s2) {
+                KzButton("Restore…", size: .sm) { backupPendingRestore = selectedRow }
+                    .disabled(selectedRow == nil)
+                KzButton("Reveal in Finder", variant: .ghost, size: .sm) { revealInFinder() }
             }
+            if let statusMessage { SettingsMessage(text: statusMessage) }
+            if let errorMessage { SettingsMessage(text: errorMessage, isError: true) }
         }
-        .padding(20)
         .onAppear {
-            reloadBackups()
+            if !snapshotRendering { reloadBackups() }
         }
         .alert(
-            "Restore Backup?",
+            "Restore backup?",
             isPresented: Binding(
                 get: { backupPendingRestore != nil },
                 set: { if !$0 { backupPendingRestore = nil } }
@@ -346,10 +281,24 @@ struct BackupsSettingsTab: View {
         }
     }
 
+    private var backupRows: some View {
+        ForEach(rows) { row in
+            KzListRow(
+                row.info.createdAt.formatted(date: .abbreviated, time: .standard),
+                meta: row.info.filename,
+                aside: row.snippetCount.map { "\($0) snippet\($0 == 1 ? "" : "s")" },
+                isSelected: selectedBackupURL == row.info.url
+            ) {
+                KzBadge(reasonLabel(row.info.reason), tone: row.info.reason == .preImport ? .warning : .neutral)
+            }
+            .kzListRow().tag(row.info.url)
+        }
+    }
+
     private func reasonLabel(_ reason: BackupReason) -> String {
         switch reason {
         case .daily: "Daily"
-        case .preImport: "Pre-Import"
+        case .preImport: "Pre-import"
         case .manual: "Manual"
         }
     }
@@ -422,65 +371,36 @@ struct ImportExportSettingsTab: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        Form {
-            Section("Import") {
-                LabeledContent("Espanso YAML") {
-                    Button("Import from Espanso…") {
-                        showingEspansoSheet = true
-                    }
+        SettingsPageLayout(title: "Import & export", description: "Move snippets in from Espanso, or take your library anywhere.") {
+            KzSettingsGroup("Import", description: "A backup is taken before every import.") {
+                KzSettingsRow("Espanso YAML", description: "match/*.yml files") {
+                    KzButton("Import…", size: .sm) { showingEspansoSheet = true }
                 }
-
-                LabeledContent("Kudzu JSON") {
-                    Button("Import Kudzu Library…") {
-                        importKudzuLibrary()
-                    }
+                KzSettingsRow("Kudzu JSON", description: "A library exported from Kudzu") {
+                    KzButton("Import…", size: .sm) { importKudzuLibrary() }
                 }
             }
-
-            Section("Export") {
-                LabeledContent("Kudzu JSON (lossless)") {
-                    Button("Export Kudzu Library…") {
-                        exportKudzuLibrary()
-                    }
+            KzSettingsGroup("Export") {
+                KzSettingsRow("Kudzu JSON", description: "Lossless: rules, stats and groups included") {
+                    KzButton("Export…", size: .sm) { exportKudzuLibrary() }
                 }
-
-                LabeledContent("Espanso YAML") {
-                    Button("Export to Espanso…") {
-                        exportToEspanso()
-                    }
+                KzSettingsRow("Espanso YAML", description: "Triggers and content only") {
+                    KzButton("Export…", size: .sm) { exportToEspanso() }
                 }
             }
-
             if let summary = lastImportSummary {
-                Section("Latest Import Result") {
-                    ImportSummaryCard(summary: summary)
-                }
+                KzSettingsGroup("Latest import result") { ImportSummaryCard(summary: summary).padding(KzSpace.s4) }
             }
-
-            if let statusMessage {
-                Section {
-                    Label(statusMessage, systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.green)
-                        .font(.callout)
-                }
-            }
-
-            if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "exclamationmark.octagon.fill")
-                        .foregroundStyle(.red)
-                        .font(.callout)
-                }
-            }
+            if let statusMessage { SettingsMessage(text: statusMessage) }
+            if let errorMessage { SettingsMessage(text: errorMessage, isError: true) }
         }
-        .formStyle(.grouped)
         .sheet(isPresented: $showingEspansoSheet) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Text("Import from Espanso")
-                        .font(.title3.bold())
+                        .kzTextStyle(.title)
                     Spacer()
-                    Button("Done") {
+                    KzButton("Done", size: .sm) {
                         showingEspansoSheet = false
                     }
                     .keyboardShortcut(.cancelAction)
@@ -501,7 +421,7 @@ struct ImportExportSettingsTab: View {
         errorMessage = nil
 
         let panel = NSOpenPanel()
-        panel.title = "Import Kudzu Library"
+        panel.title = "Import Kudzu library"
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -532,7 +452,7 @@ struct ImportExportSettingsTab: View {
         errorMessage = nil
 
         let panel = NSSavePanel()
-        panel.title = "Export Kudzu Library"
+        panel.title = "Export Kudzu library"
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "kudzu-library.json"
         panel.canCreateDirectories = true
@@ -561,7 +481,7 @@ struct ImportExportSettingsTab: View {
         errorMessage = nil
 
         let panel = NSOpenPanel()
-        panel.title = "Export to Espanso Folder"
+        panel.title = "Export to Espanso folder"
         panel.message = "Choose a folder where Espanso YAML match files will be written."
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
@@ -596,40 +516,52 @@ struct AboutSettingsTab: View {
         return "\(shortVersion) (\(buildNumber))"
     }
 
+    @State private var showingLicence = false
+    @Environment(\.openURL) private var openURL
+
+    private var fontLicenceURL: URL? {
+        let bundle = Bundle.main.url(forResource: "KudzuUI_KudzuUI", withExtension: "bundle")
+            .flatMap(Bundle.init(url:))
+            ?? Bundle.allBundles.first(where: { $0.bundleURL.lastPathComponent.contains("KudzuUI") })
+        return bundle?.url(forResource: "OFL", withExtension: "txt", subdirectory: "Fonts")
+            ?? bundle?.url(forResource: "OFL", withExtension: "txt")
+    }
+
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-
-            Image(systemName: "text.badge.plus")
-                .font(.system(size: 52, weight: .semibold))
-                .foregroundStyle(.tint)
-
-            VStack(spacing: 4) {
-                Text("Kudzu")
-                    .font(.title.bold())
-                Text("Version \(appVersion)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        SettingsPageLayout(title: "About") {
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                if let url = Bundle.main.url(forResource: "kudzu-app-icon-1024", withExtension: "png"),
+                   let image = NSImage(contentsOf: url) {
+                    Image(nsImage: image).resizable().frame(width: 80, height: 80)
+                }
+                Text("Kudzu").kzTextStyle(.titleLg).foregroundStyle(KzColor.ink)
+                Text("A lightweight, native macOS text expander.").kzTextStyle(.body).foregroundStyle(KzColor.inkMuted)
+                Text("Version \(appVersion) · MIT License").kzTextStyle(.monoCaption).foregroundStyle(KzColor.inkMuted)
             }
-
-            Text("A lightweight, native macOS text expander.")
-                .font(.body)
-                .foregroundStyle(.secondary)
-
-            VStack(spacing: 6) {
-                Text("Released under the MIT License.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-
-                if let repoURL = URL(string: "https://github.com/Stringsaeed/kudzu") {
-                    Link("github.com/Stringsaeed/kudzu", destination: repoURL)
-                        .font(.callout.weight(.medium))
+            KzSettingsGroup {
+                KzSettingsRow("Source code", description: "github.com/Stringsaeed/kudzu") {
+                    KzButton("Open", variant: .ghost, size: .sm, iconEnd: .external) {
+                        openURL(URL(string: "https://github.com/Stringsaeed/kudzu")!)
+                    }
+                }
+                KzSettingsRow("Font licence", description: "Geist and Geist Mono · SIL Open Font License") {
+                    KzButton("View…", size: .sm) { showingLicence = true }
                 }
             }
-
-            Spacer()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(24)
+        .sheet(isPresented: $showingLicence) {
+            VStack(alignment: .leading, spacing: KzSpace.s4) {
+                HStack {
+                    Text("Font licence").kzTextStyle(.title)
+                    Spacer()
+                    KzButton("Done", size: .sm) { showingLicence = false }.keyboardShortcut(.cancelAction)
+                }
+                ScrollView {
+                    Text(fontLicenceURL.flatMap { try? String(contentsOf: $0, encoding: .utf8) }
+                         ?? "The bundled Geist OFL notice could not be loaded.")
+                        .kzTextStyle(.monoCaption).textSelection(.enabled)
+                }
+            }.padding(KzSpace.s6).frame(width: 600, height: 480).background(KzColor.surface)
+        }
     }
 }
