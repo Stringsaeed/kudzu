@@ -1,5 +1,6 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// JSON-serializable global app exclusions and insertion settings (ready for M4 CloudKit sync).
@@ -151,133 +152,78 @@ struct AppsSettingsTab: View {
     }
 
     var body: some View {
-        Form {
-            Section("Default Insertion") {
-                Picker("Default Insertion Method", selection: $settings.defaultInsertion) {
-                    Text(InsertionMethod.automatic.title).tag(InsertionMethod.automatic)
-                    Text(InsertionMethod.type.title).tag(InsertionMethod.type)
-                    Text(InsertionMethod.paste.title).tag(InsertionMethod.paste)
-                }
-
-                Text("Automatic types short plain text and pastes longer text. Snippet, group, and per-app overrides take precedence.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Per-App Insertion Overrides") {
-                Text("Force Type or Paste in specific apps when neither the snippet nor its group sets an insertion method. Terminals default to Paste.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                let overrideIDs = sortedOverrideBundleIDs
-                if overrideIDs.isEmpty {
-                    Text("No per-app insertion overrides.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(overrideIDs, id: \.self) { bundleID in
-                            AppInsertionOverrideRow(
-                                bundleID: bundleID,
-                                method: Binding(
-                                    get: { settings.appInsertions[bundleID] ?? .paste },
-                                    set: { settings.setAppInsertion($0, for: bundleID) }
-                                ),
-                                remove: { settings.removeAppInsertion(bundleID) }
-                            )
-                            if bundleID != overrideIDs.last { Divider() }
-                        }
-                    }
-                    .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                HStack {
-                    AddAppMenu(existing: Set(overrideIDs)) { bundleID in
-                        settings.addAppInsertion(bundleID, method: .paste)
-                    }
-                    Spacer()
-                    Button("Restore Defaults") {
-                        settings.restoreDefaultAppInsertions()
-                    }
-                    .disabled(settings.isDefaultAppInsertions)
+        SettingsPageLayout(title: "Apps") {
+            KzSettingsGroup("Default insertion") {
+                KzSettingsRow("Insertion method", description: "Automatic types short plain text and pastes longer text. Snippet, group and app overrides take precedence.") {
+                    KzSelect("Default insertion method", selection: $settings.defaultInsertion,
+                             options: [InsertionMethod.automatic, .type, .paste].map { ($0, $0.title) })
                 }
             }
-
-            Section("Excluded Apps") {
-                Text("Kudzu never expands snippets while these apps are active, even if a snippet or group rule allows them.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                let deniedIDs = settings.deniedBundleIDs
-                if deniedIDs.isEmpty {
-                    Text("No excluded apps.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(deniedIDs, id: \.self) { bundleID in
-                            AppRow(bundleID: bundleID) {
-                                settings.removeDeniedApp(bundleID)
-                            }
-                            if bundleID != deniedIDs.last { Divider() }
-                        }
-                    }
-                    .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            KzSettingsGroup("Per-app insertion overrides", description: "Choose Type or Paste when neither the snippet nor its group sets a method. Terminals default to Paste.") {
+                if sortedOverrideBundleIDs.isEmpty {
+                    KzSettingsRow("No per-app insertion overrides") { EmptyView() }
                 }
-
-                HStack {
-                    AddAppMenu(existing: Set(deniedIDs)) { bundleID in
-                        settings.addDeniedApp(bundleID)
+                ForEach(sortedOverrideBundleIDs, id: \.self) { bundleID in
+                    SettingsAppRow(bundleID: bundleID) {
+                        KzSelect("Insertion for \(AppCatalog.info(for: bundleID).name)", selection: Binding(
+                            get: { settings.appInsertions[bundleID] ?? .paste },
+                            set: { settings.setAppInsertion($0, for: bundleID) }
+                        ), options: [InsertionMethod.type, .paste].map { ($0, $0.title) })
+                        removeButton(bundleID) { settings.removeAppInsertion(bundleID) }
                     }
-                    Spacer()
-                    Button("Restore Defaults") {
-                        settings.restoreDefaultDeniedApps()
-                    }
-                    .disabled(settings.isDefaultDeniedList)
                 }
+                appActions(existing: Set(sortedOverrideBundleIDs), isDefault: settings.isDefaultAppInsertions,
+                           add: { settings.addAppInsertion($0, method: .paste) }, restore: settings.restoreDefaultAppInsertions)
+            }
+            KzSettingsGroup("Excluded apps", description: "Kudzu never expands snippets in these apps, even when a snippet or group rule allows them.") {
+                if settings.deniedBundleIDs.isEmpty {
+                    KzSettingsRow("No excluded apps") { EmptyView() }
+                }
+                ForEach(settings.deniedBundleIDs, id: \.self) { bundleID in
+                    SettingsAppRow(bundleID: bundleID) {
+                        removeButton(bundleID) { settings.removeDeniedApp(bundleID) }
+                    }
+                }
+                appActions(existing: Set(settings.deniedBundleIDs), isDefault: settings.isDefaultDeniedList,
+                           add: settings.addDeniedApp, restore: settings.restoreDefaultDeniedApps)
             }
         }
-        .formStyle(.grouped)
-        .padding()
     }
-}
 
-private struct AppInsertionOverrideRow: View {
-    var bundleID: String
-    @Binding var method: InsertionMethod
-    var remove: () -> Void
+    private func removeButton(_ bundleID: String, action: @escaping () -> Void) -> some View {
+        KzButton("Remove", variant: .ghost, size: .sm, action: action)
+            .accessibilityLabel("Remove \(AppCatalog.info(for: bundleID).name)")
+    }
 
-    var body: some View {
-        let info = AppCatalog.info(for: bundleID)
-        HStack(spacing: 10) {
-            Image(nsImage: info.icon)
-                .resizable()
-                .frame(width: 24, height: 24)
-                .opacity(info.isInstalled ? 1 : 0.5)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(info.name)
-                if info.isInstalled {
-                    Text(bundleID).font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Text("\(bundleID) · Not installed").font(.caption).foregroundStyle(.secondary)
+    private func appActions(existing: Set<String>, isDefault: Bool,
+                            add: @escaping (String) -> Void, restore: @escaping () -> Void) -> some View {
+        HStack {
+            KzButton("Add app…", size: .sm, icon: .plus, menuTitle: "Add app") {
+                for app in AppCatalog.runningApps(excluding: existing) {
+                    KzMenuItem(app.name) { add(app.bundleID) }
+                }
+                KzMenuSeparator()
+                KzMenuItem("Choose app…") {
+                    if let id = AppCatalog.chooseApp() { add(id) }
                 }
             }
             Spacer()
-            Picker("Insertion", selection: $method) {
-                Text(InsertionMethod.type.title).tag(InsertionMethod.type)
-                Text(InsertionMethod.paste.title).tag(InsertionMethod.paste)
-            }
-            .labelsHidden()
-            .fixedSize()
-            Button(action: remove) {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Remove \(info.name)")
-            .accessibilityLabel("Remove \(info.name)")
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+            KzButton("Restore defaults", variant: .ghost, size: .sm, action: restore).disabled(isDefault)
+        }.padding(KzSpace.s3)
+    }
+}
+
+private struct SettingsAppRow<Controls: View>: View {
+    let bundleID: String
+    @ViewBuilder var controls: Controls
+
+    var body: some View {
+        let info = AppCatalog.info(for: bundleID)
+        HStack(spacing: KzSpace.s2) {
+            Image(nsImage: info.icon).resizable().frame(width: 24, height: 24)
+                .opacity(info.isInstalled ? 1 : 0.5).accessibilityHidden(true)
+            KzListRow(info.name, meta: bundleID + (info.isInstalled ? "" : " · Not installed"))
+            controls
+        }.padding(.horizontal, KzSpace.s3)
     }
 }

@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import Observation
+import KudzuUI
 import SwiftUI
 
 /// Settings control for the search palette shortcut: a recorder, "Reset to Default" and any
@@ -17,13 +18,13 @@ struct PaletteShortcutSetting: View {
                     onEnd: { model.setPaletteShortcutSuspended(false) },
                     onRecord: { model.setPaletteShortcut($0) }
                 )
-                Button("Reset to Default") { model.resetPaletteShortcut() }
+                KzButton("Reset", variant: .ghost, size: .sm) { model.resetPaletteShortcut() }
                     .disabled(model.paletteShortcut == .paletteDefault && model.paletteShortcutError == nil)
             }
             if let error = model.paletteShortcutError {
                 Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
+                    .kzTextStyle(.caption)
+                    .foregroundStyle(KzColor.danger)
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -45,12 +46,9 @@ struct ShortcutRecorder: View {
         Button {
             if recorder.isRecording { recorder.stop() } else { start() }
         } label: {
-            Text(label)
-                .font(.system(.body, design: .rounded).weight(recorder.isRecording ? .regular : .medium))
-                .foregroundStyle(recorder.isRecording ? .secondary : .primary)
-                .frame(minWidth: 110)
+            KzKbd(label).padding(.horizontal, KzSpace.s2).frame(minWidth: 100, minHeight: 30)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(ShortcutWellStyle())
         .help(recorder.isRecording ? "Type the new shortcut, or press Esc to cancel" : "Click to record a new shortcut")
         .accessibilityLabel("Search palette shortcut")
         .accessibilityValue(recorder.isRecording ? "Recording" : shortcut.displayString)
@@ -59,7 +57,7 @@ struct ShortcutRecorder: View {
 
     private var label: String {
         guard recorder.isRecording else { return shortcut.displayString }
-        return recorder.liveModifiers.isEmpty ? "Type Shortcut…" : HotKeyShortcut.modifierSymbols(recorder.liveModifiers) + "…"
+        return recorder.liveModifiers.isEmpty ? "Type shortcut…" : HotKeyShortcut.modifierSymbols(recorder.liveModifiers) + "…"
     }
 
     private func start() {
@@ -135,6 +133,16 @@ struct ShortcutRecorder: View {
             stop()
             onRecord(shortcut)
             return true
+        }
+    }
+}
+
+private struct ShortcutWellStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
+        KzInteractive(shape, isPressed: configuration.isPressed) { _ in
+            configuration.label.background(KzColor.surfaceSunken, in: shape)
+                .overlay(shape.strokeBorder(KzColor.line))
         }
     }
 }
