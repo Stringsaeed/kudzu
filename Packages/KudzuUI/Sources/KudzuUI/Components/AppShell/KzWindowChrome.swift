@@ -138,6 +138,14 @@ private struct KzWindowChromeView: NSViewRepresentable {
                     MainActor.assumeIsolated { self?.relayout() }
                 })
             }
+            for type in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+                guard let button = window.standardWindowButton(type) else { continue }
+                button.postsFrameChangedNotifications = true
+                observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: button,
+                                                    queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.relayout() }
+                })
+            }
             if let container = window.standardWindowButton(.closeButton)?.superview?.superview {
                 container.postsFrameChangedNotifications = true
                 observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: container,

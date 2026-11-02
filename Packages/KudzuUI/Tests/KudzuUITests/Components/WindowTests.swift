@@ -101,5 +101,10 @@ import Testing
         #expect(window.collectionBehavior.contains(.fullScreenPrimary))
         #expect(!window.collectionBehavior.contains(.fullScreenNone))
         #expect(!window.collectionBehavior.contains(.canJoinAllSpaces))
+
+        let close = try #require(window.standardWindowButton(.closeButton))
+        close.setFrameOrigin(NSPoint(x: close.frame.origin.x, y: close.frame.origin.y + 10))
+        let correctedCenter = try #require(KzWindowChrome.closeButtonCenterY(in: window))
+        #expect(abs(correctedCenter - KzSize.titlebar / 2) < 0.5)
     }
 }
