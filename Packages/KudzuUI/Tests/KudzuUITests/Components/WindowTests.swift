@@ -12,8 +12,8 @@ import Testing
         return window
     }
 
-    /// The numbers in `KzWindowChrome`'s documentation: an empty unified toolbar gives a 52pt titlebar
-    /// whose traffic lights are centred on y = 26, exactly the middle of a `size-titlebar` header.
+    /// The numbers in `KzWindowChrome`'s documentation: the chrome lays out a 52pt titlebar whose
+    /// traffic lights are centred on y = 26, exactly the middle of a `size-titlebar` header.
     @Test func trafficLightsCentreOnTheHeader() throws {
         let window = makeWindow()
         // Without the chrome the lights sit 16pt from the top, 10pt above the header's centre.
@@ -42,16 +42,30 @@ import Testing
         #expect(window.titleVisibility == .hidden)
         #expect(window.titlebarAppearsTransparent)
         #expect(window.styleMask.contains(.fullSizeContentView))
-        #expect(window.toolbar?.identifier == KzWindowChrome.toolbarIdentifier)
-        #expect(window.toolbar?.items.isEmpty == true)
+        // No toolbar: on macOS 26 it would draw glass over the pane headers.
+        #expect(window.toolbar == nil)
         #expect(window.isOpaque)
         #expect(window.backgroundColor == KzColorToken.surfaceRaised.nsColor)
         #expect(window.standardWindowButton(.closeButton)?.isHidden == false)
 
         // Idempotent, and an app's own toolbar is respected.
-        let toolbar = window.toolbar
+        let own = NSToolbar(identifier: "app")
+        window.toolbar = own
         KzWindowChrome.apply(to: window)
-        #expect(window.toolbar === toolbar)
+        #expect(window.toolbar === own)
+    }
+
+    /// AppKit redoes the titlebar on resize; the lights must end up centred on the header again.
+    @Test func lightsSurviveAResize() throws {
+        let window = makeWindow()
+        KzWindowChrome.apply(to: window)
+        window.setFrame(NSRect(x: 0, y: 0, width: 1200, height: 800), display: false)
+        KzWindowChrome.layoutTrafficLights(in: window)
+        window.layoutIfNeeded()
+        let center = try #require(KzWindowChrome.closeButtonCenterY(in: window))
+        #expect(abs(center - KzSize.titlebar / 2) < 0.5, "lights centre at \(center)")
+        let close = try #require(window.standardWindowButton(.closeButton)).convert(.zero, to: nil)
+        #expect(abs(close.x - KzWindowChrome.Lights.leading) < 0.5)
     }
 
     @Test func shellAppliesChromeToItsWindow() async throws {
@@ -61,12 +75,18 @@ import Testing
                               styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.contentView = host
         // SwiftUI creates the chrome probe a beat after the view is installed; poll rather than guess a delay.
-        for _ in 0..<40 where window.toolbar == nil {
+        for _ in 0..<40 where window.titleVisibility != .hidden {
             host.layoutSubtreeIfNeeded()
+            await settle(0.05)
+        }
+        // The chrome lays the lights out again on the next main-loop turn, after SwiftUI's own setup.
+        for _ in 0..<20 where abs((KzWindowChrome.closeButtonCenterY(in: window) ?? 0) - KzSize.titlebar / 2) >= 0.5 {
             await settle(0.05)
         }
         #expect(window.titleVisibility == .hidden)
         #expect(window.isOpaque)
-        #expect(window.toolbar != nil)
+        #expect(window.toolbar == nil)
+        let center = try #require(KzWindowChrome.closeButtonCenterY(in: window))
+        #expect(abs(center - KzSize.titlebar / 2) < 0.5, "centre \(center)")
     }
 }

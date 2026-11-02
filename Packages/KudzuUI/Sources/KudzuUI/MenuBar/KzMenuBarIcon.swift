@@ -7,13 +7,13 @@ import SwiftUI
 /// `secureInput` were drawn for the app in the same style; their SVGs live in
 /// `design/kudzu/additions/` so they can go back into the design system.
 public enum KzMenuBarIcon: String, CaseIterable, Sendable {
-    /// Expanding: cursor plus a solid leaf.
+    /// Expanding: a sprouting colon, matching the app icon's printed legend.
     case active
-    /// Expansion paused by the user: the leaf is outlined.
+    /// Expansion paused by the user: pause bars replace the colon's lower dot.
     case paused
-    /// Accessibility or Input Monitoring is missing: outlined leaf plus a small warning mark.
+    /// Accessibility or Input Monitoring is missing: a warning replaces the lower dot.
     case permissionsMissing
-    /// Secure Input is on, so macOS blocks expansion: outlined leaf plus a small lock.
+    /// Secure Input is on, so macOS blocks expansion: a lock replaces the lower dot.
     case secureInput
 
     /// The bundled SVG this glyph is drawn from.

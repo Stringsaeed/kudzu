@@ -1,33 +1,24 @@
 import AppKit
 import SwiftUI
 
-/// Window chrome for Kudzu's one window: no title, no toolbar, traffic lights kept, content drawn
+/// Window chrome for Kudzu's one window: no title, **no toolbar**, traffic lights kept, content drawn
 /// edge to edge on an opaque `surface-raised` window; the sidebar's behind-window blur still reaches the desktop.
 ///
 /// ## Traffic-light alignment
 ///
-/// Every pane header is `size-titlebar` (52pt) tall and must line up with the traffic lights, which
-/// AppKit places inside the titlebar. The numbers below were measured on macOS 27.2 by building an
-/// offscreen `NSWindow` (`KzWindowChromeTests` re-checks them on whatever OS runs the tests):
+/// Every pane header is `size-titlebar` (52pt) tall and must line up with the traffic lights. Without
+/// a toolbar AppKit builds a 32pt titlebar with the lights centred 16pt from the top, so the chrome
+/// lays them out itself: it grows the titlebar container to 52pt and puts the 14pt buttons at
+/// y = 19…33, whose centre (26) is `size-titlebar / 2`, with the close button at x = 19.
 ///
-/// | Window configuration                    | Titlebar height | Lights' centre from top |
-/// | --------------------------------------- | --------------- | ----------------------- |
-/// | full-size content, no toolbar           | 32              | 16                      |
-/// | + empty `.unified` toolbar              | **52**          | **26**                  |
-/// | + empty `.unifiedCompact` toolbar       | 40              | 20                      |
-/// | + empty `.expanded` toolbar             | 48              | 16                      |
+/// It re-applies that layout whenever AppKit may have redone the titlebar: resizes, full-screen exit,
+/// key and main changes, screen and backing changes, and frame changes of the titlebar container.
 ///
-/// With the lights 14pt tall (y = 19…33) in a 52pt titlebar, their centre is 19 + 7 = 26 =
-/// `size-titlebar / 2`, so a 52pt header row centres its content on the lights exactly.
+/// An earlier version got the 52pt titlebar from an *empty unified toolbar*. On macOS 26 a toolbar is
+/// a Liquid Glass layer drawn over the whole titlebar strip, which blurred the pane headers beneath
+/// it, so there must be no toolbar at all.
 ///
-/// Instead of moving the buttons by hand (which AppKit undoes on every resize, full-screen change
-/// and appearance change), the chrome gives the window an *empty* unified toolbar. That makes
-/// AppKit itself build the 52pt titlebar and centre the lights in it, so the alignment survives
-/// anything AppKit does. Horizontally the lights span x = 19…79 (close at 19, minimise at 42, zoom
-/// at 65), which is why the sidebar's header slot sits at the trailing edge.
-///
-/// The window's own content then needs `ignoresSafeArea(.top)` (the 52pt titlebar would otherwise
-/// become a safe-area inset), which `KzAppShell` does.
+/// The window's own content then needs `ignoresSafeArea(.top)`, which `KzAppShell` does.
 public enum KzWindowChrome {
     /// The toolbar identifier of the empty spacer toolbar.
     public static let toolbarIdentifier = "sh.saeed.kudzu.titlebar"
@@ -55,20 +46,42 @@ public enum KzWindowChrome {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.titlebarSeparatorStyle = .none
-        // An empty toolbar is what makes AppKit build the 52pt titlebar. Respect a toolbar the app already set.
-        if window.toolbar == nil {
-            let toolbar = NSToolbar(identifier: toolbarIdentifier)
-            toolbar.displayMode = .iconOnly
-            toolbar.allowsUserCustomization = false
-            toolbar.autosavesConfiguration = false
-            window.toolbar = toolbar
-        }
-        window.toolbarStyle = .unified
+        // No toolbar: on macOS 26 it is a glass layer over the titlebar that blurs the pane headers.
+        if window.toolbar?.identifier == toolbarIdentifier { window.toolbar = nil }
         // An opaque fill. The sidebar's `.behindWindow` effect still blurs the desktop (as in Finder), and
         // anything macOS fades under the titlebar (the macOS 26 scroll edge effect) fades into the
         // window colour instead of showing the desktop through a see-through strip.
         window.isOpaque = true
         window.backgroundColor = KzColorToken.surfaceRaised.nsColor
+        layoutTrafficLights(in: window)
+    }
+
+    /// Puts the traffic lights in a 52pt titlebar, centred on the pane headers. Safe to call often.
+    @MainActor
+    public static func layoutTrafficLights(in window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen),
+              let close = window.standardWindowButton(.closeButton),
+              let titlebar = close.superview, let container = titlebar.superview else { return }
+        let height = KzSize.titlebar
+        let windowHeight = window.frame.height
+        var frame = container.frame
+        if frame.height != height || frame.minY != windowHeight - height {
+            frame.size.height = height
+            frame.origin.y = windowHeight - height
+            container.frame = frame
+            container.layoutSubtreeIfNeeded()
+        }
+        let types: [NSWindow.ButtonType] = [.closeButton, .miniaturizeButton, .zoomButton]
+        for (index, type) in types.enumerated() {
+            guard let button = window.standardWindowButton(type), let parent = button.superview else { continue }
+            let size = button.frame.size
+            // Window coordinates have their origin at the bottom-left.
+            let target = NSRect(x: Lights.leading + CGFloat(index) * Lights.pitch,
+                                y: windowHeight - Lights.top - size.height,
+                                width: size.width, height: size.height)
+            let origin = parent.convert(target, from: nil).origin
+            if button.frame.origin != origin { button.setFrameOrigin(origin) }
+        }
     }
 
     /// The close button's vertical centre measured from the top of the window, or `nil` without a close button.
@@ -92,10 +105,56 @@ private struct KzWindowChromeView: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 
     final class Probe: NSView {
+        private var observers: [NSObjectProtocol] = []
+        private var isLayingOut = false
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
+            removeObservers()
             guard let window else { return }
             KzWindowChrome.apply(to: window)
+            observe(window)
+            // SwiftUI finishes configuring its window (and AppKit its titlebar) after this view moves
+            // in, which can put the lights back; lay them out again once that has settled.
+            DispatchQueue.main.async { [weak self] in self?.relayout() }
         }
+
+        private func observe(_ window: NSWindow) {
+            let center = NotificationCenter.default
+            let names: [Notification.Name] = [
+                NSWindow.didResizeNotification, NSWindow.didEndLiveResizeNotification,
+                NSWindow.didExitFullScreenNotification, NSWindow.didBecomeKeyNotification,
+                NSWindow.didResignKeyNotification, NSWindow.didBecomeMainNotification,
+                NSWindow.didResignMainNotification, NSWindow.didChangeScreenNotification,
+                NSWindow.didChangeBackingPropertiesNotification,
+            ]
+            for name in names {
+                observers.append(center.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.relayout() }
+                })
+            }
+            if let container = window.standardWindowButton(.closeButton)?.superview?.superview {
+                container.postsFrameChangedNotifications = true
+                observers.append(center.addObserver(forName: NSView.frameDidChangeNotification, object: container,
+                                                    queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.relayout() }
+                })
+            }
+        }
+
+        private func relayout() {
+            // Setting the container's frame posts a frame change; don't recurse into it.
+            guard !isLayingOut, let window else { return }
+            isLayingOut = true
+            KzWindowChrome.layoutTrafficLights(in: window)
+            isLayingOut = false
+        }
+
+        private func removeObservers() {
+            observers.forEach(NotificationCenter.default.removeObserver)
+            observers.removeAll()
+        }
+
+        isolated deinit { removeObservers() }
     }
 }
