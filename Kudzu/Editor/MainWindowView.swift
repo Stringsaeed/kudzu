@@ -237,19 +237,10 @@ struct MainWindowShell<SettingsDetail: View>: View {
     @ViewBuilder
     private var detail: some View {
         if let section = settingsSection {
-            let page = settingsDetail(section)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(.horizontal, KzSpace.s8)
-                .padding(.bottom, KzSpace.s8)
-            Group {
-                if snapshotRendering {
-                    // Offscreen renderers don't draw scroll views' content.
-                    page.frame(minHeight: 0, maxHeight: .infinity, alignment: .top).clipped()
-                } else {
-                    ScrollView { page }.scrollContentBackground(.hidden)
-                }
-            }
-            .background(KzColor.surface)
+            // Settings pages own their scrolling and padding (see `SettingsPageLayout`).
+            settingsDetail(section)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .background(KzColor.surface)
             .id(section)
         } else if browser.scope == .stats {
             StatsView()
