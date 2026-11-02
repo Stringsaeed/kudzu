@@ -318,12 +318,14 @@ A test checks that the SVGs match the Swift source.
 
 | State | Source |
 | --- | --- |
-| `.active` | `kudzu-menubar.svg` (design system) |
-| `.paused` | `kudzu-menubar-paused.svg` (design system) |
-| `.permissionsMissing` | `design/kudzu/additions/kudzu-menubar-permissions.svg`: outlined leaf and a knocked-out warning triangle |
-| `.secureInput` | `design/kudzu/additions/kudzu-menubar-secure-input.svg`: outlined leaf and a small padlock |
+| `.active` | `kudzu-menubar.svg`: sprouting colon, matching the app icon legend |
+| `.paused` | `kudzu-menubar-paused.svg`: sprouting dot above pause bars |
+| `.permissionsMissing` | `design/kudzu/additions/kudzu-menubar-permissions.svg`: sprouting dot above a warning triangle |
+| `.secureInput` | `design/kudzu/additions/kudzu-menubar-secure-input.svg`: sprouting dot above a small padlock |
 
 A test keeps the bundled copies identical to the design sources.
+
+`design/menu-bar/` contains the matching SVG, vector PDF and transparent PNG exports at 1×, 2× and 3×, plus a light/dark preview. The menu bar mark omits the app icon's keycap and fine leaf vein to stay legible at 18pt.
 
 ### SF Symbol mapping
 
