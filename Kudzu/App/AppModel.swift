@@ -9,6 +9,15 @@ import SwiftUI
 final class AppModel {
     static let onboardingCompletedDefaultsKey = "hasCompletedOnboarding"
 
+    /// Disposable library for a separately identified debug app used in live UI verification.
+    static var isUIAudit: Bool {
+        #if DEBUG
+        Bundle.main.bundleIdentifier == "sh.saeed.kudzu.ui-audit"
+        #else
+        false
+        #endif
+    }
+
     let store: KudzuStore
     let permissions: Permissions
     let engine: ExpansionEngine
@@ -60,12 +69,14 @@ final class AppModel {
 
     init() {
         let permissions = Permissions()
-        let preference = SyncPreference.isEnabled(in: .standard)
+        let preference = !Self.isUIAudit && SyncPreference.isEnabled(in: .standard)
         let block = CloudSyncProbe.block()
-        let opened = Self.openStore(wantsSync: block == nil && preference)
+        let opened = Self.isUIAudit
+            ? OpenedStore(store: try! KudzuStore.inMemory(), runningEnabled: false, openError: nil, storeError: nil)
+            : Self.openStore(wantsSync: block == nil && preference)
         let store = opened.store
         storeError = opened.storeError
-        if opened.storeError == nil {
+        if opened.storeError == nil && !Self.isUIAudit {
             do {
                 try store.reconcileDevice(hardwareID: PlatformIdentity.hardwareUUID())
                 if try store.localSettings().syncEnabled != preference {
@@ -76,7 +87,10 @@ final class AppModel {
             }
         }
 
-        let backupStore = BackupStore(directory: BackupScheduler.defaultBackupDirectory())
+        let backupDirectory = Self.isUIAudit
+            ? FileManager.default.temporaryDirectory.appending(path: "Kudzu-UI-Audit-\(ProcessInfo.processInfo.processIdentifier)")
+            : BackupScheduler.defaultBackupDirectory()
+        let backupStore = BackupStore(directory: backupDirectory)
         let backupScheduler = BackupScheduler(store: store, backupStore: backupStore)
         let syncMonitor = SyncMonitor(snapshot: SyncSnapshot(
             preferenceEnabled: preference,
@@ -94,10 +108,18 @@ final class AppModel {
         self.syncMonitor = syncMonitor
         self.paletteShortcut = HotKeyShortcut.savedPaletteShortcut()
 
-        syncMonitor.start(store: store)
-        engine.start()
-        backupScheduler.start()
-        startPalette()
+        if Self.isUIAudit {
+            #if DEBUG
+            let library = LibraryModel(store: store)
+            library.ensureLoaded()
+            DebugSeed.demo(library: library)
+            #endif
+        } else {
+            syncMonitor.start(store: store)
+            engine.start()
+            backupScheduler.start()
+        }
+        startPalette(registerHotKey: !Self.isUIAudit)
     }
 
     /// Records the iCloud switch. The open container keeps its current flag until the next launch.
@@ -148,9 +170,10 @@ final class AppModel {
 
     // MARK: - Search palette
 
-    private func startPalette() {
+    private func startPalette(registerHotKey: Bool = true) {
         palette.onInsert = { [weak self] id in await self?.engine.insertSnippet(id: id) }
         palette.onEdit = { [weak self] id in self?.revealSnippetInEditor(id) }
+        guard registerHotKey else { return }
         paletteHotKey = GlobalHotKey { [weak self] in self?.togglePalette() }
         registerPaletteShortcut(paletteShortcut)
     }
@@ -232,6 +255,10 @@ final class AppModel {
     func openOnboardingIfNeeded(_ openWindow: OpenWindowAction) {
         guard !didCheckOnboarding else { return }
         didCheckOnboarding = true
+        if Self.isUIAudit {
+            openWindow(id: SceneID.main)
+            return
+        }
         if !Self.hasCompletedOnboarding { openWindow(id: SceneID.onboarding) }
     }
 }
