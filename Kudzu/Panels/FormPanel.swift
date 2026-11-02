@@ -8,7 +8,6 @@ import SwiftUI
 @MainActor
 final class FormPanel: KzFloatingPanel {
     private var completion: (([String: String]?) -> Void)?
-    private var monitor: Any?
 
     init() {
         super.init(sizing: .fitting, chrome: .glass(), behavior: .modeless, level: .floating) {
@@ -76,15 +75,15 @@ final class FormPanel: KzFloatingPanel {
     }
 
     private func finish(_ values: [String: String]?) {
-        if let monitor { NSEvent.removeMonitor(monitor) }
-        monitor = nil
+        // Take the continuation first: `dismiss` calls `onClose`, which re-enters with nil and
+        // would otherwise resume it as a cancel before the submitted values arrive.
+        let callback = completion
+        completion = nil
         keyHandler = nil
         if isPresented {
             dismiss(.programmatic)
         }
         orderOut(nil)
-        let callback = completion
-        completion = nil
         callback?(values)
     }
 }

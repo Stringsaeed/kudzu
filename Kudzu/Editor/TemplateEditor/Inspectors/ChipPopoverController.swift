@@ -48,8 +48,8 @@ final class ChipPopoverController {
             inspector.padding(Self.contentPadding)
         }
         panel.appearance = window.effectiveAppearance
-        panel.onClose = { [weak self] _ in
-            MainActor.assumeIsolated { self?.panelDidClose(panel) }
+        panel.onClose = { [weak self, weak panel] _ in
+            MainActor.assumeIsolated { if let panel { self?.panelDidClose(panel) } }
         }
         self.panel = panel
         panel.present(placement(forChipAt: index), attachedTo: window, makeKey: true)
@@ -89,6 +89,7 @@ final class ChipPopoverController {
 
     private func panelDidClose(_ closed: KzFloatingPanel) {
         guard closed === panel else { return }
+        closed.onClose = nil
         let index = chipIndex
         panel = nil
         chipIndex = nil

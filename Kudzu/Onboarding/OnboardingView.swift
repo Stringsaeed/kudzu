@@ -251,7 +251,7 @@ struct OnboardingView: View {
 
                 if didCelebrateExpansion {
                     HStack(spacing: KzSpace.s2) {
-                        KzBadge("It works!", tone: .vine)
+                        KzBadge("Working", tone: .vine)
                         Text("Your trigger expanded into “\(ImportCoordinator.sampleExpansion)”.")
                             .kzTextStyle(.callout)
                             .foregroundStyle(KzColor.inkMuted)

@@ -30,7 +30,7 @@ struct MenuBarContent: View {
         if model.engine.secureInputActive {
             let owner = model.engine.secureInputOwner ?? "another app"
             Text("Secure Input on (\(owner)) — expansion blocked")
-            Button("Why…") {
+            Button("Why?") {
                 presentSecureInputAlert(owner: model.engine.secureInputOwner)
             }
         }
@@ -66,7 +66,6 @@ struct MenuBarContent: View {
             openWindow(id: SceneID.main)
             NSApplication.shared.activate()
         }
-        .keyboardShortcut(",", modifiers: .command)
 
         Divider()
 
