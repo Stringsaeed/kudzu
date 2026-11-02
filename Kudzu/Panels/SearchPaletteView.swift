@@ -82,8 +82,10 @@ private struct PaletteSearchField: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else {
+            // Its natural one-line height, centred in the row, which is where typed text centres.
             PaletteAppKitSearchField(model: model)
-                .frame(maxWidth: .infinity, minHeight: 28, maxHeight: 28)
+                .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -101,7 +103,8 @@ private struct PaletteAppKitSearchField: NSViewRepresentable {
             ?? .systemFont(ofSize: 18, weight: .regular)
         field.font = font
         field.textColor = KzColorToken.ink.nsColor
-        field.placeholderAttributedString = NSAttributedString(
+        field.setAccessibilityPlaceholderValue("Search snippets")
+        field.kzPlaceholder = NSAttributedString(
             string: "Search snippets",
             attributes: [
                 .font: font,
@@ -128,44 +131,28 @@ private struct PaletteAppKitSearchField: NSViewRepresentable {
     /// Takes focus as soon as it lands in the panel, which the first `show()` can't do because
     /// SwiftUI builds the view after the panel is ordered in.
     final class FocusingTextField: NSTextField {
-        override class var cellClass: AnyClass? {
-            get { CenteredTextFieldCell.self }
-            set {}
+        /// Drawn by the field itself. AppKit draws its own placeholder about 4pt higher than typed text
+        /// with Geist (measured offscreen), so the placeholder and caret didn't line up.
+        var kzPlaceholder: NSAttributedString? { didSet { needsDisplay = true } }
+
+        override var stringValue: String { didSet { needsDisplay = true } }
+
+        override func textDidChange(_ notification: Notification) {
+            super.textDidChange(notification)
+            needsDisplay = true
+        }
+
+        override func draw(_ dirtyRect: NSRect) {
+            super.draw(dirtyRect)
+            guard stringValue.isEmpty, let kzPlaceholder, let font else { return }
+            // Typed text sits with its capitals centred in the field (the field is flipped); match it.
+            let baseline = bounds.midY + font.capHeight / 2
+            kzPlaceholder.draw(at: NSPoint(x: 2, y: baseline - font.ascender))
         }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             window?.makeFirstResponder(self)
-        }
-    }
-
-    /// Centres the text, placeholder and caret vertically. `NSTextFieldCell` pins one line to the top
-    /// of its frame, and Geist's tall line box made the text sit visibly below the search icon.
-    final class CenteredTextFieldCell: NSTextFieldCell {
-        private func centered(_ rect: NSRect) -> NSRect {
-            guard let font else { return rect }
-            let lineHeight = ceil(NSLayoutManager().defaultLineHeight(for: font))
-            let height = min(rect.height, lineHeight)
-            // Optical centre: put the middle of the capitals (baseline − cap height / 2) on the frame's
-            // middle, which lines the text up with the search icon beside it. The field is flipped.
-            let opticalTop = font.ascender - font.capHeight / 2
-            let top = min(max(rect.minY, rect.midY - opticalTop), rect.maxY - height)
-            return NSRect(x: rect.minX, y: round(top), width: rect.width, height: height)
-        }
-
-        override func titleRect(forBounds rect: NSRect) -> NSRect { centered(super.titleRect(forBounds: rect)) }
-
-        override func drawingRect(forBounds rect: NSRect) -> NSRect { centered(super.drawingRect(forBounds: rect)) }
-
-        override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                           delegate: Any?, event: NSEvent?) {
-            super.edit(withFrame: centered(rect), in: controlView, editor: textObj, delegate: delegate, event: event)
-        }
-
-        override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText,
-                             delegate: Any?, start selStart: Int, length selLength: Int) {
-            super.select(withFrame: centered(rect), in: controlView, editor: textObj, delegate: delegate,
-                         start: selStart, length: selLength)
         }
     }
 
