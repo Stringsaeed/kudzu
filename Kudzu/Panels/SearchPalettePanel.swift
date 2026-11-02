@@ -1,47 +1,12 @@
 import AppKit
 import Carbon
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
-/// The palette window: a key-capable, non-activating floating panel, so the app the user was
-/// typing in stays frontmost and gets the insertion afterwards.
-final class SearchPalettePanel: NSPanel {
-    /// Gets every key-down first; returns true when it handled the event.
-    var keyHandler: ((NSEvent) -> Bool)?
-
-    init(size: NSSize) {
-        super.init(contentRect: NSRect(origin: .zero, size: size),
-                   styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
-                   backing: .buffered, defer: true)
-        titleVisibility = .hidden
-        titlebarAppearsTransparent = true
-        for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
-            standardWindowButton(button)?.isHidden = true
-        }
-        isFloatingPanel = true
-        level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        hidesOnDeactivate = false
-        isReleasedWhenClosed = false
-        isMovable = false
-        animationBehavior = .utilityWindow
-        isOpaque = false
-        backgroundColor = .clear
-    }
-
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
-
-    override func sendEvent(_ event: NSEvent) {
-        // Intercept before the search field's editor, which would otherwise eat ↑/↓/↵/Esc.
-        if event.type == .keyDown, let keyHandler, keyHandler(event) { return }
-        super.sendEvent(event)
-    }
-}
-
-/// Shows, hides and drives the search palette. Owned by `AppModel`.
+/// Shows, hides and drives the search palette on a `KzFloatingPanel`. Owned by `AppModel`.
 @MainActor
-final class SearchPaletteController: NSObject, NSWindowDelegate {
+final class SearchPaletteController: NSObject {
     static let panelSize = NSSize(width: 760, height: 460)
 
     let model: SearchPaletteModel
@@ -50,7 +15,7 @@ final class SearchPaletteController: NSObject, NSWindowDelegate {
     /// Opens the snippet in the main window.
     var onEdit: ((UUID) -> Void)?
 
-    private var panel: SearchPalettePanel?
+    private var panel: KzFloatingPanel?
     private var isClosing = false
 
     init(store: KudzuStore) {
@@ -68,8 +33,7 @@ final class SearchPaletteController: NSObject, NSWindowDelegate {
         let panel = panel ?? makePanel()
         model.isActive = true
         model.prepareForShow()
-        position(panel)
-        panel.makeKeyAndOrderFront(nil)
+        panel.present(.centered(topFraction: 1.0 / 6))
         panel.contentView?.layoutSubtreeIfNeeded()
         if let field = model.searchField { panel.makeFirstResponder(field) }
     }
@@ -79,6 +43,8 @@ final class SearchPaletteController: NSObject, NSWindowDelegate {
         isClosing = true
         defer { isClosing = false }
         model.isActive = false
+        panel.dismiss(.programmatic)
+        // Order out immediately so the target app regains key focus before the 40 ms insert delay.
         panel.orderOut(nil)
     }
 
@@ -116,7 +82,7 @@ final class SearchPaletteController: NSObject, NSWindowDelegate {
 
     private func handle(_ event: NSEvent) -> Bool {
         // Leave keys to an input method that is mid-composition (Return confirms a conversion).
-        if let editor = panel?.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
+        if panel?.isComposingText == true { return false }
         let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
         switch Int(event.keyCode) {
         case kVK_UpArrow where flags.isEmpty, kVK_ANSI_P where flags == .control:
@@ -154,44 +120,15 @@ final class SearchPaletteController: NSObject, NSWindowDelegate {
 
     // MARK: - Window
 
-    func windowDidResignKey(_ notification: Notification) {
-        close()
-    }
-
-    private func makePanel() -> SearchPalettePanel {
-        let panel = SearchPalettePanel(size: Self.panelSize)
-        panel.delegate = self
+    private func makePanel() -> KzFloatingPanel {
+        let panel = KzFloatingPanel(sizing: .fixed(Self.panelSize), behavior: .transient) {
+            SearchPaletteView(model: self.model, controller: self)
+        }
         panel.keyHandler = { [weak self] event in self?.handle(event) ?? false }
-
-        let background = NSVisualEffectView()
-        background.material = .popover
-        background.blendingMode = .behindWindow
-        background.state = .active
-        let hosting = NSHostingView(rootView: SearchPaletteView(model: model, controller: self))
-        hosting.sizingOptions = []
-        hosting.translatesAutoresizingMaskIntoConstraints = false
-        background.addSubview(hosting)
-        NSLayoutConstraint.activate([
-            hosting.leadingAnchor.constraint(equalTo: background.leadingAnchor),
-            hosting.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-            hosting.topAnchor.constraint(equalTo: background.topAnchor),
-            hosting.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-        ])
-        panel.contentView = background
+        panel.onClose = { [weak self] _ in
+            self?.model.isActive = false
+        }
         self.panel = panel
         return panel
-    }
-
-    /// Centred horizontally in the upper third of the screen the mouse is on.
-    private func position(_ panel: NSPanel) {
-        let mouse = NSEvent.mouseLocation
-        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouse, $0.frame, false) }) ?? NSScreen.main else { return }
-        let frame = screen.visibleFrame
-        let size = panel.frame.size
-        let top = frame.maxY - frame.height / 6
-        panel.setFrameOrigin(NSPoint(
-            x: (frame.midX - size.width / 2).rounded(),
-            y: max(frame.minY, top - size.height).rounded()
-        ))
     }
 }
