@@ -1,4 +1,5 @@
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Dropdown chips: name, an editable and reorderable options list, and the default option.
@@ -7,7 +8,7 @@ struct ChoiceChipInspector: View {
     let context: ChipInspectorContext
     let onChange: (KudzuCore.Tag) -> Void
 
-    private struct Option: Identifiable, Equatable {
+    fileprivate struct Option: Identifiable, Equatable {
         let id = UUID()
         var text: String
     }
@@ -15,7 +16,8 @@ struct ChoiceChipInspector: View {
     @State private var name: String
     @State private var options: [Option]
     @State private var defaultValue: String?
-    @FocusState private var focus: UUID?
+    /// The option row that should take focus, set when a row is added.
+    @State private var focusRequest: UUID?
     @FocusState private var nameFocused: Bool
 
     init(tag: KudzuCore.Tag, context: ChipInspectorContext, onChange: @escaping (KudzuCore.Tag) -> Void) {
@@ -41,23 +43,24 @@ struct ChoiceChipInspector: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        InspectorStack {
             InspectorHeader(tag: tag, title: "Dropdown", subtitle: "Asks the user to pick one option before expanding.")
-            Form {
-                TextField("Name", text: $name, prompt: Text("e.g. tone"))
-                    .focused($nameFocused)
-                ValidationMessage(text: problem)
-            }
-            .formStyle(.columns)
-            optionsList
-            Form {
-                Picker("Default", selection: $defaultValue) {
-                    Text("None").tag(String?.none)
-                    if !defaultCandidates.isEmpty { Divider() }
-                    ForEach(defaultCandidates, id: \.self) { option in Text(option).tag(Optional(option)) }
+            KzField("Name") {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    KzTextInput("e.g. tone", text: $name, focus: $nameFocused)
+                    ValidationMessage(text: problem)
                 }
             }
-            .formStyle(.columns)
+            KzField("Options", aside: options.count > 1 ? "Drag to reorder" : nil) {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    optionsList
+                    KzButton("Add option", variant: .ghost, size: .sm, icon: .plus, action: addOption)
+                }
+            }
+            KzField("Default") {
+                KzSelect("Default", selection: $defaultValue,
+                         options: [(String?.none, "None")] + defaultCandidates.map { (Optional($0), $0) })
+            }
         }
         .onAppear {
             if options.isEmpty { options.append(Option(text: "")) }
@@ -71,44 +74,28 @@ struct ChoiceChipInspector: View {
         .onChange(of: defaultValue) { commit() }
     }
 
+    /// A `List` for `onMove` reordering; each row is its own `KzTextInput` well.
     private var optionsList: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Options").font(.subheadline.weight(.medium)).foregroundStyle(.secondary)
-            List {
-                ForEach($options) { $option in
-                    HStack(spacing: 6) {
-                        Image(systemName: "line.3.horizontal")
-                            .foregroundStyle(.tertiary)
-                            .accessibilityHidden(true)
-                        TextField("Option", text: $option.text, prompt: Text("Option"))
-                            .textFieldStyle(.plain)
-                            .focused($focus, equals: option.id)
-                            .onSubmit(addOption)
-                        Button {
-                            options.removeAll { $0.id == option.id }
-                        } label: {
-                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Remove \(option.text.isEmpty ? "option" : option.text)")
-                    }
+        List {
+            ForEach($options) { $option in
+                OptionRow(text: $option.text, focusRequest: $focusRequest, id: option.id, onSubmit: addOption) {
+                    options.removeAll { $0.id == option.id }
                 }
-                .onMove { from, to in options.move(fromOffsets: from, toOffset: to) }
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
             }
-            .listStyle(.bordered(alternatesRowBackgrounds: true))
-            .frame(height: min(CGFloat(max(options.count, 2)) * 26 + 6, 170))
-            Button(action: addOption) {
-                Label("Add Option", systemImage: "plus")
-            }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
+            .onMove { from, to in options.move(fromOffsets: from, toOffset: to) }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .frame(height: min(CGFloat(max(options.count, 1)) * 38 + 4, 176))
     }
 
     private func addOption() {
         let option = Option(text: "")
         options.append(option)
-        focus = option.id
+        focusRequest = option.id
     }
 
     private func commit() {
@@ -119,5 +106,35 @@ struct ChoiceChipInspector: View {
             .setting("name", to: .string(name.trimmingCharacters(in: .whitespaces)))
             .setting("options", string: ChoiceOptions.encode(values))
             .setting("default", string: defaultValue))
+    }
+}
+
+/// One option: a grip, the text and a remove button.
+private struct OptionRow: View {
+    @Binding var text: String
+    @Binding var focusRequest: UUID?
+    let id: UUID
+    let onSubmit: () -> Void
+    let onRemove: () -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack(spacing: KzSpace.s1) {
+            KzIcon(.grip, size: 14)
+                .foregroundStyle(KzColor.inkFaint)
+                .frame(width: 18)
+                .accessibilityHidden(true)
+            KzTextInput("Option", text: $text, focus: $focused)
+                .onSubmit(onSubmit)
+            KzIconButton(.x, label: "Remove \(text.isEmpty ? "option" : text)", size: .sm, action: onRemove)
+        }
+        .onAppear(perform: takeFocusIfRequested)
+        .onChange(of: focusRequest) { takeFocusIfRequested() }
+    }
+
+    private func takeFocusIfRequested() {
+        guard focusRequest == id else { return }
+        focused = true
+        focusRequest = nil
     }
 }

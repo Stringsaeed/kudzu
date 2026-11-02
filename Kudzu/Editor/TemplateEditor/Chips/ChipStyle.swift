@@ -1,41 +1,76 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 
-/// Colors and metrics shared by chip drawing and the insert menu.
+/// How serious a problem on a chip or in the text is. It decides the ink and fill of the chip and the squiggle colour.
+enum ChipSeverity: Int, Comparable {
+    case warning, error
+
+    static func < (lhs: ChipSeverity, rhs: ChipSeverity) -> Bool { lhs.rawValue < rhs.rawValue }
+
+    init(_ severity: TemplateDiagnostic.Severity) {
+        self = severity == .error ? .error : .warning
+    }
+
+    /// Squiggle colour: `danger` for errors, `warning` for warnings.
+    var squiggle: NSColor {
+        switch self {
+        case .warning: KzColorToken.warning.nsColor
+        case .error: KzColorToken.danger.nsColor
+        }
+    }
+}
+
+/// The colours of one chip in one state, all from `KzColor` tokens (dynamic, so Light and Dark follow the view).
+struct ChipPalette {
+    var fill: NSColor
+    var ink: NSColor
+    /// Fill and ink when the chip is selected in the focused editor: the ink colour becomes the fill.
+    var selectedFill: NSColor
+    var selectedInk: NSColor
+
+    /// The design system's tag: `vine-ink` on `vine-soft`; `danger`/`warning` on their soft fills for problems.
+    static func palette(for severity: ChipSeverity?) -> ChipPalette {
+        switch severity {
+        case nil:
+            ChipPalette(fill: KzEditorTag.fill, ink: KzEditorTag.ink,
+                        selectedFill: KzEditorTag.selectedFill, selectedInk: KzEditorTag.selectedInk)
+        case .warning:
+            ChipPalette(fill: KzColorToken.warningSoft.nsColor, ink: KzColorToken.warning.nsColor,
+                        selectedFill: KzColorToken.warning.nsColor, selectedInk: KzColorToken.surfaceRaised.nsColor)
+        case .error:
+            ChipPalette(fill: KzColorToken.dangerSoft.nsColor, ink: KzColorToken.danger.nsColor,
+                        selectedFill: KzColorToken.danger.nsColor, selectedInk: KzColorToken.surfaceRaised.nsColor)
+        }
+    }
+}
+
+/// Icons for chip kinds and insert items, drawn from `KzIcon` (the editor chips themselves are text-only, as in the design).
 enum ChipStyle {
-    /// Tint for a chip family; warnings override the family color.
-    static func tint(for kind: ChipLabel.Kind, warning: Bool = false) -> NSColor {
-        if warning { return .systemOrange }
+    /// The icon for a chip family.
+    static func icon(for kind: ChipLabel.Kind) -> KzIconName {
         switch kind {
-        case .date, .time: return .systemBlue
-        case .clipboard: return .systemTeal
-        case .cursor: return .systemPink
-        case .snippet: return .systemPurple
-        case .field: return .systemGreen
-        case .choice: return .systemIndigo
-        case .unknown: return .systemRed
+        case .date: .clock
+        case .time: .timer
+        case .clipboard: .copy
+        case .cursor: .cursor
+        case .snippet: .textPlus
+        case .field: .type
+        case .choice: .list
+        case .unknown: .warning
         }
     }
 
-    /// Tint for an insert-menu item, matching the chip it creates.
-    static func tint(forItem item: TemplateInsertItem) -> NSColor {
+    /// The icon for an insert-menu item, matching the chip it creates.
+    static func icon(for item: TemplateInsertItem) -> KzIconName {
         switch item {
-        case .date: tint(for: ChipLabel.Kind.date)
-        case .time: tint(for: ChipLabel.Kind.time)
-        case .clipboard: tint(for: ChipLabel.Kind.clipboard)
-        case .cursor: tint(for: ChipLabel.Kind.cursor)
-        case .field: tint(for: ChipLabel.Kind.field)
-        case .choice: tint(for: ChipLabel.Kind.choice)
-        case .snippet: tint(for: ChipLabel.Kind.snippet)
+        case .date: icon(for: ChipLabel.Kind.date)
+        case .time: icon(for: ChipLabel.Kind.time)
+        case .clipboard: icon(for: ChipLabel.Kind.clipboard)
+        case .cursor: icon(for: ChipLabel.Kind.cursor)
+        case .field: icon(for: ChipLabel.Kind.field)
+        case .choice: icon(for: ChipLabel.Kind.choice)
+        case .snippet: icon(for: ChipLabel.Kind.snippet)
         }
     }
-
-    /// Label font derived from the editor body font, a touch smaller so chips sit inside the line box.
-    static func labelFont(for bodyFont: NSFont) -> NSFont {
-        .systemFont(ofSize: (bodyFont.pointSize - 1.5).rounded(), weight: .medium)
-    }
-
-    static let outerMargin: CGFloat = 1.5
-    static let horizontalPadding: CGFloat = 6
-    static let iconGap: CGFloat = 3.5
 }

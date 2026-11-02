@@ -1,5 +1,6 @@
 import AppKit
 import KudzuCore
+import KudzuUI
 import SwiftUI
 
 /// Values the coordinator reads from the SwiftUI side on every update.
@@ -41,8 +42,6 @@ final class TemplateEditorCoordinator: NSObject {
         self.textView = textView
         textView.delegate = self
         textView.clipboard = self
-        textView.font = factory.font
-        textView.typingAttributes = factory.textAttributes
     }
 
     /// Applies new SwiftUI values; rebuilds content only when the source changed externally.
@@ -69,7 +68,7 @@ final class TemplateEditorCoordinator: NSObject {
         let selection = textView.selectedRange()
         storage.setAttributedString(factory.attributedString(for: TemplateSegments.parse(source)))
         textView.setSelectedRange(NSRange(location: min(selection.location, storage.length), length: 0))
-        textView.typingAttributes = factory.textAttributes
+        textView.typingAttributes = KzEditorStyle.typingAttributes()
         textView.needsDisplay = true
         lastSource = source
         undoManager.removeAllActions()
@@ -107,24 +106,26 @@ final class TemplateEditorCoordinator: NSObject {
         let diagnostics = TemplateEditorLint.diagnostics(
             for: segments, knownSnippetIDs: Set(factory.snippetNames.keys), currentSnippetID: configuration.currentSnippetID)
         let length = storage.length
-        layoutManager.removeTemporaryAttribute(.spellingState, forCharacterRange: NSRange(location: 0, length: length))
-        var warnedChips = Set<Int>()
+        var squiggles = [ChipSquiggle]()
+        var chipSeverities = [Int: ChipSeverity]()
         for diagnostic in diagnostics {
+            let severity = ChipSeverity(diagnostic.severity)
             if diagnostic.isChip {
-                warnedChips.insert(diagnostic.displayRange.lowerBound)
+                let index = diagnostic.displayRange.lowerBound
+                chipSeverities[index] = max(chipSeverities[index] ?? severity, severity)
                 continue
             }
             let range = NSRange(location: diagnostic.displayRange.lowerBound, length: diagnostic.displayRange.count)
             guard NSMaxRange(range) <= length else { continue }
-            // Spelling flag (red) for errors, grammar flag (green) for warnings.
-            layoutManager.addTemporaryAttribute(.spellingState, value: diagnostic.severity == .error ? 1 : 2,
-                                                forCharacterRange: range)
+            // Errors in `danger`, warnings in `warning`.
+            squiggles.append(ChipSquiggle(range: range, severity: severity))
         }
+        (layoutManager as? ChipLayoutManager)?.setSquiggles(squiggles)
         ChipFactory.forEachChip(in: storage) { chip, index in
             guard let cell = chip.chipCell else { return }
-            let warned = warnedChips.contains(index)
-            guard cell.hasLintWarning != warned else { return }
-            cell.hasLintWarning = warned
+            let severity = chipSeverities[index]
+            guard cell.lintSeverity != severity else { return }
+            cell.lintSeverity = severity
             layoutManager.invalidateDisplay(forCharacterRange: NSRange(location: index, length: 1))
         }
         let reported = diagnostics.map(\.sourceDiagnostic)
