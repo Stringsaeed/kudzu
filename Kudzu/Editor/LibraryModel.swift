@@ -19,13 +19,15 @@ enum EditorFocusTarget {
 /// Value snapshot of the library plus derived data, and every mutation the main window performs.
 ///
 /// Views render from the snapshot (`KudzuLibrary` values), never from SwiftData objects. The
-/// snapshot is refreshed by `reload()` when `store.changes` fires, and patched in place for editor
-/// autosaves so a keystroke never re-fetches the whole library.
+/// snapshot is refreshed by `reload()` when `store.changes` fires. Drafts are retained here so
+/// navigation and commands share the same unsaved edits.
 @MainActor @Observable
 final class LibraryModel {
     @ObservationIgnored let store: KudzuStore
-    /// Snippets deleted in this window, so a late editor autosave can't recreate them.
-    @ObservationIgnored private var deletedSnippetIDs: Set<UUID> = []
+    private var editors: [UUID: SnippetEditorModel] = [:]
+    @ObservationIgnored private let readSnippet: (UUID) throws -> SnippetRecord?
+    @ObservationIgnored private let writeSnippet: (SnippetRecord) throws -> Void
+    @ObservationIgnored private let removeSnippet: (UUID) throws -> Void
 
     private(set) var isLoaded = false
     /// Bumped whenever the snapshot changes; cheap to observe with `onChange`.
@@ -50,8 +52,69 @@ final class LibraryModel {
     /// Set when a new snippet should grab focus in the editor; consumed by the editor.
     var pendingFocus: EditorFocusTarget?
 
-    init(store: KudzuStore) {
+    init(
+        store: KudzuStore,
+        readSnippet: ((UUID) throws -> SnippetRecord?)? = nil,
+        writeSnippet: ((SnippetRecord) throws -> Void)? = nil,
+        removeSnippet: ((UUID) throws -> Void)? = nil
+    ) {
         self.store = store
+        self.readSnippet = readSnippet ?? { id in try store.library().snippets.first { $0.id == id } }
+        self.writeSnippet = writeSnippet ?? { try store.upsert($0) }
+        self.removeSnippet = removeSnippet ?? { try store.deleteSnippet(id: $0) }
+    }
+
+    /// Reuses drafts across navigation, including drafts whose last save failed.
+    func editor(for snippet: SnippetRecord) -> SnippetEditorModel {
+        if let editor = editors[snippet.id] { return editor }
+        return SnippetEditorModel(snippet: snippet, library: self)
+    }
+
+    /// Registers a draft before any library command can act on its snippet.
+    func retainEditor(_ editor: SnippetEditorModel) {
+        editors[editor.draft.id] = editor
+    }
+
+    /// Releases clean editors on navigation while retaining every unsaved draft.
+    func releaseEditor(_ editor: SnippetEditorModel) {
+        let id = editor.draft.id
+        if editors[id] === editor, !editor.isDirty { editors[id] = nil }
+    }
+
+    /// Failed drafts stay reachable even when a remote deletion removed the list row.
+    var recoveryDrafts: [SnippetRecord] {
+        editors.values.filter { $0.isDirty && $0.saveError != nil }.map(\.draft)
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+    }
+
+    /// The latest draft when one exists, otherwise the stored snapshot.
+    func editableSnippet(_ id: UUID) -> SnippetRecord? {
+        if let editor = editors[id], editor.isDirty { return editor.draft }
+        return snippetsByID[id]
+    }
+
+    /// Fetches current storage immediately before saving or discarding a draft.
+    func storedSnippet(_ id: UUID) throws -> SnippetRecord? {
+        try readSnippet(id)
+    }
+
+    /// Saves every retained draft, allowing quit only when none remain unsaved.
+    func savePendingDrafts() -> Bool {
+        let results = Array(editors.values).map { $0.flush() }
+        return results.allSatisfy { $0 }
+    }
+
+    private func prepare(_ ids: [UUID]) -> Bool {
+        // Check every target, retaining all failures, before starting the command.
+        let results = ids.compactMap { editors[$0] }.map { $0.flush() }
+        guard results.allSatisfy({ $0 }) else { return false }
+        return reload()
+    }
+
+    private func deleteSnippet(_ id: UUID) throws {
+        try removeSnippet(id)
+        editors[id]?.didDelete()
+        editors[id] = nil
     }
 
     // MARK: - Loading
@@ -62,13 +125,16 @@ final class LibraryModel {
     }
 
     /// Re-reads the library from the store.
-    func reload() {
+    @discardableResult
+    func reload() -> Bool {
         do {
             let library = try store.library()
             let settings = try store.syncedSettings()
             ingest(library, wpm: settings.typingSpeedWPM, prefix: settings.defaultTriggerPrefix)
+            return true
         } catch {
             report("Couldn't load the library", error)
+            return false
         }
     }
 
@@ -128,6 +194,9 @@ final class LibraryModel {
         if defaultTriggerPrefix != prefix { defaultTriggerPrefix = prefix }
 
         isLoaded = true
+        for (id, editor) in editors {
+            if let stored = snippetsByID[id] { editor.adoptExternal(stored) }
+        }
         if changed { revision += 1 }
     }
 
@@ -148,6 +217,8 @@ final class LibraryModel {
             try body()
             return true
         } catch {
+            // SwiftData leaves failed mutations in the context; don't let a later save commit them.
+            store.context.rollback()
             report(failure, error)
             return false
         }
@@ -208,29 +279,20 @@ final class LibraryModel {
 
     // MARK: - Snippet mutations
 
-    /// Saves an editor draft. Patches the snapshot instead of re-fetching, since this runs after every pause in typing.
-    func saveEdited(_ snippet: SnippetRecord) -> Bool {
-        // The editor flushes on disappear, which runs after a delete. Upserting then would
-        // resurrect the snippet, so a deleted snippet's pending draft is simply dropped.
-        guard !deletedSnippetIDs.contains(snippet.id) else { return true }
+    /// Commits a draft only if its changed fields still agree with the current stored baseline.
+    func saveEdited(_ snippet: SnippetRecord, baseline: SnippetRecord) throws -> SnippetRecord {
+        var merged = try SnippetDraft.merge(snippet, baseline: baseline, latest: storedSnippet(snippet.id))
+        merged.updatedAt = .now
         do {
-            try store.upsert(snippet)
+            try writeSnippet(merged)
         } catch {
-            report("Couldn't save “\(snippet.name)”", error)
-            return false
+            store.context.rollback()
+            throw error
         }
-        if let index = snippets.firstIndex(where: { $0.id == snippet.id }) {
-            let before = snippets[index]
-            snippets[index] = snippet
-            if Self.affectsConflicts(before, snippet) {
-                conflicts = TriggerConflicts.find(snippets: snippets, groups: groups)
-            }
-        }
-        snippetsByID[snippet.id] = snippet
-        contentByID[snippet.id] = snippet.content
-        searchIndex.update(snippet)
-        revision += 1
-        return true
+        // Read back store normalization (for example a group removed on another device).
+        guard let saved = try storedSnippet(snippet.id) else { throw SnippetDraft.Conflict.deleted }
+        reload()
+        return saved
     }
 
     /// Creates a snippet with a unique placeholder name and a trigger seeded from the default prefix.
@@ -247,6 +309,7 @@ final class LibraryModel {
 
     /// Copies snippets, renaming them and numbering their triggers so the copies don't conflict.
     func duplicate(_ ids: [UUID]) -> [UUID] {
+        guard prepare(ids) else { return [] }
         var names = snippets.map(\.name)
         var triggers = snippets.flatMap(\.triggers)
         var created: [UUID] = []
@@ -260,7 +323,7 @@ final class LibraryModel {
                 copy.updatedAt = .now
                 names.append(copy.name)
                 triggers += copy.triggers
-                try store.upsert(copy)
+                try writeSnippet(copy)
                 created.append(copy.id)
             }
         }
@@ -269,26 +332,19 @@ final class LibraryModel {
 
     /// Deletes snippets and their usage.
     func deleteSnippets(_ ids: [UUID]) {
-        deletedSnippetIDs.formUnion(ids)
         perform("Couldn't delete") {
-            for id in ids { try store.deleteSnippet(id: id) }
+            for id in ids { try deleteSnippet(id) }
         }
     }
 
     /// Moves snippets into a group (nil = no group).
     func moveSnippets(_ ids: [UUID], to groupID: UUID?) {
-        perform("Couldn't move") {
-            for id in ids {
-                guard var snippet = snippetsByID[id], snippet.groupID != groupID else { continue }
-                snippet.groupID = groupID
-                snippet.updatedAt = .now
-                try store.upsert(snippet)
-            }
-        }
+        update(ids) { $0.groupID = groupID }
     }
 
     /// Applies one edit to several snippets in a single pass.
     func update(_ ids: [UUID], _ body: (inout SnippetRecord) -> Void) {
+        guard prepare(ids) else { return }
         perform("Couldn't update") {
             for id in ids {
                 guard var snippet = snippetsByID[id] else { continue }
@@ -296,7 +352,7 @@ final class LibraryModel {
                 body(&snippet)
                 guard snippet != before else { continue }
                 snippet.updatedAt = .now
-                try store.upsert(snippet)
+                try writeSnippet(snippet)
             }
         }
     }
@@ -340,7 +396,13 @@ final class LibraryModel {
 
     /// Deletes a group, either moving its contents up a level or deleting them too.
     func deleteGroup(_ id: UUID, _ strategy: GroupDeletion) {
-        guard tree.group(id) != nil else { return }
+        guard reload(), tree.group(id) != nil else { return }
+        let descendants = tree.descendantIDs(of: id)
+        let affected = editors.values.filter { editor in
+            editor.draft.groupID.map(descendants.contains) == true
+                || snippetsByID[editor.draft.id]?.groupID.map(descendants.contains) == true
+        }.map { $0.draft.id }
+        guard prepare(affected) else { return }
         perform("Couldn't delete the group") {
             switch strategy {
             case .moveContentsUp:
@@ -348,8 +410,7 @@ final class LibraryModel {
             case .deleteContents:
                 let doomed = tree.descendantIDs(of: id)
                 for snippet in snippets where snippet.groupID.map(doomed.contains) ?? false {
-                    deletedSnippetIDs.insert(snippet.id)
-                    try store.deleteSnippet(id: snippet.id)
+                    try deleteSnippet(snippet.id)
                 }
                 // Deepest first, so no group is deleted while it still has children.
                 let ordered = doomed.sorted { tree.ancestorIDs(of: $0).count > tree.ancestorIDs(of: $1).count }

@@ -125,7 +125,7 @@ final class BrowserState {
 
     /// Drops selection and scope entries that no longer exist after the library changed.
     func prune(using library: LibraryModel) {
-        selection.formIntersection(library.snippetsByID.keys)
+        selection = selection.filter { library.editableSnippet($0) != nil }
         if case .group(let id) = scope, library.tree.group(id) == nil { scope = .all }
     }
 }

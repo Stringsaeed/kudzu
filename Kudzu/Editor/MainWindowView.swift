@@ -24,7 +24,7 @@ private struct MainWindowContent: View {
 
     init(model: AppModel) {
         self.model = model
-        _library = State(initialValue: LibraryModel(store: model.store))
+        _library = State(initialValue: model.library)
     }
 
     private var lastSettingsSection: SettingsSection {
@@ -73,7 +73,7 @@ private struct MainWindowContent: View {
             scopeRaw = scope.rawValue
             // Keep the editor in step with the list: drop selected snippets the new scope doesn't show.
             let visible = Set(library.snippets(in: scope, query: "", sort: .name).map(\.id))
-            if scope != .stats { browser.selection.formIntersection(visible) }
+            if scope != .stats { browser.selection.formIntersection(visible.union(library.recoveryDrafts.map(\.id))) }
         }
         .onChange(of: browser.selection) { _, selection in
             selectionRaw = selection.count == 1 ? (selection.first?.uuidString ?? "") : ""
@@ -251,7 +251,7 @@ struct MainWindowShell<SettingsDetail: View>: View {
             .id(section)
         } else if browser.scope == .stats {
             StatsView()
-        } else if browser.selection.count == 1, let id = browser.selection.first, let snippet = library.snippetsByID[id] {
+        } else if browser.selection.count == 1, let id = browser.selection.first, let snippet = library.editableSnippet(id) {
             SnippetEditorView(snippet: snippet, library: library)
                 .id(id)
         } else if browser.selection.count > 1 {
@@ -273,6 +273,14 @@ struct MainWindowShell<SettingsDetail: View>: View {
 
     @ViewBuilder
     private var banners: some View {
+        ForEach(library.recoveryDrafts) { draft in
+            Button("Review unsaved changes: \(draft.name)") {
+                windowMode = .library
+                browser.scope = .all
+                browser.selection = [draft.id]
+            }
+            .padding(KzSpace.s2)
+        }
         if storeError != nil || library.errorMessage != nil {
             VStack(spacing: KzSpace.s2) {
                 if let storeError {

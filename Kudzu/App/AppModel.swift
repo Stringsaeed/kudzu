@@ -19,6 +19,8 @@ final class AppModel {
     }
 
     let store: KudzuStore
+    /// Retains failed editor drafts when the main window closes and is reopened.
+    @ObservationIgnored lazy var library = LibraryModel(store: store)
     let permissions: Permissions
     let engine: ExpansionEngine
     let backupStore: BackupStore
@@ -231,6 +233,16 @@ final class AppModel {
     }
 
     // MARK: - Windows
+
+    /// Prevents a normal quit from losing failed drafts and opens their recovery controls.
+    func prepareForTermination() -> Bool {
+        guard !library.savePendingDrafts() else { return true }
+        library.errorMessage = "Kudzu couldn't save all changes. Review or discard the unsaved drafts before quitting."
+        mainWindowMode = .library
+        openWindowAction?(id: SceneID.main)
+        NSApplication.shared.activate()
+        return false
+    }
 
     /// Keeps SwiftUI's window opener so non-view code (the palette) can open scenes.
     func attach(openWindow: OpenWindowAction) {

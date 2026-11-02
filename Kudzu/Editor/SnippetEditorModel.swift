@@ -3,38 +3,27 @@ import KudzuCore
 import Observation
 import SwiftUI
 
-/// Holds the draft of the snippet being edited and autosaves it shortly after the last change.
-///
-/// Edits go to `draft` only; the library snapshot (and so the list) updates when the debounce
-/// fires. External changes (sync, import) are adopted only while there are no unsaved edits, so
-/// a refresh never clobbers what the user is typing.
+/// A retained draft: Save or leaving the editor commits it; Discard loads the latest stored version.
 @MainActor @Observable
 final class SnippetEditorModel {
-    /// How long to wait after the last edit before saving.
-    static let debounce: Duration = .milliseconds(400)
-
     private(set) var draft: SnippetRecord
-    @ObservationIgnored private var persisted: SnippetRecord
-    @ObservationIgnored private let library: LibraryModel
-    @ObservationIgnored private var saveTask: Task<Void, Never>?
-    @ObservationIgnored private var observers: [NSObjectProtocol] = []
+    private(set) var saveError: String?
+    private var persisted: SnippetRecord
+    @ObservationIgnored private unowned let library: LibraryModel
 
     init(snippet: SnippetRecord, library: LibraryModel) {
         self.draft = snippet
         self.persisted = snippet
         self.library = library
+        library.retainEditor(self)
     }
 
-    /// Whether there are edits that haven't been saved yet.
+    /// Whether there are edits since the last successful save or adoption of a stored version.
     var isDirty: Bool { draft != persisted }
 
-    /// Applies a change to the draft and schedules a save.
+    /// Changes the draft without writing, so Discard remains available until Save or navigation.
     func edit(_ body: (inout SnippetRecord) -> Void) {
-        var copy = draft
-        body(&copy)
-        guard copy != draft else { return }
-        draft = copy
-        scheduleSave()
+        body(&draft)
     }
 
     /// A binding to one field of the draft.
@@ -45,52 +34,71 @@ final class SnippetEditorModel {
         )
     }
 
-    /// Takes a newer stored version of the snippet unless the user has unsaved edits.
+    /// Adopts unrelated external edits while retaining local edits and refusing overlapping changes.
     func adoptExternal(_ record: SnippetRecord) {
-        guard record != persisted, !isDirty else { return }
-        persisted = record
-        draft = record
-    }
-
-    /// Saves immediately if there is anything to save.
-    func flush() {
-        saveTask?.cancel()
-        saveTask = nil
-        guard isDirty else { return }
-        var toSave = draft
-        toSave.updatedAt = .now
-        // On failure the draft stays dirty, the library shows the banner, and the next edit retries.
-        if library.saveEdited(toSave) {
-            draft.updatedAt = toSave.updatedAt
-            persisted = draft
+        guard record != persisted else { return }
+        do {
+            let merged = try SnippetDraft.merge(draft, baseline: persisted, latest: record)
+            persisted = record
+            draft = merged
+            if !isDirty { saveError = nil }
+        } catch {
+            saveError = error.localizedDescription
         }
     }
 
-    private func scheduleSave() {
-        saveTask?.cancel()
-        saveTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.debounce)
-            guard !Task.isCancelled else { return }
-            self?.flush()
+    /// Saves against the actual store, never a potentially stale library snapshot.
+    @discardableResult
+    func flush() -> Bool {
+        guard isDirty else { return true }
+        do {
+            let saved = try library.saveEdited(draft, baseline: persisted)
+            persisted = saved
+            draft = saved
+            saveError = nil
+            return true
+        } catch {
+            saveError = error.localizedDescription
+            library.errorMessage = "Couldn't save “\(draft.name)”: \(error.localizedDescription)"
+            return false
         }
+    }
+
+    /// Drops only this local draft, reading the latest baseline without writing any stored fields.
+    @discardableResult
+    func discardChanges() -> Bool {
+        do {
+            if let latest = try library.storedSnippet(draft.id) {
+                persisted = latest
+                draft = latest
+            } else {
+                draft = persisted
+            }
+            saveError = nil
+            library.reload()
+            return true
+        } catch {
+            saveError = error.localizedDescription
+            return false
+        }
+    }
+
+    /// A confirmed, successful local deletion also discards the deleted snippet's draft.
+    func didDelete() {
+        draft = persisted
+        saveError = nil
     }
 
     // MARK: - Lifecycle
 
-    /// Starts flushing on app deactivation and quit. Call from `onAppear`.
+    /// Retains the active editor; application-level termination saves all retained drafts.
     func start() {
-        guard observers.isEmpty else { return }
-        for name in [NSApplication.willResignActiveNotification, NSApplication.willTerminateNotification] {
-            observers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.flush() }
-            })
-        }
+        library.retainEditor(self)
     }
 
-    /// Saves pending edits and stops observing. Call from `onDisappear`.
+    /// Attempts a save on navigation; the library retains failed drafts for later recovery.
     func stop() {
         flush()
-        for observer in observers { NotificationCenter.default.removeObserver(observer) }
-        observers = []
+        library.releaseEditor(self)
     }
 }

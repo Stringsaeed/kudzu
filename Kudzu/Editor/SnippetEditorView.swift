@@ -7,13 +7,13 @@ import SwiftUI
 ///
 /// A floating toolbar (favorite, debug, more), the name as a mono title, Triggers, Content, Preview,
 /// then Rules and Advanced as disclosures, and a footer of dates and use count. Edits go to
-/// `SnippetEditorModel`, which autosaves.
+/// `SnippetEditorModel`, which saves explicitly or when leaving the editor.
 struct SnippetEditorView: View {
     @Environment(LibraryModel.self) private var library
     @Environment(BrowserState.self) private var browser
     @Environment(\.kzSnapshotRendering) private var snapshotRendering
 
-    /// The stored version, used to pick up outside changes.
+    /// Identifies this editor; the library reconciles stored changes into the retained model.
     let snippet: SnippetRecord
     @State private var model: SnippetEditorModel
     @State private var triggerAnchor = ViewAnchor()
@@ -25,12 +25,25 @@ struct SnippetEditorView: View {
 
     init(snippet: SnippetRecord, library: LibraryModel) {
         self.snippet = snippet
-        _model = State(initialValue: SnippetEditorModel(snippet: snippet, library: library))
+        _model = State(initialValue: library.editor(for: snippet))
     }
 
     var body: some View {
         VStack(spacing: 0) {
             header
+            if model.isDirty || model.saveError != nil {
+                VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    Text(model.saveError ?? "Unsaved changes. Leaving the editor also attempts to save.")
+                        .kzTextStyle(.caption)
+                    HStack {
+                        KzButton("Save", size: .sm) { model.flush() }
+                            .keyboardShortcut("s", modifiers: .command)
+                        KzButton("Discard Changes", variant: .ghost, size: .sm) { model.discardChanges() }
+                    }
+                }
+                .padding(.horizontal, KzSpace.s4)
+                .padding(.vertical, KzSpace.s2)
+            }
             if snapshotRendering {
                 // Offscreen renderers don't draw scroll views' content.
                 form.frame(minHeight: 0, maxHeight: .infinity, alignment: .top).clipped()
@@ -45,7 +58,6 @@ struct SnippetEditorView: View {
             consumeFocusRequest()
         }
         .onDisappear { model.stop() }
-        .onChange(of: snippet) { _, newValue in model.adoptExternal(newValue) }
     }
 
     private var form: some View {
@@ -112,8 +124,6 @@ struct SnippetEditorView: View {
         let draft = model.draft
         let groups = library.tree.allGroups
         KzMenuItem("Duplicate", icon: .copy) {
-            // Copy what's on screen, not the last autosave.
-            model.flush()
             let copies = library.duplicate([snippet.id])
             if !copies.isEmpty { browser.selection = Set(copies) }
         }

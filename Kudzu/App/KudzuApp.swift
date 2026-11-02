@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct KudzuApp: App {
+    @NSApplicationDelegateAdaptor(KudzuAppDelegate.self) private var appDelegate
     @State private var model: AppModel
 
     init() {
@@ -12,7 +13,9 @@ struct KudzuApp: App {
         // `-KudzuSnapshot <dir>` renders the main window offscreen and exits before anything starts.
         MainWindowSnapshots.runIfRequested()
         #endif
-        _model = State(initialValue: AppModel())
+        let model = AppModel()
+        _model = State(initialValue: model)
+        appDelegate.prepareForTermination = { model.prepareForTermination() }
     }
 
     var body: some Scene {
