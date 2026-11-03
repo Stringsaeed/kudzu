@@ -3,6 +3,39 @@ import KudzuCore
 import KudzuUI
 import SwiftUI
 
+/// Honest status of the Onboarding Step 3 practice card.
+enum OnboardingPracticeState: Equatable, Sendable {
+    /// Live expansion succeeded through the real engine.
+    case verified
+    /// User explicitly previewed sample output without claiming live expansion works.
+    case demoPreview(blocker: String?)
+    /// Live expansion is ready and waiting for the user to type `;kudzu`.
+    case awaitingLiveInput
+    /// Live expansion is blocked (permissions missing, paused, Secure Input, or inactive tap).
+    case blocked(reason: String, typedTriggerWithoutExpansion: Bool)
+
+    static func evaluate(
+        practiceText: String,
+        readiness: ExpansionReadiness,
+        verifiedExpansionCount: Int,
+        baselineCount: Int,
+        initialCelebrated: Bool = false,
+        isDemoPreview: Bool = false
+    ) -> OnboardingPracticeState {
+        if initialCelebrated || (readiness.isReady && verifiedExpansionCount > baselineCount && practiceText.contains("Kudzu is working!")) {
+            return .verified
+        }
+        if isDemoPreview {
+            return .demoPreview(blocker: readiness.blockerSummary)
+        }
+        if let blocker = readiness.blockerSummary {
+            let typedTrigger = practiceText.range(of: ImportCoordinator.sampleTrigger, options: .caseInsensitive) != nil
+            return .blocked(reason: blocker, typedTriggerWithoutExpansion: typedTrigger)
+        }
+        return .awaitingLiveInput
+    }
+}
+
 /// First-launch flow: permissions, Espanso import, and a live practice field.
 struct OnboardingView: View {
     enum Step: Int, CaseIterable, Identifiable {
@@ -25,14 +58,28 @@ struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentStep: Step
-    @State private var practiceText = ""
-    @State private var didCelebrateExpansion = false
+    @State private var practiceText: String
+    @State private var initialCelebrated: Bool
+    @State private var isDemoPreview = false
+    @State private var baselinePracticeCount = 0
     @State private var starterError: String?
+    @FocusState private var practiceFocused: Bool
 
     init(initialStep: Step = .permissions, initialPracticeText: String = "", initialCelebrated: Bool = false) {
         _currentStep = State(initialValue: initialStep)
         _practiceText = State(initialValue: initialPracticeText)
-        _didCelebrateExpansion = State(initialValue: initialCelebrated)
+        _initialCelebrated = State(initialValue: initialCelebrated)
+    }
+
+    private var practiceState: OnboardingPracticeState {
+        OnboardingPracticeState.evaluate(
+            practiceText: practiceText,
+            readiness: model.engine.readiness,
+            verifiedExpansionCount: model.engine.verifiedPracticeExpansionCount,
+            baselineCount: baselinePracticeCount,
+            initialCelebrated: initialCelebrated,
+            isDemoPreview: isDemoPreview
+        )
     }
 
     var body: some View {
@@ -63,11 +110,26 @@ struct OnboardingView: View {
         // as one surface, with only the traffic lights at its corner.
         .background(KzColor.surface.ignoresSafeArea())
         .background(WelcomeWindowChrome())
+        .onChange(of: currentStep) { _, newStep in
+            model.engine.allowsPracticeInOwnWindow = (newStep == .tryIt && practiceFocused)
+            if newStep == .tryIt {
+                baselinePracticeCount = model.engine.verifiedPracticeExpansionCount
+                model.engine.refreshNow()
+            }
+        }
+        .onChange(of: practiceFocused) { _, focused in
+            model.engine.allowsPracticeInOwnWindow = currentStep == .tryIt && focused
+        }
+        .onDisappear {
+            model.engine.allowsPracticeInOwnWindow = false
+        }
         .task {
             NSApplication.shared.activate()
+            model.engine.allowsPracticeInOwnWindow = (currentStep == .tryIt && practiceFocused)
+            baselinePracticeCount = model.engine.verifiedPracticeExpansionCount
             while !Task.isCancelled {
                 model.permissions.refresh()
-                if model.permissions.accessibility && model.permissions.inputMonitoring {
+                if model.permissions.accessibility || model.permissions.inputMonitoring {
                     model.engine.start()
                 }
                 try? await Task.sleep(for: .seconds(1))
@@ -241,25 +303,15 @@ struct OnboardingView: View {
             let cardShape = RoundedRectangle(cornerRadius: KzRadius.lg, style: .continuous)
             VStack(alignment: .leading, spacing: KzSpace.s3) {
                 KzField("Type ;kudzu here") {
-                    KzTextInput("Type ;kudzu here", text: $practiceText)
+                    KzTextInput("Type ;kudzu here", text: $practiceText, focus: $practiceFocused)
                         .onChange(of: practiceText) { _, newValue in
-                            handlePracticeTextChange(newValue)
+                            if !newValue.contains(ImportCoordinator.sampleExpansion.trimmingCharacters(in: .whitespaces)) {
+                                isDemoPreview = false
+                            }
                         }
                 }
 
-                if didCelebrateExpansion {
-                    HStack(spacing: KzSpace.s2) {
-                        KzBadge("Working", tone: .vine)
-                        Text("Your trigger expanded into “\(ImportCoordinator.sampleExpansion)”.")
-                            .kzTextStyle(.callout)
-                            .foregroundStyle(KzColor.inkMuted)
-                    }
-                    .transition(.opacity)
-                } else {
-                    Text("Tip: Type ;kudzu in the field above to watch it expand into “\(ImportCoordinator.sampleExpansion)”.")
-                        .kzTextStyle(.caption)
-                        .foregroundStyle(KzColor.inkMuted)
-                }
+                practiceStatusRow
             }
             .padding(KzSpace.s4)
             .background(KzColor.surfaceRaised, in: cardShape)
@@ -278,10 +330,77 @@ struct OnboardingView: View {
             }
         }
         .onAppear {
+            model.engine.allowsPracticeInOwnWindow = practiceFocused
+            baselinePracticeCount = model.engine.verifiedPracticeExpansionCount
             do {
                 _ = try ImportCoordinator.ensureGettingStartedSnippets(in: model.store)
+                model.engine.refreshNow()
             } catch {
                 starterError = error.localizedDescription
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var practiceStatusRow: some View {
+        switch practiceState {
+        case .verified:
+            HStack(spacing: KzSpace.s2) {
+                KzBadge("Working", tone: .vine)
+                Text("Your trigger expanded into “\(ImportCoordinator.sampleExpansion)”.")
+                    .kzTextStyle(.callout)
+                    .foregroundStyle(KzColor.inkMuted)
+            }
+            .transition(.opacity)
+        case .demoPreview(let blocker):
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                HStack(spacing: KzSpace.s2) {
+                    KzBadge("Demo Preview — Not Verified", tone: .warning)
+                    Text("Simulated sample output only. Live expansion was not used.")
+                        .kzTextStyle(.caption)
+                        .foregroundStyle(KzColor.inkMuted)
+                }
+                if let blocker {
+                    blockerActionsRow(reason: blocker)
+                }
+            }
+        case .awaitingLiveInput:
+            Text("Tip: Type ;kudzu in the field above to watch it expand into “\(ImportCoordinator.sampleExpansion)”.")
+                .kzTextStyle(.caption)
+                .foregroundStyle(KzColor.inkMuted)
+        case .blocked(let reason, let typedTriggerWithoutExpansion):
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                HStack(spacing: KzSpace.s2) {
+                    KzBadge(typedTriggerWithoutExpansion ? "Not Expanded" : "Live Expansion Off", tone: .warning)
+                    Text(reason)
+                        .kzTextStyle(.caption)
+                        .foregroundStyle(KzColor.inkMuted)
+                }
+                blockerActionsRow(reason: reason)
+            }
+        }
+    }
+
+    private func blockerActionsRow(reason: String) -> some View {
+        HStack(spacing: KzSpace.s2) {
+            if case .missingPermissions = model.engine.readiness {
+                KzButton("Configure Permissions", variant: .secondary, size: .sm) {
+                    currentStep = .permissions
+                }
+            }
+            if case .paused = model.engine.readiness {
+                KzButton("Resume Kudzu", variant: .secondary, size: .sm) {
+                    model.engine.isPaused = false
+                    model.engine.refreshNow()
+                }
+            }
+            KzButton("Recheck", variant: .secondary, size: .sm) {
+                model.engine.refreshNow()
+            }
+            KzButton("Preview Demo Only", variant: .ghost, size: .sm) {
+                isDemoPreview = true
+                initialCelebrated = false
+                practiceText = ImportCoordinator.sampleExpansion
             }
         }
     }
@@ -296,29 +415,6 @@ struct OnboardingView: View {
         }
         .padding(.horizontal, KzSpace.s4)
         .padding(.vertical, KzSpace.s2)
-    }
-
-    private func handlePracticeTextChange(_ newValue: String) {
-        if newValue.contains("Kudzu is working!") {
-            withAnimation(.spring(duration: 0.35)) {
-                didCelebrateExpansion = true
-            }
-            return
-        }
-
-        // If the system-wide event tap isn't active yet (e.g. permissions skipped in onboarding),
-        // expand `;kudzu` inside the practice field after a brief moment so the user can still try it.
-        if newValue.range(of: ImportCoordinator.sampleTrigger, options: .caseInsensitive) != nil {
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                if let range = practiceText.range(of: ImportCoordinator.sampleTrigger, options: .caseInsensitive) {
-                    practiceText.replaceSubrange(range, with: ImportCoordinator.sampleExpansion)
-                    withAnimation(.spring(duration: 0.35)) {
-                        didCelebrateExpansion = true
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - Footer Navigation
@@ -362,6 +458,7 @@ struct OnboardingView: View {
     }
 
     private func completeOnboarding() {
+        model.engine.allowsPracticeInOwnWindow = false
         UserDefaults.standard.set(true, forKey: AppModel.onboardingCompletedDefaultsKey)
         dismiss()
     }

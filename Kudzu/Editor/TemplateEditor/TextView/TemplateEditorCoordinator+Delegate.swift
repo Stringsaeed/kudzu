@@ -42,6 +42,7 @@ extension TemplateEditorCoordinator: NSTextViewDelegate {
     }
 
     func textView(_ textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        guard !textView.hasMarkedText() else { return false }
         if slashAnchor != nil {
             switch commandSelector {
             case #selector(NSResponder.cancelOperation(_:)), #selector(NSTextView.complete(_:)):
@@ -63,6 +64,14 @@ extension TemplateEditorCoordinator: NSTextViewDelegate {
         }
         if commandSelector == #selector(NSResponder.insertNewline(_:)), let index = selectedChipIndex {
             popovers.show(chipAt: index)
+            return true
+        }
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            if popovers.isOpen {
+                popovers.close()
+                return true
+            }
+            textView.window?.makeFirstResponder(nil)
             return true
         }
         return false

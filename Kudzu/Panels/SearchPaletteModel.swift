@@ -24,6 +24,7 @@ final class SearchPaletteModel {
     var query = "" {
         didSet {
             guard query != oldValue else { return }
+            actionError = nil
             search()
             selectedIndex = 0
         }
@@ -33,6 +34,10 @@ final class SearchPaletteModel {
     private(set) var selectedIndex = 0
     /// Whether the library has any searchable snippet at all.
     private(set) var hasSnippets = false
+    /// Non-nil when loading snippets from `store.library()` failed.
+    private(set) var loadError: String?
+    /// Non-nil when an explicit palette action (such as Insert) is blocked.
+    var actionError: String?
 
     @ObservationIgnored private let store: KudzuStore
     @ObservationIgnored private var ranker = PaletteRanker()
@@ -65,7 +70,7 @@ final class SearchPaletteModel {
     @ObservationIgnored var isActive = false
 
     var selectedRow: PaletteRow? {
-        rows.indices.contains(selectedIndex) ? rows[selectedIndex] : nil
+        loadError == nil && rows.indices.contains(selectedIndex) ? rows[selectedIndex] : nil
     }
 
     /// Clears the query and makes sure the data is current.
@@ -73,27 +78,53 @@ final class SearchPaletteModel {
     /// The first load is synchronous so the palette never opens empty. Later ones show the
     /// previous snapshot for the few milliseconds the rebuild takes.
     func prepareForShow() {
+        actionError = nil
         if query.isEmpty { search() } else { query = "" }
         selectedIndex = 0
         if isStale { refresh(synchronously: !hasLoaded) }
     }
 
+    /// Clears the search query while keeping keyboard focus inside the search field.
+    func clearQuery() {
+        query = ""
+        focusSearchField()
+    }
+
+    /// Ensures the search field owns first-responder status inside its panel.
+    func focusSearchField() {
+        guard let field = searchField, let window = field.window else { return }
+        if window.firstResponder !== field && window.firstResponder !== field.currentEditor() {
+            window.makeFirstResponder(field)
+        }
+        if let editor = field.currentEditor(), (editor as? NSTextInputClient)?.hasMarkedText() != true {
+            editor.selectedRange = NSRange(location: (field.stringValue as NSString).length, length: 0)
+        }
+    }
+
     func moveSelection(by delta: Int) {
         guard !rows.isEmpty else { return }
+        actionError = nil
         selectedIndex = min(max(selectedIndex + delta, 0), rows.count - 1)
     }
 
     func select(_ id: UUID) {
+        actionError = nil
         if let index = rows.firstIndex(where: { $0.id == id }) { selectedIndex = index }
     }
 
     // MARK: - Data
 
+    func refreshNow() {
+        refresh(synchronously: true)
+    }
+
     private func refresh(synchronously: Bool) {
         let library: KudzuLibrary
         do {
             library = try store.library()
+            loadError = nil
         } catch {
+            loadError = error.localizedDescription
             return
         }
         isStale = false
@@ -154,7 +185,7 @@ final class SearchPaletteModel {
     func render(_ snippet: SnippetRecord, placeholders: Bool) -> RenderResult {
         let contents = contents
         var formValues: [String: String] = [:]
-        for field in TemplateAnalysis.formFields(in: snippet.content, resolveSnippet: { contents[$0] }) {
+        for field in TemplateAnalysis.formFields(in: snippet.content, rootSnippetID: snippet.id, resolveSnippet: { contents[$0] }) {
             formValues[field.name] = field.defaultValue ?? field.options.first ?? (placeholders ? "‹\(field.name)›" : "")
         }
         let context = RenderContext(
@@ -173,6 +204,6 @@ final class SearchPaletteModel {
     /// Whether the snippet has form fields (the preview notes that defaults are shown).
     func hasFormFields(_ snippet: SnippetRecord) -> Bool {
         let contents = contents
-        return !TemplateAnalysis.formFields(in: snippet.content, resolveSnippet: { contents[$0] }).isEmpty
+        return !TemplateAnalysis.formFields(in: snippet.content, rootSnippetID: snippet.id, resolveSnippet: { contents[$0] }).isEmpty
     }
 }

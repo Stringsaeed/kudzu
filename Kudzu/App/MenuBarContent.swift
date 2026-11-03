@@ -16,6 +16,10 @@ struct MenuBarContent: View {
 
         Text(model.engine.statusText)
 
+        if let error = model.engine.lastError {
+            Text(error)
+        }
+
         if let storeError = model.storeError {
             Text(storeError)
         }

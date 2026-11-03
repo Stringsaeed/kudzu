@@ -43,14 +43,17 @@ final class FormPanel: KzFloatingPanel {
 
         keyHandler = { [weak self] event in
             guard let self else { return false }
-            if self.isComposingText { return false }
+            if self.isComposingText || KzMenu.isOpen || model.isConfirmingDiscard || self.attachedSheet != nil { return false }
             let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
             switch Int(event.keyCode) {
             case kVK_Escape:
-                self.finish(nil)
+                if model.handleEscape() == .closeImmediately {
+                    self.finish(nil)
+                }
                 return true
             case kVK_Tab:
-                model.moveFocus(backward: flags.contains(.shift))
+                if flags.contains(.shift) { self.selectPreviousKeyView(nil) }
+                else { self.selectNextKeyView(nil) }
                 return true
             case kVK_Return, kVK_ANSI_KeypadEnter:
                 let multiline = fields.first { $0.name == model.focus }?.kind == .multiline
@@ -90,16 +93,57 @@ final class FormPanel: KzFloatingPanel {
 
 @MainActor @Observable
 final class FormModel {
+    enum CancelOutcome: Equatable {
+        case closeImmediately
+        case promptDiscard
+        case dismissedDiscardPrompt
+    }
+
     let name: String
     let fields: [FormFieldSpec]
-    var values: [String: String]
+    let initialValues: [String: String]
+    var values: [String: String] {
+        didSet {
+            if !isDirty {
+                isConfirmingDiscard = false
+            }
+        }
+    }
     var focus: String?
+    var isConfirmingDiscard = false
 
     init(name: String, fields: [FormFieldSpec], values: [String: String]) {
         self.name = name
         self.fields = fields
+        self.initialValues = values
         self.values = values
         focus = fields.first?.name
+    }
+
+    var isDirty: Bool {
+        values != initialValues
+    }
+
+    @discardableResult
+    func handleEscape() -> CancelOutcome {
+        if isConfirmingDiscard {
+            isConfirmingDiscard = false
+            return .dismissedDiscardPrompt
+        }
+        if isDirty {
+            isConfirmingDiscard = true
+            return .promptDiscard
+        }
+        return .closeImmediately
+    }
+
+    @discardableResult
+    func requestCancel() -> CancelOutcome {
+        if isDirty {
+            isConfirmingDiscard = true
+            return .promptDiscard
+        }
+        return .closeImmediately
     }
 
     func moveFocus(backward: Bool) {
@@ -168,9 +212,10 @@ struct FormPanelView: View {
 
             Rectangle().fill(KzColor.line).frame(height: 1)
 
-            // Footer actions
             HStack(spacing: KzSpace.s3) {
-                KzButton("Cancel", variant: .secondary, action: cancel)
+                KzButton("Cancel", variant: .secondary) {
+                    if model.requestCancel() == .closeImmediately { cancel() }
+                }
                 Spacer()
                 HStack(spacing: KzSpace.s1) {
                     KzKbd("⌘↵")
@@ -187,6 +232,11 @@ struct FormPanelView: View {
         .onAppear { focus = model.focus }
         .onChange(of: model.focus) { _, value in focus = value }
         .onChange(of: focus) { _, value in model.focus = value }
+        .confirmationDialog("Discard entered values?", isPresented: $model.isConfirmingDiscard,
+                            titleVisibility: .visible) {
+            Button("Discard", role: .destructive, action: cancel)
+            Button("Keep editing", role: .cancel) {}
+        }
     }
 
     @ViewBuilder

@@ -37,6 +37,13 @@ public struct RenderResult: Equatable, Sendable {
     public var cursorOffset: Int?
     /// Diagnostics whose ranges refer to their containing template sources.
     public var diagnostics: [TemplateDiagnostic]
+
+    /// Creates rendered text with its optional caret position and diagnostics.
+    public init(text: String, cursorOffset: Int? = nil, diagnostics: [TemplateDiagnostic] = []) {
+        self.text = text
+        self.cursorOffset = cursorOffset
+        self.diagnostics = diagnostics
+    }
 }
 
 /// Expands templates recursively with path-based cycle detection.

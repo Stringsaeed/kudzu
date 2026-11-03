@@ -252,7 +252,8 @@ struct SnippetEditorView: View {
     // MARK: - Actions
 
     private func copyExpandedText() {
-        let result = SnippetPreviewView.render(model.draft.content, rootSnippetID: snippet.id, contents: library.contentByID)
+        let result = SnippetPreviewView.render(model.draft.content, rootSnippetID: snippet.id,
+                                             contents: library.contentByID, placeholders: false)
         copy(result.text)
     }
 

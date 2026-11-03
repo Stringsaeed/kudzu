@@ -98,13 +98,35 @@ targets:
         INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026 Muhammed Ibrahim. MIT License."
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
 
+  # App-level regression and UI geometry unit tests (runs headlessly without launching the GUI app).
+  KudzuTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Kudzu
+        excludes:
+          - "**/.gitkeep"
+          - "Resources/*.entitlements"
+          - "App/KudzuApp.swift"
+      - path: KudzuTests
+    dependencies:
+      - package: KudzuCore
+      - package: KudzuUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu.tests
+        PRODUCT_NAME: KudzuTests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   Kudzu:
     build:
       targets:
         Kudzu: all
+        KudzuTests: [test]
     test:
-      targets: []
+      targets:
+        - KudzuTests
   KudzuAppStore:
     build:
       targets:

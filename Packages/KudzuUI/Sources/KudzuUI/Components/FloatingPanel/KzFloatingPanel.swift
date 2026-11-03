@@ -237,7 +237,7 @@ open class KzFloatingPanel: NSPanel {
         switch event.type {
         case .keyDown:
             if let keyHandler, keyHandler(event) { return }
-            if event.keyCode == 53, behavior.contains(.closesOnEscape), !isComposingText {
+            if event.keyCode == 53, behavior.contains(.closesOnEscape), !isComposingText, !KzMenu.isOpen {
                 dismiss(.escape)
                 return
             }
@@ -257,10 +257,19 @@ open class KzFloatingPanel: NSPanel {
 
     /// True while an input method has marked text (Esc and Return belong to it then).
     public var isComposingText: Bool {
-        (firstResponder as? NSTextView)?.hasMarkedText() ?? false
+        if let client = firstResponder as? NSTextInputClient, client.hasMarkedText() {
+            return true
+        }
+        if let control = firstResponder as? NSControl,
+           let editor = control.currentEditor() as? NSTextInputClient,
+           editor.hasMarkedText() {
+            return true
+        }
+        return false
     }
 
     open override func cancelOperation(_ sender: Any?) {
+        guard !isComposingText, !KzMenu.isOpen else { return }
         if behavior.contains(.closesOnEscape) { dismiss(.escape) } else { super.cancelOperation(sender) }
     }
 

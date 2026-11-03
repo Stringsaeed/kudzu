@@ -167,3 +167,27 @@ func invalidOffsetIsIgnored(value: String) {
         #expect(TemplateSerializer.serialize(second.nodes) == canonical)
     }
 }
+
+@Test func recursiveClipboardAndFormDiagnostics() {
+    let rootID = UUID()
+    let childID = UUID()
+    let leafID = UUID()
+    let snippets: [UUID: String] = [
+        rootID: #"{{snippet id="\#(childID.uuidString)"}} {{field name=role multiline=true}}"#,
+        childID: #"{{field name=role}} {{choice name=empty options=""}} {{snippet id="\#(leafID.uuidString)"}} {{snippet id="\#(rootID.uuidString)"}}"#,
+        leafID: #"{{clipboard trim=true}}"#,
+    ]
+    let resolve: (UUID) -> String? = { snippets[$0] }
+
+    #expect(TemplateAnalysis.usesClipboard(in: snippets[rootID]!, rootSnippetID: rootID, resolveSnippet: resolve))
+    #expect(!TemplateAnalysis.usesClipboard(in: "{{field name=only}}", rootSnippetID: rootID, resolveSnippet: resolve))
+
+    let fields = TemplateAnalysis.formFields(in: snippets[rootID]!, rootSnippetID: rootID, resolveSnippet: resolve)
+    #expect(fields.map(\.name) == ["role", "empty"])
+    #expect(fields.first?.kind == .text)
+
+    let diagnostics = TemplateAnalysis.formDiagnostics(in: snippets[rootID]!, rootSnippetID: rootID, resolveSnippet: resolve)
+    #expect(diagnostics.count == 2)
+    #expect(diagnostics.contains { $0.message.contains("Dropdown 'empty' has no options") })
+    #expect(diagnostics.contains { $0.message.contains("'role' is already a text field") })
+}

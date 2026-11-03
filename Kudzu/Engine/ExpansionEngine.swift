@@ -4,6 +4,45 @@ import KudzuCore
 import Observation
 import OSLog
 
+/// Live readiness of the system-wide expansion engine.
+enum ExpansionReadiness: Equatable, Sendable {
+    case ready(listenOnly: Bool)
+    case paused
+    case secureInput(owner: String?)
+    case missingPermissions(inputMonitoring: Bool, accessibility: Bool)
+    case tapInactive
+
+    var isReady: Bool {
+        if case .ready = self { return true }
+        return false
+    }
+
+    var blockerSummary: String? {
+        switch self {
+        case .ready:
+            return nil
+        case .paused:
+            return "Kudzu expansion is currently paused."
+        case .secureInput(let owner):
+            let app = owner.map { " by \($0)" } ?? ""
+            return "macOS Secure Input is enabled\(app), which blocks keystroke detection."
+        case .missingPermissions(let inputMonitoring, let accessibility):
+            switch (inputMonitoring, accessibility) {
+            case (false, false):
+                return "Grant Input Monitoring and Accessibility permissions in Step 1 so Kudzu can detect and expand triggers."
+            case (false, true):
+                return "Grant Input Monitoring permission in Step 1 so Kudzu can detect triggers as you type."
+            case (true, false):
+                return "Grant Accessibility permission in Step 1 so Kudzu can type expansions."
+            case (true, true):
+                return nil
+            }
+        case .tapInactive:
+            return "Kudzu’s keyboard listener isn’t active yet. Click Recheck after granting permissions in System Settings."
+        }
+    }
+}
+
 /// Watches typing system-wide and expands snippets from the store.
 @MainActor @Observable
 final class ExpansionEngine {
@@ -15,8 +54,17 @@ final class ExpansionEngine {
     private(set) var secureInputOwner: String?
     /// One-line status for the menu bar.
     private(set) var statusText = "Not started"
+    /// Last non-cancelled engine error (load or insertion failure).
+    private(set) var lastError: String?
+    /// True only while the onboarding practice field has keyboard focus.
+    var allowsPracticeInOwnWindow = false {
+        didSet { if oldValue != allowsPracticeInOwnWindow { invalidateContext() } }
+    }
+    /// Incremented whenever a real engine expansion completes while `allowsPracticeInOwnWindow` is true.
+    private(set) var verifiedPracticeExpansionCount = 0
 
     private let store: KudzuStore
+    private let monitoringEnabled: Bool
     private let permissions: Permissions
     private let tap = EventTap()
     private let inserter = Inserter()
@@ -46,8 +94,9 @@ final class ExpansionEngine {
     private var settingsObserver: NSObjectProtocol?
     private static let log = Logger(subsystem: "sh.saeed.kudzu", category: "Engine")
 
-    init(store: KudzuStore, permissions: Permissions) {
+    init(store: KudzuStore, permissions: Permissions, monitoringEnabled: Bool = true) {
         self.store = store
+        self.monitoringEnabled = monitoringEnabled
         self.permissions = permissions
         tap.onKey = { [weak self] event, signal, replay in
             self?.receive(event, signal: signal, replay: replay) ?? false
@@ -69,7 +118,11 @@ final class ExpansionEngine {
 
     /// Starts listening once permissions allow it. Safe to call repeatedly.
     func start() {
-        guard poll == nil else { return }
+        guard monitoringEnabled else { return }
+        guard poll == nil else {
+            refresh()
+            return
+        }
         reload()
         let stream = store.changes
         changes = Task { [weak self] in
@@ -105,6 +158,44 @@ final class ExpansionEngine {
         if let settingsObserver { NotificationCenter.default.removeObserver(settingsObserver); self.settingsObserver = nil }
     }
 
+    /// Re-evaluates permissions, Secure Input, and event tap readiness immediately.
+    func refreshNow() {
+        reload()
+        refresh()
+    }
+
+    /// Current live expansion readiness.
+    var readiness: ExpansionReadiness {
+        Self.evaluateReadiness(
+            isPaused: isPaused,
+            secureInputActive: secureInputActive,
+            secureInputOwner: secureInputOwner,
+            inputMonitoring: permissions.inputMonitoring,
+            accessibility: permissions.accessibility,
+            postEvent: permissions.postEvent,
+            tapMode: tap.mode
+        )
+    }
+
+    static func evaluateReadiness(
+        isPaused: Bool,
+        secureInputActive: Bool,
+        secureInputOwner: String?,
+        inputMonitoring: Bool,
+        accessibility: Bool,
+        postEvent: Bool,
+        tapMode: ExpansionTapMode?
+    ) -> ExpansionReadiness {
+        if isPaused { return .paused }
+        if secureInputActive { return .secureInput(owner: secureInputOwner) }
+        let canPost = accessibility || postEvent
+        if !inputMonitoring || !canPost {
+            return .missingPermissions(inputMonitoring: inputMonitoring, accessibility: canPost)
+        }
+        guard let tapMode else { return .tapInactive }
+        return .ready(listenOnly: tapMode == .listenOnly)
+    }
+
     private func reload() {
         do {
             let library = try store.library()
@@ -120,10 +211,14 @@ final class ExpansionEngine {
             matcher.reload(snippets: library.snippets, groups: groups, config: newConfig)
             pendingUndo = nil
             undoCaretLeftCount = 0
-        } catch { Self.log.error("Library reload failed: \(error)") }
+        } catch {
+            lastError = "Library reload failed: \(error.localizedDescription)"
+            Self.log.error("Library reload failed: \(error)")
+        }
     }
 
     private func refresh() {
+        guard monitoringEnabled else { return }
         let hadInputMonitoring = permissions.inputMonitoring
         permissions.refresh()
         secureInput.refresh()
@@ -152,11 +247,25 @@ final class ExpansionEngine {
     }
 
     private var allowed: Bool {
+        guard !capturingSelection && !isPaused && !secureInputActive && permissions.postEvent else { return false }
+        if isPracticeTarget { return true }
         // A key non-activating panel (palette, form) receives typing while another app stays
         // frontmost, so the frontmost check alone would expand triggers typed into our own panels.
-        !capturingSelection && !isPaused && !secureInputActive && permissions.postEvent &&
-        NSApp.keyWindow == nil &&
-        NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier
+        return NSApp.keyWindow == nil &&
+            NSWorkspace.shared.frontmostApplication?.processIdentifier != ProcessInfo.processInfo.processIdentifier
+    }
+
+    private var isPracticeTarget: Bool {
+        Self.isPracticeTarget(
+            fieldFocused: allowsPracticeInOwnWindow,
+            windowID: NSApp.keyWindow?.identifier?.rawValue,
+            appIsFrontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier == ProcessInfo.processInfo.processIdentifier
+        )
+    }
+
+    /// Own-app expansion is confined to the focused onboarding field, never the library editor.
+    static func isPracticeTarget(fieldFocused: Bool, windowID: String?, appIsFrontmost: Bool) -> Bool {
+        fieldFocused && windowID == SceneID.onboarding && appIsFrontmost
     }
 
     /// Guard for inserts the user asked for (palette): typing into a Kudzu window is fine there.
@@ -252,13 +361,13 @@ final class ExpansionEngine {
                 case .expand(let match):
                     guard let snippet = self.snippets[match.snippetID] else { break }
                     let records = self.snippets
-                    let clipboard = self.usesClipboard(snippet.content, visited: [])
+                    let clipboard = TemplateAnalysis.usesClipboard(in: snippet.content, rootSnippetID: snippet.id) { records[$0]?.content }
                         ? NSPasteboard.general.string(forType: .string) : nil
                     var context = RenderContext(now: .now, calendar: .current, timeZone: .current,
                                                 locale: .current, clipboard: clipboard,
                                                 resolveSnippet: { records[$0]?.content })
                     context.rootSnippetID = snippet.id
-                    let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
+                    let fields = TemplateAnalysis.formFields(in: snippet.content, rootSnippetID: snippet.id) { records[$0]?.content }
                     var planMode = mode
                     if !fields.isEmpty {
                         self.deadline?.cancel(); self.deadline = nil
@@ -305,6 +414,11 @@ final class ExpansionEngine {
                     self.matcher.didExpand(match: match, insertedCount: plan.text.count)
                     self.undoCaretLeftCount = plan.caretLeftCount
                     self.pendingUndo = (match, plan.text.count)
+                    self.lastError = nil
+                    if self.isPracticeTarget,
+                       match.typedTrigger.caseInsensitiveCompare(ImportCoordinator.sampleTrigger) == .orderedSame {
+                        self.verifiedPracticeExpansionCount += 1
+                    }
                     do {
                         try self.store.recordUsage(snippetID: match.snippetID,
                                                    charsSaved: max(0, text.count - match.typedTrigger.count))
@@ -314,9 +428,13 @@ final class ExpansionEngine {
                     try self.inserter.moveCaretRight(count: undoCaret)
                     try self.inserter.deleteBackward(count: max(0, undo.deleteCount - (mode == .listenOnly ? 1 : 0)))
                     try self.inserter.type(undo.retype)
+                    self.lastError = nil
                 }
             } catch {
-                if !Task.isCancelled { Self.log.error("Insertion failed: \(error)") }
+                if !Task.isCancelled {
+                    self.lastError = "Insertion failed: \(error.localizedDescription)"
+                    Self.log.error("Insertion failed: \(error)")
+                }
                 if self.generation == token { self.resetMatcher() }
             }
         }
@@ -356,22 +474,73 @@ final class ExpansionEngine {
         return values
     }
 
+    /// Checks whether an explicit palette insert can proceed right now; returns a user-facing message when blocked.
+    func preflightExplicitInsert(id: UUID, targetBundleID: String?) -> String? {
+        Self.evaluateExplicitInsertBlocker(
+            snippetExists: snippets[id] != nil,
+            isPaused: isPaused,
+            secureInputActive: secureInputActive,
+            secureInputOwner: secureInputOwner,
+            postEvent: permissions.postEvent,
+            isBusy: capturingSelection || insertion != nil || formPanel != nil || preparingForm || paletteInserting || inserter.isBusy,
+            targetBundleID: targetBundleID ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
+            deniedBundleIDs: (config ?? MatchingConfig()).deniedBundleIDs
+        )
+    }
+
+    static func evaluateExplicitInsertBlocker(
+        snippetExists: Bool,
+        isPaused: Bool,
+        secureInputActive: Bool,
+        secureInputOwner: String?,
+        postEvent: Bool,
+        isBusy: Bool,
+        targetBundleID: String?,
+        deniedBundleIDs: Set<String>
+    ) -> String? {
+        guard snippetExists else { return "This snippet is no longer available." }
+        if isPaused { return "Expansion is paused — resume Kudzu or press ⌘↵ to copy instead." }
+        if secureInputActive {
+            let owner = secureInputOwner.map { " (\($0))" } ?? ""
+            return "macOS Secure Input is active\(owner) — press ⌘↵ to copy instead."
+        }
+        if !postEvent {
+            return "Grant Accessibility permission in System Settings to insert text, or press ⌘↵ to copy."
+        }
+        if let targetBundleID, deniedBundleIDs.contains(targetBundleID) {
+            return "Expansion is disabled in the active app — press ⌘↵ to copy instead."
+        }
+        if isBusy {
+            return "Another expansion is in progress — try again in a moment."
+        }
+        return nil
+    }
+
     /// Inserts a palette selection at the target caret, collecting form values when required.
-    func insertSnippet(id: UUID) async {
-        guard explicitAllowed, insertion == nil, formPanel == nil, !preparingForm, !paletteInserting, !inserter.isBusy,
-              let snippet = snippets[id] else { return }
-        // Global exclusions (password managers, login window) apply to explicit inserts too.
-        if let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier,
-           (config ?? MatchingConfig()).deniedBundleIDs.contains(bundleID) { return }
+    func insertSnippet(id: UUID, expectedTargetPID: pid_t? = nil) async {
+        if let blocker = preflightExplicitInsert(id: id, targetBundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) {
+            lastError = blocker
+            Self.log.warning("Explicit insert blocked: \(blocker)")
+            return
+        }
+        guard let snippet = snippets[id] else { return }
+        let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        if let expectedTargetPID, currentPID != expectedTargetPID {
+            lastError = "Target application changed before insertion could start."
+            Self.log.warning("Explicit insert aborted because frontmost app changed.")
+            return
+        }
         invalidateContext()
         let token = generation
-        let target = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let target = currentPID
         let records = snippets
+        let clipboard = TemplateAnalysis.usesClipboard(in: snippet.content, rootSnippetID: id) { records[$0]?.content }
+            ? NSPasteboard.general.string(forType: .string) : nil
         var context = RenderContext(now: .now, calendar: .current, timeZone: .current, locale: .current,
-                                    clipboard: usesClipboard(snippet.content, visited: []) ? NSPasteboard.general.string(forType: .string) : nil,
+                                    clipboard: clipboard,
                                     resolveSnippet: { records[$0]?.content })
         context.rootSnippetID = id
-        let fields = TemplateAnalysis.formFields(in: snippet.content) { records[$0]?.content }
+        let fields = TemplateAnalysis.formFields(in: snippet.content, rootSnippetID: id) { records[$0]?.content }
         if !fields.isEmpty {
             guard let values = await requestForm(snippet: snippet, fields: fields, context: context,
                                                  explicit: true) else { return }
@@ -379,6 +548,7 @@ final class ExpansionEngine {
         }
         guard !Task.isCancelled, token == generation else { return }
         guard explicitAllowed, target == NSWorkspace.shared.frontmostApplication?.processIdentifier else {
+            lastError = "Target application changed before insertion completed."
             releaseHold()
             return
         }
@@ -398,8 +568,12 @@ final class ExpansionEngine {
                 let prefix = String(decoding: Array(result.text.utf16.prefix(offset)), as: UTF16.self)
                 try inserter.moveCaretLeft(count: result.text.count - prefix.count)
             }
+            lastError = nil
             try store.recordUsage(snippetID: id, charsSaved: result.text.count)
-        } catch { Self.log.error("Palette insertion failed: \(error)") }
+        } catch {
+            lastError = "Palette insertion failed: \(error.localizedDescription)"
+            Self.log.error("Palette insertion failed: \(error)")
+        }
     }
 
     private func insertionMethod(_ method: InsertionMethod) -> Inserter.Method {
@@ -424,20 +598,6 @@ final class ExpansionEngine {
     private func releaseHold() {
         deadline?.cancel(); deadline = nil
         for event in held.drain() { post(event, marker: EventTap.syntheticMarker) }
-    }
-
-    private func usesClipboard(_ source: String, visited: Set<UUID>) -> Bool {
-        for node in TemplateParser.parse(source).nodes {
-            guard case .tag(let tag) = node else { continue }
-            switch tag.typed {
-            case .clipboard: return true
-            case .snippet(let id):
-                if visited.count < 8, !visited.contains(id), let nested = snippets[id],
-                   usesClipboard(nested.content, visited: visited.union([id])) { return true }
-            default: break
-            }
-        }
-        return false
     }
 
     private func scheduleReplay() {

@@ -103,7 +103,7 @@ final class AppModel {
 
         self.store = store
         self.permissions = permissions
-        self.engine = ExpansionEngine(store: store, permissions: permissions)
+        self.engine = ExpansionEngine(store: store, permissions: permissions, monitoringEnabled: !Self.isUIAudit)
         self.backupStore = backupStore
         self.backupScheduler = backupScheduler
         self.palette = SearchPaletteController(store: store)
@@ -173,7 +173,12 @@ final class AppModel {
     // MARK: - Search palette
 
     private func startPalette(registerHotKey: Bool = true) {
-        palette.onInsert = { [weak self] id in await self?.engine.insertSnippet(id: id) }
+        palette.preflightInsert = { [weak self] id, bundleID in
+            self?.engine.preflightExplicitInsert(id: id, targetBundleID: bundleID)
+        }
+        palette.onInsert = { [weak self] id, targetPID in
+            await self?.engine.insertSnippet(id: id, expectedTargetPID: targetPID)
+        }
         palette.onEdit = { [weak self] id in self?.revealSnippetInEditor(id) }
         guard registerHotKey else { return }
         paletteHotKey = GlobalHotKey { [weak self] in self?.togglePalette() }

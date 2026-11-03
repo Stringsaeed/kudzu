@@ -12,25 +12,56 @@ struct SearchPaletteView: View {
         VStack(spacing: 0) {
             searchBar
             KzColor.line.frame(height: 1)
-            if model.rows.isEmpty {
-                emptyState
-            } else {
-                HStack(spacing: 0) {
-                    PaletteResultsList(model: model, controller: controller)
-                        .frame(width: 340)
-                    KzColor.line.frame(width: 1)
-                    if let row = model.selectedRow {
-                        PalettePreview(model: model, snippet: row.snippet, groupPath: row.groupPath)
-                    } else {
-                        Spacer().frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .background(KzColor.surfaceRaised)
+            if let actionError = model.actionError {
+                actionErrorBanner(actionError)
+                KzColor.line.frame(height: 1)
+            }
+            Group {
+                if let loadError = model.loadError {
+                    KzEmptyState(
+                        "Couldn’t load snippets",
+                        icon: .warning,
+                        message: loadError
+                    ) {
+                        KzButton("Try again", size: .sm) { model.refreshNow() }
+                    }
+                } else if model.rows.isEmpty {
+                    emptyState
+                } else {
+                    HStack(spacing: 0) {
+                        PaletteResultsList(model: model, controller: controller)
+                            .frame(width: 340)
+                        KzColor.line.frame(width: 1)
+                        if let row = model.selectedRow {
+                            PalettePreview(model: model, snippet: row.snippet, groupPath: row.groupPath)
+                        } else {
+                            Spacer().frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(KzColor.surfaceRaised)
+                        }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             KzColor.line.frame(height: 1)
-            PaletteHintBar()
+            PaletteHintBar(hasSelection: model.selectedRow != nil)
         }
         .frame(width: SearchPaletteController.panelSize.width, height: SearchPaletteController.panelSize.height)
+    }
+
+    private func actionErrorBanner(_ message: String) -> some View {
+        HStack(spacing: KzSpace.s2) {
+            KzIcon(.warning, size: 14)
+                .foregroundStyle(KzColor.warning)
+            Text(message)
+                .kzTextStyle(.caption)
+                .foregroundStyle(KzColor.ink)
+                .lineLimit(2)
+            Spacer(minLength: KzSpace.s2)
+        }
+        .padding(.horizontal, KzSpace.s4)
+        .padding(.vertical, KzSpace.s2)
+        .background(KzColor.warningSoft)
+        .accessibilityElement(children: .combine)
     }
 
     private var searchBar: some View {
@@ -40,7 +71,7 @@ struct SearchPaletteView: View {
             PaletteSearchField(model: model)
             if !model.query.isEmpty {
                 Button {
-                    model.query = ""
+                    model.clearQuery()
                 } label: {
                     KzIcon(.x, size: 12)
                         .foregroundStyle(KzColor.inkMuted)
@@ -122,7 +153,13 @@ private struct PaletteAppKitSearchField: NSViewRepresentable {
     }
 
     func updateNSView(_ field: NSTextField, context: Context) {
-        if field.stringValue != model.query { field.stringValue = model.query }
+        let isComposing = (field.currentEditor() as? NSTextInputClient)?.hasMarkedText() == true
+        if !isComposing, field.stringValue != model.query {
+            field.stringValue = model.query
+            if let editor = field.currentEditor() {
+                editor.selectedRange = NSRange(location: (model.query as NSString).length, length: 0)
+            }
+        }
         field.textColor = KzColorToken.ink.nsColor
     }
 
@@ -383,23 +420,29 @@ private struct PalettePreview: View {
 
 // MARK: - Hints
 
-private struct PaletteHintBar: View {
+struct PaletteHintBar: View {
+    let hasSelection: Bool
+
     var body: some View {
         HStack(spacing: KzSpace.s3) {
             KzIcon(.leaf, size: 14)
                 .foregroundStyle(KzColor.inkMuted)
             Spacer()
-            Hint(keys: "↵", title: "Insert")
-            Text("·")
-                .kzTextStyle(.caption)
-                .foregroundStyle(KzColor.inkMuted)
-                .accessibilityHidden(true)
-            Hint(keys: "⌘↵", title: "Copy")
-            Text("·")
-                .kzTextStyle(.caption)
-                .foregroundStyle(KzColor.inkMuted)
-                .accessibilityHidden(true)
-            Hint(keys: "⌘E", title: "Edit")
+            if hasSelection {
+                Hint(keys: "↵", title: "Insert")
+                Text("·")
+                    .kzTextStyle(.caption)
+                    .foregroundStyle(KzColor.inkMuted)
+                    .accessibilityHidden(true)
+                Hint(keys: "⌘↵", title: "Copy")
+                Text("·")
+                    .kzTextStyle(.caption)
+                    .foregroundStyle(KzColor.inkMuted)
+                    .accessibilityHidden(true)
+                Hint(keys: "⌘E", title: "Edit")
+            } else {
+                Hint(keys: "esc", title: "Close")
+            }
         }
         .padding(.horizontal, KzSpace.s4)
         .frame(height: 36)

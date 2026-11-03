@@ -43,25 +43,53 @@ struct SnippetPreviewView: View {
     }
 
     /// Renders a template as the preview shows it: form fields at their default (or a ‹name›
-    /// placeholder) and a placeholder for the clipboard.
-    static func render(_ content: String, rootSnippetID: UUID?, contents: [UUID: String]) -> RenderResult {
-        let parsed = TemplateParser.parse(content)
-        let info = TemplateAnalysis.analyze(parsed)
+    /// placeholder when `placeholders` is true) and a placeholder or actual value for the clipboard.
+    static func render(
+        _ content: String,
+        rootSnippetID: UUID?,
+        contents: [UUID: String],
+        now: Date = .now,
+        placeholders: Bool = true,
+        clipboard: () -> String? = { NSPasteboard.general.string(forType: .string) }
+    ) -> RenderResult {
+        let resolveSnippet: @Sendable (UUID) -> String? = { contents[$0] }
+        let fields = TemplateAnalysis.formFields(in: content, rootSnippetID: rootSnippetID, resolveSnippet: resolveSnippet)
         var formValues: [String: String] = [:]
-        for field in info.formFields {
-            formValues[field.name] = field.defaultValue ?? field.options.first ?? "‹\(field.name)›"
+        for field in fields {
+            formValues[field.name] = field.defaultValue ?? field.options.first ?? (placeholders ? "‹\(field.name)›" : "")
+        }
+        let clipboardValue: String?
+        if placeholders {
+            clipboardValue = "‹clipboard›"
+        } else if TemplateAnalysis.usesClipboard(in: content, rootSnippetID: rootSnippetID, resolveSnippet: resolveSnippet) {
+            clipboardValue = clipboard()
+        } else {
+            clipboardValue = nil
         }
         let context = RenderContext(
-            now: .now,
+            now: now,
             calendar: .current,
             timeZone: .current,
             locale: .current,
-            clipboard: "‹clipboard›",
+            clipboard: clipboardValue,
             formValues: formValues,
-            resolveSnippet: { contents[$0] },
+            resolveSnippet: resolveSnippet,
             rootSnippetID: rootSnippetID
         )
-        return TemplateRenderer.render(content, context: context)
+        let rendered = TemplateRenderer.render(content, context: context)
+        let formDiagnostics = TemplateAnalysis.formDiagnostics(
+            in: content,
+            rootSnippetID: rootSnippetID,
+            resolveSnippet: resolveSnippet
+        )
+        guard !formDiagnostics.isEmpty else { return rendered }
+        var combined = rendered.diagnostics
+        for diagnostic in formDiagnostics where !combined.contains(where: {
+            $0.message == diagnostic.message && $0.range == diagnostic.range
+        }) {
+            combined.append(diagnostic)
+        }
+        return RenderResult(text: rendered.text, cursorOffset: rendered.cursorOffset, diagnostics: combined)
     }
 
     /// The rendered text with a thin `vine-ink` bar where the caret will land.

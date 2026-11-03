@@ -10,12 +10,16 @@ final class SearchPaletteController: NSObject {
     static let panelSize = NSSize(width: 760, height: 460)
 
     let model: SearchPaletteModel
+    /// Checks whether an explicit insert can proceed; returns an inline blocker message when it cannot.
+    var preflightInsert: ((UUID, String?) -> String?)?
     /// Inserts a snippet into the frontmost app. Called after the palette has closed.
-    var onInsert: ((UUID) async -> Void)?
+    var onInsert: ((UUID, pid_t?) async -> Void)?
     /// Opens the snippet in the main window.
     var onEdit: ((UUID) -> Void)?
 
-    private var panel: KzFloatingPanel?
+    private(set) var panel: KzFloatingPanel?
+    private(set) var targetAppPID: pid_t?
+    private(set) var targetBundleID: String?
     private var isClosing = false
 
     init(store: KudzuStore) {
@@ -30,6 +34,9 @@ final class SearchPaletteController: NSObject {
     }
 
     func show() {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        targetAppPID = frontmost?.processIdentifier
+        targetBundleID = frontmost?.bundleIdentifier
         let panel = panel ?? makePanel()
         model.isActive = true
         model.prepareForShow()
@@ -43,6 +50,7 @@ final class SearchPaletteController: NSObject {
         isClosing = true
         defer { isClosing = false }
         model.isActive = false
+        model.actionError = nil
         panel.dismiss(.programmatic)
         // Order out immediately so the target app regains key focus before the 40 ms insert delay.
         panel.orderOut(nil)
@@ -50,20 +58,25 @@ final class SearchPaletteController: NSObject {
 
     // MARK: - Actions
 
-    /// ↵: close first so the previous app gets keyboard focus back, then insert.
+    /// ↵: check preflight blockers first; if allowed, close so the previous app gets keyboard focus back, then insert.
     func insertSelection() {
-        guard let id = model.selectedRow?.id else { return NSSound.beep() }
+        guard let id = model.selectedRow?.id else { return }
+        if let blocker = preflightInsert?(id, targetBundleID) {
+            model.actionError = blocker
+            return
+        }
+        let expectedPID = targetAppPID
         close()
         Task { @MainActor in
             // Let the window server hand key focus back to the previous app before typing into it.
             try? await Task.sleep(for: .milliseconds(40))
-            await onInsert?(id)
+            await onInsert?(id, expectedPID)
         }
     }
 
     /// ⌘↵: copy the rendered text (form fields at their defaults) and close.
     func copySelection() {
-        guard let snippet = model.selectedRow?.snippet else { return NSSound.beep() }
+        guard let snippet = model.selectedRow?.snippet else { return }
         let text = model.render(snippet, placeholders: false).text
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -73,16 +86,20 @@ final class SearchPaletteController: NSObject {
 
     /// ⌘E: open the snippet in the main window.
     func editSelection() {
-        guard let id = model.selectedRow?.id else { return NSSound.beep() }
+        guard let id = model.selectedRow?.id else { return }
         close()
         onEdit?(id)
     }
 
     // MARK: - Keys
 
+    func handleKeyEvent(_ event: NSEvent) -> Bool {
+        handle(event)
+    }
+
     private func handle(_ event: NSEvent) -> Bool {
         // Leave keys to an input method that is mid-composition (Return confirms a conversion).
-        if panel?.isComposingText == true { return false }
+        if panel?.isComposingText == true || KzMenu.isOpen { return false }
         let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
         switch Int(event.keyCode) {
         case kVK_UpArrow where flags.isEmpty, kVK_ANSI_P where flags == .control:
@@ -94,15 +111,18 @@ final class SearchPaletteController: NSObject {
         case kVK_PageDown where flags.isEmpty:
             model.moveSelection(by: 8)
         case kVK_Return where flags.isEmpty, kVK_ANSI_KeypadEnter where flags.isEmpty:
+            guard model.selectedRow != nil else { return true }
             insertSelection()
         case kVK_Return where flags == .command, kVK_ANSI_KeypadEnter where flags == .command:
+            guard model.selectedRow != nil else { return true }
             copySelection()
         case kVK_ANSI_E where flags == .command:
+            guard model.selectedRow != nil else { return true }
             editSelection()
         case kVK_Escape:
             close()
         case kVK_Tab:
-            break // Keep focus in the search field.
+            return false
         case kVK_ANSI_A where flags == .command:
             NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
         case kVK_ANSI_C where flags == .command:
