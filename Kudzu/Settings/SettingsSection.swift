@@ -53,3 +53,13 @@ enum MainWindowMode: Hashable {
     case library
     case settings(SettingsSection)
 }
+
+/// Work the main window should do when a menu command arrives while it is closed or not key.
+enum MainWindowRequest: Equatable {
+    case newSnippet
+    case focusSearch
+    case focusSidebar
+    case focusResults
+    case focusEditor
+    case clearSearch
+}

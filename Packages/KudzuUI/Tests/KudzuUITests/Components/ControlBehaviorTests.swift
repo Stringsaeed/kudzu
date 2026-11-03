@@ -16,14 +16,25 @@ import AppKit
         #expect(KzTriggerInput.rejection(":AN", triggers: [":an"]) { _ in nil } == nil)
         #expect(KzTriggerInput.rejection(":long", triggers: []) { $0.count > 3 ? "Too long" : nil } == "Too long")
     }
-    @Test func triggerNativeCommandsCommitRemoveAndLeaveTabAlone() {
+    @Test func triggerNativeCommandsCommitRemoveAndMoveOnTab() {
         var draft = ":an"
         var triggers: [String] = []
+        var moved: Bool?
+        var accepts = true
         let field = KzTriggerDraftField(
             text: Binding(get: { draft }, set: { draft = $0 }),
             focused: .constant(false), placeholder: "Add trigger…",
-            commit: { triggers.append(draft.trimmingCharacters(in: .whitespaces)); draft = "" },
-            removeLast: { if !triggers.isEmpty { triggers.removeLast() } }
+            commit: {
+                let candidate = draft.trimmingCharacters(in: .whitespaces)
+                guard !candidate.isEmpty, accepts else { return false }
+                triggers.append(candidate)
+                draft = ""
+                return true
+            },
+            cancel: { draft = "" },
+            removeLast: { if !triggers.isEmpty { triggers.removeLast() } },
+            resign: { _, _ in },
+            onMove: { moved = $0 }
         )
         let delegate = KzTriggerDraftField.Coordinator(field)
         let native = NSTextField()
@@ -33,10 +44,29 @@ import AppKit
         #expect(draft == "")
         #expect(delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.deleteBackward(_:))))
         #expect(triggers.isEmpty)
-        #expect(!delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.insertTab(_:))))
+        // An empty draft tabs away through onMove when the window supplies one.
+        #expect(delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.insertTab(_:))))
+        #expect(moved == true)
+        moved = nil
         draft = ":sig"
         #expect(!delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.deleteBackward(_:))))
         #expect(draft == ":sig")
+        #expect(delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.insertTab(_:))))
+        #expect(triggers == [":sig"])
+        #expect(draft == "")
+        #expect(moved == true)
+        draft = "nope"
+        accepts = false
+        delegate.parent.passes = { _ in false }
+        moved = nil
+        #expect(delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.insertTab(_:))))
+        #expect(draft == "nope")
+        #expect(moved == nil)
+        #expect(delegate.control(native, textView: editor, doCommandBy: #selector(NSResponder.cancelOperation(_:))))
+        #expect(draft == "")
+        // The tab above already committed one ":sig". Space commits whatever is in the field now.
+        triggers = []
+        accepts = true
         native.stringValue = ":sig "
         delegate.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: native))
         #expect(triggers == [":sig"])

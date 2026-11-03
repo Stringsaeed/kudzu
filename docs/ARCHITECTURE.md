@@ -1,6 +1,8 @@
 # Kudzu — Architecture
 
-This document is planned design: no code exists yet. Decisions and the reasons behind them live in [`PLAN.md`](PLAN.md).
+This document describes the architectural boundaries; parts of the layout below remain a planning sketch. Decisions and the reasons behind them live in [`PLAN.md`](PLAN.md).
+
+The macOS app also uses `Packages/KudzuUI` for shared controls and design tokens. `AppModel` owns the single window's `LibraryModel` and `BrowserState`, retaining drafts and unfinished triggers across window closure. Editor saves merge changed fields against their stored baseline; conflicts remain recoverable. Settings is an in-window overlay with a separate hosting subtree for focus containment, rather than a separate window scene.
 
 ## Layout
 

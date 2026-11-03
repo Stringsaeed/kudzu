@@ -17,6 +17,13 @@ final class TemplateEditorController {
     /// Creates a controller to pass to `.templateEditorController(_:)`.
     init() {}
 
+    /// Makes the content editor first responder. Returns false when the text view is not in a window yet.
+    @discardableResult
+    func focus() -> Bool {
+        guard let textView = coordinator?.textView, let window = textView.window else { return false }
+        return window.makeFirstResponder(textView)
+    }
+
     /// Inserts an item's chip at the editor's selection and gives the editor focus.
     func insert(_ item: TemplateInsertItem) {
         coordinator?.insertFromMenu(item)

@@ -9,9 +9,9 @@ import PackageDescription
 let package = Package(
     name: "EditorModelTests",
     platforms: [.macOS(.v15)],
-    dependencies: [.package(path: "../../Packages/KudzuCore")],
+    dependencies: [.package(path: "../../Packages/KudzuCore"), .package(path: "../../Packages/KudzuUI")],
     targets: [
-        .target(name: "EditorModels", dependencies: [.product(name: "KudzuCore", package: "KudzuCore")]),
+        .target(name: "EditorModels", dependencies: [.product(name: "KudzuCore", package: "KudzuCore"), .product(name: "KudzuUI", package: "KudzuUI")]),
         .testTarget(name: "EditorModelsTests", dependencies: ["EditorModels"])
     ]
 )

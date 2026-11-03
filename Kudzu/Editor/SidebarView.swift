@@ -36,6 +36,7 @@ struct SidebarView: View {
     @State private var indicator: DropIndicator?
     @State private var contextTarget: UUID?
     @FocusState private var renameFocused: Bool
+    @FocusState private var sidebarFocus: SidebarScope?
 
     var body: some View {
         VStack(alignment: .leading, spacing: KzSpace.s4) {
@@ -49,6 +50,10 @@ struct SidebarView: View {
 
             groupsSection
         }
+        .onAppear(perform: consumePaneRequest)
+        .onChange(of: browser.paneRequest) { _, _ in consumePaneRequest() }
+        .onKeyPress(.upArrow) { moveSidebar(by: -1) }
+        .onKeyPress(.downArrow) { moveSidebar(by: 1) }
         .confirmationDialog(
             deleting.map { "Delete “\($0.name)”?" } ?? "",
             isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }),
@@ -69,6 +74,8 @@ struct SidebarView: View {
         KzSidebarItem(title, icon: icon, count: count, isActive: !isSettings && browser.scope == scope) {
             choose(scope)
         }
+        .focused($sidebarFocus, equals: scope)
+        .accessibilityIdentifier("kudzu.sidebar")
     }
 
     // MARK: - Groups
@@ -114,6 +121,7 @@ struct SidebarView: View {
             renaming: $renaming,
             renameText: $renameText,
             renameFocused: $renameFocused,
+            sidebarFocus: $sidebarFocus,
             indicator: $indicator,
             contextTarget: $contextTarget,
             choose: choose,
@@ -137,6 +145,47 @@ struct SidebarView: View {
         guard let id = library.createGroup(under: parentID) else { return }
         if let parentID { collapsedBinding.wrappedValue.remove(parentID) }
         beginRename(id)
+    }
+
+    private func consumePaneRequest() {
+        guard browser.paneRequest == .sidebar else { return }
+        browser.paneRequest = nil
+        let target: SidebarScope = {
+            if isSettings || browser.scope == .stats { return .all }
+            return browser.scope
+        }()
+        if case .group(let id) = target { expandAncestors(of: id) }
+        sidebarFocus = target
+    }
+
+    private func moveSidebar(by offset: Int) -> KeyPress.Result {
+        guard renaming == nil, let focused = sidebarFocus else { return .ignored }
+        let collapsed = collapsedBinding.wrappedValue
+        var scopes: [SidebarScope] = [.all, .favorites, .recent, .stats]
+        func append(_ nodes: [GroupNode]) {
+            for node in nodes {
+                scopes.append(.group(node.id))
+                if !collapsed.contains(node.id) { append(node.children) }
+            }
+        }
+        append(library.tree.roots)
+        guard let current = scopes.firstIndex(of: focused) else { return .ignored }
+        let next = scopes[min(max(current + offset, 0), scopes.count - 1)]
+        sidebarFocus = next
+        choose(next)
+        return .handled
+    }
+
+    /// Opens collapsed parents so the focused group row is on screen.
+    private func expandAncestors(of id: UUID) {
+        var collapsed = collapsedBinding.wrappedValue
+        var current = library.tree.parent(of: id)
+        var changed = false
+        while let parent = current {
+            if collapsed.remove(parent) != nil { changed = true }
+            current = library.tree.parent(of: parent)
+        }
+        if changed { collapsedBinding.wrappedValue = collapsed }
     }
 
     private func beginRename(_ id: UUID) {
@@ -193,6 +242,7 @@ struct GroupRowContext {
     var renaming: Binding<UUID?>
     var renameText: Binding<String>
     var renameFocused: FocusState<Bool>.Binding
+    var sidebarFocus: FocusState<SidebarScope?>.Binding
     var indicator: Binding<DropIndicator?>
     var contextTarget: Binding<UUID?>
     var choose: (SidebarScope) -> Void
@@ -238,7 +288,7 @@ private struct GroupRow: View {
 
     private var isActive: Bool { !ctx.isSettings && ctx.browser.scope == .group(group.id) }
     private var leadingInset: CGFloat {
-        CGFloat(depth) * Self.indent + (ctx.showsDisclosure ? Self.chevronColumn : 0)
+        CGFloat(min(depth, 4)) * Self.indent + (ctx.showsDisclosure ? Self.chevronColumn : 0)
     }
 
     var body: some View {
@@ -316,8 +366,11 @@ private struct GroupRow: View {
             setExpanded(true)
             return .handled
         }
+        .focused(ctx.sidebarFocus, equals: .group(group.id))
+        .accessibilityIdentifier("kudzu.sidebar")
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityValue(isEnabled ? "" : "Disabled")
+        .help(ctx.library.tree.path(to: group.id).joined(separator: " / "))
         .kzContextMenu(isPresented: contextBinding) { menu }
         .kzContextTarget(ctx.contextTarget.wrappedValue == group.id)
     }
@@ -331,6 +384,8 @@ private struct GroupRow: View {
                 .font(KzTextStyle.bodyStrong.font)
                 .foregroundStyle(KzColor.ink)
                 .focused(ctx.renameFocused)
+                .accessibilityIdentifier("kudzu.rename")
+                .accessibilityLabel("Group name")
                 .onSubmit(commitRename)
                 .onExitCommand { ctx.renaming.wrappedValue = nil }
                 .onChange(of: ctx.renameFocused.wrappedValue) { _, focused in

@@ -99,6 +99,11 @@ Known risk: App Review scrutinizes apps that monitor keystrokes. M0 must prove t
 
 ## UI
 
+- **Window behavior:** the library uses a normal, resizable macOS window with native full-screen support. It stays on its own Space and does not float above other apps. The search palette appears only when explicitly invoked.
+- **Settings:** a modal surface inside the main window, with the library/editor kept mounted behind it. Closing Settings restores the previous editing focus and selection.
+- **Editing:** changes remain discardable until Save (⌘S) or navigation. Navigation saves valid pending trigger input and the current draft; failures retain the draft. Discard reloads the latest stored version without overwriting it. Normal quit is refused if any draft or unfinished trigger cannot be saved. Crash/force-quit recovery is not implemented.
+- **Data operations:** manual backup, export, import and restore prepare pending edits before taking a snapshot. Deletion supports Undo/Redo with atomic local transactions and refuses replay over newer records or changed group contents. Failed undo/redo remains available as an explicit retry.
+
 - **Menu bar:**
   - Pause/resume
   - Quick search

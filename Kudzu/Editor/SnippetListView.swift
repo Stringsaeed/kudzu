@@ -12,12 +12,15 @@ struct SnippetListView: View {
 
     let searchFocus: FocusState<Bool>.Binding
     @State private var contextTarget: UUID?
+    @State private var listAnchor = ViewAnchor()
 
     private var sort: SnippetSortOrder { SnippetSortOrder(rawValue: sortRaw) ?? .name }
 
     var body: some View {
         @Bindable var browser = browser
         let rows = library.snippets(in: browser.scope, query: browser.query, sort: sort)
+        // Read so a refused selection change redraws the list on the selection it kept.
+        let _ = browser.selectionEpoch
         KzListHeader(title, subtitle: subtitle(count: rows.count)) {
             KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") {
                 for order in SnippetSortOrder.allCases {
@@ -28,11 +31,13 @@ struct SnippetListView: View {
             .disabled(browser.scope == .recent)
             KzIconButton(.compose, label: "New snippet (⌘N)") { browser.newSnippet(library: library) }
         }
-        KzSearchField(text: $browser.query, focus: searchFocus)
+        KzSearchField(text: $browser.query, focus: searchFocus, selectAllToken: browser.searchSelectAllToken)
             .padding(.horizontal, KzSpace.s3)
             .padding(.bottom, KzSpace.s2)
         list(rows)
             .overlay { emptyState(rowCount: rows.count) }
+            .onAppear(perform: consumePaneRequest)
+            .onChange(of: browser.paneRequest) { _, _ in consumePaneRequest() }
     }
 
     @ViewBuilder
@@ -47,7 +52,7 @@ struct SnippetListView: View {
             .padding(.horizontal, KzSpace.s2)
             .frame(maxHeight: .infinity, alignment: .top)
         } else {
-            List(selection: $browser.selection) {
+            List(selection: selectionBinding) {
                 ForEach(rows) { snippet in
                     row(snippet)
                         .onDrag {
@@ -59,7 +64,9 @@ struct SnippetListView: View {
                 }
             }
             .kzSelectionList()
-            .onDeleteCommand { browser.requestDelete(Array(browser.selection), in: library) }
+            .accessibilityIdentifier("kudzu.results")
+            .background { ResultsTableTag() }
+            .viewAnchor(listAnchor)
             // Right-clicking the empty space below the rows.
             .kzContextMenu {
                 KzMenuItem("New snippet", icon: .compose) { browser.newSnippet(library: library) }
@@ -94,6 +101,64 @@ struct SnippetListView: View {
                 if open { contextTarget = id } else if contextTarget == id { contextTarget = nil }
             }
         )
+    }
+
+    /// Selection writes go through the leave guard. Reading `selectionEpoch` keeps a refused click visible as the old row.
+    private var selectionBinding: Binding<Set<UUID>> {
+        Binding(
+            get: { browser.selection },
+            set: { browser.replaceSelection($0) }
+        )
+    }
+
+    /// The list owns sort order, so it chooses the row focus lands on.
+    /// Rows are read here, not captured from an earlier render, so a cleared query is already in effect.
+    private func consumePaneRequest() {
+        let rows = library.snippets(in: browser.scope, query: browser.query, sort: sort)
+        switch browser.paneRequest {
+        case .search:
+            browser.paneRequest = nil
+            searchFocus.wrappedValue = true
+        case .results:
+            browser.paneRequest = nil
+            enterResults(rows: rows, then: nil)
+        case .editor(let target):
+            browser.paneRequest = nil
+            enterResults(rows: rows, then: target)
+        case .sidebar, nil:
+            break
+        }
+    }
+
+    private func enterResults(rows: [SnippetRecord], then editor: EditorFocusTarget?) {
+        let visible = rows.map(\.id)
+        let next = KzSelectionReconciler.selectionForEnteringResults(current: browser.selection, visible: visible)
+        if next != browser.selection { browser.replaceSelection(next) }
+        if editor == nil {
+            focusResultsTable()
+        }
+        guard let editor else { return }
+        let focused = browser.selection.count == 1 || browser.deferredSelection?.count == 1
+        guard focused else { return }
+        library.pendingFocus = editor
+    }
+
+    private func focusResultsTable() {
+        if focusResultsTableNow() { return }
+        // Leaving settings or Stats inserts the table on the next layout pass.
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            focusResultsTableNow()
+        }
+    }
+
+    @discardableResult
+    private func focusResultsTableNow() -> Bool {
+        guard let table = listAnchor.nearest(NSTableView.self), let window = table.window else { return false }
+        if table.accessibilityIdentifier() != "kudzu.results" {
+            table.setAccessibilityIdentifier("kudzu.results")
+        }
+        return window.makeFirstResponder(table)
     }
 
     // MARK: - Titles
@@ -179,7 +244,7 @@ enum SnippetMenus {
 
         KzMenuItem("Duplicate", icon: .copy) {
             let copies = library.duplicate(ids)
-            if !copies.isEmpty { browser.selection = Set(copies) }
+            if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
         }
         .keyboardShortcut("d")
         KzMenuItem("Favorite", icon: .star, isChecked: allFavorite) {
@@ -193,7 +258,6 @@ enum SnippetMenus {
         KzMenuItem(ids.count > 1 ? "Delete \(ids.count) snippets…" : "Delete…", icon: .trash, role: .danger) {
             browser.requestDelete(ids, in: library)
         }
-        .keyboardShortcut(.delete, modifiers: [])
     }
 
     private static func moveMenu(for ids: [UUID], snippets: [SnippetRecord], library: LibraryModel) -> KzSubmenu {

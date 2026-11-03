@@ -31,14 +31,13 @@ struct SnippetEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if model.isDirty || model.saveError != nil {
+            if model.isDirty || model.saveError != nil || browser.uncommittedTriggers[snippet.id] != nil {
                 VStack(alignment: .leading, spacing: KzSpace.s2) {
                     Text(model.saveError ?? "Unsaved changes. Leaving the editor also attempts to save.")
                         .kzTextStyle(.caption)
                     HStack {
-                        KzButton("Save", size: .sm) { model.flush() }
-                            .keyboardShortcut("s", modifiers: .command)
-                        KzButton("Discard Changes", variant: .ghost, size: .sm) { model.discardChanges() }
+                        KzButton("Save", size: .sm, action: saveChanges)
+                        KzButton("Discard Changes", variant: .ghost, size: .sm, action: discardChanges)
                     }
                 }
                 .padding(.horizontal, KzSpace.s4)
@@ -55,9 +54,58 @@ struct SnippetEditorView: View {
         }
         .onAppear {
             model.start()
+            installEditorCommands()
             consumeFocusRequest()
         }
-        .onDisappear { model.stop() }
+        .onDisappear {
+            browser.removeLeaveGuard(owner: snippet.id)
+            if browser.editorBridge?.owner == snippet.id {
+                browser.editorBridge = nil
+                browser.editorCanDiscard = false
+            }
+            model.stop()
+        }
+        .onChange(of: model.draft) { _, _ in
+            let dirty = model.isDirty || browser.uncommittedTriggers[snippet.id] != nil
+            browser.editorCanDiscard = dirty
+        }
+        .onChange(of: browser.uncommittedTriggers[snippet.id]) { _, entry in
+            browser.editorCanDiscard = model.isDirty || entry != nil
+        }
+        .onChange(of: library.pendingFocus) { _, target in
+            guard target != nil else { return }
+            consumeFocusRequest()
+        }
+    }
+
+    /// Saves before navigation, retaining failed drafts and invalid trigger input in place.
+    private func installEditorCommands() {
+        browser.installLeaveGuard(owner: snippet.id) {
+            browser.commitTriggerEntry(snippet.id, in: library) && model.flush()
+        }
+        browser.editorCanDiscard = model.isDirty || browser.uncommittedTriggers[snippet.id] != nil
+        browser.editorBridge = EditorCommandBridge(
+            owner: snippet.id,
+            save: saveChanges,
+            copyExpanded: copyExpandedText,
+            copySource: { copy(model.draft.content) },
+            discard: discardChanges,
+            toggleFavorite: { model.edit { $0.isFavorite.toggle() } },
+            delete: { browser.requestDelete([snippet.id], in: library) }
+        )
+    }
+
+    private func saveChanges() {
+        guard browser.commitTriggerEntry(snippet.id, in: library), model.flush() else { return }
+        browser.editorCanDiscard = false
+        browser.completeDeferredNavigation()
+    }
+
+    private func discardChanges() {
+        guard model.discardChanges() else { return }
+        browser.clearTriggerEntry(snippet.id)
+        browser.editorCanDiscard = false
+        browser.completeDeferredNavigation()
     }
 
     private var form: some View {
@@ -109,7 +157,7 @@ struct SnippetEditorView: View {
                              tone: .bloom) {
                     model.edit { $0.isFavorite.toggle() }
                 }
-                KzIconButton(.bug, label: "Debug", caret: true, menuTitle: "Debug") {
+                KzIconButton(.copy, label: "Copy", caret: true, menuTitle: "Copy") {
                     KzMenuItem("Copy expanded text", icon: .copy) { copyExpandedText() }
                     KzMenuItem("Copy template source", icon: .braces) { copy(model.draft.content) }
                 }
@@ -125,7 +173,7 @@ struct SnippetEditorView: View {
         let groups = library.tree.allGroups
         KzMenuItem("Duplicate", icon: .copy) {
             let copies = library.duplicate([snippet.id])
-            if !copies.isEmpty { browser.selection = Set(copies) }
+            if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
         }
         .keyboardShortcut("d")
         KzMenuItem("Favorite", icon: .star, isChecked: draft.isFavorite) { model.edit { $0.isFavorite.toggle() } }
@@ -143,7 +191,6 @@ struct SnippetEditorView: View {
         }
         KzMenuSeparator()
         KzMenuItem("Delete…", icon: .trash, role: .danger) { browser.requestDelete([snippet.id], in: library) }
-            .keyboardShortcut(.delete, modifiers: [])
     }
 
     // MARK: - Fields
@@ -161,6 +208,7 @@ struct SnippetEditorView: View {
                 .kzTextStyle(.titleLg)
                 .foregroundStyle(KzColor.ink)
                 .focused($nameFocused)
+                .accessibilityIdentifier("kudzu.editor.name")
                 .accessibilityLabel("Name")
         }
     }
@@ -168,11 +216,16 @@ struct SnippetEditorView: View {
     private func triggersField(_ draft: SnippetRecord) -> some View {
         let notes = conflictNotes(for: draft)
         let caseSensitive = draft.caseMode == .exact
-        return KzField("Triggers", aside: "Space or return to add") {
+        return KzField("Triggers", aside: "Space, tab, or return to add") {
             VStack(alignment: .leading, spacing: KzSpace.s2) {
                 KzTriggerInput(
                     triggers: model.binding(\.triggers),
-                    placeholder: draft.triggers.isEmpty ? "Add a trigger, e.g. ;sig" : "Add trigger…"
+                    placeholder: draft.triggers.isEmpty ? "Add a trigger, e.g. ;sig" : "Add trigger…",
+                    draft: browser.triggerText(for: snippet.id),
+                    error: browser.triggerError(for: snippet.id),
+                    onMove: { forward in
+                        library.pendingFocus = forward ? .content : .name
+                    }
                 ) { candidate in
                     Self.rejection(for: candidate, existing: model.draft.triggers, caseSensitive: caseSensitive)
                 }
@@ -189,11 +242,7 @@ struct SnippetEditorView: View {
 
     /// The same checks the old token field made: no spaces, the length limit, and duplicates (case-insensitive unless exact).
     static func rejection(for candidate: String, existing: [String], caseSensitive: Bool) -> String? {
-        if candidate.contains(where: \.isWhitespace) { return "A trigger can't contain spaces." }
-        switch TriggerValidator.validate(candidate, existing: existing, caseSensitive: caseSensitive) {
-        case .success: return nil
-        case .failure(let issue): return issue.message
-        }
+        LibraryModel.triggerRejection(for: candidate, existing: existing, caseSensitive: caseSensitive)
     }
 
     private var contentField: some View {
@@ -263,23 +312,63 @@ struct SnippetEditorView: View {
     }
 
     /// New snippets ask for focus before the editor exists; honor it once it appears.
+    ///
+    /// The first try is immediate. A second try waits for layout, and only runs when the field
+    /// still isn't focused, so a later keystroke is not pulled back.
     private func consumeFocusRequest() {
         guard let target = library.pendingFocus else { return }
         library.pendingFocus = nil
-        Task {
-            // The field isn't a first-responder candidate until the window has laid it out.
+        if applyFocus(target) { return }
+        let responderAtAttempt = NSApp.keyWindow?.firstResponder
+        Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(150))
-            switch target {
-            case .name: nameFocused = true
-            case .trigger: focusTriggerField()
-            }
+            if isFocused(target) { return }
+            // The field took focus and the user has since moved to another text control.
+            let responderNow = NSApp.keyWindow?.firstResponder
+            if responderNow !== responderAtAttempt, responderNow is NSTextView { return }
+            applyFocus(target)
         }
     }
 
+    @discardableResult
+    private func applyFocus(_ target: EditorFocusTarget) -> Bool {
+        switch target {
+        case .name:
+            nameFocused = true
+            return nameFieldIsFirstResponder()
+        case .trigger:
+            return focusTriggerField()
+        case .content:
+            return editor.focus()
+        }
+    }
+
+    private func isFocused(_ target: EditorFocusTarget) -> Bool {
+        switch target {
+        case .name: return nameFieldIsFirstResponder()
+        case .trigger: return triggerField()?.currentEditor() != nil
+        case .content: return editor.isFocused
+        }
+    }
+
+    private func nameFieldIsFirstResponder() -> Bool {
+        guard let window = triggerAnchor.nearest(NSView.self)?.window,
+              let editor = window.firstResponder as? NSTextView,
+              let field = editor.delegate as? NSTextField else { return false }
+        return field.accessibilityIdentifier() == "kudzu.editor.name" || field.accessibilityLabel() == "Name"
+    }
+
     /// `KzTriggerInput`'s entry is an `NSTextField` labelled "Add trigger" for VoiceOver.
-    private func focusTriggerField() {
-        guard let field = triggerAnchor.nearest(NSTextField.self, where: { $0.accessibilityLabel() == "Add trigger" }) else { return }
-        field.window?.makeFirstResponder(field)
+    @discardableResult
+    private func focusTriggerField() -> Bool {
+        guard let field = triggerField() else { return false }
+        return field.window?.makeFirstResponder(field) ?? false
+    }
+
+    private func triggerField() -> NSTextField? {
+        triggerAnchor.nearest(NSTextField.self, where: {
+            $0.accessibilityIdentifier() == "kudzu.trigger" || $0.accessibilityLabel() == "Add trigger"
+        })
     }
 
     // MARK: - Conflicts

@@ -92,6 +92,7 @@ public struct KzTriggerList: View {
             if let first = triggers.first {
                 KzTriggerChip(first, widthPolicy: .constrained)
                     .frame(maxWidth: 96, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             if triggers.count > 1 {
                 Text("+\(triggers.count - 1)")
@@ -102,5 +103,6 @@ public struct KzTriggerList: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(triggers.joined(separator: ", "))
+        .help(triggers.joined(separator: ", "))
     }
 }

@@ -220,7 +220,7 @@ struct EspansoImportView: View {
         }
 
         do {
-            _ = try model.library.libraryForTransfer()
+            _ = try model.libraryForTransfer()
             importSummary = try ImportCoordinator.importEspanso(
                 result: preview.result,
                 into: model.store,

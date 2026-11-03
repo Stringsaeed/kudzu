@@ -21,6 +21,8 @@ final class AppModel {
     let store: KudzuStore
     /// Retains failed editor drafts when the main window closes and is reopened.
     @ObservationIgnored lazy var library = LibraryModel(store: store)
+    /// Retains unfinished trigger entries when the single main window is closed.
+    let browser = BrowserState()
     let permissions: Permissions
     let engine: ExpansionEngine
     let backupStore: BackupStore
@@ -61,6 +63,9 @@ final class AppModel {
     /// Snippet the palette's ⌘E asked to edit. The main window consumes it (selects the snippet,
     /// clearing a search or scope that would hide it, then sets this back to nil).
     var pendingSelectSnippetID: UUID?
+
+    /// A command issued while the main window was closed or not key. The window consumes it once it is open.
+    var mainWindowRequest: MainWindowRequest?
 
     /// The search palette's global shortcut.
     private(set) var paletteShortcut: HotKeyShortcut
@@ -241,12 +246,23 @@ final class AppModel {
 
     /// Prevents a normal quit from losing failed drafts and opens their recovery controls.
     func prepareForTermination() -> Bool {
-        guard !library.savePendingDrafts() else { return true }
+        let triggersSaved = browser.commitPendingTriggers(in: library)
+        let draftsSaved = library.savePendingDrafts()
+        guard !triggersSaved || !draftsSaved else { return true }
         library.errorMessage = "Kudzu couldn't save all changes. Review or discard the unsaved drafts before quitting."
         mainWindowMode = .library
         openWindowAction?(id: SceneID.main)
         NSApplication.shared.activate()
         return false
+    }
+
+    /// Includes unfinished trigger input in a user-requested data transfer.
+    func libraryForTransfer() throws -> KudzuLibrary {
+        guard browser.commitPendingTriggers(in: library) else {
+            throw CocoaError(.validationMissingMandatoryProperty, userInfo: [NSLocalizedDescriptionKey:
+                "Fix or clear unfinished triggers before backing up, exporting or replacing the library."])
+        }
+        return try library.libraryForTransfer()
     }
 
     /// Keeps SwiftUI's window opener so non-view code (the palette) can open scenes.

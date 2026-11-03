@@ -177,14 +177,21 @@ struct RulesOptionRow<Control: View>: View {
     }
 
     var body: some View {
-        HStack(spacing: KzSpace.s3) {
-            Text(label)
-                .kzTextStyle(.bodyStrong)
-                .foregroundStyle(KzColor.ink)
-                .frame(width: width, alignment: .leading)
-            control
-            Spacer(minLength: 0)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: KzSpace.s3) {
+                labelView.frame(width: width, alignment: .leading)
+                control
+                Spacer(minLength: 0)
+            }
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                labelView
+                control.frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+    }
+
+    private var labelView: some View {
+        Text(label).kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink)
     }
 }
 

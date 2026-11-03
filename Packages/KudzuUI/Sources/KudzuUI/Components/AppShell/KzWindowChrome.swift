@@ -56,8 +56,7 @@ public enum KzWindowChrome {
         window.isOpaque = true
         window.backgroundColor = KzColorToken.surfaceRaised.nsColor
         // One Space, native full screen; never float above other apps or follow every desktop.
-        window.collectionBehavior = [.fullScreenPrimary, .managed]
-        window.level = .normal
+        KzMainWindowPolicy.apply(to: window)
         layoutTrafficLights(in: window)
     }
 
@@ -162,8 +161,7 @@ private struct KzWindowChromeView: NSViewRepresentable {
             // SwiftUI can turn this back off when it updates the window (see `kzWindowChrome()`).
             if !window.titlebarAppearsTransparent { window.titlebarAppearsTransparent = true }
             // Scene updates can replace the collection policy when switching library/settings.
-            let behavior: NSWindow.CollectionBehavior = [.fullScreenPrimary, .managed]
-            if window.collectionBehavior != behavior { window.collectionBehavior = behavior }
+            KzMainWindowPolicy.apply(to: window)
             KzWindowChrome.layoutTrafficLights(in: window)
             isLayingOut = false
         }

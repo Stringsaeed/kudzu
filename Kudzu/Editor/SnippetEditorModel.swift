@@ -24,6 +24,7 @@ final class SnippetEditorModel {
     /// Changes the draft without writing, so Discard remains available until Save or navigation.
     func edit(_ body: (inout SnippetRecord) -> Void) {
         body(&draft)
+        library.retainEditor(self)
     }
 
     /// A binding to one field of the draft.

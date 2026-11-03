@@ -11,10 +11,11 @@ enum GroupDeletion {
     case deleteContents
 }
 
-/// A field the editor should focus once it appears (after creating a snippet).
-enum EditorFocusTarget {
+/// A field the editor should focus once it appears (after creating a snippet, or from pane navigation).
+enum EditorFocusTarget: Equatable {
     case name
     case trigger
+    case content
 }
 
 /// Value snapshot of the library plus derived data, and every mutation the main window performs.
@@ -75,6 +76,15 @@ final class LibraryModel {
     /// Set when a new snippet should grab focus in the editor; consumed by the editor.
     var pendingFocus: EditorFocusTarget?
 
+    /// Shared validation for inline trigger commits and application-level save boundaries.
+    static func triggerRejection(for candidate: String, existing: [String], caseSensitive: Bool) -> String? {
+        if candidate.contains(where: \.isWhitespace) { return "A trigger can't contain spaces." }
+        switch TriggerValidator.validate(candidate, existing: existing, caseSensitive: caseSensitive) {
+        case .success: return nil
+        case .failure(let issue): return issue.message
+        }
+    }
+
     init(
         store: KudzuStore,
         readSnippet: ((UUID) throws -> SnippetRecord?)? = nil,
@@ -114,7 +124,7 @@ final class LibraryModel {
 
     /// Failed drafts stay reachable even when a remote deletion removed the list row.
     var recoveryDrafts: [SnippetRecord] {
-        editors.values.filter { $0.isDirty && $0.saveError != nil }.map(\.draft)
+        editors.values.filter { $0.isDirty && ($0.saveError != nil || snippetsByID[$0.draft.id] == nil) }.map(\.draft)
             .sorted { $0.id.uuidString < $1.id.uuidString }
     }
 

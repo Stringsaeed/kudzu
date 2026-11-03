@@ -14,6 +14,33 @@ private final class OffscreenTestWindow: NSWindow {
 
 @MainActor
 @Suite struct AppRegressionTests {
+    @Test func actualLibraryControlsAcceptResultsAndEditorFocusRequests() async throws {
+        let store = try KudzuStore.inMemory()
+        let snippet = SnippetRecord(name: "Focus test", triggers: [";focus"], content: "Editable text")
+        try store.upsert(snippet)
+        let library = LibraryModel(store: store)
+        library.ensureLoaded()
+        let browser = BrowserState()
+        let host = NSHostingView(rootView: LibraryFocusHarness()
+            .environment(library).environment(browser))
+        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+                                        styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(80))
+        browser.paneRequest = .results
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(120))
+        #expect(window.firstResponder is NSTableView)
+        #expect(browser.selection == [snippet.id])
+        browser.paneRequest = .editor(.content)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(window.firstResponder is ChipTextView)
+        #expect((window.firstResponder as? NSTextView)?.string == "Editable text")
+
+    }
+
     @Test func practiceExpansionCannotRunInsideTheLibraryOrAnotherApp() {
         #expect(ExpansionEngine.isPracticeTarget(fieldFocused: true, windowID: SceneID.onboarding, appIsFrontmost: true))
         #expect(!ExpansionEngine.isPracticeTarget(fieldFocused: true, windowID: SceneID.main, appIsFrontmost: true))
@@ -455,5 +482,13 @@ private final class OffscreenTestWindow: NSWindow {
             deniedBundleIDs: []
         )
         #expect(secure?.contains("Secure Input is active (Terminal)") == true)
+    }
+}
+
+private struct LibraryFocusHarness: View {
+    @FocusState private var searchFocused: Bool
+    var body: some View {
+        MainWindowShell(shellMode: .window, windowMode: .constant(.library), lastSettingsSection: .general,
+                        storeError: nil, searchFocus: $searchFocused) { _ in EmptyView() }
     }
 }
