@@ -1,31 +1,37 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
+<img src="desktop/design/icon.svg" width="64" height="64" alt="">
 
 # Kudzu
 
-A lightweight, native, free and open-source text expander for macOS.
+A fast, keyboard-first, free and open-source text expander for macOS.
 
 Type `;sig` anywhere and get your full signature. Kudzu watches for triggers you define and replaces them with snippets — dates, clipboard contents, fill-in forms, nested snippets — in any app.
 
 Kudzu exists because the good text expanders cost a subscription and the free ones make you edit YAML. It aims for Espanso's power with a real Mac UI.
 
-## Status
+## Install
 
-Planning. See [`docs/PLAN.md`](docs/PLAN.md) for decisions and milestones, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how it fits together.
+```sh
+brew install --cask stringsaeed/tap/kudzu
+```
 
-## Highlights (planned v1)
+Or download the DMG from [Releases](https://github.com/Stringsaeed/kudzu/releases). Kudzu updates itself; Settings → About has a beta channel.
 
-- Native Swift / SwiftUI menu-bar app, Raycast-style main window
-- Visual snippet editor with inline variable chips (`/` to insert) and live preview
-- Reliable insertion: keystrokes for short text, clipboard-paste-and-restore for long text, per-app override
-- Forms that appear at your cursor
-- Fuzzy search palette (⌃⌥Space)
-- App-specific rules, groups, multiple triggers per snippet
+Requires macOS 14 Sonoma or later (Apple Silicon or Intel).
+
+## Highlights
+
+- Menu-bar app with a quick-search tray (⌃⌥Space) and a full library window
+- Snippet editor with inline tag chips (`/` to insert) and a live preview
+- Reliable insertion: typing for short text, paste-and-restore for long text, per-app overrides
+- Fill-in forms that appear at the caret
+- Groups, favorites, multiple triggers per snippet, app rules
 - iCloud sync between Macs, usage stats, daily local backups
 - Import from Espanso; export to Kudzu JSON or Espanso YAML
+- No accounts, no analytics, no servers of its own
 
-## Requirements
+## Development
 
-macOS 15 Sequoia or later.
+The app lives in [`desktop/`](desktop): Tauri 2 with a Rust engine and a Next.js + shadcn/ui interface. See [`desktop/README.md`](desktop/README.md) to build and run it, and [`desktop/RELEASING.md`](desktop/RELEASING.md) for how releases, updates and iCloud sync are shipped.
 
 ## License
 

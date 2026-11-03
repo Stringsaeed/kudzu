@@ -1,0 +1,146 @@
+# Builds one tagged release: signed + notarized universal DMG, updater archive and latest.json,
+# uploaded to the (draft) GitHub release, which is then published. Then:
+#   - the beta feed (beta.json on the rolling "update-feed" release) moves forward if this
+#     release is newer than what it points at — stable releases included;
+#   - stable releases also bump the Homebrew cask.
+name: Build macOS release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      channel:
+        description: stable or beta
+        type: string
+        default: stable
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 75
+    env:
+      TAG: ${{ inputs.tag }}
+      CHANNEL: ${{ inputs.channel }}
+      GH_TOKEN: ${{ github.token }}
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Version
+        run: |
+          if [ "$CHANNEL" = beta ]; then
+            # Betas aren't committed version bumps; stamp the tag's version into this build only.
+            node -e 'const f="package.json",p=require("./"+f);p.version=process.argv[1];require("fs").writeFileSync(f,JSON.stringify(p,null,2)+"\n")' "${TAG#v}"
+          fi
+          v=$(node -p "require('./package.json').version")
+          [ "v$v" = "$TAG" ] || { echo "::error::package.json is $v but the tag is $TAG"; exit 1; }
+
+      - name: Release notes
+        run: gh release view "$TAG" --json body -q .body > "$RUNNER_TEMP/notes.md" || echo "Kudzu ${TAG#v}" > "$RUNNER_TEMP/notes.md"
+
+      - name: Notarization key and iCloud provisioning profile
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/AuthKey.p8"
+          if [ -n "$APPLE_PROVISIONING_PROFILE" ]; then
+            printf '%s' "$APPLE_PROVISIONING_PROFILE" | base64 --decode > src-tauri/Kudzu.provisionprofile
+          fi
+
+      - name: Build, sign, notarize
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: ${{ runner.temp }}/AuthKey.p8
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          RELEASE_NOTES_FILE: ${{ runner.temp }}/notes.md
+          # Set the repo variable REQUIRE_ICLOUD=1 once the profile secret exists, so a release
+          # can never ship without sync by accident.
+          REQUIRE_ICLOUD: ${{ vars.REQUIRE_ICLOUD }}
+        run: scripts/release/build.sh
+
+      - name: Upload and publish
+        run: |
+          gh release upload "$TAG" dist/* --clobber
+          if [ "$CHANNEL" = beta ]; then
+            gh release edit "$TAG" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --draft=false --latest
+          fi
+
+      - name: Update the beta feed
+        run: |
+          gh release view update-feed >/dev/null 2>&1 || gh release create update-feed --prerelease --title "Update feed" \
+            --notes "Machine-readable update feeds for Kudzu's beta channel. Not a release; nothing to download here." --target "$GITHUB_SHA"
+          gh release download update-feed --pattern beta.json --dir "$RUNNER_TEMP/feed" 2>/dev/null || true
+          if node scripts/release/feed.mjs --release dist/latest.json --current "$RUNNER_TEMP/feed/beta.json" --out "$RUNNER_TEMP/beta.json"; then
+            gh release upload update-feed "$RUNNER_TEMP/beta.json" --clobber
+          fi
+
+      - name: Remove the notarization key and profile
+        if: always()
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8" src-tauri/Kudzu.provisionprofile
+
+      - id: out
+        run: |
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(shasum -a 256 dist/*.dmg | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+    outputs:
+      version: ${{ steps.out.outputs.version }}
+      sha: ${{ steps.out.outputs.sha }}
+
+  homebrew:
+    needs: macos
+    if: inputs.channel != 'beta'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          path: kudzu
+      - uses: actions/checkout@v4
+        with:
+          repository: Stringsaeed/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - name: Bump cask
+        run: |
+          kudzu/desktop/scripts/release/update-cask.sh "${{ needs.macos.outputs.version }}" "${{ needs.macos.outputs.sha }}" tap
+          cd tap
+          git config user.name "kudzu-release[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/kudzu.rb
+          git diff --cached --quiet && { echo "cask already current"; exit 0; }
+          git commit -m "kudzu ${{ needs.macos.outputs.version }}"
+          git push

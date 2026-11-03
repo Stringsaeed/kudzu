@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "macOS": {
+      "entitlements": "Kudzu.icloud.entitlements",
+      "files": {
+        "embedded.provisionprofile": "Kudzu.provisionprofile"
+      }
+    }
+  }
+}

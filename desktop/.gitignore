@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+src-tauri/target/
+src-tauri/gen/
+
+# Release artifacts (scripts/release/build.sh)
+/dist/
+
+# Developer ID provisioning profile (iCloud). Supplied by CI from a secret; see RELEASING.md.
+src-tauri/*.provisionprofile
