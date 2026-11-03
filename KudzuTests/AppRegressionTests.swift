@@ -4,6 +4,7 @@ import KudzuCore
 import KudzuUI
 import SwiftUI
 import Testing
+import Observation
 
 /// Offscreen key-capable window used to verify AppKit/SwiftUI geometry and responder behavior
 /// without displaying a window or stealing user focus.
@@ -14,6 +15,50 @@ private final class OffscreenTestWindow: NSWindow {
 
 @MainActor
 @Suite struct AppRegressionTests {
+    @Test func textAreaResizesWithoutLosingTextSelectionOrUndo() async throws {
+        let state = TextAreaFixtureState()
+        let host = NSHostingView(rootView: TextAreaFixture(state: state))
+        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+                                        styleMask: [.titled, .resizable], backing: .buffered, defer: false)
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        func findEditor(in view: NSView) -> ChipTextView? {
+            if let editor = view as? ChipTextView { return editor }
+            for child in view.subviews {
+                if let found = findEditor(in: child) { return found }
+            }
+            return nil
+        }
+        let editor = try #require(findEditor(in: host))
+        let scroll = try #require(editor.enclosingScrollView)
+        let font = try #require(editor.textStorage?.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
+        #expect(abs(("iiii" as NSString).size(withAttributes: [.font: font]).width
+                    - ("WWWW" as NSString).size(withAttributes: [.font: font]).width) < 0.01)
+        #expect(scroll.hasVerticalScroller)
+        #expect(editor.frame.height > scroll.contentSize.height)
+        let originalHeight = scroll.frame.height
+        window.makeFirstResponder(editor)
+        editor.setSelectedRange(NSRange(location: 4, length: 0))
+        editor.undoManager?.beginUndoGrouping()
+        editor.insertText("!", replacementRange: editor.selectedRange())
+        editor.undoManager?.endUndoGrouping()
+        let selection = editor.selectedRange()
+        state.height = 360
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(findEditor(in: host) === editor)
+        #expect(scroll.frame.height > originalHeight + 100)
+        #expect(editor.selectedRange() == selection)
+        #expect(editor.undoManager?.canUndo == true)
+        #expect(editor.string.hasPrefix("Line! of text"))
+        scroll.contentView.scroll(to: NSPoint(x: 0, y: 300))
+        scroll.reflectScrolledClipView(scroll.contentView)
+        #expect(scroll.contentView.bounds.minY > 0)
+        editor.undoManager?.undo()
+        #expect(state.text == String(repeating: "Line of text\n", count: 200))
+    }
+
     @Test func settingsOverlayUsesTheWholeWindowIncludingTitlebar() async throws {
         let library = LibraryModel(store: try KudzuStore.inMemory())
         library.ensureLoaded()
@@ -589,5 +634,22 @@ private struct SettingsGeometryHarness: View {
     var body: some View {
         MainWindowShell(shellMode: .window, windowMode: .constant(.settings(.apps)), lastSettingsSection: .apps,
                         storeError: nil, searchFocus: $searchFocused) { _ in Color.white }
+    }
+}
+
+@MainActor @Observable
+private final class TextAreaFixtureState {
+    var height = 220.0
+    var text = String(repeating: "Line of text\n", count: 200)
+}
+
+private struct TextAreaFixture: View {
+    @Bindable var state: TextAreaFixtureState
+    @State private var controller = TemplateEditorController()
+
+    var body: some View {
+        EditorTextArea(preferredHeight: $state.height, isFocused: controller.isFocused, previewVisible: false) {
+            TemplateTextEditor(source: $state.text).templateEditorController(controller)
+        } preview: { EmptyView() }
     }
 }

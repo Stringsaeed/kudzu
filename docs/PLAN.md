@@ -99,7 +99,7 @@ Known risk: App Review scrutinizes apps that monitor keystrokes. M0 must prove t
 
 ## UI
 
-- **Visual direction (3 Nov 2026):** use Kudzu's leaf and green accent with app-local workspace styling (`Kudzu/Design`). System typography, quiet navigation, two-line results and an unboxed writing surface replace the original card-heavy component treatment. Native controls and SF Symbols are allowed; the existing component library is not the visual specification for the app.
+- **Visual direction (3 Nov 2026):** use Kudzu's leaf and green accent with app-local workspace styling (`Kudzu/Design`). System typography, quiet navigation, two-line results and a focused writing surface replace the original card-heavy component treatment. Native controls and SF Symbols are allowed; the existing component library is not the visual specification for the app.
 
 - **Window behavior:** the library uses a normal, resizable macOS window with native full-screen support. It stays on its own Space and does not float above other apps. The search palette appears only when explicitly invoked.
 - **Settings:** a modal surface inside the main window, with the library/editor kept mounted behind it. Closing Settings restores the previous editing focus and selection.
@@ -115,7 +115,7 @@ Known risk: App Review scrutinizes apps that monitor keystrokes. M0 must prove t
 - **Main window (three panes):**
   - **Sidebar:** All, Favorites, Recently Used, Groups (nestable, drag to reorder), Stats.
   - **List:** name and primary trigger on one line, a content excerpt beneath, with search above.
-  - **Editor:** compact name and trigger input above the writing surface, optional live preview, and Rules/Advanced in a native options popover. Save/Discard stays in a compact footer.
+  - **Editor:** compact name and trigger input above a scrollable, vertically resizable monospace text area, optional live preview, and Rules/Advanced in a native options popover. Drag the bottom handle to resize; double-click it to fill available space. Save/Discard stays in a compact footer.
   - ⌘N creates a new snippet.
 - **Search palette:**
   - Global hotkey **⌃⌥Space** (configurable).

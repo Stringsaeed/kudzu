@@ -68,7 +68,7 @@ final class TemplateEditorCoordinator: NSObject {
         let selection = textView.selectedRange()
         storage.setAttributedString(factory.attributedString(for: TemplateSegments.parse(source)))
         textView.setSelectedRange(NSRange(location: min(selection.location, storage.length), length: 0))
-        textView.typingAttributes = KzEditorStyle.typingAttributes()
+        textView.typingAttributes = TemplateTextStyle.attributes()
         textView.needsDisplay = true
         lastSource = source
         undoManager.removeAllActions()

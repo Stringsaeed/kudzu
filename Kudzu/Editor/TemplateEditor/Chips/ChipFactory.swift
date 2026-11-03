@@ -8,8 +8,8 @@ struct ChipFactory {
     /// Snippet names by ID, for snippet chip labels.
     var snippetNames: [UUID: String] = [:]
 
-    /// Attributes for literal text typed or loaded into the editor: the `content` style, `ink`.
-    var textAttributes: [NSAttributedString.Key: Any] { KzEditorStyle.contentAttributes() }
+    /// Monospace attributes for literal text loaded, typed or pasted into the editor.
+    var textAttributes: [NSAttributedString.Key: Any] { TemplateTextStyle.attributes() }
 
     /// The presentation of `tag` given the current snippet names.
     func label(for tag: KudzuCore.Tag) -> ChipLabel {

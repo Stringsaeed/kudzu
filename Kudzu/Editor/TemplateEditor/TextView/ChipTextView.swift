@@ -58,13 +58,15 @@ final class ChipTextView: NSTextView {
         textView.setAccessibilityLabel("Snippet content")
         // The `content` style's insets, line metrics, caret and typing attributes; the frame draws the fill.
         KzEditorStyle.configure(textView)
+        textView.font = TemplateTextStyle.font
+        textView.typingAttributes = TemplateTextStyle.attributes()
         textView.selectedTextAttributes = [.backgroundColor: KzColorToken.vine.nsColor.withAlphaComponent(0.35)]
 
         let scrollView = ChipScrollView()
         scrollView.drawsBackground = false
         scrollView.borderType = .noBorder
         scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
+        scrollView.autohidesScrollers = false
         scrollView.documentView = textView
         return (scrollView, textView)
     }
@@ -198,8 +200,8 @@ final class ChipTextView: NSTextView {
         guard textStorage?.length == 0, !placeholder.isEmpty else { return }
         let origin = NSPoint(x: textContainerOrigin.x + KzEditorStyle.lineFragmentPadding, y: textContainerOrigin.y)
         let width = max(0, bounds.width - origin.x - KzEditorStyle.containerInset.width)
-        let rect = NSRect(x: origin.x, y: origin.y, width: width, height: KzEditorStyle.textStyle.spec.lineHeight)
-        NSAttributedString(string: placeholder, attributes: KzEditorStyle.contentAttributes(color: KzColorToken.inkMuted.nsColor))
+        let rect = NSRect(x: origin.x, y: origin.y, width: width, height: TemplateTextStyle.lineHeight)
+        NSAttributedString(string: placeholder, attributes: TemplateTextStyle.attributes(color: KzColorToken.inkMuted.nsColor))
             .draw(in: rect)
     }
 }

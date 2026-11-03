@@ -20,6 +20,7 @@ struct SnippetEditorView: View {
     @FocusState private var nameFocused: Bool
     @State private var inspectorPresented = false
     @AppStorage("editor.previewExpanded") private var previewExpanded = false
+    @AppStorage("editor.textAreaHeight") private var textAreaHeight = 0.0
 
     init(snippet: SnippetRecord, library: LibraryModel) {
         self.snippet = snippet
@@ -273,20 +274,18 @@ struct SnippetEditorView: View {
                 .accessibilityValue(previewExpanded ? "Shown" : "Hidden")
             }
             .padding(.vertical, 10)
-            // This editor keeps its structural identity when preview and options change.
-            Group {
+            EditorTextArea(preferredHeight: $textAreaHeight, isFocused: editor.isFocused, previewVisible: previewExpanded) {
                 if snapshotRendering {
                     Text(model.draft.content)
-                        .font(.system(size: 14)).foregroundStyle(WorkspaceTheme.ink)
-                        .padding(.vertical, 12)
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundStyle(WorkspaceTheme.ink)
+                        .padding(12)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 } else {
                     TemplateTextEditor(source: model.binding(\.content), snippets: library.snippets, currentSnippetID: snippet.id)
                         .templateEditorController(editor)
                 }
-            }
-            .frame(minHeight: 100, maxHeight: .infinity)
-            if previewExpanded {
+            } preview: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Expanded text").font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
                     if snapshotRendering {
@@ -297,11 +296,9 @@ struct SnippetEditorView: View {
                         }
                     }
                 }
-                .padding(.top, 12)
-                .frame(maxHeight: 160)
-                .overlay(alignment: .top) { WorkspaceTheme.line.frame(height: 1) }
                 .accessibilityElement(children: .contain).accessibilityLabel("Expanded text preview")
             }
+
         }
     }
 
