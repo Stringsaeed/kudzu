@@ -68,9 +68,10 @@ cp "$DMG_SRC" "$DMG"
 cp "$BUNDLE/macos/Kudzu.app.tar.gz" "$ARCHIVE"
 cp "$BUNDLE/macos/Kudzu.app.tar.gz.sig" "$ARCHIVE.sig"
 
-# The DMG is what people download first, so it gets its own signature, notarization and staple
-# (Gatekeeper checks it before the app inside is ever opened).
-codesign --force --sign "$APPLE_SIGNING_IDENTITY" --timestamp "$DMG"
+# The DMG is what people download first, so it's notarized and stapled too (Gatekeeper checks
+# it before the app inside is ever opened). Tauri already signed it. Don't re-sign it here: in
+# CI, Tauri imports the certificate into a temporary keychain that's deleted once bundling ends.
+codesign --verify --strict "$DMG" || { echo "error: the DMG isn't signed" >&2; exit 1; }
 if [[ "${SKIP_NOTARIZE:-}" != 1 ]]; then
   echo "==> Notarizing DMG"
   xcrun notarytool submit "$DMG" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait --timeout 30m
