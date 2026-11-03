@@ -84,6 +84,20 @@ lipo -archs "$APP/Contents/MacOS/kudzu-desktop" | grep -q "x86_64 arm64" || { ec
 if [[ -f $PROFILE ]]; then
   codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -q "iCloud.sh.saeed.kudzu" || { echo "error: signed app lacks the iCloud entitlement" >&2; exit 1; }
   [[ -f "$APP/Contents/embedded.provisionprofile" ]] || { echo "error: provisioning profile wasn't embedded" >&2; exit 1; }
+  # With restricted entitlements, macOS only launches the app if it was signed by a certificate
+  # the profile lists; otherwise Finder just says "can't be opened". Gatekeeper and
+  # notarization don't catch this, so check it here.
+  CERTS=$(mktemp -d)
+  codesign -d --extract-certificates="$CERTS/c" "$APP" 2>/dev/null
+  SIGNED_BY=$(openssl x509 -inform der -in "$CERTS/c0" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d :)
+  rm -rf "$CERTS"
+  ALLOWED=$(python3 -I -c 'import plistlib,hashlib,sys; p=plistlib.loads(sys.stdin.buffer.read()); print(" ".join(hashlib.sha1(c).hexdigest().upper() for c in p["DeveloperCertificates"]))' <<<"$PLIST")
+  if [[ " $ALLOWED " != *" $SIGNED_BY "* ]]; then
+    echo "error: the app is signed with certificate $SIGNED_BY, but the provisioning profile only allows: $ALLOWED" >&2
+    echo "       macOS would refuse to open it. Export the matching Developer ID certificate as the .p12 (or regenerate the profile with this one)." >&2
+    exit 1
+  fi
+  echo "==> Signing certificate $SIGNED_BY matches the provisioning profile"
 fi
 if [[ "${SKIP_NOTARIZE:-}" != 1 ]]; then
   spctl --assess --type execute --verbose=2 "$APP"
