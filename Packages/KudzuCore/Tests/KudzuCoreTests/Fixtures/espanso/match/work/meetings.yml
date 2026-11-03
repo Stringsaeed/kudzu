@@ -1,9 +1,0 @@
-# Subdirectory match file
-matches:
-  - trigger: ":meeting"
-    label: "Meeting Invite"
-    replace: "Let's meet at $|$ tomorrow."
-    propagate_case: true
-
-  - trigger: ":standup"
-    form: "Yesterday: [[yesterday]]\nToday: [[today]]"

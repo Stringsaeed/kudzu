@@ -1,5 +1,0 @@
-# Imported underscore-prefixed file (only loaded via imports:)
-matches:
-  - trigger: ":secret"
-    label: "Imported Secret"
-    replace: "Loaded from _private.yml on {{company_date}}"
