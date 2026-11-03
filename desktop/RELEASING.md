@@ -102,7 +102,7 @@ desktop/scripts/release/set-github-secrets.sh \
 |---|---|---|
 | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY` | Developer ID Application certificate and private key | Keychain Access → My Certificates → right-click **Developer ID Application: Muhammed Saeed (V3HN8HXZYK)** → Export… as a `.p12` with a password. The script derives the identity name. |
 | `APPLE_API_KEY`, `APPLE_API_ISSUER`, `APPLE_API_KEY_P8` | App Store Connect API key, used to notarize | [App Store Connect → Users and Access → Integrations → App Store Connect API](https://appstoreconnect.apple.com/access/integrations/api) → **+**, role **Developer**. Download the `.p8` (only possible once) and note the Key ID and Issuer ID. |
-| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | updater signing key | already generated: `~/.desktop/kudzu-updater.key`, with its password in the login keychain under "Kudzu updater signing key password". The script reads both. |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | updater signing key | already generated: `~/.tauri/kudzu-updater.key`, with its password in the login keychain under "Kudzu updater signing key password". The script reads both. |
 | `HOMEBREW_TAP_TOKEN` | lets CI push to the tap | [Fine-grained PAT](https://github.com/settings/personal-access-tokens/new): repository **Stringsaeed/homebrew-tap**, permission **Contents: Read and write** |
 | `APPLE_PROVISIONING_PROFILE` | Developer ID provisioning profile for `sh.saeed.kudzu` with iCloud | see step 2; the script base64-encodes it |
 | `RELEASE_PLEASE_TOKEN` (optional) | lets CI run on the release PR | fine-grained PAT on **Stringsaeed/kudzu** with Contents and Pull requests set to Read and write. Without it the release PR has no CI checks, because GitHub doesn't run workflows on PRs opened by `GITHUB_TOKEN`. |
@@ -148,7 +148,7 @@ These are enforced in `kudzu_core::sync` and its tests. Keep them:
 ```sh
 cd desktop
 export APPLE_SIGNING_IDENTITY=$(security find-identity -v -p codesigning | awk '/Developer ID Application/{print $2; exit}')
-export TAURI_SIGNING_PRIVATE_KEY=~/.desktop/kudzu-updater.key
+export TAURI_SIGNING_PRIVATE_KEY=~/.tauri/kudzu-updater.key
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(security find-generic-password -a kudzu-updater -s "Kudzu updater signing key password" -w)
 
 SKIP_NOTARIZE=1 pnpm release:build            # signed, not notarized (quick check)

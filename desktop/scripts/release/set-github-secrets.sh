@@ -8,7 +8,7 @@
 #     --profile ~/Downloads/Kudzu_Developer_ID.provisionprofile      # optional: enables iCloud sync
 #
 # Prompts for the .p12 password and the Homebrew tap token. The updater key is read from
-# ~/.desktop/kudzu-updater.key and its password from the login keychain.
+# ~/.tauri/kudzu-updater.key and its password from the login keychain.
 set -euo pipefail
 REPO=${REPO:-Stringsaeed/kudzu}
 P12= P8= KEY_ID= ISSUER= PROFILE=
@@ -30,7 +30,7 @@ read -rsp "Password for $(basename "$P12"): " P12_PASS; echo
 IDENTITY=$(openssl pkcs12 -in "$P12" -passin "pass:$P12_PASS" -nokeys -legacy 2>/dev/null | openssl x509 -noout -subject -nameopt multiline 2>/dev/null | awk -F' = ' '/commonName/{print $2; exit}')
 [[ $IDENTITY == "Developer ID Application:"* ]] || { echo "error: $P12 isn't a Developer ID Application certificate (got: ${IDENTITY:-nothing})" >&2; exit 1; }
 
-UPDATER_KEY=$(cat ~/.desktop/kudzu-updater.key)
+UPDATER_KEY=$(cat ~/.tauri/kudzu-updater.key)
 UPDATER_PASS=$(security find-generic-password -a kudzu-updater -s "Kudzu updater signing key password" -w)
 
 echo "Setting secrets on $REPO:"
