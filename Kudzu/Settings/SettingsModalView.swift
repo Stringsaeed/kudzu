@@ -32,55 +32,83 @@ struct SettingsModalView<Content: View>: View {
     }
 
     private func surface(width: CGFloat, close: @escaping () -> Void) -> some View {
-        let shape = RoundedRectangle(cornerRadius: KzRadius.xl)
+        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return VStack(spacing: 0) {
-            HStack(spacing: KzSpace.s2) {
-                Text("Settings").foregroundStyle(KzColor.inkMuted)
-                Text("/").foregroundStyle(KzColor.inkMuted)
-                Text(selection.title).foregroundStyle(KzColor.ink).lineLimit(1)
-                Spacer(minLength: 0)
-                KzIconButton(.x, label: "Close settings", action: close)
+            HStack(spacing: 0) {
+                if width >= 700 {
+                    Text("Settings")
+                        .font(WorkspaceTheme.label)
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                        .padding(.leading, 20)
+                        .frame(width: 168, height: 52, alignment: .leading)
+                        .background(WorkspaceTheme.navigation)
+                        .overlay(alignment: .trailing) { WorkspaceTheme.line.frame(width: 1) }
+                }
+                Text(selection.title)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(WorkspaceTheme.ink)
+                    .lineLimit(1)
+                    .frame(maxWidth: WorkspaceSurface.contentMaxWidth, alignment: .leading)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, WorkspaceSurface.pagePadding)
+                    .accessibilityAddTraits(.isHeader)
+                    .overlay(alignment: .trailing) {
+                        Button(action: close) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(WorkspaceTheme.secondary)
+                                .frame(width: 28, height: 28)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("Close settings")
+                        .help("Close settings")
+                        .padding(.trailing, 12)
+                    }
             }
-            .kzTextStyle(.bodyStrong)
-            .padding(.horizontal, KzSpace.s4)
-            .frame(height: KzSize.titlebar)
-            .overlay(alignment: .bottom) { KzColor.line.frame(height: 1) }
+            .frame(height: 52)
+            .overlay(alignment: .bottom) { WorkspaceHairline() }
             if width >= 700 {
                 HStack(spacing: 0) {
-                    ScrollView { navigation }
-                        .frame(width: 184)
-                        .background(KzColor.surfaceSunken)
-                        .overlay(alignment: .trailing) { KzColor.line.frame(width: 1) }
+                    ScrollView {
+                        VStack(spacing: 2) {
+                            ForEach(SettingsSection.allCases) { section in
+                                SettingsSectionNavRow(
+                                    title: section.title,
+                                    isSelected: selection == section
+                                ) {
+                                    selection = section
+                                }
+                            }
+                        }
+                        .padding(10)
+                    }
+                    .frame(width: 168)
+                    .background(WorkspaceTheme.navigation)
+                    .overlay(alignment: .trailing) { WorkspaceTheme.line.frame(width: 1) }
                     page
                 }
             } else {
-                // A compact section menu leaves the existing settings rows enough room.
-                KzSelect("Settings section", selection: $selection,
-                         options: SettingsSection.allCases.map { ($0, $0.title) })
-                    .padding(KzSpace.s3)
+                Picker("Settings section", selection: $selection) {
+                    ForEach(SettingsSection.allCases) { section in
+                        Text(section.title).tag(section)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .padding(.horizontal, WorkspaceSurface.pagePadding)
+                .padding(.vertical, 10)
                 page
             }
         }
-        .background(KzColor.surface)
+        .background(WorkspaceTheme.paper)
+        .font(WorkspaceTheme.body)
+        .tint(WorkspaceTheme.accent)
         .clipShape(shape)
-        .overlay(shape.strokeBorder(KzColor.line))
-        .kzShadow(.float, in: shape)
+        .overlay(shape.strokeBorder(WorkspaceTheme.line, lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 24, y: 8)
         .environment(\.settingsModalPresentation, true)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Settings")
-    }
-
-    private var navigation: some View {
-        VStack(spacing: 1) {
-            ForEach(SettingsSection.allCases) { section in
-                KzSidebarItem(section.title, icon: section.icon, isActive: selection == section) {
-                    selection = section
-                }
-            }
-        }
-        .padding(KzSpace.s2)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Settings sections")
     }
 
     private var page: some View {

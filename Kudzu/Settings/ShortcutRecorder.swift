@@ -18,12 +18,14 @@ struct PaletteShortcutSetting: View {
                     onEnd: { model.setPaletteShortcutSuspended(false) },
                     onRecord: { model.setPaletteShortcut($0) }
                 )
-                KzButton("Reset", variant: .ghost, size: .sm) { model.resetPaletteShortcut() }
+                Button("Reset") { model.resetPaletteShortcut() }
+                    .controlSize(.small)
+                    .buttonStyle(.borderless)
                     .disabled(model.paletteShortcut == .paletteDefault && model.paletteShortcutError == nil)
             }
             if let error = model.paletteShortcutError {
                 Text(error)
-                    .kzTextStyle(.caption)
+                    .font(WorkspaceTheme.caption)
                     .foregroundStyle(KzColor.danger)
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
@@ -47,7 +49,11 @@ struct ShortcutRecorder: View {
         Button {
             if recorder.isRecording { recorder.stop() } else { start() }
         } label: {
-            KzKbd(label).padding(.horizontal, KzSpace.s2).frame(minWidth: 100, minHeight: 30)
+            Text(label)
+                .font(WorkspaceTheme.mono)
+                .foregroundStyle(WorkspaceTheme.ink)
+                .frame(minWidth: 100, minHeight: 28)
+                .padding(.horizontal, 8)
         }
         .buttonStyle(ShortcutWellStyle())
         .help(recorder.isRecording ? "Type the new shortcut, or press Esc to cancel" : "Click to record a new shortcut")
@@ -146,10 +152,9 @@ struct ShortcutRecorder: View {
 
 private struct ShortcutWellStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
-        KzInteractive(shape, isPressed: configuration.isPressed) { _ in
-            configuration.label.background(KzColor.surfaceSunken, in: shape)
-                .overlay(shape.strokeBorder(KzColor.line))
-        }
+        configuration.label
+            .background(WorkspaceTheme.navigation, in: RoundedRectangle(cornerRadius: 6))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(WorkspaceTheme.line))
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

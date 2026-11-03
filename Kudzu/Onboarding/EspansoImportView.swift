@@ -33,8 +33,6 @@ struct EspansoImportView: View {
 
             if let errorMessage {
                 SettingsMessage(text: errorMessage, isError: true)
-                    .foregroundStyle(KzColor.danger)
-                    .font(.callout)
             }
         }
         .onAppear {
@@ -50,118 +48,102 @@ struct EspansoImportView: View {
 
     #if APPSTORE
     private var appStorePickerSection: some View {
-        KzSettingsGroup {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Choose your Espanso folder")
-                    .kzTextStyle(.headline)
-                Text("Because the Mac App Store version of Kudzu is sandboxed, it needs your permission to read ~/Library/Application Support/espanso or ~/.config/espanso.")
-                    .kzTextStyle(.body)
-                    .foregroundStyle(KzColor.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Choose your Espanso folder")
+                .font(WorkspaceTheme.label)
+            Text("Because the Mac App Store version of Kudzu is sandboxed, it needs your permission to read ~/Library/Application Support/espanso or ~/.config/espanso.")
+                .font(WorkspaceTheme.body)
+                .foregroundStyle(WorkspaceTheme.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                HStack {
-                    KzButton("Choose Espanso folder…") {
-                        chooseCustomDirectory()
-                    }
-
-                    Spacer()
-                }
-            }
-            .padding(6)
+            Button("Choose Espanso folder…") { chooseCustomDirectory() }
+                .controlSize(.small)
         }
     }
     #else
     private var directDetectionSection: some View {
-        KzSettingsGroup {
-            VStack(alignment: .leading, spacing: 10) {
-                if detectedPreviews.isEmpty {
-                    HStack(alignment: .top, spacing: 10) {
-                        KzIcon(.search)
-                            .kzTextStyle(.title)
-                            .foregroundStyle(KzColor.inkMuted)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("No default Espanso configuration found")
-                                .kzTextStyle(.headline)
-                            Text("Checked ~/Library/Application Support/espanso and ~/.config/espanso. You can still choose a custom Espanso match folder below.")
-                                .kzTextStyle(.body)
-                                .foregroundStyle(KzColor.inkMuted)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                } else {
-                    Text("Detected Espanso configurations")
-                        .kzTextStyle(.headline)
-
-                    ForEach(detectedPreviews) { preview in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(abbreviatePath(preview.url))
-                                    .kzTextStyle(.monoCaption)
-                                Text("\(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s") in \(preview.groupCount) group\(preview.groupCount == 1 ? "" : "s")")
-                                    .kzTextStyle(.caption)
-                                    .foregroundStyle(KzColor.inkMuted)
-                            }
-                            Spacer()
-                            if selectedPreview?.url == preview.url {
-                                KzIcon(.checkCircle)
-                                    .foregroundStyle(KzColor.vineInk)
-                            } else {
-                                KzButton("Select") {
-                                    selectedPreview = preview
-                                    importSummary = nil
-                                    errorMessage = nil
-                                }
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
+        VStack(alignment: .leading, spacing: 10) {
+            if detectedPreviews.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("No default Espanso configuration found")
+                        .font(WorkspaceTheme.label)
+                    Text("Checked ~/Library/Application Support/espanso and ~/.config/espanso. You can still choose a custom Espanso match folder below.")
+                        .font(WorkspaceTheme.body)
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+            } else {
+                Text("Detected Espanso configurations")
+                    .font(WorkspaceTheme.label)
 
-                HStack {
-                    KzButton("Choose folder…") {
-                        chooseCustomDirectory()
-                    }
-                    if !detectedPreviews.isEmpty {
-                        KzButton("Rescan") {
-                            scanDefaultDirectories()
+                ForEach(detectedPreviews) { preview in
+                    HStack(alignment: .center) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(abbreviatePath(preview.url))
+                                .font(WorkspaceTheme.mono)
+                            Text("\(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s") in \(preview.groupCount) group\(preview.groupCount == 1 ? "" : "s")")
+                                .font(WorkspaceTheme.caption)
+                                .foregroundStyle(WorkspaceTheme.secondary)
+                        }
+                        Spacer()
+                        if selectedPreview?.url == preview.url {
+                            Text("Selected")
+                                .font(WorkspaceTheme.caption)
+                                .foregroundStyle(WorkspaceTheme.accent)
+                        } else {
+                            Button("Select") {
+                                selectedPreview = preview
+                                importSummary = nil
+                                errorMessage = nil
+                            }
+                            .controlSize(.small)
                         }
                     }
-                    Spacer()
+                    .padding(.vertical, 6)
+                    .overlay(alignment: .bottom) { WorkspaceHairline() }
                 }
             }
-            .padding(6)
+
+            HStack {
+                Button("Choose folder…") { chooseCustomDirectory() }
+                    .controlSize(.small)
+                if !detectedPreviews.isEmpty {
+                    Button("Rescan") { scanDefaultDirectories() }
+                        .controlSize(.small)
+                        .buttonStyle(.borderless)
+                }
+                Spacer()
+            }
         }
     }
     #endif
 
     private func previewCard(_ preview: EspansoDirectoryPreview) -> some View {
-        KzSettingsGroup {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Ready to import")
-                            .kzTextStyle(.headline)
-                        Text("\(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s") across \(preview.groupCount) group\(preview.groupCount == 1 ? "" : "s") from \(abbreviatePath(preview.url))")
-                            .kzTextStyle(.body)
-                            .foregroundStyle(KzColor.inkMuted)
-                    }
-                    Spacer()
-                    KzButton("Import \(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s") from \(preview.url.lastPathComponent)") {
-                        performImport(preview)
-                    }
-
-                    .disabled(preview.snippetCount == 0 && preview.result.warnings.isEmpty)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Ready to import")
+                        .font(WorkspaceTheme.label)
+                    Text("\(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s") across \(preview.groupCount) group\(preview.groupCount == 1 ? "" : "s") from \(abbreviatePath(preview.url))")
+                        .font(WorkspaceTheme.body)
+                        .foregroundStyle(WorkspaceTheme.secondary)
                 }
-
-                if !preview.groupedWarnings.isEmpty {
-                    WarningGroupsDisclosure(
-                        title: "\(preview.result.warnings.count) compatibility warning\(preview.result.warnings.count == 1 ? "" : "s") detected in preview",
-                        groups: preview.groupedWarnings
-                    )
+                Spacer(minLength: 12)
+                Button("Import \(preview.snippetCount) snippet\(preview.snippetCount == 1 ? "" : "s")") {
+                    performImport(preview)
                 }
+                .controlSize(.small)
+                .disabled(preview.snippetCount == 0 && preview.result.warnings.isEmpty)
             }
-            .padding(6)
+
+            if !preview.groupedWarnings.isEmpty {
+                WarningGroupsDisclosure(
+                    title: "\(preview.result.warnings.count) compatibility warning\(preview.result.warnings.count == 1 ? "" : "s") detected in preview",
+                    groups: preview.groupedWarnings
+                )
+            }
         }
+        .padding(.top, 8)
     }
 
     // MARK: - Actions
@@ -241,58 +223,52 @@ struct ImportSummaryCard: View {
     let summary: ImportSummary
 
     var body: some View {
-        KzSettingsGroup {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    KzIcon(.checkCircle)
-                        .foregroundStyle(KzColor.inkMuted)
-                        .kzTextStyle(.title)
-                    Text("Import complete")
-                        .kzTextStyle(.headline)
-                }
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Import complete")
+                .font(WorkspaceTheme.label)
 
-                Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
-                    GridRow {
-                        Text("Imported:")
-                            .foregroundStyle(KzColor.inkMuted)
-                        Text("\(summary.importedSnippets) snippet\(summary.importedSnippets == 1 ? "" : "s"), \(summary.importedGroups) group\(summary.importedGroups == 1 ? "" : "s")")
-                            .fontWeight(.medium)
-                    }
-                    GridRow {
-                        Text("Merged duplicates:")
-                            .foregroundStyle(KzColor.inkMuted)
-                        Text("\(summary.dedupeReport.mergedSnippets) snippet\(summary.dedupeReport.mergedSnippets == 1 ? "" : "s"), \(summary.dedupeReport.mergedGroups) group\(summary.dedupeReport.mergedGroups == 1 ? "" : "s")")
-                    }
-                    GridRow {
-                        Text("Trigger conflicts:")
-                            .foregroundStyle(KzColor.inkMuted)
-                        if summary.dedupeReport.conflicts.isEmpty {
-                            Text("None")
-                                .foregroundStyle(KzColor.inkMuted)
-                        } else {
-                            Text("\(summary.dedupeReport.conflicts.count) (\(summary.dedupeReport.conflicts.map(\.trigger).joined(separator: ", ")))")
-                                .foregroundStyle(KzColor.warning)
-                        }
-                    }
-                    GridRow {
-                        Text("Safety backup:")
-                            .foregroundStyle(KzColor.inkMuted)
-                        Text(summary.backupURL.lastPathComponent)
-                            .kzTextStyle(.monoCaption)
-                            .foregroundStyle(KzColor.inkMuted)
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                GridRow {
+                    Text("Imported:")
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                    Text("\(summary.importedSnippets) snippet\(summary.importedSnippets == 1 ? "" : "s"), \(summary.importedGroups) group\(summary.importedGroups == 1 ? "" : "s")")
+                        .font(WorkspaceTheme.body.weight(.medium))
+                }
+                GridRow {
+                    Text("Merged duplicates:")
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                    Text("\(summary.dedupeReport.mergedSnippets) snippet\(summary.dedupeReport.mergedSnippets == 1 ? "" : "s"), \(summary.dedupeReport.mergedGroups) group\(summary.dedupeReport.mergedGroups == 1 ? "" : "s")")
+                        .font(WorkspaceTheme.body)
+                }
+                GridRow {
+                    Text("Trigger conflicts:")
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                    if summary.dedupeReport.conflicts.isEmpty {
+                        Text("None")
+                            .foregroundStyle(WorkspaceTheme.secondary)
+                    } else {
+                        Text("\(summary.dedupeReport.conflicts.count) (\(summary.dedupeReport.conflicts.map(\.trigger).joined(separator: ", ")))")
+                            .foregroundStyle(KzColor.warning)
+                            .font(WorkspaceTheme.body)
                     }
                 }
-                .kzTextStyle(.body)
-
-                if !summary.groupedWarnings.isEmpty {
-                    WarningGroupsDisclosure(
-                        title: "\(summary.warnings.count) warning\(summary.warnings.count == 1 ? "" : "s") (\(summary.groupedWarnings.count) type\(summary.groupedWarnings.count == 1 ? "" : "s"))",
-                        groups: summary.groupedWarnings
-                    )
+                GridRow {
+                    Text("Safety backup:")
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                    Text(summary.backupURL.lastPathComponent)
+                        .font(WorkspaceTheme.mono)
+                        .foregroundStyle(WorkspaceTheme.secondary)
                 }
             }
-            .padding(6)
+
+            if !summary.groupedWarnings.isEmpty {
+                WarningGroupsDisclosure(
+                    title: "\(summary.warnings.count) warning\(summary.warnings.count == 1 ? "" : "s") (\(summary.groupedWarnings.count) type\(summary.groupedWarnings.count == 1 ? "" : "s"))",
+                    groups: summary.groupedWarnings
+                )
+            }
         }
+        .padding(.top, 8)
     }
 }
 
@@ -310,12 +286,12 @@ struct WarningGroupsDisclosure: View {
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(alignment: .firstTextBaseline) {
                                 Text("×\(group.count)")
-                                    .kzTextStyle(.monoCaption)
+                                    .font(WorkspaceTheme.mono)
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 2)
-                                    .background(.quaternary, in: Capsule())
+                                    .background(WorkspaceTheme.line.opacity(0.4), in: RoundedRectangle(cornerRadius: 4))
                                 Text(group.message)
-                                    .kzTextStyle(.caption)
+                                    .font(WorkspaceTheme.caption)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                             let locations = group.warnings.prefix(5).map { warning in
@@ -326,8 +302,8 @@ struct WarningGroupsDisclosure: View {
                             }.joined(separator: ", ")
                             if !locations.isEmpty {
                                 Text(locations + (group.warnings.count > 5 ? ", …" : ""))
-                                    .kzTextStyle(.monoCaption)
-                                    .foregroundStyle(KzColor.inkMuted)
+                                    .font(WorkspaceTheme.mono)
+                                    .foregroundStyle(WorkspaceTheme.secondary)
                                     .padding(.leading, 32)
                             }
                         }
@@ -337,8 +313,8 @@ struct WarningGroupsDisclosure: View {
             }
             .frame(maxHeight: 140)
         } label: {
-            HStack { KzIcon(.warning); Text(title) }
-                .kzTextStyle(.body)
+            Text(title)
+                .font(WorkspaceTheme.body)
                 .foregroundStyle(KzColor.warning)
         }
     }

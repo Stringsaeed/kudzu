@@ -143,8 +143,8 @@ struct AppsSettingsTab: View {
 
     private var sortedOverrideBundleIDs: [String] {
         settings.appInsertions.keys.sorted { a, b in
-            let na = AppCatalog.info(for: a).name
-            let nb = AppCatalog.info(for: b).name
+            let na = SettingsAppPresentation.name(for: a)
+            let nb = SettingsAppPresentation.name(for: b)
             let cmp = na.localizedStandardCompare(nb)
             if cmp != .orderedSame { return cmp == .orderedAscending }
             return a < b
@@ -153,63 +153,106 @@ struct AppsSettingsTab: View {
 
     var body: some View {
         SettingsPageLayout(title: "Apps") {
-            KzSettingsGroup("Default insertion") {
-                KzSettingsRow("Insertion method", description: "Automatic types short plain text and pastes longer text. Snippet, group and app overrides take precedence.") {
-                    KzSelect("Default insertion method", selection: $settings.defaultInsertion,
-                             options: [InsertionMethod.automatic, .type, .paste].map { ($0, $0.title) })
+            WorkspaceSection("Default insertion") {
+                WorkspaceSettingRow(
+                    "Insertion method",
+                    description: "Automatic types short plain text and pastes longer text. Snippet, group and app overrides take precedence."
+                ) {
+                    Picker("Default insertion method", selection: $settings.defaultInsertion) {
+                        ForEach([InsertionMethod.automatic, .type, .paste], id: \.self) { method in
+                            Text(method.title).tag(method)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 140)
                 }
             }
-            KzSettingsGroup("Per-app insertion overrides", description: "Choose Type or Paste when neither the snippet nor its group sets a method. Terminals default to Paste.") {
+            WorkspaceSection(
+                "Per-app insertion overrides",
+                description: "Choose Type or Paste when neither the snippet nor its group sets a method. Terminals default to Paste."
+            ) {
                 if sortedOverrideBundleIDs.isEmpty {
-                    KzSettingsRow("No per-app insertion overrides") { EmptyView() }
+                    WorkspaceSettingRow("No per-app insertion overrides") { EmptyView() }
                 }
                 ForEach(sortedOverrideBundleIDs, id: \.self) { bundleID in
                     SettingsAppRow(bundleID: bundleID) {
-                        KzSelect("Insertion for \(AppCatalog.info(for: bundleID).name)", selection: Binding(
+                        Picker("Insertion", selection: Binding(
                             get: { settings.appInsertions[bundleID] ?? .paste },
                             set: { settings.setAppInsertion($0, for: bundleID) }
-                        ), options: [InsertionMethod.type, .paste].map { ($0, $0.title) })
+                        )) {
+                            ForEach([InsertionMethod.type, .paste], id: \.self) { method in
+                                Text(method.title).tag(method)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 100)
                         removeButton(bundleID) { settings.removeAppInsertion(bundleID) }
                     }
                 }
-                appActions(existing: Set(sortedOverrideBundleIDs), isDefault: settings.isDefaultAppInsertions,
-                           add: { settings.addAppInsertion($0, method: .paste) }, restore: settings.restoreDefaultAppInsertions)
+                appActions(
+                    existing: Set(sortedOverrideBundleIDs),
+                    isDefault: settings.isDefaultAppInsertions,
+                    add: { settings.addAppInsertion($0, method: .paste) },
+                    restore: settings.restoreDefaultAppInsertions
+                )
             }
-            KzSettingsGroup("Excluded apps", description: "Kudzu never expands snippets in these apps, even when a snippet or group rule allows them.") {
+            WorkspaceSection(
+                "Excluded apps",
+                description: "Kudzu never expands snippets in these apps, even when a snippet or group rule allows them."
+            ) {
                 if settings.deniedBundleIDs.isEmpty {
-                    KzSettingsRow("No excluded apps") { EmptyView() }
+                    WorkspaceSettingRow("No excluded apps") { EmptyView() }
                 }
                 ForEach(settings.deniedBundleIDs, id: \.self) { bundleID in
                     SettingsAppRow(bundleID: bundleID) {
                         removeButton(bundleID) { settings.removeDeniedApp(bundleID) }
                     }
                 }
-                appActions(existing: Set(settings.deniedBundleIDs), isDefault: settings.isDefaultDeniedList,
-                           add: settings.addDeniedApp, restore: settings.restoreDefaultDeniedApps)
+                appActions(
+                    existing: Set(settings.deniedBundleIDs),
+                    isDefault: settings.isDefaultDeniedList,
+                    add: settings.addDeniedApp,
+                    restore: settings.restoreDefaultDeniedApps
+                )
             }
         }
     }
 
     private func removeButton(_ bundleID: String, action: @escaping () -> Void) -> some View {
-        KzButton("Remove", variant: .ghost, size: .sm, action: action)
+        Button("Remove", action: action)
+            .controlSize(.small)
+            .buttonStyle(.borderless)
+            .tint(WorkspaceTheme.secondary)
             .accessibilityLabel("Remove \(AppCatalog.info(for: bundleID).name)")
     }
 
-    private func appActions(existing: Set<String>, isDefault: Bool,
-                            add: @escaping (String) -> Void, restore: @escaping () -> Void) -> some View {
+    private func appActions(
+        existing: Set<String>,
+        isDefault: Bool,
+        add: @escaping (String) -> Void,
+        restore: @escaping () -> Void
+    ) -> some View {
         HStack {
-            KzButton("Add app…", size: .sm, icon: .plus, menuTitle: "Add app") {
-                for app in AppCatalog.runningApps(excluding: existing) {
-                    KzMenuItem(app.name) { add(app.bundleID) }
+            Menu {
+                ForEach(AppCatalog.runningApps(excluding: existing), id: \.bundleID) { app in
+                    Button(app.name) { add(app.bundleID) }
                 }
-                KzMenuSeparator()
-                KzMenuItem("Choose app…") {
+                Divider()
+                Button("Choose app…") {
                     if let id = AppCatalog.chooseApp() { add(id) }
                 }
+            } label: {
+                Text("Add app…")
             }
+            .controlSize(.small)
+            .menuStyle(.borderlessButton)
             Spacer()
-            KzButton("Restore defaults", variant: .ghost, size: .sm, action: restore).disabled(isDefault)
-        }.padding(KzSpace.s3)
+            Button("Restore defaults", action: restore)
+                .controlSize(.small)
+                .buttonStyle(.borderless)
+                .disabled(isDefault)
+        }
+        .padding(.vertical, 10)
     }
 }
 
@@ -219,11 +262,48 @@ private struct SettingsAppRow<Controls: View>: View {
 
     var body: some View {
         let info = AppCatalog.info(for: bundleID)
-        HStack(spacing: KzSpace.s2) {
-            Image(nsImage: info.icon).resizable().frame(width: 24, height: 24)
-                .opacity(info.isInstalled ? 1 : 0.5).accessibilityHidden(true)
-            KzListRow(info.name, meta: bundleID + (info.isInstalled ? "" : " · Not installed"))
+        HStack(spacing: 10) {
+            Image(nsImage: info.icon).resizable().frame(width: 22, height: 22)
+                .opacity(info.isInstalled ? 1 : 0.5)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(SettingsAppPresentation.name(for: bundleID))
+                    .font(WorkspaceTheme.body)
+                    .foregroundStyle(WorkspaceTheme.ink)
+                if !info.isInstalled {
+                    Text("Not installed on this Mac")
+                        .font(WorkspaceTheme.caption)
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                }
+            }
+            Spacer(minLength: 8)
             controls
-        }.padding(.horizontal, KzSpace.s3)
+        }
+        .padding(.vertical, 10)
+        .help(bundleID)
+        .overlay(alignment: .bottom) { WorkspaceHairline() }
+    }
+}
+
+@MainActor
+private enum SettingsAppPresentation {
+    static func name(for bundleID: String) -> String {
+        let info = AppCatalog.info(for: bundleID)
+        guard !info.isInstalled else { return info.name }
+        switch bundleID {
+        case "com.github.wez.wezterm": return "WezTerm"
+        case "com.googlecode.iterm2": return "iTerm2"
+        case "dev.warp.Warp-Stable": return "Warp"
+        case "net.kovidgoyal.kitty": return "kitty"
+        case "org.alacritty": return "Alacritty"
+        case "com.1password.1password": return "1Password"
+        case "com.agilebits.onepassword7": return "1Password 7"
+        case "com.agilebits.onepassword-osx": return "1Password (legacy)"
+        case "com.bitwarden.desktop": return "Bitwarden"
+        case "com.apple.keychainaccess": return "Keychain Access"
+        case "com.apple.Passwords": return "Passwords"
+        case "com.apple.loginwindow": return "Login window"
+        default: return info.name
+        }
     }
 }

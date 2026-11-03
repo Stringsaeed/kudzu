@@ -9,7 +9,7 @@ enum WorkspaceTheme {
     static let secondary = KzColor.inkMuted
     static let line = KzColor.line
     static let accent = KzColor.vineInk
-    static let selection = KzColor.vineSoft
+    static let selection = KzColor.vineInk.opacity(0.09)
 
     static let body = Font.system(size: 13)
     static let label = Font.system(size: 13, weight: .medium)
@@ -63,7 +63,7 @@ struct WorkspaceSettingRow<Control: View>: View {
     var body: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 20) {
-                label.frame(minWidth: 160, maxWidth: .infinity, alignment: .leading)
+                label.frame(minWidth: 240, idealWidth: 360, maxWidth: .infinity, alignment: .leading)
                 control.fixedSize()
             }
             VStack(alignment: .leading, spacing: 8) {

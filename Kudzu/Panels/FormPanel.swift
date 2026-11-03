@@ -162,73 +162,68 @@ struct FormPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
-            HStack(spacing: KzSpace.s2) {
+            HStack(spacing: 10) {
                 Text(model.name.isEmpty ? "Fill in snippet" : model.name)
-                    .kzTextStyle(.title)
-                    .foregroundStyle(KzColor.ink)
+                    .font(WorkspaceTheme.label)
+                    .foregroundStyle(WorkspaceTheme.ink)
                     .lineLimit(1)
-                Spacer(minLength: KzSpace.s2)
-                KzKbd("esc")
+                Spacer(minLength: 8)
+                WorkspaceKeyHint(keys: "esc")
             }
-            .padding(.horizontal, KzSpace.s4)
-            .padding(.top, KzSpace.s4)
-            .padding(.bottom, KzSpace.s3)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
 
-            Rectangle().fill(KzColor.line).frame(height: 1)
+            WorkspaceHairline()
 
-            // Fields & Live Preview
             ScrollView {
-                VStack(alignment: .leading, spacing: KzSpace.s4) {
-                    KzFieldStack {
-                        ForEach(model.fields, id: \.name) { field in
-                            KzField(field.name) {
-                                control(field)
-                            }
+                VStack(alignment: .leading, spacing: 16) {
+                    ForEach(model.fields, id: \.name) { field in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(field.name)
+                                .font(WorkspaceTheme.caption)
+                                .foregroundStyle(WorkspaceTheme.secondary)
+                            control(field)
                         }
                     }
 
-                    VStack(alignment: .leading, spacing: KzSpace.s2) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Text("Preview")
-                            .kzTextStyle(.headline)
-                            .foregroundStyle(KzColor.ink)
+                            .font(WorkspaceTheme.caption)
+                            .foregroundStyle(WorkspaceTheme.secondary)
                         let rendered = preview(model.values)
-                        let previewShape = RoundedRectangle(cornerRadius: KzRadius.md, style: .continuous)
                         Text(rendered.isEmpty ? " " : rendered)
-                            .kzTextStyle(.content)
-                            .foregroundStyle(KzColor.ink)
+                            .font(WorkspaceTheme.body)
+                            .foregroundStyle(WorkspaceTheme.ink)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, KzSpace.s3)
-                            .padding(.vertical, KzSpace.s2)
-                            .background(KzColor.surfaceRaised, in: previewShape)
-                            .overlay(previewShape.strokeBorder(KzColor.line))
+                            .padding(.vertical, 8)
+                            .overlay(alignment: .top) { WorkspaceHairline() }
                     }
                 }
-                .padding(KzSpace.s4)
+                .padding(16)
             }
             .frame(maxHeight: 340)
             .fixedSize(horizontal: false, vertical: true)
 
-            Rectangle().fill(KzColor.line).frame(height: 1)
+            WorkspaceHairline()
 
-            HStack(spacing: KzSpace.s3) {
-                KzButton("Cancel", variant: .secondary) {
+            HStack(spacing: 12) {
+                Button("Cancel") {
                     if model.requestCancel() == .closeImmediately { cancel() }
                 }
                 Spacer()
-                HStack(spacing: KzSpace.s1) {
-                    KzKbd("⌘↵")
-                    Text("to insert")
-                        .kzTextStyle(.caption)
-                        .foregroundStyle(KzColor.inkMuted)
-                }
-                KzButton("Insert", variant: .primary, isDefault: true, action: submit)
+                WorkspaceKeyHint(keys: "⌘↵", title: "to insert")
+                Button("Insert", action: submit)
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .tint(WorkspaceTheme.accent)
             }
-            .padding(.horizontal, KzSpace.s4)
-            .padding(.vertical, KzSpace.s3)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
         }
         .frame(width: 400)
+        .background(WorkspaceTheme.paper)
         .onAppear { focus = model.focus }
         .onChange(of: model.focus) { _, value in focus = value }
         .onChange(of: focus) { _, value in model.focus = value }
@@ -260,11 +255,13 @@ struct FormPanelView: View {
                 focus: $focus
             )
         case .choice:
-            KzSelect(
-                field.name,
-                selection: value,
-                options: field.options.map { ($0, $0) }
-            )
+            Picker(field.name, selection: value) {
+                ForEach(field.options, id: \.self) { option in
+                    Text(option).tag(option)
+                }
+            }
+            .labelsHidden()
+            .frame(maxWidth: .infinity, alignment: .leading)
             .focused($focus, equals: field.name)
         }
     }
@@ -279,7 +276,10 @@ private struct FormSingleLineField: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        KzTextInput(placeholder, text: $text, focus: $isFocused)
+        TextField(placeholder, text: $text)
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(fieldName)
+            .focused($isFocused)
             .onAppear {
                 isFocused = (focus.wrappedValue == fieldName)
             }
@@ -309,34 +309,24 @@ struct KzMultilineTextInput: View {
     }
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: KzRadius.md, style: .continuous)
-        KzInteractive(shape, stateLayer: false, focusRing: .edge, isFocused: isFocused) { state in
-            Group {
-                if isSnapshot {
-                    Text(text.isEmpty ? " " : text)
-                        .kzTextStyle(.body)
-                        .foregroundStyle(state.isEnabled ? KzColor.ink : KzDisabled.foreground)
-                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, KzSpace.s2)
-                } else {
-                    TextEditor(text: $text)
-                        .focused(focus, equals: fieldName)
-                        .font(KzTextStyle.body.font)
-                        .foregroundStyle(state.isEnabled ? KzColor.ink : KzDisabled.foreground)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, KzSpace.s2)
-                        .frame(minHeight: 78, maxHeight: 110)
-                }
+        Group {
+            if isSnapshot {
+                Text(text.isEmpty ? " " : text)
+                    .font(WorkspaceTheme.body)
+                    .foregroundStyle(isEnabled ? WorkspaceTheme.ink : WorkspaceTheme.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 72, alignment: .topLeading)
+            } else {
+                TextEditor(text: $text)
+                    .accessibilityLabel(fieldName)
+                    .focused(focus, equals: fieldName)
+                    .font(WorkspaceTheme.body)
+                    .foregroundStyle(isEnabled ? WorkspaceTheme.ink : WorkspaceTheme.secondary)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 78, maxHeight: 110)
             }
-            .background(
-                state.isFocused && state.isEnabled ? KzColor.surfaceRaised : KzColor.surfaceSunken,
-                in: shape
-            )
-            .overlay(
-                shape.strokeBorder(state.isHovered && !state.isFocused ? KzColor.line : .clear)
-            )
         }
+        .padding(8)
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(WorkspaceTheme.line))
+        .background(WorkspaceTheme.navigation)
     }
 }
