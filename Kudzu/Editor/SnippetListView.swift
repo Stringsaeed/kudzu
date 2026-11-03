@@ -21,19 +21,30 @@ struct SnippetListView: View {
         let rows = library.snippets(in: browser.scope, query: browser.query, sort: sort)
         // Read so a refused selection change redraws the list on the selection it kept.
         let _ = browser.selectionEpoch
-        KzListHeader(title, subtitle: subtitle(count: rows.count)) {
-            KzIconButton(.sort, label: "Sort", caret: true, menuTitle: "Sort by") {
-                for order in SnippetSortOrder.allCases {
-                    KzMenuItem(order.sentenceTitle, isChecked: sort == order) { sortRaw = order.rawValue }
+        HStack(spacing: 8) {
+            Text(title).font(WorkspaceTheme.label).lineLimit(1)
+            Text(rows.count.formatted()).font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+            Spacer(minLength: 0)
+            WorkspaceMenu {
+                ForEach(SnippetSortOrder.allCases, id: \.self) { order in
+                    Button { sortRaw = order.rawValue } label: {
+                        if sort == order { Label(order.sentenceTitle, systemImage: "checkmark") }
+                        else { Text(order.sentenceTitle) }
+                    }
                 }
-            }
-            // Recently used is always newest first.
+            } label: { Image(systemName: "arrow.up.arrow.down").frame(width: 24, height: 28) }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .tint(WorkspaceTheme.secondary)
+            .help("Sort snippets").accessibilityLabel("Sort snippets")
             .disabled(browser.scope == .recent)
-            KzIconButton(.compose, label: "New snippet (⌘N)") { browser.newSnippet(library: library) }
+            WorkspaceIconButton("square.and.pencil", "New snippet (⌘N)") { browser.newSnippet(library: library) }
         }
-        KzSearchField(text: $browser.query, focus: searchFocus, selectAllToken: browser.searchSelectAllToken)
-            .padding(.horizontal, KzSpace.s3)
-            .padding(.bottom, KzSpace.s2)
+        .padding(.horizontal, 14).frame(height: 52)
+        .foregroundStyle(WorkspaceTheme.ink)
+        .kzWindowDragArea()
+        KzSearchField(text: $browser.query, shortcut: nil, focus: searchFocus,
+                      selectAllToken: browser.searchSelectAllToken, unboxed: true)
+            .padding(.horizontal, 12).padding(.bottom, 10)
         list(rows)
             .overlay { emptyState(rowCount: rows.count) }
             .onAppear(perform: consumePaneRequest)
@@ -50,7 +61,8 @@ struct SnippetListView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, KzSpace.s2)
-            .frame(maxHeight: .infinity, alignment: .top)
+            .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+            .clipped()
         } else {
             List(selection: selectionBinding) {
                 ForEach(rows) { snippet in
@@ -77,15 +89,37 @@ struct SnippetListView: View {
 
     private func row(_ snippet: SnippetRecord) -> some View {
         let isTarget = contextTarget.map { browser.targets(for: $0).contains(snippet.id) } ?? false
-        return KzSnippetRow(
-            name: snippet.name.isEmpty ? "Untitled" : snippet.name,
-            triggers: snippet.triggers,
-            preview: SnippetPreviewText.line(for: snippet, contents: library.contentByID),
-            group: showsGroup(for: snippet) ? library.groupPath(of: snippet) : nil,
-            uses: library.stats[snippet.id]?.count,
-            isFavorite: snippet.isFavorite,
-            isSelected: browser.selection.contains(snippet.id)
-        )
+        let selected = browser.selection.contains(snippet.id)
+        let preview = SnippetPreviewText.line(for: snippet, contents: library.contentByID)
+        return VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Text(snippet.name.isEmpty ? "Untitled" : snippet.name)
+                    .font(WorkspaceTheme.label).foregroundStyle(WorkspaceTheme.ink).lineLimit(1)
+                Spacer(minLength: 0)
+                if snippet.isFavorite {
+                    Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(WorkspaceTheme.secondary)
+                        .accessibilityLabel("Favorite")
+                }
+                Text(snippet.triggers.first ?? "No trigger")
+                    .font(WorkspaceTheme.mono)
+                    .foregroundStyle(selected ? WorkspaceTheme.accent : WorkspaceTheme.secondary)
+                    .lineLimit(1)
+                    .frame(maxWidth: 96, alignment: .trailing)
+            }
+            Text(preview ?? "Empty snippet")
+                .font(.system(size: 12)).foregroundStyle(WorkspaceTheme.secondary).lineLimit(1)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selected ? WorkspaceTheme.selection : .clear)
+        .overlay(alignment: .leading) {
+            if selected { WorkspaceTheme.accent.frame(width: 2).padding(.vertical, 10) }
+        }
+        .contentShape(Rectangle())
+        .help(([snippet.name] + snippet.triggers + [library.groupPath(of: snippet) ?? "No group", snippet.content]).joined(separator: "\n"))
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityValue(snippet.triggers.joined(separator: ", "))
         // Disabled snippets, and snippets in a disabled group, never expand.
         .opacity(library.isActive(snippet) ? 1 : 0.5)
         .kzContextMenu(isPresented: contextBinding(snippet.id)) {
@@ -171,17 +205,6 @@ struct SnippetListView: View {
         case .stats: "Stats"
         case .group(let id): library.tree.group(id)?.name ?? "Group"
         }
-    }
-
-    private func subtitle(count: Int) -> String {
-        "\(count) snippet\(count == 1 ? "" : "s")"
-    }
-
-    /// Group names help when the list mixes groups; inside a single leaf group they'd be noise.
-    private func showsGroup(for snippet: SnippetRecord) -> Bool {
-        guard snippet.groupID != nil else { return false }
-        if case .group(let id) = browser.scope { return snippet.groupID != id }
-        return true
     }
 
     // MARK: - Empty states

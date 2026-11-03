@@ -15,7 +15,7 @@ enum MainWindowSnapshots {
     static func runIfRequested() {
         let arguments = CommandLine.arguments
         guard let index = arguments.firstIndex(of: "-KudzuSnapshot"), index + 1 < arguments.count else { return }
-        let directory = URL(filePath: arguments[index + 1], relativeTo: URL(filePath: FileManager.default.currentDirectoryPath))
+        let directory = URL(filePath: arguments[index + 1], relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true))
         do {
             try run(to: directory)
             exit(0)
@@ -26,19 +26,12 @@ enum MainWindowSnapshots {
     }
 
     private static func run(to directory: URL) throws {
-        let library = LibraryModel(store: try KudzuStore.inMemory())
-        library.ensureLoaded()
-        DebugSeed.demo(library: library)
-        // Its own defaults, so the snapshots never read or change the user's preferences.
-        let suite = "sh.saeed.kudzu.snapshots"
-        let defaults = UserDefaults(suiteName: suite) ?? .standard
-        defaults.removePersistentDomain(forName: suite)
-
         let signature = DebugSeed.id(10)
         let meeting = DebugSeed.id(13)
         let address = DebugSeed.id(14)
         let shots: [(String, SidebarScope, Set<UUID>, MainWindowMode, (rules: Bool, advanced: Bool))] = [
             ("window-all", .all, [signature], .library, (false, false)),
+            ("window-edited", .all, [signature], .library, (false, false)),
             ("window-rules", .all, [address], .library, (true, false)),
             ("window-advanced", .all, [meeting], .library, (false, true)),
             ("window-group", .group(DebugSeed.id(1)), [meeting], .library, (false, false)),
@@ -47,21 +40,42 @@ enum MainWindowSnapshots {
             ("window-stats", .stats, [], .library, (false, false)),
             ("window-settings", .all, [], .settings(.general), (false, false)),
         ]
-        for (name, scope, selection, mode, expanded) in shots {
-            defaults.set(expanded.rules, forKey: "editor.rulesExpanded")
-            defaults.set(expanded.advanced, forKey: "editor.advancedExpanded")
-            let browser = BrowserState()
-            browser.scope = scope
-            browser.selection = selection
-            let view = SnapshotWindow(mode: mode)
-                .environment(library)
-                .environment(browser)
-                .defaultAppStorage(defaults)
-                .frame(width: size.width, height: size.height)
-                .padding(KzSpace.s6)
-            try KzSnapshot.write(view, named: name, to: directory, width: size.width + 2 * KzSpace.s6, background: .canvas)
+        let sizes = [("", size), ("-compact", CGSize(width: 900, height: 600)),
+                     ("-minimum", CGSize(width: 862, height: 480))]
+        for (suffix, size) in sizes {
+            for (name, scope, selection, mode, expanded) in shots {
+                for appearance in KzSnapshot.Appearance.allCases {
+                    // Rendering tears the editor down and saves its draft. Each image needs its own store.
+                    let library = LibraryModel(store: try KudzuStore.inMemory())
+                    library.ensureLoaded()
+                    DebugSeed.demo(library: library)
+                    let defaults = UserDefaults(suiteName: "sh.saeed.kudzu.snapshots.\(UUID().uuidString)")!
+                    defaults.register(defaults: [
+                        "editor.previewExpanded": name == "window-group",
+                    ])
+                    let browser = BrowserState()
+                    browser.scope = scope
+                    browser.selection = selection
+                    if name == "window-edited", let snippet = library.snippetsByID[signature] {
+                        library.editor(for: snippet).edit { $0.name = "Work signature" }
+                    }
+                    let view = SnapshotWindow(mode: mode)
+                        .environment(library)
+                        .environment(browser)
+                        .environment(\.workspaceInspectorSnapshot, expanded.rules || expanded.advanced)
+                        .defaultAppStorage(defaults)
+                        .frame(width: size.width, height: size.height)
+                        .padding(KzSpace.s6)
+                    guard let image = KzSnapshot.image(of: view, appearance: appearance,
+                                                      width: size.width + 2 * KzSpace.s6, background: .canvas),
+                          let data = KzSnapshot.pngData(image) else {
+                        throw CocoaError(.fileWriteUnknown)
+                    }
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    try data.write(to: directory.appendingPathComponent("\(name)\(suffix)-\(appearance.rawValue)@2x.png"))
+                }
+            }
         }
-        defaults.removePersistentDomain(forName: suite)
     }
 }
 

@@ -6,16 +6,18 @@ public struct KzSearchField: View {
     private let placeholder: String
     @Binding private var text: String
     private let shortcut: String?
+    private let unboxed: Bool
     private let focus: FocusState<Bool>.Binding?
     private let selectAllToken: Int
     @FocusState private var localFocus: Bool
     @Environment(\.kzSnapshotRendering) private var snapshot
     @Environment(\.isEnabled) private var enabled
 
-    /// Pass `focus` and set it from a Find command to wire ⌘F. Increment `selectAllToken` to select the query.
+    /// Pass `focus` for ⌘F and increment `selectAllToken` to select the query; `unboxed` uses a flat system-font field.
     public init(_ placeholder: String = "Search snippets", text: Binding<String>, shortcut: String? = "⌘F",
-                focus: FocusState<Bool>.Binding? = nil, selectAllToken: Int = 0) {
+                focus: FocusState<Bool>.Binding? = nil, selectAllToken: Int = 0, unboxed: Bool = false) {
         self.placeholder = placeholder
+        self.unboxed = unboxed
         _text = text
         self.shortcut = shortcut
         self.focus = focus
@@ -24,27 +26,38 @@ public struct KzSearchField: View {
 
     public var body: some View {
         let focusBinding = focus ?? $localFocus
-        KzFieldWell(isFocused: focusBinding.wrappedValue) { state in
-            HStack(spacing: 8) {
-                KzIcon(.search, size: 14).foregroundStyle(state.isEnabled ? KzColor.inkMuted : KzDisabled.foreground)
-                Group {
-                    if snapshot {
-                        KzFieldSnapshotText(text: text, placeholder: placeholder, enabled: state.isEnabled)
-                    } else {
-                        KzSearchFieldBox(
-                            text: $text,
-                            placeholder: placeholder,
-                            isFocused: focusBinding.wrappedValue,
-                            selectAllToken: selectAllToken,
-                            enabled: state.isEnabled,
-                            onFocus: { focusBinding.wrappedValue = $0 }
-                        )
-                    }
+        Group {
+            if unboxed {
+                input(focusBinding, enabled: enabled).overlay(alignment: .bottom) {
+                    (focusBinding.wrappedValue ? KzColor.vineInk : KzColor.line).frame(height: 1)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                if let shortcut { KzKbd(shortcut).accessibilityHidden(true) }
-            }.padding(.leading, 10).padding(.trailing, 6).frame(height: 30)
+            } else {
+                KzFieldWell(isFocused: focusBinding.wrappedValue) { state in input(focusBinding, enabled: state.isEnabled) }
+            }
         }
+    }
+
+    private func input(_ focusBinding: FocusState<Bool>.Binding, enabled: Bool) -> some View {
+        HStack(spacing: 8) {
+            KzIcon(.search, size: 14).foregroundStyle(enabled ? KzColor.inkMuted : KzDisabled.foreground)
+            Group {
+                if snapshot {
+                    KzFieldSnapshotText(text: text, placeholder: placeholder, enabled: enabled)
+                } else {
+                    KzSearchFieldBox(
+                        text: $text,
+                        placeholder: placeholder,
+                        isFocused: focusBinding.wrappedValue,
+                        selectAllToken: selectAllToken,
+                        enabled: enabled,
+                        unboxed: unboxed,
+                        onFocus: { focusBinding.wrappedValue = $0 }
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let shortcut { KzKbd(shortcut).accessibilityHidden(true) }
+        }.padding(.leading, 10).padding(.trailing, 6).frame(height: 30)
     }
 }
 
@@ -55,6 +68,7 @@ struct KzSearchFieldBox: NSViewRepresentable {
     var isFocused: Bool
     var selectAllToken: Int
     var enabled: Bool
+    var unboxed = false
     var onFocus: (Bool) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -81,11 +95,15 @@ struct KzSearchFieldBox: NSViewRepresentable {
         context.coordinator.parent = self
         let composing = (field.currentEditor() as? NSTextView)?.hasMarkedText() == true
         if !composing, field.stringValue != text { field.stringValue = text }
+        field.font = unboxed ? .systemFont(ofSize: 13) : KzTextStyle.body.nsFont
         field.isEnabled = enabled
         field.textColor = enabled ? KzColorToken.ink.nsColor : KzColorToken.inkFaint.nsColor
         field.placeholderAttributedString = NSAttributedString(
             string: placeholder,
-            attributes: KzTextStyle.body.attributes(color: enabled ? KzColorToken.inkMuted.nsColor : KzColorToken.inkFaint.nsColor)
+            attributes: unboxed
+                ? [.font: field.font ?? KzTextStyle.body.nsFont,
+                   .foregroundColor: enabled ? KzColorToken.inkMuted.nsColor : KzColorToken.inkFaint.nsColor]
+                : KzTextStyle.body.attributes(color: enabled ? KzColorToken.inkMuted.nsColor : KzColorToken.inkFaint.nsColor)
         )
         guard field.window != nil, !composing else { return }
         if isFocused, selectAllToken > 0, selectAllToken != context.coordinator.appliedSelectAll {

@@ -89,20 +89,15 @@ struct RulesSection: View {
             }
 
             RulesOptionRow("Insertion") {
-                KzSelect("Insertion", value: insertionTitle) {
-                    KzMenuItem(inheritedInsertionDescription, isChecked: insertion == nil) { insertion = nil }
-                    KzMenuSeparator()
-                    for method in [InsertionMethod.automatic, .type, .paste] {
-                        KzMenuItem(method.title, isChecked: insertion == method) { insertion = method }
+                Picker("Insertion", selection: $insertion) {
+                    Text(inheritedInsertionDescription).tag(InsertionMethod?.none)
+                    ForEach([InsertionMethod.automatic, .type, .paste], id: \.self) { method in
+                        Text(method.title).tag(Optional(method))
                     }
-                }
+                }.labelsHidden().controlSize(.small)
                 .help("Automatic types short plain text and pastes the rest. Choose Paste for apps that drop typed characters.")
             }
         }
-    }
-
-    private var insertionTitle: String {
-        insertion?.title ?? inheritedInsertionDescription
     }
 
     /// One muted line: an inherit arrow when a group sets it, a check when nothing does.
@@ -121,19 +116,20 @@ struct RulesSection: View {
     // MARK: - Custom
 
     private var ruleSourceControl: some View {
-        KzSegmented("Apps", selection: source, options: [
-            .init(.inherit, label: inheritOptionTitle),
-            .init(.custom, label: "Custom"),
-        ])
+        Picker("Apps", selection: source) {
+            Text(inheritOptionTitle).tag(RuleSource.inherit)
+            Text("Custom").tag(RuleSource.custom)
+        }
+        .labelsHidden().controlSize(.small)
     }
 
     private var customRule: some View {
         VStack(alignment: .leading, spacing: KzSpace.s3) {
-            KzSegmented("Mode", selection: ruleMode, options: [
-                .init(.allow, label: "Allow only in"),
-                .init(.deny, label: "Block in"),
-            ])
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Picker("Mode", selection: ruleMode) {
+                Text("Allow only in").tag(AppRuleMode.allow)
+                Text("Block in").tag(AppRuleMode.deny)
+            }
+            .labelsHidden().controlSize(.small)
 
             let bundleIDs = rule?.bundleIDs ?? []
             if bundleIDs.isEmpty {
@@ -191,7 +187,7 @@ struct RulesOptionRow<Control: View>: View {
     }
 
     private var labelView: some View {
-        Text(label).kzTextStyle(.bodyStrong).foregroundStyle(KzColor.ink)
+        Text(label).font(WorkspaceTheme.body).foregroundStyle(KzColor.ink)
     }
 }
 
@@ -201,7 +197,6 @@ struct AppList: View {
     var remove: (String) -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: KzRadius.md)
         VStack(spacing: 0) {
             ForEach(bundleIDs, id: \.self) { id in
                 AppRow(bundleID: id) { remove(id) }
@@ -210,7 +205,7 @@ struct AppList: View {
                 }
             }
         }
-        .background(KzColor.surfaceSunken, in: shape)
+        .overlay(alignment: .bottom) { WorkspaceTheme.line.frame(height: 1) }
         .frame(maxWidth: 420, alignment: .leading)
     }
 }

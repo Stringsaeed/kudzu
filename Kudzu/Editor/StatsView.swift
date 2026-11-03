@@ -22,19 +22,21 @@ struct StatsView: View {
         return VStack(alignment: .leading, spacing: 0) {
             KzPaneHeader(leading: 0, trailing: 0) {
                 Text("All time")
-                    .kzTextStyle(.titleLg)
+                    .font(WorkspaceTheme.title)
                     .foregroundStyle(KzColor.ink)
                     .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
             }
 
-            KzStatTileRow {
-                KzStatTile("Expansions", value: summary.totalExpansions.formatted(), icon: .bolt)
-                KzStatTile("Characters saved", value: summary.totalCharsSaved.formatted(), icon: .type)
-                KzStatTile("Time saved", value: Self.format(seconds: summary.estimatedTimeSaved), icon: .timer)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 28) { totals(summary) }
+                VStack(alignment: .leading, spacing: 18) { totals(summary) }
             }
+            .padding(.vertical, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottom) { WorkspaceTheme.line.frame(height: 1) }
 
-            KzSettingsGroup("Most used") {
+            WorkspaceSection("Most used") {
                 if top.isEmpty {
                     KzEmptyState("No expansions yet", icon: .chart,
                                  message: "Stats appear after Kudzu expands your first snippet. The text you type is never recorded.")
@@ -46,7 +48,7 @@ struct StatsView: View {
                             HStack(spacing: KzSpace.s3) {
                                 KzUsageBar(entry.trigger, value: entry.count, maximum: maximum)
                                 Text(entry.name)
-                                    .kzTextStyle(.callout)
+                                    .font(WorkspaceTheme.body)
                                     .foregroundStyle(KzColor.inkMuted)
                                     .lineLimit(1)
                                     .frame(width: 140, alignment: .leading)
@@ -63,7 +65,7 @@ struct StatsView: View {
             HStack(spacing: KzSpace.s2) {
                 KzIcon(.keyboard, size: 14)
                 Text("Time saved assumes \(library.typingSpeedWPM) words per minute. Change it in Settings › General.")
-                    .kzTextStyle(.caption)
+                    .font(WorkspaceTheme.caption)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(KzColor.inkMuted)
@@ -74,6 +76,21 @@ struct StatsView: View {
         .padding(.bottom, KzSpace.s6)
         .frame(maxWidth: 760, alignment: .leading)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private func totals(_ summary: StatsSummary) -> some View {
+        total("Expansions", summary.totalExpansions.formatted())
+        total("Characters saved", summary.totalCharsSaved.formatted())
+        total("Time saved", Self.format(seconds: summary.estimatedTimeSaved))
+    }
+
+    private func total(_ title: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(value).font(.system(size: 24, weight: .medium)).monospacedDigit()
+                .foregroundStyle(WorkspaceTheme.ink)
+            Text(title).font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+        }.accessibilityElement(children: .combine)
     }
 
     private struct Entry: Identifiable {
@@ -107,7 +124,11 @@ struct StatsLeaderboardView: View {
 
     var body: some View {
         let ranked = library.summary.perSnippet.filter { $0.count > 0 && library.snippetsByID[$0.snippetID] != nil }
-        KzListHeader("Stats", subtitle: "Ranked by use")
+        HStack {
+            Text("Stats").font(WorkspaceTheme.label)
+            Spacer()
+            Text("Ranked by use").font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+        }.padding(.horizontal, 14).frame(height: 52).kzWindowDragArea()
         Group {
             if snapshotRendering {
                 VStack(spacing: 1) {
@@ -139,18 +160,21 @@ struct StatsLeaderboardView: View {
     private func row(_ stats: SnippetStats) -> some View {
         if let snippet = library.snippetsByID[stats.snippetID] {
             let name = snippet.name.isEmpty ? "Untitled" : snippet.name
-            KzListRow(
-                meta: stats.lastUsedAt.map { "Last used \($0.formatted(.relative(presentation: .named)))" },
-                aside: stats.count.formatted(),
-                accessibilityName: name
-            ) {
-                HStack(spacing: KzSpace.s2) {
-                    if let trigger = snippet.triggers.first { KzTriggerChip(trigger) }
-                    KzListRowTitle(name)
+            HStack {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(name).font(WorkspaceTheme.label).lineLimit(1)
+                    Text(snippet.triggers.first ?? "No trigger").font(WorkspaceTheme.mono)
+                        .foregroundStyle(WorkspaceTheme.secondary)
+                    if let last = stats.lastUsedAt {
+                        Text("Last used \(last.formatted(.relative(presentation: .named)))")
+                            .font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary).lineLimit(1)
+                    }
                 }
-            } badge: {
-                EmptyView()
+                Spacer()
+                Text(stats.count.formatted()).font(WorkspaceTheme.body).monospacedDigit()
             }
+            .padding(12).accessibilityElement(children: .combine)
+
         }
     }
 }

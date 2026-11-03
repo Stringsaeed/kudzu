@@ -360,19 +360,24 @@ struct MainWindowShell<SettingsDetail: View>: View {
     }
 
     var body: some View {
-        KzAppShell(mode: shellMode) {
+        WorkspaceShell(mode: shellMode) {
             SidebarView(isSettings: settingsSection != nil) { scope in
                 browser.chooseScope(scope)
                 windowMode = .library
             }
-        } sidebarHeader: {
-            #if DEBUG
-            DebugDataButton()
-            #endif
         } sidebarFooter: {
-            KzSidebarItem("Settings", icon: .sliders, shortcut: "⌘,", isActive: settingsSection != nil) {
+            Button {
                 if settingsSection == nil { windowMode = .settings(lastSettingsSection) }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "gearshape")
+                    Text("Settings")
+                    Spacer()
+                    Text("⌘,").font(WorkspaceTheme.caption)
+                }
+                .foregroundStyle(WorkspaceTheme.secondary)
             }
+            .buttonStyle(WorkspaceNavigationStyle(isActive: settingsSection != nil))
         } list: {
             if browser.scope == .stats {
                 StatsLeaderboardView()
@@ -406,15 +411,23 @@ struct MainWindowShell<SettingsDetail: View>: View {
                 .id(id)
         } else if browser.selection.count > 1 {
             CenteredEmptyState {
-                KzEmptyState("\(browser.selection.count) snippets selected", icon: .stack) {
-                    KzMessage("Right-click to move, favorite or delete them together, or press \(kbd: "⌫").")
+                VStack(spacing: 8) {
+                    Text("\(browser.selection.count) snippets selected").font(.system(size: 16, weight: .medium))
+                    Text("Use the Snippet menu or right-click to manage this selection.")
+                        .font(WorkspaceTheme.body).foregroundStyle(WorkspaceTheme.secondary)
                 }
+                .multilineTextAlignment(.center).padding(24)
             }
         } else {
             CenteredEmptyState {
-                KzEmptyState("No snippet selected") {
-                    KzMessage("Choose a snippet to edit it, or press \(kbd: "⌘N") to create one.")
+                VStack(spacing: 12) {
+                    Text("Choose a snippet").font(.system(size: 16, weight: .medium))
+                    Text("Find one in the list, or create something new.")
+                        .font(WorkspaceTheme.body).foregroundStyle(WorkspaceTheme.secondary)
+                    Button("New snippet") { browser.newSnippet(library: library) }
+                        .buttonStyle(.bordered).controlSize(.small)
                 }
+                .multilineTextAlignment(.center).padding(24)
             }
         }
     }
@@ -506,22 +519,3 @@ struct WindowBanner: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - Debug
-
-#if DEBUG
-/// DEBUG builds only: loads sample data from the sidebar header.
-private struct DebugDataButton: View {
-    @Environment(LibraryModel.self) private var library
-
-    var body: some View {
-        KzIconButton(.bug, label: "Sample data (debug builds only)", size: .sm, menuTitle: "Sample data",
-                     placement: .pullDown(.trailing)) {
-            KzMenuItem("Seed demo data", icon: .plus) { DebugSeed.demo(library: library) }
-            KzMenuItem("Seed 3,000 snippets", icon: .stack) { DebugSeed.bulk(3000, library: library) }
-            KzMenuSeparator()
-            KzMenuItem("Remove demo data", icon: .trash, role: .danger) { DebugSeed.removeDemoData(library: library) }
-        }
-    }
-}
-#endif

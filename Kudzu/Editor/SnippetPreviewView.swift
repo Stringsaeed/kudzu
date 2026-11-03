@@ -24,12 +24,10 @@ struct SnippetPreviewView: View {
                             .textSelection(.enabled)
                     }
                 }
-                .kzTextStyle(.content)
+                .font(.system(size: 14))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 14)
                 .padding(.vertical, KzSpace.s3)
-                .background(KzColor.surfaceSunken, in: RoundedRectangle(cornerRadius: KzRadius.lg))
 
                 if !result.diagnostics.isEmpty {
                     DiagnosticsList(diagnostics: result.diagnostics)

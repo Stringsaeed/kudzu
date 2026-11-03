@@ -19,7 +19,7 @@ struct DesignCaptureTests {
             DebugSeed.demo(library: library)
             let group = GroupRecord(id: DebugSeed.id(70), name: "Support")
             try library.store.upsert(group)
-            let snippet = SnippetRecord(id: DebugSeed.id(90), name: "First response", triggers: [";reply", ";support"], content: """
+            let snippet = SnippetRecord(id: DebugSeed.id(90), name: "First response", triggers: [";reply", ";followup"], content: """
             Hi {{field name="first_name" default="Alex"}},
 
             Thanks for getting in touch. I've picked up your request and will help you work through it.
@@ -44,11 +44,21 @@ struct DesignCaptureTests {
             let settings = AppMatchingSettings(defaults: suite)
             let workspace = DesignCaptureWorkspace(settings: settings, mode: .library)
                 .environment(library).environment(browser).defaultAppStorage(suite)
-            try await render(workspace, size: CGSize(width: 1180, height: 760), dark: dark,
+            try await render(workspace, size: CGSize(width: 1180, height: 760), dark: dark, windowChrome: true,
                              to: directory.appending(path: "library-\(appearance).png"))
+            try await render(workspace, size: CGSize(width: 862, height: 600), dark: dark, windowChrome: true,
+                             to: directory.appending(path: "library-compact-\(appearance).png"))
+            suite.set(true, forKey: "editor.previewExpanded")
+            try await render(workspace, size: CGSize(width: 1180, height: 760), dark: dark, windowChrome: true,
+                             to: directory.appending(path: "library-preview-\(appearance).png"))
+            suite.set(false, forKey: "editor.previewExpanded")
+            browser.selection = []
+            try await render(workspace, size: CGSize(width: 1180, height: 760), dark: dark, windowChrome: true,
+                             to: directory.appending(path: "library-empty-\(appearance).png"))
+            browser.selection = [snippet.id]
             let modal = DesignCaptureWorkspace(settings: settings, mode: .settings(.apps))
                 .environment(library).environment(browser).defaultAppStorage(suite)
-            try await render(modal, size: CGSize(width: 1180, height: 760), dark: dark,
+            try await render(modal, size: CGSize(width: 1180, height: 760), dark: dark, windowChrome: true,
                              to: directory.appending(path: "settings-\(appearance).png"))
             let palette = SearchPaletteModel(store: library.store)
             palette.prepareForShow()
@@ -60,11 +70,14 @@ struct DesignCaptureTests {
         }
     }
 
-    private func render<V: View>(_ view: V, size: CGSize, dark: Bool, to url: URL) async throws {
+    private func render<V: View>(_ view: V, size: CGSize, dark: Bool, windowChrome: Bool = false, to url: URL) async throws {
         let host = NSHostingView(rootView: view.environment(\.colorScheme, dark ? .dark : .light))
         host.sizingOptions = []
         let window = NSWindow(contentRect: NSRect(origin: .zero, size: size),
-                              styleMask: [.borderless], backing: .buffered, defer: false)
+                              styleMask: windowChrome ? [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView] : [.borderless],
+                              backing: .buffered, defer: false)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
         window.contentView = host
         defer { window.contentView = nil }
@@ -72,9 +85,10 @@ struct DesignCaptureTests {
         host.layoutSubtreeIfNeeded()
         try await Task.sleep(for: .milliseconds(100))
         host.layoutSubtreeIfNeeded()
-        let bitmap = try #require(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        let drawingView = windowChrome ? (host.superview ?? host) : host
+        let bitmap = try #require(drawingView.bitmapImageRepForCachingDisplay(in: drawingView.bounds))
         window.appearance?.performAsCurrentDrawingAppearance {
-            host.cacheDisplay(in: host.bounds, to: bitmap)
+            drawingView.cacheDisplay(in: drawingView.bounds, to: bitmap)
         }
         let png = try #require(bitmap.representation(using: .png, properties: [:]))
         try png.write(to: url, options: .atomic)
@@ -88,7 +102,7 @@ private struct DesignCaptureWorkspace: View {
     @FocusState private var searchFocused: Bool
 
     var body: some View {
-        MainWindowShell(shellMode: .embedded, windowMode: .constant(mode), lastSettingsSection: .apps,
+        MainWindowShell(shellMode: .window, windowMode: .constant(mode), lastSettingsSection: .apps,
                         storeError: nil, searchFocus: $searchFocused) { _ in
             AppsSettingsTab(settings: settings)
         }

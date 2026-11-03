@@ -15,8 +15,7 @@ struct DropIndicator: Equatable {
 
 /// The sidebar's sections: the library views, then the nested group tree.
 ///
-/// Rows are `KzSidebarItem`-style buttons on the glass, as the design system draws them, rather than
-/// an outline `List`: the shell's sidebar is a scrolling stack. Groups keep their native behaviours:
+/// Compact navigation buttons live in the shell's scrolling sidebar. Groups keep their native behaviours:
 /// drag to reorder or nest (and drop snippets on them), right-click for the group menu, ← and → to
 /// collapse and expand, and an inline rename field.
 struct SidebarView: View {
@@ -40,7 +39,7 @@ struct SidebarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: KzSpace.s4) {
-            KzSidebarSection {
+            VStack(spacing: 2) {
                 libraryItem("All snippets", icon: .stack, scope: .all, count: library.snippets.count)
                 libraryItem("Favorites", icon: .star, scope: .favorites,
                             count: library.snippets.lazy.filter(\.isFavorite).count)
@@ -71,9 +70,17 @@ struct SidebarView: View {
     }
 
     private func libraryItem(_ title: String, icon: KzIconName, scope: SidebarScope, count: Int?) -> some View {
-        KzSidebarItem(title, icon: icon, count: count, isActive: !isSettings && browser.scope == scope) {
-            choose(scope)
+        Button { choose(scope) } label: {
+            HStack(spacing: 8) {
+                KzIcon(icon, size: 15)
+                Text(title).lineLimit(1)
+                Spacer(minLength: 0)
+                if let count { Text(count.formatted()).font(WorkspaceTheme.caption).monospacedDigit() }
+            }
+            .foregroundStyle(!isSettings && browser.scope == scope ? WorkspaceTheme.accent : WorkspaceTheme.secondary)
         }
+        .buttonStyle(WorkspaceNavigationStyle(isActive: !isSettings && browser.scope == scope))
+        .accessibilityAddTraits(!isSettings && browser.scope == scope ? .isSelected : [])
         .focused($sidebarFocus, equals: scope)
         .accessibilityIdentifier("kudzu.sidebar")
     }
@@ -83,12 +90,14 @@ struct SidebarView: View {
     private var groupsSection: some View {
         let rootTargeted = indicator == DropIndicator(groupID: nil, zone: .into)
         return VStack(alignment: .leading, spacing: 0) {
-            KzSidebarSection("Groups", action: {
-                KzIconButton(.plus, label: "New group", size: .sm) { createGroup(under: nil) }
-            }) {
-                ForEach(library.tree.roots) { node in
-                    GroupBranch(node: node, depth: 0, ctx: context)
-                }
+            HStack {
+                Text("Groups").font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+                Spacer()
+                WorkspaceIconButton("plus", "New group") { createGroup(under: nil) }
+            }
+            .padding(.leading, 9)
+            ForEach(library.tree.roots) { node in
+                GroupBranch(node: node, depth: 0, ctx: context)
             }
             // Dropping below the groups (or on the heading) moves a group to the top level and takes snippets out of their group.
             Color.clear
@@ -327,21 +336,21 @@ private struct GroupRow: View {
                 KzIcon(isEnabled ? .folder : .folderMinus, size: 16)
                     .foregroundStyle(isActive ? KzColor.vineInk : KzColor.inkMuted)
                 Text(group.name)
-                    .kzTextStyle(.bodyStrong, matchLineBox: false)
+                    .font(WorkspaceTheme.body)
                     .foregroundStyle(isEnabled ? KzColor.ink : KzColor.inkMuted)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 let count = ctx.library.groupCounts[group.id] ?? 0
                 if count > 0 {
                     Text("\(count)")
-                        .kzTextStyle(.caption, matchLineBox: false)
+                        .font(WorkspaceTheme.caption)
                         .monospacedDigit()
                         .foregroundStyle(KzColor.inkMuted)
                 }
             }
             .padding(.leading, leadingInset)
         }
-        .buttonStyle(KzSidebarItemStyle(isActive: isActive))
+        .buttonStyle(WorkspaceNavigationStyle(isActive: isActive))
         .overlay(alignment: .leading) {
             if hasChildren {
                 Button { setExpanded(!isExpanded) } label: {

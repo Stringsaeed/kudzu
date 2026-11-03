@@ -9,10 +9,12 @@ import SwiftUI
 public struct KzTriggerInput: View {
     @Binding private var triggers: [String]
     private let placeholder: String
+    private let unboxed: Bool
     private let validate: (String) -> String?
     private let externalDraft: Binding<String>?
     private let externalError: Binding<String?>?
     private let onMove: ((Bool) -> Void)?
+    @Environment(\.isEnabled) private var enabled
     @State private var storedDraft = ""
     @State private var storedError: String?
     @State private var focused = false
@@ -21,9 +23,11 @@ public struct KzTriggerInput: View {
     /// `validate` returns a rejection reason or nil. Pass `draft` and `error` to keep an uncommitted
     /// entry when this view is recreated. `onMove` receives `true` for Tab and `false` for Shift-Tab
     /// after an empty or successfully committed draft; without it, Tab uses the key-view loop.
+    /// `unboxed` uses compact tokens and a hairline while retaining the same native entry field.
     public init(
         triggers: Binding<[String]>,
         placeholder: String = "Add trigger…",
+        unboxed: Bool = false,
         draft: Binding<String>? = nil,
         error: Binding<String?>? = nil,
         onMove: ((Bool) -> Void)? = nil,
@@ -31,6 +35,7 @@ public struct KzTriggerInput: View {
     ) {
         _triggers = triggers
         self.placeholder = placeholder
+        self.unboxed = unboxed
         self.validate = validate
         externalDraft = draft
         externalError = error
@@ -42,39 +47,62 @@ public struct KzTriggerInput: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            KzFieldWell(isFocused: focused) { state in
-                TriggerFlow {
-                    ForEach(Array(triggers.enumerated()), id: \.offset) { index, trigger in
-                        KzTriggerChip(trigger, widthPolicy: .constrained) { triggers.remove(at: index) }
-                            .help(trigger)
-                            .environment(\.kzPreviewInteraction, nil)
-                    }
-                    Group {
-                        if snapshot {
-                            Text(draft.wrappedValue.isEmpty ? placeholder : draft.wrappedValue).font(KzTextStyle.trigger.font)
-                        } else {
-                            KzTriggerDraftField(
-                                text: draft,
-                                focused: $focused,
-                                placeholder: placeholder,
-                                commit: commit,
-                                cancel: cancelDraft,
-                                removeLast: { if !triggers.isEmpty { triggers.removeLast() } },
-                                resign: { finish(cancelled: $0, isComposing: $1) },
-                                passes: passes,
-                                onMove: onMove
-                            )
-                        }
-                    }
-                    .foregroundStyle(state.isEnabled ? KzColor.inkMuted : KzDisabled.foreground)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(minWidth: 100, minHeight: 22).padding(.horizontal, 4)
-                }.padding(.horizontal, 6).padding(.vertical, 5).frame(minHeight: 34)
+            if unboxed {
+                input(enabled: enabled).overlay(alignment: .bottom) {
+                    (focused ? KzColor.vineInk : KzColor.line).frame(height: 1)
+                }
+            } else {
+                KzFieldWell(isFocused: focused) { state in input(enabled: state.isEnabled) }
             }
             if let message = error.wrappedValue {
                 Text(message).kzTextStyle(.caption).foregroundStyle(KzColor.danger).accessibilityLabel("Trigger rejected: \(message)")
             }
         }
+    }
+
+    private func input(enabled: Bool) -> some View {
+        TriggerFlow {
+            ForEach(Array(triggers.enumerated()), id: \.offset) { index, trigger in
+                if unboxed {
+                    HStack(spacing: 4) {
+                        Text(trigger).font(.system(size: 11, design: .monospaced)).lineLimit(1)
+                        Button { triggers.remove(at: index) } label: {
+                            Image(systemName: "xmark").font(.system(size: 8))
+                        }
+                        .buttonStyle(.plain).accessibilityLabel("Remove trigger \(trigger)")
+                    }
+                    .foregroundStyle(KzColor.vineInk)
+                    .padding(.horizontal, 5).padding(.vertical, 3)
+                    .help(trigger)
+                } else {
+                    KzTriggerChip(trigger, widthPolicy: .constrained) { triggers.remove(at: index) }
+                        .help(trigger)
+                        .environment(\.kzPreviewInteraction, nil)
+                }
+            }
+            Group {
+                if snapshot {
+                    Text(draft.wrappedValue.isEmpty ? placeholder : draft.wrappedValue)
+                        .font(unboxed ? .system(size: 11, design: .monospaced) : KzTextStyle.trigger.font)
+                } else {
+                    KzTriggerDraftField(
+                        text: draft,
+                        focused: $focused,
+                        placeholder: placeholder,
+                        commit: commit,
+                        cancel: cancelDraft,
+                        removeLast: { if !triggers.isEmpty { triggers.removeLast() } },
+                        resign: { finish(cancelled: $0, isComposing: $1) },
+                        passes: passes,
+                        onMove: onMove,
+                        unboxed: unboxed
+                    )
+                }
+            }
+            .foregroundStyle(enabled ? KzColor.inkMuted : KzDisabled.foreground)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 100, minHeight: 22).padding(.horizontal, 4)
+        }.padding(.horizontal, 6).padding(.vertical, 5).frame(minHeight: 34)
     }
 
     /// Saves a valid draft. Returns false when there is nothing to save or the text was rejected.
@@ -158,6 +186,7 @@ struct KzTriggerDraftField: NSViewRepresentable {
     let resign: (Bool, Bool) -> Void
     var passes: (String) -> Bool = { _ in true }
     var onMove: ((Bool) -> Void)?
+    var unboxed = false
     @Environment(\.isEnabled) private var enabled
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -174,9 +203,12 @@ struct KzTriggerDraftField: NSViewRepresentable {
         context.coordinator.parent = self
         let composing = (field.currentEditor() as? NSTextView)?.hasMarkedText() == true
         if !composing, field.stringValue != text { field.stringValue = text }
+        field.font = unboxed ? .monospacedSystemFont(ofSize: 11, weight: .regular) : KzTextStyle.trigger.nsFont
         field.isEnabled = enabled
         field.textColor = enabled ? KzColorToken.ink.nsColor : KzColorToken.inkFaint.nsColor
-        field.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: KzTextStyle.trigger.attributes(color: KzColorToken.inkMuted.nsColor))
+        field.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: unboxed
+            ? [.font: field.font ?? KzTextStyle.trigger.nsFont, .foregroundColor: KzColorToken.inkMuted.nsColor]
+            : KzTextStyle.trigger.attributes(color: KzColorToken.inkMuted.nsColor))
     }
     @MainActor final class Coordinator: NSObject, NSTextFieldDelegate {
         var parent: KzTriggerDraftField

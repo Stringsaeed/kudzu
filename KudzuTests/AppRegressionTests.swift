@@ -71,16 +71,21 @@ private final class OffscreenTestWindow: NSWindow {
         #expect(try store.library().snippets.first?.triggers == [";one", "かな"])
     }
 
-    @Test func actualLibraryControlsAcceptResultsAndEditorFocusRequests() async throws {
+    @Test(arguments: [CGSize(width: 1180, height: 760), CGSize(width: 900, height: 600), CGSize(width: 862, height: 480)])
+    func actualLibraryControlsAcceptResultsAndEditorFocusRequests(size: CGSize) async throws {
         let store = try KudzuStore.inMemory()
-        let snippet = SnippetRecord(name: "Focus test", triggers: [";focus"], content: "Editable text")
+        let triggers = size.width == 862 ? (0..<24).map { ";long-trigger-\($0)" } : [";focus"]
+        let snippet = SnippetRecord(name: "Focus test", triggers: triggers, content: "Editable text")
         try store.upsert(snippet)
         let library = LibraryModel(store: store)
         library.ensureLoaded()
         let browser = BrowserState()
+        let defaultsName = "sh.saeed.kudzu.focus-test.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: defaultsName))
+        defer { defaults.removePersistentDomain(forName: defaultsName) }
         let host = NSHostingView(rootView: LibraryFocusHarness()
-            .environment(library).environment(browser))
-        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+            .environment(library).environment(browser).defaultAppStorage(defaults))
+        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: size.width, height: size.height),
                                         styleMask: [.titled, .resizable], backing: .buffered, defer: false)
         window.contentView = host
         host.layoutSubtreeIfNeeded()
@@ -90,11 +95,40 @@ private final class OffscreenTestWindow: NSWindow {
         try await Task.sleep(for: .milliseconds(120))
         #expect(window.firstResponder is NSTableView)
         #expect(browser.selection == [snippet.id])
+        browser.paneRequest = .editor(.name)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(200))
+        let nameEditor = try #require(window.firstResponder as? NSTextView)
+        #expect(nameEditor.string == "Focus test")
+        #expect(nameEditor.isFieldEditor)
+        #expect(nameEditor.delegate is NSTextField)
+        browser.paneRequest = .editor(.trigger)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(200))
+        let triggerEditor = try #require(window.firstResponder as? NSTextView)
+        #expect((triggerEditor.delegate as? NSTextField)?.accessibilityIdentifier() == "kudzu.trigger")
         browser.paneRequest = .editor(.content)
         host.layoutSubtreeIfNeeded()
         try await Task.sleep(for: .milliseconds(200))
         #expect(window.firstResponder is ChipTextView)
         #expect((window.firstResponder as? NSTextView)?.string == "Editable text")
+        let textView = try #require(window.firstResponder as? ChipTextView)
+        let scroll = try #require(textView.enclosingScrollView)
+        let editorFrame = host.convert(scroll.bounds, from: scroll)
+        #expect(editorFrame.width >= 300)
+        #expect(editorFrame.height >= 100)
+        #expect(editorFrame.minX >= 480)
+        #expect(editorFrame.maxX <= host.bounds.maxX + 1)
+        #expect(editorFrame.minY >= host.bounds.minY)
+        #expect(editorFrame.maxY <= host.bounds.maxY + 1)
+        defaults.set(true, forKey: "editor.previewExpanded")
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(window.firstResponder === textView)
+        let previewEditorFrame = host.convert(scroll.bounds, from: scroll)
+        #expect(previewEditorFrame.height >= 100)
+        #expect(previewEditorFrame.minY >= host.bounds.minY)
+        #expect(previewEditorFrame.maxY <= host.bounds.maxY + 1)
 
     }
 

@@ -5,12 +5,12 @@ import SwiftUI
 
 /// The detail pane for one snippet. Recreate with `.id(snippet.id)` when the selection changes.
 ///
-/// A toolbar, name, triggers and content, with preview and options in disclosures and save state in the footer. Edits go to
-/// `SnippetEditorModel`, which saves explicitly or when leaving the editor.
+/// A document surface with an optional preview and options drawer. The retained model owns explicit saves and navigation guards.
 struct SnippetEditorView: View {
     @Environment(LibraryModel.self) private var library
     @Environment(BrowserState.self) private var browser
     @Environment(\.kzSnapshotRendering) private var snapshotRendering
+    @Environment(\.workspaceInspectorSnapshot) private var inspectorSnapshot
 
     /// Identifies this editor; the library reconciles stored changes into the retained model.
     let snippet: SnippetRecord
@@ -18,8 +18,7 @@ struct SnippetEditorView: View {
     @State private var triggerAnchor = ViewAnchor()
     @State private var editor = TemplateEditorController()
     @FocusState private var nameFocused: Bool
-    @AppStorage("editor.rulesExpanded") private var rulesExpanded = false
-    @AppStorage("editor.advancedExpanded") private var advancedExpanded = false
+    @State private var inspectorPresented = false
     @AppStorage("editor.previewExpanded") private var previewExpanded = false
 
     init(snippet: SnippetRecord, library: LibraryModel) {
@@ -30,13 +29,11 @@ struct SnippetEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if snapshotRendering {
-                // Offscreen renderers don't draw scroll views' content.
-                form.frame(minHeight: 0, maxHeight: .infinity, alignment: .top).clipped()
-            } else {
-                ScrollView { form }
-                    .scrollContentBackground(.hidden)
-            }
+            form
+                .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
+                .overlay(alignment: .trailing) {
+                    if snapshotRendering && inspectorSnapshot { inspector }
+                }
             footer
         }
         .onAppear {
@@ -96,27 +93,57 @@ struct SnippetEditorView: View {
     }
 
     private var form: some View {
-        let draft = model.draft
-        return VStack(alignment: .leading, spacing: KzSpace.s5) {
-            nameField(draft)
-            triggersField(draft)
+        VStack(alignment: .leading, spacing: 12) {
+            nameField(model.draft)
+            WorkspaceTriggerArea { triggersField(model.draft) }
             contentField
-            KzDisclosure("Rules", summary: rulesSummary(draft), isExpanded: $rulesExpanded) {
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 18)
+        .padding(.bottom, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var inspector: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("Snippet options").font(WorkspaceTheme.label)
+                Spacer()
+                WorkspaceIconButton("xmark", "Close snippet options") {
+                    inspectorPresented = false
+                }
+            }
+            .padding(12)
+            Divider()
+            if snapshotRendering {
+                inspectorContent.frame(maxHeight: .infinity, alignment: .top).clipped()
+            } else {
+                ScrollView { inspectorContent }
+            }
+        }
+        .frame(width: 310)
+        .frame(maxHeight: .infinity)
+        .background(WorkspaceTheme.navigation)
+        .overlay(alignment: .leading) { WorkspaceTheme.line.frame(width: 1) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Snippet options")
+    }
+
+    private var inspectorContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            WorkspaceSection("Rules", description: rulesSummary(model.draft)) {
                 RulesSection(
-                    rule: model.binding(\.rule),
-                    insertion: model.binding(\.insertion),
-                    inherited: library.tree.inheritedSettings(forGroup: draft.groupID),
+                    rule: model.binding(\.rule), insertion: model.binding(\.insertion),
+                    inherited: library.tree.inheritedSettings(forGroup: model.draft.groupID),
                     defaultInsertion: AppMatchingSettings.shared.defaultInsertion
                 )
             }
-            KzDisclosure("Advanced", summary: AdvancedSection.summary(for: draft), isExpanded: $advancedExpanded) {
-                AdvancedSection(model: model)
-            }
+            WorkspaceSection("Advanced") { AdvancedSection(model: model) }
+            Text("Created \(model.draft.createdAt.formatted())\nEdited \(model.draft.updatedAt.formatted())")
+                .font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+                .textSelection(.enabled)
         }
-        .padding(.horizontal, KzSpace.s4)
-        .padding(.top, KzSpace.s2)
-        .padding(.bottom, KzSpace.s6)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
     }
 
     // MARK: - Header
@@ -126,60 +153,54 @@ struct SnippetEditorView: View {
         let groupName = draft.groupID.flatMap { library.tree.group($0)?.name } ?? "No group"
         let groupPath = library.groupPath(of: draft) ?? "No group"
         let mainTrigger = draft.triggers.first ?? "No trigger"
-        return KzPaneHeader(leading: KzSpace.s4, trailing: KzSpace.s4) {
-            HStack(spacing: 2) {
-                KzIconButton(.copy, label: "Duplicate (⌘D)", size: .sm) {
-                    let copies = browser.duplicateSnippets([snippet.id], in: library)
-                    if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
-                }
-                KzIconButton(.folder, label: "Move to group", caret: true, size: .sm,
-                             menuTitle: "Move to group") { moveToGroupMenu }
-                KzIconButton(draft.isEnabled ? .pause : .play,
-                             label: draft.isEnabled ? "Disable snippet" : "Enable snippet", size: .sm) {
-                    model.edit { $0.isEnabled.toggle() }
-                }
-                .accessibilityValue(draft.isEnabled ? "Enabled" : "Disabled")
+        return HStack(spacing: 4) {
+            WorkspaceIconButton("doc.on.doc", "Duplicate (⌘D)") {
+                let copies = browser.duplicateSnippets([snippet.id], in: library)
+                if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
             }
-            .layoutPriority(1)
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Snippet actions")
-
-            Spacer(minLength: KzSpace.s2)
-
+            WorkspaceMenu {
+                Button { model.edit { $0.groupID = nil } } label: {
+                    if draft.groupID == nil { Label("No group", systemImage: "checkmark") }
+                    else { Text("No group") }
+                }
+                Divider()
+                ForEach(library.tree.allGroups) { group in
+                    Button { model.edit { $0.groupID = group.id } } label: {
+                        let path = library.tree.path(to: group.id).joined(separator: " / ")
+                        if draft.groupID == group.id { Label(path, systemImage: "checkmark") }
+                        else { Text(path) }
+                    }
+                }
+            } label: { Image(systemName: "folder").frame(width: 28, height: 28) }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .tint(WorkspaceTheme.secondary)
+            .help("Move to group").accessibilityLabel("Move to group")
+            WorkspaceIconButton(draft.isEnabled ? "pause" : "play", draft.isEnabled ? "Disable snippet" : "Enable snippet") {
+                model.edit { $0.isEnabled.toggle() }
+            }
+            .accessibilityValue(draft.isEnabled ? "Enabled" : "Disabled")
+            WorkspaceIconButton("slider.horizontal.3", "Rules and advanced options") {
+                inspectorPresented.toggle()
+            }
+            .accessibilityValue(inspectorPresented ? "Shown" : "Hidden")
+            .popover(isPresented: $inspectorPresented, arrowEdge: .bottom) {
+                inspector.frame(height: 420)
+            }
+            Spacer(minLength: 8)
             HStack(spacing: 6) {
-                Text(groupName)
-                    .kzTextStyle(.caption)
-                    .lineLimit(1)
-                    .truncationMode(.head)
-                    .help(groupPath)
-                Text("/")
-                    .kzTextStyle(.caption)
-                    .accessibilityHidden(true)
-                Text(mainTrigger)
-                    .kzTextStyle(.monoCaption)
-                    .lineLimit(1)
-                    .help(mainTrigger)
-                KzIconButton(draft.isFavorite ? .starFill : .star,
-                             label: draft.isFavorite ? "Remove from favorites" : "Add to favorites",
-                             size: .sm, tone: .bloom) {
+                Text(groupName).lineLimit(1).truncationMode(.head).help(groupPath)
+                Text("/").accessibilityHidden(true)
+                Text(mainTrigger).font(WorkspaceTheme.mono).lineLimit(1).help(mainTrigger)
+                WorkspaceIconButton(draft.isFavorite ? "star.fill" : "star", draft.isFavorite ? "Remove from favorites" : "Add to favorites") {
                     model.edit { $0.isFavorite.toggle() }
                 }
             }
-            .foregroundStyle(KzColor.inkMuted)
+            .font(WorkspaceTheme.caption)
+            .foregroundStyle(WorkspaceTheme.secondary)
         }
-    }
-
-    @KzMenuBuilder
-    private var moveToGroupMenu: [KzMenuElement] {
-        let draft = model.draft
-        let groups = library.tree.allGroups
-        KzMenuItem("No group", isChecked: draft.groupID == nil) { model.edit { $0.groupID = nil } }
-        if !groups.isEmpty { KzMenuSeparator() }
-        for group in groups {
-            KzMenuItem(library.tree.path(to: group.id).joined(separator: " / "), isChecked: draft.groupID == group.id) {
-                model.edit { $0.groupID = group.id }
-            }
-        }
+        .padding(.horizontal, 14).frame(height: 52)
+        .overlay(alignment: .bottom) { WorkspaceTheme.line.frame(height: 1) }
+        .kzWindowDragArea()
     }
 
     // MARK: - Fields
@@ -188,13 +209,13 @@ struct SnippetEditorView: View {
     private func nameField(_ draft: SnippetRecord) -> some View {
         if snapshotRendering {
             Text(draft.name.isEmpty ? "Untitled" : draft.name)
-                .kzTextStyle(.titleLg)
+                .font(WorkspaceTheme.title)
                 .foregroundStyle(KzColor.ink)
                 .lineLimit(2)
         } else {
             TextField("Name", text: model.binding(\.name), prompt: Text("Untitled").foregroundStyle(KzColor.inkFaint))
                 .textFieldStyle(.plain)
-                .kzTextStyle(.titleLg)
+                .font(WorkspaceTheme.title)
                 .foregroundStyle(KzColor.ink)
                 .focused($nameFocused)
                 .accessibilityIdentifier("kudzu.editor.name")
@@ -205,11 +226,12 @@ struct SnippetEditorView: View {
     private func triggersField(_ draft: SnippetRecord) -> some View {
         let notes = conflictNotes(for: draft)
         let caseSensitive = draft.caseMode == .exact
-        return KzField("Triggers", aside: "Space, tab, or return to add") {
+        return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: KzSpace.s2) {
                 KzTriggerInput(
                     triggers: model.binding(\.triggers),
                     placeholder: draft.triggers.isEmpty ? "Add a trigger, e.g. ;sig" : "Add trigger…",
+                    unboxed: true,
                     draft: browser.triggerText(for: snippet.id),
                     error: browser.triggerError(for: snippet.id),
                     onMove: { forward in
@@ -219,6 +241,7 @@ struct SnippetEditorView: View {
                     Self.rejection(for: candidate, existing: model.draft.triggers, caseSensitive: caseSensitive)
                 }
                 .viewAnchor(triggerAnchor)
+                .help("Triggers — Space, Tab or Return to add")
                 if draft.triggers.isEmpty && draft.isEnabled {
                     EditorNote(icon: .warning, tone: .warning, text: AttributedString("Add a trigger, or this snippet will never expand."))
                 }
@@ -235,40 +258,49 @@ struct SnippetEditorView: View {
     }
 
     private var contentField: some View {
-        VStack(alignment: .leading, spacing: KzSpace.s2) {
-            HStack {
-                Text("Content")
-                    .kzTextStyle(.headline)
-                    .foregroundStyle(KzColor.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: KzSpace.s2)
-                KzButton("Preview", variant: previewExpanded ? .secondary : .ghost, size: .sm,
-                         iconEnd: previewExpanded ? .chevronDown : .chevronRight) {
-                    previewExpanded.toggle()
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Text("Content").font(WorkspaceTheme.label)
+                    .foregroundStyle(WorkspaceTheme.secondary).accessibilityAddTraits(.isHeader)
+                InsertTagButton { editor.insert($0) }
+                Spacer(minLength: 0)
+                Button { previewExpanded.toggle() } label: {
+                    Label("Preview", systemImage: previewExpanded ? "eye.fill" : "eye")
                 }
+                .buttonStyle(.plain).font(WorkspaceTheme.caption)
+                .foregroundStyle(previewExpanded ? WorkspaceTheme.accent : WorkspaceTheme.secondary)
                 .accessibilityLabel(previewExpanded ? "Hide preview" : "Show preview")
                 .accessibilityValue(previewExpanded ? "Shown" : "Hidden")
             }
-            KzEditorFrame(minHeight: 160, isFocused: editor.isFocused) {
-                InsertTagButton { editor.insert($0) }
-            } content: {
+            .padding(.vertical, 10)
+            // This editor keeps its structural identity when preview and options change.
+            Group {
                 if snapshotRendering {
                     Text(model.draft.content)
-                        .kzTextStyle(.content)
-                        .foregroundStyle(KzColor.ink)
-                        .padding(.horizontal, KzEditorStyle.containerInset.width)
-                        .padding(.vertical, KzEditorStyle.containerInset.height)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        .font(.system(size: 14)).foregroundStyle(WorkspaceTheme.ink)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 } else {
                     TemplateTextEditor(source: model.binding(\.content), snippets: library.snippets, currentSnippetID: snippet.id)
-                        .frame(minHeight: 180, idealHeight: 220)
                         .templateEditorController(editor)
                 }
             }
+            .frame(minHeight: 100, maxHeight: .infinity)
             if previewExpanded {
-                SnippetPreviewView(content: model.draft.content, rootSnippetID: snippet.id, showsLabel: false)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityLabel("Expanded text preview")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Expanded text").font(WorkspaceTheme.caption).foregroundStyle(WorkspaceTheme.secondary)
+                    if snapshotRendering {
+                        SnippetPreviewView(content: model.draft.content, rootSnippetID: snippet.id, showsLabel: false)
+                    } else {
+                        ScrollView {
+                            SnippetPreviewView(content: model.draft.content, rootSnippetID: snippet.id, showsLabel: false)
+                        }
+                    }
+                }
+                .padding(.top, 12)
+                .frame(maxHeight: 160)
+                .overlay(alignment: .top) { WorkspaceTheme.line.frame(height: 1) }
+                .accessibilityElement(children: .contain).accessibilityLabel("Expanded text preview")
             }
         }
     }
@@ -285,7 +317,7 @@ struct SnippetEditorView: View {
         return VStack(alignment: .leading, spacing: 0) {
             if let error = model.saveError {
                 Text(error)
-                    .kzTextStyle(.caption)
+                    .font(WorkspaceTheme.caption)
                     .foregroundStyle(KzColor.danger)
                     .fixedSize(horizontal: false, vertical: true)
                     .textSelection(.enabled)
@@ -299,21 +331,21 @@ struct SnippetEditorView: View {
                             .frame(width: 5, height: 5)
                             .accessibilityHidden(true)
                         Text(model.saveError == nil ? "Edited" : "Not saved")
-                            .kzTextStyle(.caption)
+                            .font(WorkspaceTheme.caption)
                     }
                     .foregroundStyle(KzColor.inkMuted)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(model.saveError == nil ? "Unsaved changes" : "Changes could not be saved")
                     Spacer(minLength: KzSpace.s2)
-                    KzButton("Discard", variant: .ghost, size: .sm, action: discardChanges)
+                    Button("Discard", action: discardChanges).buttonStyle(.plain).padding(.horizontal, 6)
                         .accessibilityLabel("Discard changes")
                         .help("Discard unsaved changes")
-                    KzButton("Save", size: .sm, action: saveChanges)
+                    Button("Save", action: saveChanges).buttonStyle(.borderedProminent).controlSize(.small).tint(WorkspaceTheme.accent)
                         .accessibilityLabel("Save changes")
                         .help("Save changes (⌘S)")
                 } else {
                     Text(text)
-                        .kzTextStyle(.caption)
+                        .font(WorkspaceTheme.caption)
                         .foregroundStyle(KzColor.inkMuted)
                         .lineLimit(1)
                         .help(text)
@@ -321,7 +353,7 @@ struct SnippetEditorView: View {
                 }
             }
             .padding(.horizontal, KzSpace.s4)
-            .frame(height: 44)
+            .frame(height: 38)
         }
         .background(KzColor.surfaceRaised)
         .overlay(alignment: .top) { Rectangle().fill(KzColor.line).frame(height: 1) }
@@ -517,25 +549,26 @@ private struct InsertTagButton: View {
     let insert: @MainActor (TemplateInsertItem) -> Void
 
     var body: some View {
-        KzButton("Insert", variant: .ghost, size: .sm, icon: .plus, iconEnd: .chevronDown, menuTitle: "Insert tag") {
-            KzMenuHeader("Dates")
-            item(.date)
-            item(.time)
-            KzMenuHeader("Text")
-            item(.clipboard)
-            item(.cursor)
-            KzMenuHeader("Ask when expanding")
-            item(.field)
-            item(.choice)
-            KzMenuHeader("Snippets")
-            item(.snippet)
+        WorkspaceMenu {
+            Section("Dates") { item(.date); item(.time) }
+            Section("Text") { item(.clipboard); item(.cursor) }
+            Section("Ask when expanding") { item(.field); item(.choice) }
+            Section("Snippets") { item(.snippet) }
+        } label: {
+            HStack(spacing: 4) {
+                Label("Insert tag", systemImage: "plus")
+                Image(systemName: "chevron.down").font(.system(size: 8))
+            }.font(WorkspaceTheme.caption)
         }
+        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .foregroundStyle(WorkspaceTheme.secondary)
         .help("Insert a date, field, snippet or other tag")
     }
 
-    private func item(_ item: TemplateInsertItem) -> KzMenuItem {
-        KzMenuItem(item.menuTitle, icon: item.kzIcon) { insert(item) }
+    private func item(_ item: TemplateInsertItem) -> some View {
+        Button(item.menuTitle) { insert(item) }
     }
+
 }
 
 extension TemplateInsertItem {
