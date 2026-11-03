@@ -56,6 +56,65 @@ private final class FocusTestHost: NSView {
     override var acceptsFirstResponder: Bool { true }
 }
 
+private final class FullscreenTestWindow: NSWindow {
+    var simulatedChildren: [NSWindow] = []
+    var simulatedSheet: NSWindow?
+    override var childWindows: [NSWindow]? { simulatedChildren }
+    override var attachedSheet: NSWindow? { simulatedSheet }
+    override var isKeyWindow: Bool { true }
+}
+
+private final class VisibleFullscreenChrome: NSWindow {
+    override var isVisible: Bool { true }
+    override var canBecomeKey: Bool { false }
+}
+
+private final class VisibleDialog: NSPanel {
+    override var isVisible: Bool { true }
+    override var canBecomeKey: Bool { true }
+}
+
+@Test @MainActor func fullscreenChromeDoesNotBlockTheCloseButton() {
+    let window = FullscreenTestWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+    let chrome = VisibleFullscreenChrome(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
+    chrome.collectionBehavior = [.fullScreenAuxiliary]
+    window.simulatedChildren = [chrome]
+    let host = FocusTestHost()
+    window.contentView?.addSubview(host)
+    let session = SettingsModalFocusSession()
+    var closed = false
+    session.close = { closed = true }
+    session.begin(in: host)
+    defer { session.end() }
+    #expect(!SettingsModalFocusSession.hasNestedPresentation(in: window))
+    session.requestClose()
+    #expect(closed)
+}
+
+@Test @MainActor func explicitCloseDoesNotDependOnKeyboardHostAttachment() {
+    let session = SettingsModalFocusSession()
+    var closed = false
+    session.close = { closed = true }
+    session.requestClose()
+    #expect(closed)
+}
+
+@Test @MainActor func theCloseButtonStillRespectsAnActualDialog() {
+    let window = FullscreenTestWindow(contentRect: .zero, styleMask: [.titled], backing: .buffered, defer: false)
+    window.simulatedChildren = [VisibleDialog(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)]
+    window.simulatedSheet = window.simulatedChildren.first
+    let host = FocusTestHost()
+    window.contentView?.addSubview(host)
+    let session = SettingsModalFocusSession()
+    var closed = false
+    session.close = { closed = true }
+    session.begin(in: host)
+    defer { session.end() }
+    #expect(SettingsModalFocusSession.hasNestedPresentation(in: window))
+    session.requestClose()
+    #expect(!closed)
+}
+
 @Test @MainActor func closingRestoresEditorAndInsertionSelection() {
     let window = FocusTestWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
                                  styleMask: [.titled], backing: .buffered, defer: false)

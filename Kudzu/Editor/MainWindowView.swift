@@ -215,7 +215,7 @@ private struct MainWindowContent: View {
         let control = MainWindowFocus.control(in: window)
         let stored = browser.selection.first.flatMap { browser.uncommittedTriggers[$0]?.text }
         let composing = (window.firstResponder as? NSTextView)?.hasMarkedText() == true
-        let panelChild = (window.childWindows ?? []).contains { $0.isVisible }
+        let panelChild = SettingsModalFocusSession.hasNestedPresentation(in: window)
         let transient = composing
             || KzMenu.isOpen
             || window.attachedSheet != nil

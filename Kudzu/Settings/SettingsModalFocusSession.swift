@@ -23,7 +23,7 @@ final class SettingsModalFocusSession {
     var keyboardCaptured = false
 
     static func hasNestedPresentation(in window: NSWindow) -> Bool {
-        window.attachedSheet != nil || (window.childWindows ?? []).contains { $0.isVisible }
+        window.attachedSheet != nil || (window.childWindows ?? []).contains { $0.isVisible && $0.canBecomeKey }
     }
 
     static func canHandleKeys(in window: NSWindow, keyWindow: NSWindow?, hasNestedPresentation: Bool,
@@ -55,9 +55,9 @@ final class SettingsModalFocusSession {
     }
 
     func requestClose() {
-        guard let window = host?.window,
-              Self.canHandleKeys(in: window, keyWindow: NSApp.keyWindow,
-                                 hasNestedPresentation: Self.hasNestedPresentation(in: window)) else { return }
+        // The close button expresses explicit intent even while fullscreen chrome owns activation.
+        // Keyboard events already pass the focus and nested-presentation checks in handle(_:).
+        guard (host?.window ?? window)?.attachedSheet == nil else { return }
         close()
     }
 
