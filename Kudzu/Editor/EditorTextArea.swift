@@ -15,12 +15,21 @@ struct EditorTextArea<Content: View, Preview: View>: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let previewHeight = previewVisible ? min(160, max(0, geometry.size.height - minimumHeight - 12)) : 0
-            let maximumHeight = max(minimumHeight, geometry.size.height - (previewVisible ? previewHeight + 12 : 0))
+            let maximumHeight = max(minimumHeight, geometry.size.height)
             let height = min(maximumHeight, max(minimumHeight, preferredHeight > 0 ? preferredHeight : maximumHeight))
             VStack(spacing: 0) {
                 VStack(spacing: 0) {
-                    content().frame(maxWidth: .infinity, maxHeight: .infinity)
+                    ZStack {
+                        content()
+                            .opacity(previewVisible ? 0 : 1)
+                            .disabled(previewVisible)
+                            .allowsHitTesting(!previewVisible)
+                            .accessibilityHidden(previewVisible)
+                        if previewVisible {
+                            preview()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     WorkspaceTheme.line.frame(height: 1)
                     resizeGrip(height: height, maximum: maximumHeight)
                 }
@@ -28,10 +37,7 @@ struct EditorTextArea<Content: View, Preview: View>: View {
                 .background(Color(nsColor: .textBackgroundColor))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6)
-                    .strokeBorder(isFocused ? WorkspaceTheme.accent : WorkspaceTheme.line, lineWidth: 1))
-                if previewVisible, previewHeight > 0 {
-                    preview().frame(height: previewHeight).padding(.top, 12)
-                }
+                    .strokeBorder(isFocused && !previewVisible ? WorkspaceTheme.accent : WorkspaceTheme.line, lineWidth: 1))
                 Spacer(minLength: 0)
             }
         }

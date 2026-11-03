@@ -20,7 +20,8 @@ final class TemplateEditorController {
     /// Makes the content editor first responder. Returns false when the text view is not in a window yet.
     @discardableResult
     func focus() -> Bool {
-        guard let textView = coordinator?.textView, let window = textView.window else { return false }
+        guard let textView = coordinator?.textView, textView.isEditable,
+              let window = textView.window else { return false }
         return window.makeFirstResponder(textView)
     }
 
@@ -55,6 +56,7 @@ extension View {
 
 /// Hosts the TextKit 1 chip text view in SwiftUI.
 struct ChipTextViewRepresentable: NSViewRepresentable {
+    @Environment(\.isEnabled) private var isEnabled
     @Binding var source: String
     var snippets: [SnippetRecord]
     var currentSnippetID: UUID?
@@ -82,6 +84,13 @@ struct ChipTextViewRepresentable: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         controller.coordinator = context.coordinator
         context.coordinator.update(configuration)
+        if let textView = context.coordinator.textView {
+            if !isEnabled, textView.window?.firstResponder === textView {
+                textView.window?.makeFirstResponder(nil)
+            }
+            textView.isEditable = isEnabled
+            textView.isSelectable = isEnabled
+        }
     }
 
     static func dismantleNSView(_ scrollView: NSScrollView, coordinator: TemplateEditorCoordinator) {

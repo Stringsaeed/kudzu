@@ -55,6 +55,23 @@ private final class OffscreenTestWindow: NSWindow {
         scroll.contentView.scroll(to: NSPoint(x: 0, y: 300))
         scroll.reflectScrolledClipView(scroll.contentView)
         #expect(scroll.contentView.bounds.minY > 0)
+        let scrollPosition = scroll.contentView.bounds.origin
+        let editorSize = scroll.frame.size
+        state.previewVisible = true
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        #expect(findEditor(in: host) === editor)
+        #expect(!editor.isEditable)
+        #expect(!editor.isSelectable)
+        #expect(window.firstResponder !== editor)
+        #expect(scroll.frame.size == editorSize)
+        state.previewVisible = false
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        #expect(editor.isEditable)
+        #expect(editor.selectedRange() == selection)
+        #expect(scroll.contentView.bounds.origin == scrollPosition)
+        #expect(editor.undoManager?.canUndo == true)
         editor.undoManager?.undo()
         #expect(state.text == String(repeating: "Line of text\n", count: 200))
     }
@@ -169,11 +186,17 @@ private final class OffscreenTestWindow: NSWindow {
         defaults.set(true, forKey: "editor.previewExpanded")
         host.layoutSubtreeIfNeeded()
         try await Task.sleep(for: .milliseconds(100))
-        #expect(window.firstResponder === textView)
+        #expect(window.firstResponder !== textView)
+        #expect(!textView.isEditable)
         let previewEditorFrame = host.convert(scroll.bounds, from: scroll)
         #expect(previewEditorFrame.height >= 100)
         #expect(previewEditorFrame.minY >= host.bounds.minY)
         #expect(previewEditorFrame.maxY <= host.bounds.maxY + 1)
+        browser.paneRequest = .editor(.content)
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(window.firstResponder === textView)
+        #expect(textView.isEditable)
 
     }
 
@@ -640,6 +663,7 @@ private struct SettingsGeometryHarness: View {
 @MainActor @Observable
 private final class TextAreaFixtureState {
     var height = 220.0
+    var previewVisible = false
     var text = String(repeating: "Line of text\n", count: 200)
 }
 
@@ -648,8 +672,8 @@ private struct TextAreaFixture: View {
     @State private var controller = TemplateEditorController()
 
     var body: some View {
-        EditorTextArea(preferredHeight: $state.height, isFocused: controller.isFocused, previewVisible: false) {
+        EditorTextArea(preferredHeight: $state.height, isFocused: controller.isFocused, previewVisible: state.previewVisible) {
             TemplateTextEditor(source: $state.text).templateEditorController(controller)
-        } preview: { EmptyView() }
+        } preview: { ScrollView { Text(state.text) } }
     }
 }

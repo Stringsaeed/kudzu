@@ -264,13 +264,14 @@ struct SnippetEditorView: View {
                 Text("Content").font(WorkspaceTheme.label)
                     .foregroundStyle(WorkspaceTheme.secondary).accessibilityAddTraits(.isHeader)
                 InsertTagButton { editor.insert($0) }
+                    .disabled(previewExpanded)
                 Spacer(minLength: 0)
                 Button { previewExpanded.toggle() } label: {
-                    Label("Preview", systemImage: previewExpanded ? "eye.fill" : "eye")
+                    Label(previewExpanded ? "Edit" : "Preview", systemImage: previewExpanded ? "pencil" : "eye")
                 }
                 .buttonStyle(.plain).font(WorkspaceTheme.caption)
                 .foregroundStyle(previewExpanded ? WorkspaceTheme.accent : WorkspaceTheme.secondary)
-                .accessibilityLabel(previewExpanded ? "Hide preview" : "Show preview")
+                .accessibilityLabel(previewExpanded ? "Edit content" : "Show preview")
                 .accessibilityValue(previewExpanded ? "Shown" : "Hidden")
             }
             .padding(.vertical, 10)
@@ -296,7 +297,15 @@ struct SnippetEditorView: View {
                         }
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .accessibilityElement(children: .contain).accessibilityLabel("Expanded text preview")
+            }
+            .onChange(of: previewExpanded) { _, visible in
+                if !visible {
+                    DispatchQueue.main.async { editor.focus() }
+                }
             }
 
         }
@@ -411,6 +420,7 @@ struct SnippetEditorView: View {
         case .trigger:
             return focusTriggerField()
         case .content:
+            previewExpanded = false
             return editor.focus()
         }
     }
