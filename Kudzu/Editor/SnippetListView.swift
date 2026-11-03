@@ -243,7 +243,7 @@ enum SnippetMenus {
         let allEnabled = !snippets.isEmpty && snippets.allSatisfy(\.isEnabled)
 
         KzMenuItem("Duplicate", icon: .copy) {
-            let copies = library.duplicate(ids)
+            let copies = browser.duplicateSnippets(ids, in: library)
             if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
         }
         .keyboardShortcut("d")

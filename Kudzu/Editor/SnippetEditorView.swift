@@ -172,7 +172,7 @@ struct SnippetEditorView: View {
         let draft = model.draft
         let groups = library.tree.allGroups
         KzMenuItem("Duplicate", icon: .copy) {
-            let copies = library.duplicate([snippet.id])
+            let copies = browser.duplicateSnippets([snippet.id], in: library)
             if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
         }
         .keyboardShortcut("d")

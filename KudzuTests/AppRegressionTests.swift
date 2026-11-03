@@ -14,6 +14,34 @@ private final class OffscreenTestWindow: NSWindow {
 
 @MainActor
 @Suite struct AppRegressionTests {
+    @Test func saveBoundaryLeavesMarkedTriggerTextToTheInputMethod() throws {
+        let store = try KudzuStore.inMemory()
+        let snippet = SnippetRecord(name: "IME", triggers: [";one"], content: "Text")
+        try store.upsert(snippet)
+        let library = LibraryModel(store: store)
+        library.ensureLoaded()
+        let browser = BrowserState()
+        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 100),
+                                        styleMask: [.titled], backing: .buffered, defer: false)
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 30))
+        window.contentView?.addSubview(field)
+        field.selectText(nil)
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        editor.setMarkedText("かな", selectedRange: NSRange(location: 2, length: 0),
+                             replacementRange: NSRange(location: NSNotFound, length: 0))
+        browser.inputIsComposing = { editor.hasMarkedText() }
+        browser.triggerText(for: snippet.id).wrappedValue = editor.string
+        #expect(editor.hasMarkedText())
+        #expect(!browser.commitTriggerEntry(snippet.id, in: library))
+        #expect(try store.library().snippets == [snippet])
+        #expect(browser.uncommittedTriggers[snippet.id]?.text == "かな")
+        #expect(editor.hasMarkedText())
+        editor.unmarkText()
+        #expect(browser.commitTriggerEntry(snippet.id, in: library))
+        #expect(library.savePendingDrafts())
+        #expect(try store.library().snippets.first?.triggers == [";one", "かな"])
+    }
+
     @Test func actualLibraryControlsAcceptResultsAndEditorFocusRequests() async throws {
         let store = try KudzuStore.inMemory()
         let snippet = SnippetRecord(name: "Focus test", triggers: [";focus"], content: "Editable text")

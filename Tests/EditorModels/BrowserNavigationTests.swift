@@ -7,6 +7,41 @@ import Testing
 struct BrowserNavigationTests {
     enum Failure: Error { case unavailable }
 
+    @Test func duplicateIncludesAValidUnfinishedTrigger() throws {
+        let store = try KudzuStore.inMemory()
+        let snippet = SnippetRecord(name: "First", triggers: [";one"], content: "Text")
+        try store.upsert(snippet)
+        let library = LibraryModel(store: store)
+        library.ensureLoaded()
+        let browser = BrowserState()
+        browser.triggerText(for: snippet.id).wrappedValue = ";alias"
+        let ids = browser.duplicateSnippets([snippet.id], in: library)
+        let id = try #require(ids.first)
+        #expect(library.snippetsByID[id]?.triggers == [";one2", ";alias2"])
+        #expect(library.snippetsByID[snippet.id]?.triggers == [";one", ";alias"])
+        #expect(browser.uncommittedTriggers.isEmpty)
+    }
+
+    @Test func duplicateWithInvalidOrComposingInputCreatesNothing() throws {
+        let store = try KudzuStore.inMemory()
+        let snippet = SnippetRecord(name: "First", triggers: [";one"], content: "Text")
+        try store.upsert(snippet)
+        let library = LibraryModel(store: store)
+        library.ensureLoaded()
+        let browser = BrowserState()
+        browser.triggerText(for: snippet.id).wrappedValue = "invalid trigger"
+        #expect(browser.duplicateSnippets([snippet.id], in: library).isEmpty)
+        #expect(try store.library().snippets == [snippet])
+        #expect(browser.uncommittedTriggers[snippet.id]?.text == "invalid trigger")
+        browser.triggerText(for: snippet.id).wrappedValue = "かな"
+        browser.inputIsComposing = { true }
+        #expect(!browser.commitTriggerEntry(snippet.id, in: library))
+        #expect(!browser.commitPendingTriggers(in: library))
+        #expect(browser.duplicateSnippets([snippet.id], in: library).isEmpty)
+        #expect(try store.library().snippets == [snippet])
+        #expect(browser.uncommittedTriggers[snippet.id]?.text == "かな")
+    }
+
     @Test func leavingCommitsCurrentTextAndPendingTriggerBeforeChangingSelection() throws {
         let store = try KudzuStore.inMemory()
         let first = SnippetRecord(name: "First", triggers: [";one"], content: "Before")

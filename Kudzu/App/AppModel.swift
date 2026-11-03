@@ -247,8 +247,10 @@ final class AppModel {
     /// Prevents a normal quit from losing failed drafts and opens their recovery controls.
     func prepareForTermination() -> Bool {
         let triggersSaved = browser.commitPendingTriggers(in: library)
-        let draftsSaved = library.savePendingDrafts()
+        let draftsSaved = triggersSaved && library.savePendingDrafts()
         guard !triggersSaved || !draftsSaved else { return true }
+        // Keep the active input method and settings surface intact while conversion is unfinished.
+        if browser.inputIsComposing() { return false }
         library.errorMessage = "Kudzu couldn't save all changes. Review or discard the unsaved drafts before quitting."
         mainWindowMode = .library
         openWindowAction?(id: SceneID.main)

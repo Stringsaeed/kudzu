@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import KudzuCore
 import KudzuUI
 import Observation
@@ -118,6 +119,10 @@ final class BrowserState {
     @ObservationIgnored var editorLeaveGuard: (() -> Bool)?
     @ObservationIgnored private var leaveGuardOwner: UUID?
     @ObservationIgnored var editorBridge: EditorCommandBridge?
+    /// Commands must leave marked input to the native input method, just like ordinary key routing.
+    @ObservationIgnored var inputIsComposing: @MainActor () -> Bool = {
+        (NSApplication.shared.keyWindow?.firstResponder as? NSTextView)?.hasMarkedText() == true
+    }
 
     /// Asks to delete snippets; the window confirms first. IDs that no longer exist are dropped.
     func requestDelete(_ ids: [UUID], in library: LibraryModel) {
@@ -244,6 +249,7 @@ final class BrowserState {
     /// Commits a valid pending trigger before leaving, saving, exporting or quitting.
     @discardableResult
     func commitTriggerEntry(_ id: UUID, in library: LibraryModel) -> Bool {
+        guard allowsInputCommit(in: library) else { return false }
         guard let entry = uncommittedTriggers[id] else { return true }
         let candidate = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !candidate.isEmpty else { clearTriggerEntry(id); return true }
@@ -263,7 +269,22 @@ final class BrowserState {
 
     /// Attempts all entries so each invalid trigger keeps its own explanation.
     func commitPendingTriggers(in library: LibraryModel) -> Bool {
-        Array(uncommittedTriggers.keys).map { commitTriggerEntry($0, in: library) }.allSatisfy { $0 }
+        guard allowsInputCommit(in: library) else { return false }
+        return Array(uncommittedTriggers.keys).map { commitTriggerEntry($0, in: library) }.allSatisfy { $0 }
+    }
+
+    /// Prepares unfinished input before copying records or changing selection.
+    func duplicateSnippets(_ ids: [UUID], in library: LibraryModel) -> [UUID] {
+        guard allowsInputCommit(in: library), editorLeaveGuard?() ?? true else { return [] }
+        let committed = ids.map { commitTriggerEntry($0, in: library) }
+        guard committed.allSatisfy({ $0 }) else { return [] }
+        return library.duplicate(ids)
+    }
+
+    private func allowsInputCommit(in library: LibraryModel) -> Bool {
+        guard inputIsComposing() else { return true }
+        library.errorMessage = "Finish or cancel the current text conversion before saving or leaving this snippet."
+        return false
     }
 
     /// Drops selection and scope entries that no longer exist after the library changed.

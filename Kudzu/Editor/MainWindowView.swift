@@ -121,7 +121,7 @@ private struct MainWindowContent: View {
                 if !isSettings { model.showSettings(lastSettingsSection) }
             },
             duplicate: canEditSelection ? {
-                let copies = library.duplicate(Array(browser.selection))
+                let copies = browser.duplicateSnippets(Array(browser.selection), in: library)
                 if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
             } : nil,
             leaveSettings: isSettings ? {
