@@ -5,8 +5,7 @@ import SwiftUI
 
 /// The detail pane for one snippet. Recreate with `.id(snippet.id)` when the selection changes.
 ///
-/// A floating toolbar (favorite, debug, more), the name as a mono title, Triggers, Content, Preview,
-/// then Rules and Advanced as disclosures, and a footer of dates and use count. Edits go to
+/// A toolbar, name, triggers and content, with preview and options in disclosures and save state in the footer. Edits go to
 /// `SnippetEditorModel`, which saves explicitly or when leaving the editor.
 struct SnippetEditorView: View {
     @Environment(LibraryModel.self) private var library
@@ -31,18 +30,6 @@ struct SnippetEditorView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            if model.isDirty || model.saveError != nil || browser.uncommittedTriggers[snippet.id] != nil {
-                VStack(alignment: .leading, spacing: KzSpace.s2) {
-                    Text(model.saveError ?? "Unsaved changes. Leaving the editor also attempts to save.")
-                        .kzTextStyle(.caption)
-                    HStack {
-                        KzButton("Save", size: .sm, action: saveChanges)
-                        KzButton("Discard Changes", variant: .ghost, size: .sm, action: discardChanges)
-                    }
-                }
-                .padding(.horizontal, KzSpace.s4)
-                .padding(.vertical, KzSpace.s2)
-            }
             if snapshotRendering {
                 // Offscreen renderers don't draw scroll views' content.
                 form.frame(minHeight: 0, maxHeight: .infinity, alignment: .top).clipped()
@@ -274,14 +261,50 @@ struct SnippetEditorView: View {
         let format = Date.FormatStyle.dateTime.day().month(.abbreviated).year()
         let text = "Created \(draft.createdAt.formatted(format)) · Edited \(draft.updatedAt.formatted(format)) · "
             + "\(uses.formatted()) \(uses == 1 ? "expansion" : "expansions")"
-        return Text(text)
-            .kzTextStyle(.caption)
-            .foregroundStyle(KzColor.inkMuted)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, KzSpace.s3)
-            .overlay(alignment: .top) { Rectangle().fill(KzColor.line).frame(height: 1) }
+        let hasChanges = model.isDirty || browser.uncommittedTriggers[snippet.id] != nil
+        return VStack(alignment: .leading, spacing: 0) {
+            if let error = model.saveError {
+                Text(error)
+                    .kzTextStyle(.caption)
+                    .foregroundStyle(KzColor.danger)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, KzSpace.s4)
+                    .padding(.top, KzSpace.s3)
+            }
+            HStack(spacing: KzSpace.s2) {
+                if hasChanges || model.saveError != nil {
+                    HStack(spacing: 6) {
+                        Circle().fill(model.saveError == nil ? KzColor.inkMuted : KzColor.danger)
+                            .frame(width: 5, height: 5)
+                            .accessibilityHidden(true)
+                        Text(model.saveError == nil ? "Edited" : "Not saved")
+                            .kzTextStyle(.caption)
+                    }
+                    .foregroundStyle(KzColor.inkMuted)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(model.saveError == nil ? "Unsaved changes" : "Changes could not be saved")
+                    Spacer(minLength: KzSpace.s2)
+                    KzButton("Discard", variant: .ghost, size: .sm, action: discardChanges)
+                        .accessibilityLabel("Discard changes")
+                        .help("Discard unsaved changes")
+                    KzButton("Save", size: .sm, action: saveChanges)
+                        .accessibilityLabel("Save changes")
+                        .help("Save changes (⌘S)")
+                } else {
+                    Text(text)
+                        .kzTextStyle(.caption)
+                        .foregroundStyle(KzColor.inkMuted)
+                        .lineLimit(1)
+                        .help(text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
             .padding(.horizontal, KzSpace.s4)
+            .frame(height: 44)
+        }
+        .background(KzColor.surfaceRaised)
+        .overlay(alignment: .top) { Rectangle().fill(KzColor.line).frame(height: 1) }
     }
 
     // MARK: - Summaries
