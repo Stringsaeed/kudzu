@@ -95,11 +95,11 @@ struct SnippetListView: View {
             HStack(spacing: 6) {
                 Text(snippet.name.isEmpty ? "Untitled" : snippet.name)
                     .font(WorkspaceTheme.label).foregroundStyle(WorkspaceTheme.ink).lineLimit(1)
-                Spacer(minLength: 0)
                 if snippet.isFavorite {
                     Image(systemName: "star.fill").font(.system(size: 9)).foregroundStyle(WorkspaceTheme.secondary)
                         .accessibilityLabel("Favorite")
                 }
+                Spacer(minLength: 0)
                 Text(snippet.triggers.first ?? "No trigger")
                     .font(WorkspaceTheme.mono)
                     .foregroundStyle(selected ? WorkspaceTheme.accent : WorkspaceTheme.secondary)
