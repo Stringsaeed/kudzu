@@ -28,6 +28,7 @@ struct SettingsModalView<Content: View>: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .ignoresSafeArea(.container)
     }
 
     private func surface(width: CGFloat, close: @escaping () -> Void) -> some View {

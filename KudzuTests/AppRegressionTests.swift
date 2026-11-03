@@ -14,6 +14,35 @@ private final class OffscreenTestWindow: NSWindow {
 
 @MainActor
 @Suite struct AppRegressionTests {
+    @Test func settingsOverlayUsesTheWholeWindowIncludingTitlebar() async throws {
+        let library = LibraryModel(store: try KudzuStore.inMemory())
+        library.ensureLoaded()
+        let host = NSHostingView(rootView: SettingsGeometryHarness()
+            .environment(library).environment(BrowserState()))
+        let window = OffscreenTestWindow(contentRect: NSRect(x: 0, y: 0, width: 1080, height: 700),
+                                        styleMask: [.titled, .resizable, .fullSizeContentView],
+                                        backing: .buffered, defer: false)
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.contentView = host
+        host.layoutSubtreeIfNeeded()
+        try await Task.sleep(for: .milliseconds(100))
+        host.layoutSubtreeIfNeeded()
+        func modal(in view: NSView) -> NSView? {
+            if view.accessibilityLabel() == "Settings", view.isAccessibilityModal() { return view }
+            for child in view.subviews {
+                if let found = modal(in: child) { return found }
+            }
+            return nil
+        }
+        let surface = try #require(modal(in: host))
+        let actual = host.convert(surface.bounds, from: surface)
+        let expected = SettingsModalLayout.frame(in: host.bounds.size)
+        #expect(host.safeAreaInsets.top > 0)
+        #expect(abs(actual.midY - expected.midY) < 0.5, "Modal \(actual); full-window bounds \(host.bounds)")
+        #expect(abs(actual.height - expected.height) < 0.5)
+    }
+
     @Test func saveBoundaryLeavesMarkedTriggerTextToTheInputMethod() throws {
         let store = try KudzuStore.inMemory()
         let snippet = SnippetRecord(name: "IME", triggers: [";one"], content: "Text")
@@ -518,5 +547,13 @@ private struct LibraryFocusHarness: View {
     var body: some View {
         MainWindowShell(shellMode: .window, windowMode: .constant(.library), lastSettingsSection: .general,
                         storeError: nil, searchFocus: $searchFocused) { _ in EmptyView() }
+    }
+}
+
+private struct SettingsGeometryHarness: View {
+    @FocusState private var searchFocused: Bool
+    var body: some View {
+        MainWindowShell(shellMode: .window, windowMode: .constant(.settings(.apps)), lastSettingsSection: .apps,
+                        storeError: nil, searchFocus: $searchFocused) { _ in Color.white }
     }
 }
