@@ -4,6 +4,8 @@ Kudzu's design system in SwiftUI: tokens, fonts, icons, glass and the shared int
 
 Kudzu has its own look, but the app must still behave like a Mac app. Components are **custom styles on native controls**, not hand-rolled gesture views.
 
+The primary app interface now follows the brand-led workspace design in `Kudzu/Design`, rather than this package's original component styling. Native controls, system typography and SF Symbols are intentional there. The rules below maintain the existing component library and gallery; the app reuses its brand colours, text/input adapters, and window/focus behavior without adopting every visual treatment.
+
 ## Naming
 
 Everything public starts with `Kz`. Types are `KzThing`, view modifiers are `.kzThing(…)`, and token members are the CSS name in lowerCamelCase without its group prefix.

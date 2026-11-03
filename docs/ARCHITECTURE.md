@@ -4,6 +4,8 @@ This document describes the architectural boundaries; parts of the layout below 
 
 The macOS app also uses `Packages/KudzuUI` for shared controls and design tokens. `AppModel` owns the single window's `LibraryModel` and `BrowserState`, retaining drafts and unfinished triggers across window closure. Editor saves merge changed fields against their stored baseline; conflicts remain recoverable. Settings is an in-window overlay with a separate hosting subtree for focus containment, rather than a separate window scene.
 
+The primary workspace and supporting surfaces are composed in `Kudzu/Design` and the app's view files. `KudzuUI` continues to supply brand colours and proven input/window adapters; its legacy component styling is not imposed on the app. Native offscreen captures in `KudzuTests/DesignCaptureTests.swift` generate review images under `build/design-review` without reading the user's library.
+
 ## Layout
 
 ```
