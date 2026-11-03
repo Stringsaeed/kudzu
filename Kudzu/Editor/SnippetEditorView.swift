@@ -101,9 +101,6 @@ struct SnippetEditorView: View {
             nameField(draft)
             triggersField(draft)
             contentField
-            KzDisclosure("Preview", isExpanded: $previewExpanded) {
-                SnippetPreviewView(content: draft.content, rootSnippetID: snippet.id, showsLabel: false)
-            }
             KzDisclosure("Rules", summary: rulesSummary(draft), isExpanded: $rulesExpanded) {
                 RulesSection(
                     rule: model.binding(\.rule),
@@ -126,58 +123,63 @@ struct SnippetEditorView: View {
 
     private var header: some View {
         let draft = model.draft
-        return KzPaneHeader {
+        let groupName = draft.groupID.flatMap { library.tree.group($0)?.name } ?? "No group"
+        let groupPath = library.groupPath(of: draft) ?? "No group"
+        let mainTrigger = draft.triggers.first ?? "No trigger"
+        return KzPaneHeader(leading: KzSpace.s4, trailing: KzSpace.s4) {
+            HStack(spacing: 2) {
+                KzIconButton(.copy, label: "Duplicate (⌘D)", size: .sm) {
+                    let copies = browser.duplicateSnippets([snippet.id], in: library)
+                    if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
+                }
+                KzIconButton(.folder, label: "Move to group", caret: true, size: .sm,
+                             menuTitle: "Move to group") { moveToGroupMenu }
+                KzIconButton(draft.isEnabled ? .pause : .play,
+                             label: draft.isEnabled ? "Disable snippet" : "Enable snippet", size: .sm) {
+                    model.edit { $0.isEnabled.toggle() }
+                }
+                .accessibilityValue(draft.isEnabled ? "Enabled" : "Disabled")
+            }
+            .layoutPriority(1)
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Snippet actions")
+
+            Spacer(minLength: KzSpace.s2)
+
             HStack(spacing: 6) {
-                KzIcon(.folder, size: 12)
-                Text(library.groupPath(of: draft) ?? "No group")
+                Text(groupName)
                     .kzTextStyle(.caption)
                     .lineLimit(1)
                     .truncationMode(.head)
-            }
-            .foregroundStyle(KzColor.inkMuted)
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Group: \(library.groupPath(of: draft) ?? "none")")
-            Spacer(minLength: 0)
-            KzToolbarGroup(label: "Snippet actions") {
+                    .help(groupPath)
+                Text("/")
+                    .kzTextStyle(.caption)
+                    .accessibilityHidden(true)
+                Text(mainTrigger)
+                    .kzTextStyle(.monoCaption)
+                    .lineLimit(1)
+                    .help(mainTrigger)
                 KzIconButton(draft.isFavorite ? .starFill : .star,
                              label: draft.isFavorite ? "Remove from favorites" : "Add to favorites",
-                             tone: .bloom) {
+                             size: .sm, tone: .bloom) {
                     model.edit { $0.isFavorite.toggle() }
                 }
-                KzIconButton(.copy, label: "Copy", caret: true, menuTitle: "Copy") {
-                    KzMenuItem("Copy expanded text", icon: .copy) { copyExpandedText() }
-                    KzMenuItem("Copy template source", icon: .braces) { copy(model.draft.content) }
-                }
-                KzToolbarSeparator()
-                KzIconButton(.more, label: "More", placement: .pullDown(.trailing)) { moreMenu }
             }
+            .foregroundStyle(KzColor.inkMuted)
         }
     }
 
     @KzMenuBuilder
-    private var moreMenu: [KzMenuElement] {
+    private var moveToGroupMenu: [KzMenuElement] {
         let draft = model.draft
         let groups = library.tree.allGroups
-        KzMenuItem("Duplicate", icon: .copy) {
-            let copies = browser.duplicateSnippets([snippet.id], in: library)
-            if !copies.isEmpty { browser.replaceSelection(Set(copies)) }
-        }
-        .keyboardShortcut("d")
-        KzMenuItem("Favorite", icon: .star, isChecked: draft.isFavorite) { model.edit { $0.isFavorite.toggle() } }
-        KzMenuItem("Enabled", icon: draft.isEnabled ? .pause : .play, isChecked: draft.isEnabled) {
-            model.edit { $0.isEnabled.toggle() }
-        }
-        KzSubmenu("Move to group", icon: .folder) {
-            KzMenuItem("No group", isChecked: draft.groupID == nil) { model.edit { $0.groupID = nil } }
-            if !groups.isEmpty { KzMenuSeparator() }
-            for group in groups {
-                KzMenuItem(library.tree.path(to: group.id).joined(separator: " / "), isChecked: draft.groupID == group.id) {
-                    model.edit { $0.groupID = group.id }
-                }
+        KzMenuItem("No group", isChecked: draft.groupID == nil) { model.edit { $0.groupID = nil } }
+        if !groups.isEmpty { KzMenuSeparator() }
+        for group in groups {
+            KzMenuItem(library.tree.path(to: group.id).joined(separator: " / "), isChecked: draft.groupID == group.id) {
+                model.edit { $0.groupID = group.id }
             }
         }
-        KzMenuSeparator()
-        KzMenuItem("Delete…", icon: .trash, role: .danger) { browser.requestDelete([snippet.id], in: library) }
     }
 
     // MARK: - Fields
@@ -233,7 +235,20 @@ struct SnippetEditorView: View {
     }
 
     private var contentField: some View {
-        KzField("Content") {
+        VStack(alignment: .leading, spacing: KzSpace.s2) {
+            HStack {
+                Text("Content")
+                    .kzTextStyle(.headline)
+                    .foregroundStyle(KzColor.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: KzSpace.s2)
+                KzButton("Preview", variant: previewExpanded ? .secondary : .ghost, size: .sm,
+                         iconEnd: previewExpanded ? .chevronDown : .chevronRight) {
+                    previewExpanded.toggle()
+                }
+                .accessibilityLabel(previewExpanded ? "Hide preview" : "Show preview")
+                .accessibilityValue(previewExpanded ? "Shown" : "Hidden")
+            }
             KzEditorFrame(minHeight: 160, isFocused: editor.isFocused) {
                 InsertTagButton { editor.insert($0) }
             } content: {
@@ -249,6 +264,11 @@ struct SnippetEditorView: View {
                         .frame(minHeight: 180, idealHeight: 220)
                         .templateEditorController(editor)
                 }
+            }
+            if previewExpanded {
+                SnippetPreviewView(content: model.draft.content, rootSnippetID: snippet.id, showsLabel: false)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityLabel("Expanded text preview")
             }
         }
     }
