@@ -188,7 +188,7 @@ final class ExpansionEngine {
     ) -> ExpansionReadiness {
         if isPaused { return .paused }
         if secureInputActive { return .secureInput(owner: secureInputOwner) }
-        let canPost = accessibility || postEvent
+        let canPost = postEvent
         if !inputMonitoring || !canPost {
             return .missingPermissions(inputMonitoring: inputMonitoring, accessibility: canPost)
         }

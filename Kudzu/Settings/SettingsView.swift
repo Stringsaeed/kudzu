@@ -348,7 +348,7 @@ struct BackupsSettingsTab: View {
         statusMessage = nil
         errorMessage = nil
         do {
-            let library = try model.store.library()
+            let library = try model.library.libraryForTransfer()
             let url = try model.backupStore.write(library, reason: .manual)
             reloadBackups()
             selectedBackupURL = url
@@ -362,6 +362,7 @@ struct BackupsSettingsTab: View {
         statusMessage = nil
         errorMessage = nil
         do {
+            _ = try model.library.libraryForTransfer()
             let safetyURL = try ImportCoordinator.restoreBackup(
                 info,
                 into: model.store,
@@ -461,6 +462,7 @@ struct ImportExportSettingsTab: View {
         }
 
         do {
+            _ = try model.library.libraryForTransfer()
             lastImportSummary = try ImportCoordinator.importKudzuJSON(
                 from: url,
                 into: model.store,
@@ -492,7 +494,7 @@ struct ImportExportSettingsTab: View {
         }
 
         do {
-            let library = try model.store.library()
+            let library = try model.library.libraryForTransfer()
             let data = try KudzuJSON.encode(library)
             try data.write(to: url, options: .atomic)
             statusMessage = "Exported \(library.snippets.count) snippet\(library.snippets.count == 1 ? "" : "s") to \(url.lastPathComponent)."
@@ -523,7 +525,7 @@ struct ImportExportSettingsTab: View {
         }
 
         do {
-            let library = try model.store.library()
+            let library = try model.library.libraryForTransfer()
             let written = try ImportCoordinator.exportEspanso(library: library, to: directoryURL)
             statusMessage = "Exported \(written.count) Espanso YAML file\(written.count == 1 ? "" : "s") to \(directoryURL.lastPathComponent)."
         } catch {

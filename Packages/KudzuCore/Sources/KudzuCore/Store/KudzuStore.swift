@@ -143,6 +143,13 @@ public final class KudzuStore {
         try atomicWrite { try upsertUnsaved(snippet) }
     }
 
+    /// Inserts or updates every snippet in one commit, rolling back the entire batch on failure.
+    public func upsert(snippets: [SnippetRecord]) throws {
+        try atomicWrite {
+            for snippet in snippets { try upsertUnsaved(snippet) }
+        }
+    }
+
     private func upsertUnsaved(_ snippet: SnippetRecord) throws {
         let model: SnippetModel
         if let existing = try snippetModel(id: snippet.id) {
@@ -159,6 +166,13 @@ public final class KudzuStore {
     /// Inserts the group or updates the one with the same ID. Throws `groupCycle` if it would nest inside itself.
     public func upsert(_ group: GroupRecord) throws {
         try atomicWrite { try upsertUnsaved(group) }
+    }
+
+    /// Applies a group reorder or relocation as one transaction.
+    public func upsert(groups: [GroupRecord]) throws {
+        try atomicWrite {
+            for group in groups { try upsertUnsaved(group) }
+        }
     }
 
     private func upsertUnsaved(_ group: GroupRecord) throws {

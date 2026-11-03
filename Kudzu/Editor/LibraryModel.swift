@@ -28,6 +28,7 @@ final class LibraryModel {
     private var editors: [UUID: SnippetEditorModel] = [:]
     @ObservationIgnored private let readSnippet: (UUID) throws -> SnippetRecord?
     @ObservationIgnored private let writeSnippet: (SnippetRecord) throws -> Void
+    @ObservationIgnored private let writeSnippets: ([SnippetRecord]) throws -> Void
     @ObservationIgnored private let removeSnippets: ([UUID]) throws -> LibraryDeletionSnapshot
     @ObservationIgnored private let deleteGroupContents: (UUID) throws -> LibraryDeletionSnapshot
     @ObservationIgnored private let deleteGroupMovingContentsUp: (UUID, UUID?) throws -> LibraryDeletionSnapshot
@@ -78,6 +79,7 @@ final class LibraryModel {
         store: KudzuStore,
         readSnippet: ((UUID) throws -> SnippetRecord?)? = nil,
         writeSnippet: ((SnippetRecord) throws -> Void)? = nil,
+        writeSnippets: (([SnippetRecord]) throws -> Void)? = nil,
         removeSnippets: (([UUID]) throws -> LibraryDeletionSnapshot)? = nil,
         deleteGroupContents: ((UUID) throws -> LibraryDeletionSnapshot)? = nil,
         deleteGroupMovingContentsUp: ((UUID, UUID?) throws -> LibraryDeletionSnapshot)? = nil
@@ -85,6 +87,7 @@ final class LibraryModel {
         self.store = store
         self.readSnippet = readSnippet ?? { id in try store.library().snippets.first { $0.id == id } }
         self.writeSnippet = writeSnippet ?? { try store.upsert($0) }
+        self.writeSnippets = writeSnippets ?? { try store.upsert(snippets: $0) }
         self.removeSnippets = removeSnippets ?? { try store.deleteSnippets(ids: $0) }
         self.deleteGroupContents = deleteGroupContents ?? { try store.deleteGroupContents(rootID: $0) }
         self.deleteGroupMovingContentsUp = deleteGroupMovingContentsUp ?? { id, parent in
@@ -130,6 +133,19 @@ final class LibraryModel {
     func savePendingDrafts() -> Bool {
         let results = Array(editors.values).map { $0.flush() }
         return results.allSatisfy { $0 }
+    }
+
+    /// Prepares a complete snapshot for user-requested backups, exports, imports and restoration.
+    func libraryForTransfer() throws -> KudzuLibrary {
+        guard savePendingDrafts() else { throw TransferError.unsavedEdits }
+        return try store.library()
+    }
+
+    private enum TransferError: LocalizedError {
+        case unsavedEdits
+        var errorDescription: String? {
+            "Some edits couldn't be saved. Close Settings to review or discard them, then try again."
+        }
     }
 
     private func prepare(_ ids: [UUID]) -> Bool {
@@ -342,8 +358,8 @@ final class LibraryModel {
         guard prepare(ids) else { return [] }
         var names = snippets.map(\.name)
         var triggers = snippets.flatMap(\.triggers)
-        var created: [UUID] = []
-        perform("Couldn't duplicate") {
+        var copies: [SnippetRecord] = []
+        let succeeded = perform("Couldn't duplicate") {
             for id in ids {
                 guard var copy = snippetsByID[id] else { continue }
                 copy.id = UUID()
@@ -353,11 +369,11 @@ final class LibraryModel {
                 copy.updatedAt = .now
                 names.append(copy.name)
                 triggers += copy.triggers
-                try writeSnippet(copy)
-                created.append(copy.id)
+                copies.append(copy)
             }
+            try writeSnippets(copies)
         }
-        return created
+        return succeeded ? copies.map(\.id) : []
     }
 
     /// Deletes snippets and their usage.
@@ -378,14 +394,16 @@ final class LibraryModel {
     func update(_ ids: [UUID], _ body: (inout SnippetRecord) -> Void) {
         guard prepare(ids) else { return }
         perform("Couldn't update") {
+            var changed: [SnippetRecord] = []
             for id in ids {
                 guard var snippet = snippetsByID[id] else { continue }
                 let before = snippet
                 body(&snippet)
                 guard snippet != before else { continue }
                 snippet.updatedAt = .now
-                try writeSnippet(snippet)
+                changed.append(snippet)
             }
+            try writeSnippets(changed)
         }
     }
 
@@ -529,7 +547,7 @@ final class LibraryModel {
         guard let changes = tree.reparent(id, toParent: parentID, at: index) else { return false }
         guard !changes.isEmpty else { return true }
         return perform("Couldn't move the group") {
-            for group in changes { try store.upsert(group) }
+            try store.upsert(groups: changes)
         }
     }
 }

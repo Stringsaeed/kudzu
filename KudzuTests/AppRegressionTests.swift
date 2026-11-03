@@ -22,6 +22,15 @@ private final class OffscreenTestWindow: NSWindow {
         #expect(!ExpansionEngine.isPracticeTarget(fieldFocused: true, windowID: nil, appIsFrontmost: true))
     }
 
+    @Test func accessibilityAloneDoesNotClaimPostingReadiness() {
+        let readiness = ExpansionEngine.evaluateReadiness(
+            isPaused: false, secureInputActive: false, secureInputOwner: nil,
+            inputMonitoring: true, accessibility: true, postEvent: false, tapMode: .active
+        )
+        #expect(!readiness.isReady)
+        #expect(readiness.blockerSummary != nil)
+    }
+
     init() {
         NSApplication.shared.setActivationPolicy(.prohibited)
         KzFonts.register()
