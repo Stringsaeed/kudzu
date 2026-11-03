@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import KudzuCore
 import Observation
@@ -27,7 +28,28 @@ final class LibraryModel {
     private var editors: [UUID: SnippetEditorModel] = [:]
     @ObservationIgnored private let readSnippet: (UUID) throws -> SnippetRecord?
     @ObservationIgnored private let writeSnippet: (SnippetRecord) throws -> Void
-    @ObservationIgnored private let removeSnippet: (UUID) throws -> Void
+    @ObservationIgnored private let removeSnippets: ([UUID]) throws -> LibraryDeletionSnapshot
+    @ObservationIgnored private let deleteGroupContents: (UUID) throws -> LibraryDeletionSnapshot
+    @ObservationIgnored private let deleteGroupMovingContentsUp: (UUID, UUID?) throws -> LibraryDeletionSnapshot
+    /// Window undo manager for library deletes; nil when no main window is attached.
+    @ObservationIgnored weak var undoManager: UndoManager?
+
+    enum DeletionDirection {
+        case restore, reapply
+        var inverse: Self { self == .restore ? .reapply : .restore }
+        var retryTitle: String { self == .restore ? "Retry Restore" : "Retry Delete" }
+    }
+
+    struct DeletionRetry: Identifiable {
+        let id = UUID()
+        let snapshot: LibraryDeletionSnapshot
+        let direction: DeletionDirection
+        let message: String
+        var title: String { direction.retryTitle }
+    }
+
+    /// Failed native undo/redo commands remain recoverable after UndoManager consumes them.
+    private(set) var deletionRetries: [DeletionRetry] = []
 
     private(set) var isLoaded = false
     /// Bumped whenever the snapshot changes; cheap to observe with `onChange`.
@@ -56,12 +78,18 @@ final class LibraryModel {
         store: KudzuStore,
         readSnippet: ((UUID) throws -> SnippetRecord?)? = nil,
         writeSnippet: ((SnippetRecord) throws -> Void)? = nil,
-        removeSnippet: ((UUID) throws -> Void)? = nil
+        removeSnippets: (([UUID]) throws -> LibraryDeletionSnapshot)? = nil,
+        deleteGroupContents: ((UUID) throws -> LibraryDeletionSnapshot)? = nil,
+        deleteGroupMovingContentsUp: ((UUID, UUID?) throws -> LibraryDeletionSnapshot)? = nil
     ) {
         self.store = store
         self.readSnippet = readSnippet ?? { id in try store.library().snippets.first { $0.id == id } }
         self.writeSnippet = writeSnippet ?? { try store.upsert($0) }
-        self.removeSnippet = removeSnippet ?? { try store.deleteSnippet(id: $0) }
+        self.removeSnippets = removeSnippets ?? { try store.deleteSnippets(ids: $0) }
+        self.deleteGroupContents = deleteGroupContents ?? { try store.deleteGroupContents(rootID: $0) }
+        self.deleteGroupMovingContentsUp = deleteGroupMovingContentsUp ?? { id, parent in
+            try store.deleteGroupMovingContentsUp(id: id, moveChildrenTo: parent)
+        }
     }
 
     /// Reuses drafts across navigation, including drafts whose last save failed.
@@ -111,10 +139,12 @@ final class LibraryModel {
         return reload()
     }
 
-    private func deleteSnippet(_ id: UUID) throws {
-        try removeSnippet(id)
-        editors[id]?.didDelete()
-        editors[id] = nil
+    private func finalizeDeletion(_ snapshot: LibraryDeletionSnapshot) {
+        for id in snapshot.deletedSnippets.map(\.id) {
+            editors[id]?.didDelete()
+            editors[id] = nil
+        }
+        registerLibraryUndo(for: snapshot)
     }
 
     // MARK: - Loading
@@ -332,8 +362,10 @@ final class LibraryModel {
 
     /// Deletes snippets and their usage.
     func deleteSnippets(_ ids: [UUID]) {
+        guard prepare(ids) else { return }
         perform("Couldn't delete") {
-            for id in ids { try deleteSnippet(id) }
+            let snapshot = try removeSnippets(ids)
+            finalizeDeletion(snapshot)
         }
     }
 
@@ -404,18 +436,90 @@ final class LibraryModel {
         }.map { $0.draft.id }
         guard prepare(affected) else { return }
         perform("Couldn't delete the group") {
+            let snapshot: LibraryDeletionSnapshot
             switch strategy {
             case .moveContentsUp:
-                try store.deleteGroup(id: id, moveChildrenTo: tree.parent(of: id))
+                snapshot = try deleteGroupMovingContentsUp(id, tree.parent(of: id))
             case .deleteContents:
-                let doomed = tree.descendantIDs(of: id)
-                for snippet in snippets where snippet.groupID.map(doomed.contains) ?? false {
-                    try deleteSnippet(snippet.id)
-                }
-                // Deepest first, so no group is deleted while it still has children.
-                let ordered = doomed.sorted { tree.ancestorIDs(of: $0).count > tree.ancestorIDs(of: $1).count }
-                for groupID in ordered { try store.deleteGroup(id: groupID, moveChildrenTo: nil) }
+                snapshot = try deleteGroupContents(id)
             }
+            finalizeDeletion(snapshot)
+        }
+    }
+
+    // MARK: - Library undo
+
+    private func registerLibraryUndo(for snapshot: LibraryDeletionSnapshot) {
+        registerLibraryOperation(snapshot, direction: .restore, actionName: undoActionName(for: snapshot))
+    }
+
+    private func registerLibraryOperation(
+        _ snapshot: LibraryDeletionSnapshot, direction: DeletionDirection, actionName: String
+    ) {
+        guard !snapshot.isEmpty, let undoManager else { return }
+        let needsGroup = !undoManager.isUndoing && !undoManager.isRedoing && undoManager.groupingLevel == 0
+        if needsGroup { undoManager.beginUndoGrouping() }
+        defer { if needsGroup { undoManager.endUndoGrouping() } }
+        undoManager.registerUndo(withTarget: self) { target in
+            target.applyLibraryOperation(snapshot, direction: direction, actionName: actionName)
+        }
+        undoManager.setActionName(actionName)
+    }
+
+    /// Retries a refused operation as a new user action, itself undoable after it succeeds.
+    func retryLibraryDeletion(_ id: UUID) {
+        guard let retry = deletionRetries.first(where: { $0.id == id }) else { return }
+        let name = retry.direction == .restore ? "Restore Deleted Items" : undoActionName(for: retry.snapshot)
+        applyLibraryOperation(retry.snapshot, direction: retry.direction, actionName: name, retryID: id)
+    }
+
+    private func applyLibraryOperation(
+        _ snapshot: LibraryDeletionSnapshot, direction: DeletionDirection, actionName: String, retryID: UUID? = nil
+    ) {
+        defer { reload() }
+        let affected = snapshot.deletedSnippets + snapshot.priorSnippets
+        do {
+            // Undo and redo are not consent to discard a later draft. Keep it intact for explicit Save/Discard.
+            guard !affected.contains(where: { editors[$0.id]?.isDirty == true }) else {
+                throw DeletionDraftError.pendingChanges
+            }
+            switch direction {
+            case .restore:
+                try store.restoreDeletion(snapshot)
+            case .reapply:
+                try store.reapplyDeletion(snapshot)
+                for id in snapshot.deletedSnippets.map(\.id) {
+                    editors[id]?.didDelete()
+                    editors[id] = nil
+                }
+            }
+        } catch {
+            let message = "No items were changed. \(error.localizedDescription) Review the affected items, then choose \(direction.retryTitle)."
+            // Registering an inverse here would falsely advance a failed native undo to redo.
+            if let retryID { deletionRetries.removeAll { $0.id == retryID } }
+            deletionRetries.append(DeletionRetry(snapshot: snapshot, direction: direction, message: message))
+            errorMessage = message
+            return
+        }
+        if let retryID { deletionRetries.removeAll { $0.id == retryID } }
+        errorMessage = nil
+        registerLibraryOperation(snapshot, direction: direction.inverse, actionName: actionName)
+    }
+
+    private enum DeletionDraftError: LocalizedError {
+        case pendingChanges
+        var errorDescription: String? {
+            "An affected snippet has unsaved edits. Save or use Discard Changes first. Saved edits may still conflict with the original deletion."
+        }
+    }
+
+    private func undoActionName(for snapshot: LibraryDeletionSnapshot) -> String {
+        switch snapshot.kind {
+        case .snippets:
+            let count = snapshot.deletedSnippets.count
+            return count == 1 ? "Delete Snippet" : "Delete \(count) Snippets"
+        case .groupMoveContentsUp, .groupDeleteContents:
+            return snapshot.deletedGroups.first.map { "Delete Group “\($0.name)”" } ?? "Delete Group"
         }
     }
 

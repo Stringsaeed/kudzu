@@ -161,11 +161,11 @@ struct DraftFailureTests {
         #expect(try store.library().snippets.first == original)
     }
 
-    @Test func failedDeleteKeepsDraftAndAllowsLaterSave() throws {
+    @Test func failedDeleteKeepsThePreparedEdit() throws {
         let store = try KudzuStore.inMemory()
         let original = record()
         try store.upsert(original)
-        let library = LibraryModel(store: store, removeSnippet: { _ in
+        let library = LibraryModel(store: store, removeSnippets: { _ in
             for model in try store.context.fetch(FetchDescriptor<SnippetModel>()) {
                 store.context.delete(model)
             }
@@ -175,8 +175,8 @@ struct DraftFailureTests {
         let editor = library.editor(for: original)
         editor.edit { $0.content = "Survive failed delete" }
         library.deleteSnippets([original.id])
-        #expect(editor.isDirty)
-        #expect(library.snippetsByID[original.id] == original)
+        #expect(editor.draft.content == "Survive failed delete")
+        #expect(library.snippetsByID[original.id]?.content == "Survive failed delete")
         #expect(editor.flush())
         #expect(try store.library().snippets.first?.content == "Survive failed delete")
     }
@@ -188,7 +188,11 @@ struct DraftFailureTests {
         var original = record()
         original.groupID = group.id
         try store.upsert(original)
-        let library = LibraryModel(store: store, removeSnippet: { _ in throw Failure.unavailable })
+        let library = LibraryModel(
+            store: store,
+            removeSnippets: { _ in throw Failure.unavailable },
+            deleteGroupContents: { _ in throw Failure.unavailable }
+        )
         library.ensureLoaded()
         let editor = library.editor(for: original)
         editor.edit { $0.content = "Still editing" }

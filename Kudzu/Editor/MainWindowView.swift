@@ -47,6 +47,7 @@ private struct MainWindowContent: View {
         }
         .background { FindShortcut(action: focusSearch) }
         .background(DockPolicyAccessor())
+        .background(LibraryUndoAccessor(library: library))
         .environment(library)
         .environment(browser)
         .focusedSceneValue(\.mainWindowActions, actions)
@@ -62,7 +63,7 @@ private struct MainWindowContent: View {
             }
             Button("Cancel", role: .cancel) { browser.deleteRequest = [] }
         } message: {
-            Text("This also removes their usage history. You can't undo this.")
+            Text("This also removes their usage history. Undo can restore deleted items while this window is open; conflicting changes will pause undo for review.")
         }
         .task { await start() }
         .onDisappear {
@@ -275,6 +276,13 @@ struct MainWindowShell<SettingsDetail: View>: View {
 
     @ViewBuilder
     private var banners: some View {
+        ForEach(library.deletionRetries) { retry in
+            VStack(alignment: .leading, spacing: KzSpace.s2) {
+                Text(retry.message)
+                Button(retry.title) { library.retryLibraryDeletion(retry.id) }
+            }
+            .padding(KzSpace.s3)
+        }
         ForEach(library.recoveryDrafts) { draft in
             Button("Review unsaved changes: \(draft.name)") {
                 windowMode = .library

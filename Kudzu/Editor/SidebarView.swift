@@ -178,7 +178,7 @@ struct SidebarView: View {
         var parts: [String] = []
         if snippets > 0 { parts.append("\(snippets) snippet\(snippets == 1 ? "" : "s")") }
         if subgroups > 0 { parts.append("\(subgroups) subgroup\(subgroups == 1 ? "" : "s")") }
-        return "It contains \(parts.joined(separator: " and ")). Move them up a level, or delete them too? Deleting can't be undone."
+        return "It contains \(parts.joined(separator: " and ")). Move them up a level, or delete them too? Undo can restore deleted items while this window is open; conflicting changes will pause undo for review."
     }
 }
 

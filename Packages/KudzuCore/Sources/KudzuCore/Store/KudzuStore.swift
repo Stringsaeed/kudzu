@@ -10,6 +10,10 @@ public enum KudzuStoreError: Error, Equatable, Sendable {
     case groupCycle
     /// A referenced group doesn't exist.
     case groupNotFound(UUID)
+    /// A batch delete referenced a snippet that isn't in the store.
+    case snippetNotFound(UUID)
+    /// Undo or redo would overwrite a changed record or alter uncaptured contents.
+    case deletionConflict
 }
 
 /// What a dedupe pass did.
@@ -136,6 +140,10 @@ public final class KudzuStore {
 
     /// Inserts the snippet or updates the one with the same ID. An unknown `groupID` files it at the root.
     public func upsert(_ snippet: SnippetRecord) throws {
+        try atomicWrite { try upsertUnsaved(snippet) }
+    }
+
+    private func upsertUnsaved(_ snippet: SnippetRecord) throws {
         let model: SnippetModel
         if let existing = try snippetModel(id: snippet.id) {
             model = existing
@@ -146,11 +154,14 @@ public final class KudzuStore {
         }
         let group = try snippet.groupID.flatMap(groupModel(id:))
         if model.group !== group { model.group = group }
-        try save()
     }
 
     /// Inserts the group or updates the one with the same ID. Throws `groupCycle` if it would nest inside itself.
     public func upsert(_ group: GroupRecord) throws {
+        try atomicWrite { try upsertUnsaved(group) }
+    }
+
+    private func upsertUnsaved(_ group: GroupRecord) throws {
         let parent = try group.parentID.flatMap(groupModel(id:))
         if group.parentID == group.id { throw KudzuStoreError.groupCycle }
         let model: GroupModel
@@ -163,33 +174,129 @@ public final class KudzuStore {
             context.insert(model)
         }
         if model.parent !== parent { model.parent = parent }
-        try save()
     }
 
-    /// Deletes a snippet and every device's usage rows for it.
+    /// Deletes a snippet and every device's usage rows for it, rolling back on failure.
     public func deleteSnippet(id: UUID) throws {
-        for model in try context.fetch(FetchDescriptor<SnippetModel>(predicate: #Predicate { $0.id == id })) {
-            context.delete(model)
-        }
-        for row in try context.fetch(FetchDescriptor<UsageModel>(predicate: #Predicate { $0.snippetID == id })) {
-            context.delete(row)
-        }
-        try save()
+        _ = try deleteSnippets(ids: [id])
     }
 
-    /// Deletes a group after moving its child groups and snippets to `newParentID` (nil = top level).
-    public func deleteGroup(id: UUID, moveChildrenTo newParentID: UUID?) throws {
-        guard let group = try groupModel(id: id) else { return }
-        var target: GroupModel?
-        if let newParentID {
-            guard let found = try groupModel(id: newParentID) else { throw KudzuStoreError.groupNotFound(newParentID) }
-            if Self.isDescendantOrSelf(found, of: group) { throw KudzuStoreError.groupCycle }
-            target = found
+    /// Deletes exactly the requested snippets and usage in one save, returning an undo snapshot.
+    @discardableResult
+    public func deleteSnippets(ids: [UUID]) throws -> LibraryDeletionSnapshot {
+        try atomicWrite {
+            let current = try library()
+            let ids = Set(ids)
+            for id in ids where !current.snippets.contains(where: { $0.id == id }) {
+                throw KudzuStoreError.snippetNotFound(id)
+            }
+            let snapshot = LibraryDeletionSnapshot(
+                kind: .snippets,
+                deletedSnippets: current.snippets.filter { ids.contains($0.id) },
+                deletedUsage: current.usage.filter { ids.contains($0.snippetID) },
+                deletedSnippetMergedIDs: try snippetMergedIDs(ids)
+            )
+            try validateDeletion(snapshot, current: current)
+            try applyDeletion(snapshot)
+            return snapshot
         }
-        for child in group.children ?? [] { child.parent = target }
-        for snippet in group.snippets ?? [] { snippet.group = target }
-        context.delete(group)
-        try save()
+    }
+
+    /// Deletes a group after moving its contents to `newParentID` (nil = top level).
+    public func deleteGroup(id: UUID, moveChildrenTo newParentID: UUID?) throws {
+        _ = try deleteGroupMovingContentsUp(id: id, moveChildrenTo: newParentID)
+    }
+
+    /// Captures both sides of a group relocation and commits the deletion in one save.
+    @discardableResult
+    public func deleteGroupMovingContentsUp(id: UUID, moveChildrenTo newParentID: UUID?) throws -> LibraryDeletionSnapshot {
+        try atomicWrite {
+            let current = try library()
+            guard let group = current.groups.first(where: { $0.id == id }) else {
+                return LibraryDeletionSnapshot(kind: .groupMoveContentsUp(groupID: id))
+            }
+            if let newParentID, GroupTree(groups: current.groups).descendantIDs(of: id).contains(newParentID) {
+                throw KudzuStoreError.groupCycle
+            }
+            let snippets = current.snippets.filter { $0.groupID == id }
+            let groups = current.groups.filter { $0.parentID == id }
+            let snapshot = LibraryDeletionSnapshot(
+                kind: .groupMoveContentsUp(groupID: id), deletedGroups: [group],
+                priorSnippets: snippets, priorGroups: groups,
+                relocatedSnippets: snippets.map { var r = $0; r.groupID = newParentID; return r },
+                relocatedGroups: groups.map { var r = $0; r.parentID = newParentID; return r }
+            )
+            try requireParent(newParentID, in: current.groups)
+            try validateDeletion(snapshot, current: current)
+            try applyDeletion(snapshot)
+            return snapshot
+        }
+    }
+
+    /// Deletes a group and its captured descendants in one save, rolling back every change on failure.
+    @discardableResult
+    public func deleteGroupContents(rootID: UUID) throws -> LibraryDeletionSnapshot {
+        try atomicWrite {
+            let current = try library()
+            let ids = GroupTree(groups: current.groups).descendantIDs(of: rootID)
+            let snippets = current.snippets.filter { $0.groupID.map(ids.contains) ?? false }
+            let snippetIDs = Set(snippets.map(\.id))
+            let snapshot = LibraryDeletionSnapshot(
+                kind: .groupDeleteContents(groupID: rootID), deletedSnippets: snippets,
+                deletedGroups: current.groups.filter { ids.contains($0.id) },
+                deletedUsage: current.usage.filter { snippetIDs.contains($0.snippetID) },
+                deletedSnippetMergedIDs: try snippetMergedIDs(snippetIDs)
+            )
+            try validateDeletion(snapshot, current: current)
+            try applyDeletion(snapshot)
+            return snapshot
+        }
+    }
+
+    /// Repeats only a fully restored deletion whose records, usage and affected topology still match.
+    public func reapplyDeletion(_ snapshot: LibraryDeletionSnapshot) throws {
+        try atomicWrite {
+            try validateDeletion(snapshot, current: library())
+            try applyDeletion(snapshot)
+        }
+    }
+
+    /// Restores the entire snapshot in one save or refuses it without overwriting any newer record.
+    @discardableResult
+    public func restoreDeletion(_ snapshot: LibraryDeletionSnapshot) throws -> LibraryRestoreResult {
+        try atomicWrite {
+            let current = try library()
+            let snippetIDs = Set(snapshot.deletedSnippets.map(\.id))
+            let groupIDs = Set(snapshot.deletedGroups.map(\.id))
+            guard !current.snippets.contains(where: { snippetIDs.contains($0.id) }),
+                  !current.groups.contains(where: { groupIDs.contains($0.id) }),
+                  !current.usage.contains(where: { snippetIDs.contains($0.snippetID) }) else {
+                throw KudzuStoreError.deletionConflict
+            }
+            try requireRecords(snapshot.relocatedSnippets, in: current.snippets)
+            try requireRecords(snapshot.relocatedGroups, in: current.groups)
+            try validateRelocations(snapshot)
+            let restoredGroups = current.groups + snapshot.deletedGroups
+            for group in snapshot.deletedGroups + snapshot.priorGroups {
+                try requireParent(group.parentID, in: restoredGroups)
+            }
+            for snippet in snapshot.deletedSnippets + snapshot.priorSnippets {
+                try requireParent(snippet.groupID, in: restoredGroups)
+            }
+            for group in Self.groupsSortedForInsert(snapshot.deletedGroups) { try upsertUnsaved(group) }
+            for group in snapshot.priorGroups { try upsertUnsaved(group) }
+            for snippet in snapshot.deletedSnippets + snapshot.priorSnippets { try upsertUnsaved(snippet) }
+            for (id, mergedIDs) in snapshot.deletedSnippetMergedIDs {
+                guard snippetIDs.contains(id) else { throw KudzuStoreError.deletionConflict }
+                try snippetModel(id: id)?.mergedIDs = mergedIDs
+            }
+            for usage in snapshot.deletedUsage { context.insert(UsageModel(usage)) }
+            return LibraryRestoreResult(
+                restoredSnippetIDs: (snapshot.deletedSnippets + snapshot.priorSnippets).map(\.id),
+                restoredGroupIDs: (snapshot.deletedGroups + snapshot.priorGroups).map(\.id),
+                restoredUsageCount: snapshot.deletedUsage.count
+            )
+        }
     }
 
     /// Replaces the whole synced library (snippets, groups, usage) with `library`, keeping its IDs. Used for restore.
@@ -489,8 +596,11 @@ public final class KudzuStore {
 
     // MARK: - Helpers
 
+    // Persistence seam for exercising write failures with an isolated test store.
+    @ObservationIgnored var commitChanges: (ModelContext) throws -> Void = { try $0.save() }
+
     private func save() throws {
-        if context.hasChanges { try context.save() }
+        if context.hasChanges { try commitChanges(context) }
     }
 
     private func snippetModel(id: UUID) throws -> SnippetModel? {
@@ -507,6 +617,116 @@ public final class KudzuStore {
 
     private func deleteAll<T: PersistentModel>(_: T.Type) throws {
         for model in try context.fetch(FetchDescriptor<T>()) { context.delete(model) }
+    }
+
+    private func atomicWrite<T>(_ body: () throws -> T) throws -> T {
+        let autosave = context.autosaveEnabled
+        context.autosaveEnabled = false
+        defer { context.autosaveEnabled = autosave }
+        do {
+            let result = try body()
+            try save()
+            return result
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+
+    private func requireRecords<R: Identifiable & Hashable>(_ expected: [R], in current: [R]) throws where R.ID == UUID {
+        let ids = Set(expected.map(\.id))
+        let actual = current.filter { ids.contains($0.id) }
+        guard expected.count == ids.count, actual.count == expected.count, Set(actual) == Set(expected) else {
+            throw KudzuStoreError.deletionConflict
+        }
+    }
+
+    private func requireParent(_ id: UUID?, in groups: [GroupRecord]) throws {
+        guard let id else { return }
+        let matches = groups.filter { $0.id == id }
+        guard !matches.isEmpty else { throw KudzuStoreError.groupNotFound(id) }
+        guard matches.count == 1 else { throw KudzuStoreError.deletionConflict }
+    }
+
+    private func validateRelocations(_ snapshot: LibraryDeletionSnapshot) throws {
+        // A relocation may change only the parent, and must describe every survivor in both directions.
+        let beforeSnippets = snapshot.priorSnippets.map { var r = $0; r.groupID = nil; return r }
+        let afterSnippets = snapshot.relocatedSnippets.map { var r = $0; r.groupID = nil; return r }
+        let beforeGroups = snapshot.priorGroups.map { var r = $0; r.parentID = nil; return r }
+        let afterGroups = snapshot.relocatedGroups.map { var r = $0; r.parentID = nil; return r }
+        guard beforeSnippets.count == afterSnippets.count, Set(beforeSnippets) == Set(afterSnippets),
+              beforeGroups.count == afterGroups.count, Set(beforeGroups) == Set(afterGroups) else {
+            throw KudzuStoreError.deletionConflict
+        }
+    }
+
+    private func snippetMergedIDs(_ ids: Set<UUID>) throws -> [UUID: [UUID]] {
+        let models = try context.fetch(FetchDescriptor<SnippetModel>()).filter { ids.contains($0.id) }
+        return Dictionary(models.map { ($0.id, $0.mergedIDs) }, uniquingKeysWith: { first, _ in first })
+    }
+
+    private func validateDeletion(_ snapshot: LibraryDeletionSnapshot, current: KudzuLibrary) throws {
+        try validateRelocations(snapshot)
+        let snippets = snapshot.deletedSnippets + snapshot.priorSnippets
+        let groups = snapshot.deletedGroups + snapshot.priorGroups
+        try requireRecords(snippets, in: current.snippets)
+        try requireRecords(groups, in: current.groups)
+        let deletedIDs = Set(snapshot.deletedSnippets.map(\.id))
+        for (id, mergedIDs) in try snippetMergedIDs(deletedIDs) {
+            guard mergedIDs == (snapshot.deletedSnippetMergedIDs[id] ?? []) else {
+                throw KudzuStoreError.deletionConflict
+            }
+        }
+        let usage = current.usage.filter { deletedIDs.contains($0.snippetID) }
+        guard Dictionary(grouping: usage, by: { $0 }).mapValues(\.count)
+                == Dictionary(grouping: snapshot.deletedUsage, by: { $0 }).mapValues(\.count) else {
+            throw KudzuStoreError.deletionConflict
+        }
+        // Deleting a group nullifies relationships, even without explicit subtree traversal.
+        // Refuse any new attachments so that this delta remains exactly invertible.
+        let deletedGroups = Set(snapshot.deletedGroups.map(\.id))
+        let attachedSnippets = current.snippets.filter { $0.groupID.map(deletedGroups.contains) ?? false }
+        let attachedGroups = current.groups.filter { $0.parentID.map(deletedGroups.contains) ?? false }
+        guard Set(attachedSnippets).isSubset(of: Set(snippets)),
+              Set(attachedGroups).isSubset(of: Set(groups)) else {
+            throw KudzuStoreError.deletionConflict
+        }
+        for group in snapshot.relocatedGroups { try requireParent(group.parentID, in: current.groups) }
+        for snippet in snapshot.relocatedSnippets { try requireParent(snippet.groupID, in: current.groups) }
+    }
+
+    private func applyDeletion(_ snapshot: LibraryDeletionSnapshot) throws {
+        for group in snapshot.relocatedGroups { try upsertUnsaved(group) }
+        for snippet in snapshot.relocatedSnippets { try upsertUnsaved(snippet) }
+        let snippets = Set(snapshot.deletedSnippets.map(\.id))
+        for model in try context.fetch(FetchDescriptor<SnippetModel>()) where snippets.contains(model.id) {
+            context.delete(model)
+        }
+        for row in try context.fetch(FetchDescriptor<UsageModel>()) where snippets.contains(row.snippetID) {
+            context.delete(row)
+        }
+        for group in Self.groupsSortedForInsert(snapshot.deletedGroups).reversed() {
+            if let model = try groupModel(id: group.id) { context.delete(model) }
+        }
+    }
+
+    /// Inserts parent groups before children when both appear in the same undo snapshot.
+    private static func groupsSortedForInsert(_ groups: [GroupRecord]) -> [GroupRecord] {
+        var remaining = groups
+        var inserted: Set<UUID> = []
+        var ordered: [GroupRecord] = []
+        let ids = Set(groups.map(\.id))
+        while !remaining.isEmpty {
+            let before = remaining.count
+            remaining.removeAll { group in
+                if let parent = group.parentID, ids.contains(parent), !inserted.contains(parent) { return false }
+                ordered.append(group)
+                inserted.insert(group.id)
+                return true
+            }
+            if remaining.count == before { ordered.append(contentsOf: remaining); break }
+        }
+        return ordered
     }
 
     /// Most recently edited first (never-edited last), then smallest ID: the same order on every device.
