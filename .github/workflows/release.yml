@@ -1,0 +1,49 @@
+# Cutting a release:
+#   1. Merge work into main with Conventional Commit messages (feat:, fix:, perf: …).
+#   2. release-please keeps a "chore: release x.y.z" PR open with the version bump + CHANGELOG.
+#   3. Merge that PR → it tags vX.Y.Z and opens a *draft* GitHub release; this workflow then
+#      builds, signs, notarizes, uploads the DMG + updater feed, publishes the release and
+#      bumps the Homebrew cask.
+# Re-run a build for an existing tag with "Run workflow" (workflow_dispatch).
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish (e.g. v0.2.0)
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.rp.outputs['desktop--release_created'] }}
+      tag: ${{ steps.rp.outputs['desktop--tag_name'] }}
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          # A PAT lets CI run on the release PR (PRs opened with GITHUB_TOKEN don't trigger workflows).
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  build:
+    needs: release-please
+    if: ${{ always() && (needs.release-please.outputs.created == 'true' || github.event_name == 'workflow_dispatch') }}
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag || inputs.tag }}
+    secrets: inherit

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kudzu",
+  "version": "../package.json",
+  "identifier": "sh.saeed.kudzu",
+  "build": {
+    "beforeDevCommand": "pnpm dev --port 3917",
+    "devUrl": "http://localhost:3917",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../out"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Kudzu",
+        "url": "/",
+        "width": 1180,
+        "height": 760,
+        "minWidth": 900,
+        "minHeight": 560,
+        "visible": false,
+        "transparent": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 18,
+          "y": 22
+        },
+        "windowEffects": {
+          "effects": [
+            "sidebar"
+          ],
+          "state": "followsWindowActiveState"
+        },
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' data: asset: http://asset.localhost; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost ws://localhost:3917 http://localhost:3917"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Productivity",
+    "shortDescription": "A fast, keyboard-first text expander",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "14.0",
+      "infoPlist": "Info.plist",
+      "hardenedRuntime": true,
+      "signingIdentity": null,
+      "dmg": {
+        "windowSize": {
+          "width": 560,
+          "height": 360
+        },
+        "appPosition": {
+          "x": 150,
+          "y": 175
+        },
+        "applicationFolderPosition": {
+          "x": 410,
+          "y": 175
+        }
+      }
+    },
+    "createUpdaterArtifacts": true,
+    "copyright": "© 2026 Muhammed Ibrahim"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFNTIyNjlGNDI0MUYwMDcKUldRSDhFRkNueVpTYnVNNUJHYWt0dWV4Ti83MHA5UTFaUEN3d050NWlsdlBrRG5uNTdrZUFJT0MK",
+      "endpoints": [
+        "https://github.com/Stringsaeed/kudzu/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

@@ -1,42 +1,43 @@
 # Kudzu — agent guide
 
-Native macOS text expander. Read `docs/PLAN.md` (decisions), `docs/ARCHITECTURE.md` (layout and flow) and `docs/TEMPLATE_SYNTAX.md` (snippet template format) before changing behaviour.
+Kudzu is a macOS text expander. The app lives in `desktop/`: a Tauri 2 shell, a Rust engine, and a Next.js + shadcn/ui interface. Read `desktop/README.md` (layout and features), `desktop/docs/TEMPLATE_SYNTAX.md` (the snippet format) and `desktop/RELEASING.md` (releases, updates, iCloud sync) before changing behaviour.
 
 ## Layout
 
-- `Packages/KudzuCore`: pure Swift package with no AppKit/UIKit imports, so it is reusable on iOS. All logic that can be unit-tested lives here.
-- `Kudzu/`: thin macOS app (menu bar, windows, panels, event tap, permissions).
-- `project.yml`: XcodeGen spec. `Kudzu.xcodeproj` is generated and git-ignored, so **never edit it**.
-  - `Kudzu` target: Developer ID build, unsandboxed.
-  - `KudzuAppStore` target: sandboxed, `APPSTORE` compilation condition.
+- `desktop/src-tauri/crates/kudzu-core`: pure Rust, with no OS APIs. Types, the template parser and renderer, the trigger matcher, Espanso and JSON interchange, backups, dedupe, and the iCloud sync model (`sync.rs`). Anything that can be unit-tested goes here.
+- `desktop/src-tauri/crates/kudzu-engine`: system integration. The CGEventTap, insertion, permissions and the caret position.
+- `desktop/src-tauri/src`: the Tauri shell:
+  - store and IPC commands
+  - windows and tray
+  - updater (`updater.rs`)
+  - CloudKit layer (`cloud/`)
+- `desktop/app`, `components`, `lib`: the UI.
+  - `components/ui` holds shadcn primitives, `components/app` holds Kudzu's own components.
+  - `lib/mock.ts` is an in-memory backend for the browser preview (`pnpm dev`).
 
 ## Commands
 
 ```sh
-# Core tests (fast; run these constantly)
-cd Packages/KudzuCore && swift test
-
-# App builds
-xcodegen generate
-xcodebuild -project Kudzu.xcodeproj -scheme Kudzu -derivedDataPath build/DerivedData build
-xcodebuild -project Kudzu.xcodeproj -scheme KudzuAppStore -derivedDataPath build/DerivedData build
+cd desktop
+pnpm install
+pnpm dev                    # UI in a browser, mock backend (?view=settings:about, ?light, ?update, …)
+pnpm tauri dev              # full app
+pnpm exec tsc --noEmit && pnpm lint
+cd src-tauri && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-Signing defaults to ad-hoc (`Config/Signing.xcconfig`). Ad-hoc signatures change every build, so macOS forgets privacy grants. To keep Accessibility and Input Monitoring grants across rebuilds, create `Config/Local.xcconfig` from the `.example` file with your own team.
-
-The toolchain is Xcode 27 / Swift 6.4, with Swift 6 language mode and strict concurrency. The deployment target is macOS 15.
+CI (`.github/workflows/ci.yml`) runs exactly these.
 
 ## Conventions
 
-- **Tests:** Swift Testing (`import Testing`, `@Test`, `#expect`), not XCTest. Write tests first for core logic.
-- **Shared value types** live in `KudzuCore/Shared/Interchange.swift`: `SnippetRecord`, `GroupRecord`, `UsageRecord`, `AppRule`, `KudzuLibrary` and the enums. Treat them as a contract.
-  - Additive changes only.
-  - New fields must be optional or defaulted so old JSON still decodes.
-- **SwiftData models** must stay CloudKit-compatible:
-  - every attribute optional or defaulted
-  - relationships optional
-  - no `@Attribute(.unique)` / `#Unique`
-  - no `.deny` delete rule
-- Public API gets a one-line doc comment. Explain the *why* in other comments, sparingly.
-- No third-party dependencies beyond those already in `Package.swift` without asking.
-- Keep each change scoped to your task's directories. Don't reformat unrelated files.
+- **Commit messages** follow Conventional Commits (`feat:`, `fix:`, `perf:`, …). release-please reads them to version releases and write the changelog. Only commits touching `desktop/` count.
+- **Library JSON is a contract.** Make additive changes only: new fields are optional or defaulted, so old files and other Macs still decode them.
+- **Sync.** Follow the rules in `kudzu_core::sync` and RELEASING.md:
+  - new fields are free (they're JSON keys inside `payload`);
+  - bump `SYNC_VERSION` only for changes older builds would misread;
+  - CloudKit's Production schema is add-only.
+- **Restricted entitlements.** Never add iCloud (or other restricted) entitlements to `tauri.conf.json`; they live in `tauri.icloud.conf.json` and only apply with a provisioning profile.
+- **Never edit generated files:** `src-tauri/gen/` and the `AGENTS.md` block that `next dev` writes.
+- **Tests:** Rust tests sit next to the code (`#[cfg(test)]`) or in `crates/*/tests`. Write them first for core logic.
+- **UI:** shadcn components plus the depth tokens in `app/globals.css` (`shadow-card`, `shadow-raised`, `shadow-well`, …). Shortcuts render with `Shortcut`, which is built on shadcn `Kbd`.
+- **Dependencies:** don't add third-party dependencies without asking.

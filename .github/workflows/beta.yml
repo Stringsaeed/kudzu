@@ -1,0 +1,49 @@
+# Cuts a beta: tags the chosen commit vX.Y.Z-beta.N, builds it like a stable release, publishes it
+# as a pre-release and points the beta feed at it. Stable users never see it.
+# Run from Actions → Beta → Run workflow.
+name: Beta
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Beta version, e.g. 0.3.0-beta.1
+        required: true
+      ref:
+        description: Branch or commit to build
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: v${{ inputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+      - name: Tag and draft the pre-release
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]] || { echo "::error::Use X.Y.Z-beta.N, got $VERSION"; exit 1; }
+          git rev-parse "v$VERSION" >/dev/null 2>&1 && { echo "::error::v$VERSION already exists"; exit 1; }
+          git tag "v$VERSION" && git push origin "v$VERSION"
+          gh release create "v$VERSION" --draft --prerelease --verify-tag --title "Kudzu $VERSION" --generate-notes
+
+  build:
+    needs: tag
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      channel: beta
+    secrets: inherit
