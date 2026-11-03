@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tauri:
+  desktop:
     runs-on: macos-15
     timeout-minutes: 40
     defaults:
