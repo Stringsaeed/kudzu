@@ -130,6 +130,7 @@ pub fn summary(status: &EngineStatus) -> String {
 }
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
+    let dev = crate::is_dev(app);
     let (paused, hotkey) = {
         let c = core(app);
         let s = c.store.lock();
@@ -139,10 +140,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let pause = MenuItem::with_id(app, "pause", if paused { "Resume Expanding" } else { "Pause Expanding" }, true, Some("CmdOrCtrl+Shift+P"))?;
     let search = MenuItem::with_id(app, "search", format!("Quick Search      {}", hotkey_label(&hotkey)), true, None::<&str>)?;
     let from_sel = MenuItem::with_id(app, "from-selection", "New Snippet from Selection", true, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Open Kudzu…", true, Some("CmdOrCtrl+O"))?;
+    let open = MenuItem::with_id(app, "open", if dev { "Open Kudzu Dev…" } else { "Open Kudzu…" }, true, Some("CmdOrCtrl+O"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
     let updates = MenuItem::with_id(app, "updates", "Check for Updates…", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Kudzu", true, Some("CmdOrCtrl+Q"))?;
+    let quit = MenuItem::with_id(app, "quit", if dev { "Quit Kudzu Dev" } else { "Quit Kudzu" }, true, Some("CmdOrCtrl+Q"))?;
     let menu = Menu::with_items(
         app,
         &[
@@ -161,10 +162,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     )?;
     app.manage(parking_lot::Mutex::new(Items { status, pause, search, updates }));
 
-    TrayIconBuilder::with_id(TRAY_ID)
+    let mut tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(if paused { Glyph::Paused } else { Glyph::Normal }))
         .icon_as_template(true)
-        .tooltip("Kudzu")
+        .tooltip(if dev { "Kudzu Dev" } else { "Kudzu" })
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -218,8 +219,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 app.exit(0);
             }
             _ => {}
-        })
-        .build(app)?;
+        });
+    if dev {
+        tray = tray.title("Dev");
+    }
+    tray.build(app)?;
     Ok(())
 }
 

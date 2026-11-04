@@ -28,6 +28,14 @@ const BETA_FEED: &str = "https://github.com/Stringsaeed/kudzu/releases/download/
 const FIRST_CHECK_DELAY: Duration = Duration::from_secs(20);
 const CHECK_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 
+fn update_allowed(identifier: &str) -> Result<(), &'static str> {
+    if crate::is_dev_identifier(identifier) {
+        Err("Updates are unavailable in Kudzu Dev.")
+    } else {
+        Ok(())
+    }
+}
+
 /// What the UI shows about updates.
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(tag = "phase", rename_all = "camelCase")]
@@ -121,6 +129,11 @@ fn feed(channel: UpdateChannel) -> Url {
 /// Checks the feed and, when there's a newer version, downloads and verifies it in the
 /// background. `quiet` keeps scheduled checks from surfacing transient network errors.
 pub async fn check(app: AppHandle, quiet: bool) -> Result<UpdateState, String> {
+    if let Err(message) = update_allowed(&app.config().identifier) {
+        let next = UpdateState::Error { message: message.into(), needs_move: false };
+        set(&app, next.clone());
+        return Ok(next);
+    }
     let u = updates(&app);
     let Ok(_guard) = u.busy.try_lock() else {
         return Ok(state(&app)); // a check or download is already running
@@ -204,6 +217,7 @@ pub async fn check(app: AppHandle, quiet: bool) -> Result<UpdateState, String> {
 
 /// Installs the waiting update. Returns true when something was installed.
 fn install_pending(app: &AppHandle) -> Result<bool, String> {
+    update_allowed(&app.config().identifier).map_err(str::to_string)?;
     let u = updates(app);
     let Some(p) = u.pending.lock().take() else { return Ok(false) };
     set(app, UpdateState::Restarting { version: p.update.version.clone() });
@@ -231,7 +245,7 @@ pub async fn restart_to_update(app: AppHandle) -> Result<(), String> {
 
 /// Called on quit: if an update is waiting, swap it in so the next launch is the new version.
 pub fn install_on_quit(app: &AppHandle) {
-    if app.try_state::<Arc<Updates>>().is_none() {
+    if update_allowed(&app.config().identifier).is_err() || app.try_state::<Arc<Updates>>().is_none() {
         return;
     }
     match install_pending(app) {
@@ -241,10 +255,10 @@ pub fn install_on_quit(app: &AppHandle) {
     }
 }
 
-/// Starts the background check loop. Debug builds skip it: there's no feed for dev versions.
+/// Starts the background check loop, except in debug builds and Kudzu Dev.
 pub fn start(app: &AppHandle) {
     app.manage(Arc::new(Updates::default()));
-    if cfg!(debug_assertions) {
+    if cfg!(debug_assertions) || update_allowed(&app.config().identifier).is_err() {
         return;
     }
     let app = app.clone();
@@ -257,4 +271,13 @@ pub fn start(app: &AppHandle) {
             tokio::time::sleep(CHECK_INTERVAL).await;
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn development_variant_cannot_use_production_updates() {
+        assert!(super::update_allowed("sh.saeed.kudzu").is_ok());
+        assert!(super::update_allowed("sh.saeed.kudzu.dev").is_err());
+    }
 }

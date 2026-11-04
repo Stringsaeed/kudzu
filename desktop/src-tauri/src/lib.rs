@@ -21,6 +21,14 @@ use tauri_plugin_global_shortcut::ShortcutState;
 
 use crate::state::{core, AppCore};
 
+fn is_dev_identifier(identifier: &str) -> bool {
+    identifier == "sh.saeed.kudzu.dev"
+}
+
+fn is_dev(app: &tauri::AppHandle) -> bool {
+    is_dev_identifier(&app.config().identifier)
+}
+
 pub fn run() {
     let started_hidden = std::env::args().any(|a| a == "--hidden");
 
@@ -58,8 +66,12 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let dir = app.path().app_data_dir().expect("app data dir");
-            store::migrate_legacy_dir(&dir);
-            let mut store = store::Store::load(dir);
+            let mut store = if is_dev(app.handle()) {
+                store::Store::load_dev(dir)
+            } else {
+                store::migrate_legacy_dir(&dir);
+                store::Store::load(dir)
+            };
             store.note_app_version(&app.package_info().version.to_string());
             let first_run = store.first_run;
             let core = Arc::new(AppCore {

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kudzu Dev",
+  "identifier": "sh.saeed.kudzu.dev",
+  "bundle": {
+    "createUpdaterArtifacts": false
+  }
+}

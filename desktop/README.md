@@ -23,12 +23,21 @@ desktop/
 
 ```sh
 pnpm install
-pnpm tauri dev          # full app (Rust + webviews)
+pnpm tauri dev          # Kudzu Dev (Rust + webviews, hot reload)
+pnpm tauri:build:dev    # installable Kudzu Dev.app in src-tauri/target/release/bundle/macos/
 pnpm dev                # UI only, in a browser, with an in-memory mock backend
-pnpm tauri build        # unsigned .app + .dmg in src-tauri/target/release/bundle
+pnpm tauri build        # production-identity .app + .dmg in src-tauri/target/release/bundle
 
 cd src-tauri && cargo test --workspace   # core + engine tests
 ```
+
+### macOS development variant
+
+`pnpm tauri dev` and `pnpm tauri:build:dev` use `src-tauri/tauri.dev.conf.json` to build **Kudzu Dev** (`sh.saeed.kudzu.dev`). It can run beside the installed **Kudzu** (`sh.saeed.kudzu`): its library, settings, backups, logs, login item, and macOS permissions are separate. Dev data lives in `~/Library/Application Support/sh.saeed.kudzu.dev/`; logs are in `~/Library/Logs/sh.saeed.kudzu.dev/`.
+
+A new dev library starts paused, with **⌃⌥⇧Space** for Quick Search instead of production's **⌃⌥Space**. Resume it when you want to test expansion; pause the other app first to avoid both expanding the same trigger. Dev never imports the old production library automatically, syncs to production iCloud, or installs production updates.
+
+`pnpm tauri dev` selects the development variant through the package's Tauri wrapper. Calling `pnpm exec tauri dev` directly bypasses that wrapper and uses the production identity and data. `pnpm tauri build` and `pnpm release:build` retain the production identity.
 
 The browser preview takes a few dev-only query params: `?view=insights`, `?view=settings:apps`, `?onboarding`, `?light`, `?update` (pretend a new version exists), and `/form?demo`.
 

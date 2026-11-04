@@ -167,6 +167,7 @@ pnpm release:build                            # the full thing, into desktop/dis
 
 - **Version:** `desktop/package.json` is the single source. `tauri.conf.json` reads it (`"version": "../package.json"`). The Rust crate versions are internal and don't change.
 - **Identifier:** `sh.saeed.kudzu`, the same as the original Swift app. Kudzu replaces it, which is why the Swift app is no longer released. Data lives in `~/Library/Application Support/sh.saeed.kudzu/`. On first launch, data from earlier pre-release builds (`sh.saeed.kudzu.desktop`) is copied over.
+- **Development variant:** `pnpm tauri dev` and `pnpm tauri:build:dev` use `sh.saeed.kudzu.dev`, with separate local data and permissions. They cannot sync or install production updates. `pnpm tauri build` and the release script use the production identifier above; see [README.md](README.md#macos-development-variant).
 - **Privacy permissions:** Accessibility and Input Monitoring grants are tied to the bundle ID and the signing team. Updates signed by the same Developer ID keep them; switching from an ad-hoc local build to a signed build means granting them once more.
 - **macOS:** 14 Sonoma or later (iCloud sync uses `CKSyncEngine`), universal (Apple Silicon and Intel).
 - **Logs:** `~/Library/Logs/sh.saeed.kudzu/Kudzu.log` (rotated, about 2 MB × 3). Ask users for it when sync or updates misbehave.
