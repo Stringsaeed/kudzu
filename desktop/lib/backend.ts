@@ -11,6 +11,8 @@ import type {
   AppInfo,
   AppState,
   BackupInfo,
+  ClipboardInfo,
+  ClipEntry,
   EngineStatus,
   EspansoDetection,
   FormRequest,
@@ -59,6 +61,8 @@ export const Events = {
   command: "kudzu://command",
   update: "kudzu://update",
   sync: "kudzu://sync",
+  clipboard: "kudzu://clipboard",
+  clipboardShow: "kudzu://clipboard-show",
 } as const
 
 export const api = {
@@ -126,6 +130,35 @@ export const api = {
   // iCloud sync
   syncStatus: () => call<SyncStatus>("sync_status"),
   syncNow: () => call<void>("sync_now"),
+
+  // Clipboard history
+  clipboardList: () => call<ClipboardInfo>("clipboard_list"),
+  clipboardText: (id: string) => call<string | null>("clipboard_text", { id }),
+  clipboardCopy: (id: string, plain = false) => call<void>("clipboard_copy", { id, plain }),
+  /** From the picker: "pasted" into the previous app, or only "copied" (no Accessibility). */
+  clipboardPaste: (id: string, plain = false) => call<"pasted" | "copied">("clipboard_paste", { id, plain }),
+  clipboardDelete: (ids: string[]) => call<ClipEntry[]>("clipboard_delete", { ids }),
+  clipboardRestore: (entries: ClipEntry[]) => call<void>("clipboard_restore", { entries }),
+  clipboardPin: (id: string, pinned: boolean) => call<ClipEntry | null>("clipboard_pin", { id, pinned }),
+  clipboardClear: (includePinned: boolean) => call<number>("clipboard_clear", { includePinned }),
+  clipboardOpen: (id: string, index?: number) => call<void>("clipboard_open", { id, index: index ?? null }),
+  clipboardReveal: (id: string, index?: number) => call<void>("clipboard_reveal", { id, index: index ?? null }),
+  clipboardToSnippet: (id: string) => call<void>("clipboard_to_snippet", { id }),
+  showClipboard: () => call<void>("show_clipboard"),
+  hideClipboard: () => call<void>("hide_clipboard"),
+  showMainView: (view: unknown) => call<void>("show_main_view", { view }),
+  setClipboardHotkey: (accelerator: string) => call<Settings>("set_clipboard_hotkey", { accelerator }),
+}
+
+/**
+ * URL of clipboard media served by the backend's `kzclip` protocol (thumbnails, images, file
+ * previews and icons). Cached by the webview forever: ids never change content.
+ */
+export function clipMediaUrl(kind: "thumb" | "image" | "file" | "icon", id: string, index = 0): string | null {
+  if (!isTauri()) return mockBackend.media(kind, id)
+  const path = `${kind}/${id}${kind === "file" || kind === "icon" ? `/${index}` : ""}`
+  // WebKit (macOS, Linux) uses the scheme directly; WebView2 maps custom schemes to http://<scheme>.localhost.
+  return /Windows/.test(navigator.userAgent) ? `http://kzclip.localhost/${path}` : `kzclip://localhost/${path}`
 }
 
 export type Api = typeof api

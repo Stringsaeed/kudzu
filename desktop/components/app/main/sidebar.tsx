@@ -2,8 +2,16 @@
 
 import {
   BarChart3,
+  AlignLeft,
+  Braces,
   ChevronRight,
   CircleOff,
+  ClipboardList,
+  File,
+  Globe,
+  Image as ImageIcon,
+  Palette,
+  Pin,
   Clock3,
   Folder,
   FolderOpen,
@@ -29,6 +37,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { FILTERS, inFilter, useClipboard, type ClipFilter } from "@/lib/clipboard"
 import { buildTree, descendantIds, recursiveCounts, type GroupNode } from "@/lib/groups"
 import { useStore, type View } from "@/lib/store"
 import type { Group } from "@/lib/types"
@@ -41,7 +50,71 @@ export const SNIPPET_DRAG_TYPE = "application/x-kudzu-snippets"
 const GROUP_DRAG_TYPE = "application/x-kudzu-group"
 
 function sameView(a: View, b: View) {
+  if (a.kind === "clipboard" && b.kind === "clipboard") return (a.filter ?? "all") === (b.filter ?? "all")
   return a.kind === b.kind && (a.kind !== "group" || (b.kind === "group" && a.id === b.id))
+}
+
+const CLIP_ICONS: Record<Exclude<ClipFilter, "all">, React.ComponentType<{ className?: string }>> = {
+  pinned: Pin,
+  text: AlignLeft,
+  image: ImageIcon,
+  link: Globe,
+  file: File,
+  code: Braces,
+  color: Palette,
+  other: AlignLeft,
+}
+
+const COLLAPSE_KEY = "kudzu-sidebar-sections"
+
+/** Which feature sections are collapsed, remembered on this Mac. */
+function useCollapsedSections() {
+  const [closed, setClosed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) ?? "[]") as string[])
+    } catch {
+      return new Set()
+    }
+  })
+  const toggle = (id: string) =>
+    setClosed((c) => {
+      const n = new Set(c)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      try {
+        localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...n]))
+      } catch {}
+      return n
+    })
+  return [closed, toggle] as const
+}
+
+/**
+ * A feature's heading (Snippets, Clipboard). Click, Return or ←/→ fold it; the chevron shows on
+ * hover and focus, like Finder's sidebar.
+ */
+function SectionHeader({ id, label, open, onToggle, trailing }: { id: string; label: string; open: boolean; onToggle: () => void; trailing?: React.ReactNode }) {
+  return (
+    <div className="group/sec flex h-7 items-center gap-1 pr-1 pl-2">
+      <button
+        data-nav-item
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if ((e.key === "ArrowLeft" && open) || (e.key === "ArrowRight" && !open)) {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+        className="-ml-1 flex h-6 min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-[11px] font-semibold tracking-wide text-faint outline-none transition-colors hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="truncate">{label}</span>
+        <ChevronRight className={cn("size-3 shrink-0 opacity-0 transition-[transform,opacity] group-hover/sec:opacity-100 group-focus-within/sec:opacity-100", open && "rotate-90", !open && "opacity-100")} />
+      </button>
+      {trailing}
+    </div>
+  )
 }
 
 /** Arrow-key navigation between sidebar items. */
@@ -299,6 +372,15 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
   const favorites = library.snippets.filter((s) => s.isFavorite).length
   const disabled = library.snippets.filter((s) => !s.isEnabled).length
   const recent = useMemo(() => [...usage.values()].filter((u) => u.last).length, [usage])
+  const clipEntries = useClipboard((s) => s.entries)
+  const clipOn = useStore((s) => s.settings.clipboardEnabled)
+  const clipCounts = useMemo(() => {
+    const m = new Map<ClipFilter, number>()
+    for (const f of FILTERS) m.set(f.value, f.value === "all" ? clipEntries.length : clipEntries.filter((e) => inFilter(e, f.value)).length)
+    return m
+  }, [clipEntries])
+  const [closed, toggleSection] = useCollapsedSections()
+  const activeClip = view.kind === "clipboard" ? (view.filter ?? "all") : null
 
   const toggleCollapsed = (id: string) =>
     setCollapsed((c) => {
@@ -336,7 +418,11 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
           <Shortcut combo="mod+k" />
         </button>
       </div>
-      <nav aria-label="Library" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
+      <nav aria-label="Library" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
+        <section aria-label="Snippets" className="flex flex-col gap-px">
+          <SectionHeader id="sec-snippets" label="Snippets" open={!closed.has("snippets")} onToggle={() => toggleSection("snippets")} />
+          {!closed.has("snippets") && (
+            <div id="sec-snippets" className="flex flex-col gap-3 animate-rise">
         <div className="flex flex-col gap-px">
           {item({ kind: "all" }, Layers, "All snippets", library.snippets.length, "mod+1")}
           {item({ kind: "favorites" }, Star, "Favorites", favorites, "mod+2")}
@@ -386,6 +472,34 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
             </button>
           )}
         </div>
+            </div>
+          )}
+        </section>
+
+        <section aria-label="Clipboard" className="flex flex-col gap-px">
+          <SectionHeader
+            id="sec-clipboard"
+            label="Clipboard"
+            open={!closed.has("clipboard")}
+            onToggle={() => toggleSection("clipboard")}
+            trailing={!clipOn ? <span className="mr-1 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">Paused</span> : undefined}
+          />
+          {!closed.has("clipboard") && (
+            <div id="sec-clipboard" className="flex flex-col gap-px animate-rise">
+              <NavItem icon={ClipboardList} label="History" count={clipCounts.get("all")} active={activeClip === "all"} onSelect={() => setView({ kind: "clipboard" })} shortcut="mod+5" />
+              {FILTERS.filter((f) => f.value !== "all" && (f.value === "pinned" || (clipCounts.get(f.value) ?? 0) > 0 || activeClip === f.value)).map((f) => (
+                <NavItem
+                  key={f.value}
+                  icon={CLIP_ICONS[f.value as Exclude<ClipFilter, "all">]}
+                  label={f.label}
+                  count={clipCounts.get(f.value)}
+                  active={activeClip === f.value}
+                  onSelect={() => setView({ kind: "clipboard", filter: f.value })}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       </nav>
       <div className="flex flex-col gap-px border-t border-hairline px-2.5 py-2" onKeyDown={onNavKeyDown}>
         {item({ kind: "insights" }, BarChart3, "Insights", undefined, "mod+4")}

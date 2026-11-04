@@ -7,6 +7,7 @@ import { create } from "zustand"
 
 import { api, Events, on } from "./backend"
 import { usageById, type SnippetUsage } from "./stats"
+import type { ClipFilter } from "./clipboard"
 import type { AppState, EngineStatus, Group, Library, Settings, Snippet, TriggerConflict } from "./types"
 
 export type View =
@@ -16,9 +17,10 @@ export type View =
   | { kind: "disabled" }
   | { kind: "group"; id: string }
   | { kind: "insights" }
+  | { kind: "clipboard"; filter?: ClipFilter }
   | { kind: "settings"; section?: SettingsSection }
 
-export type SettingsSection = "general" | "expansion" | "apps" | "data" | "shortcuts" | "about"
+export type SettingsSection = "general" | "expansion" | "clipboard" | "apps" | "data" | "shortcuts" | "about"
 
 export type Focus = "sidebar" | "list" | "editor"
 
@@ -95,6 +97,11 @@ export const useStore = create<Store>((set, get) => ({
     icloudSync: true,
     updateChannel: "stable",
     lastRunVersion: null,
+    clipboardEnabled: true,
+    clipboardRetentionDays: 7,
+    clipboardHotkey: "Control+Alt+V",
+    clipboardIgnoredApps: [],
+    clipboardPastePlain: false,
   },
   status: defaultStatus,
   usage: new Map(),
@@ -185,7 +192,7 @@ export const useStore = create<Store>((set, get) => ({
       selectedId: snippet.id,
       focusNameOf: snippet.id,
       filter: "",
-      view: view.kind === "insights" || view.kind === "settings" || view.kind === "disabled" || view.kind === "recent" ? { kind: "all" } : view,
+      view: view.kind === "insights" || view.kind === "settings" || view.kind === "clipboard" || view.kind === "disabled" || view.kind === "recent" ? { kind: "all" } : view,
     }))
     return snippet
   },

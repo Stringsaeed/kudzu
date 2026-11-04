@@ -7,15 +7,16 @@ desktop/
 ├── app/                      Next.js routes, one per window
 │   ├── page.tsx              main window (library, editor, insights, settings, onboarding)
 │   ├── palette/page.tsx      quick-search tray (global shortcut)
+│   ├── clipboard/page.tsx    clipboard history picker (global shortcut)
 │   └── form/page.tsx         fill-in form shown at the caret
 ├── components/
 │   ├── ui/                   shadcn/ui primitives (radix-nova)
-│   └── app/                  Kudzu components (editor, palette, form, main/*)
+│   └── app/                  Kudzu components (editor, palette, form, clipboard, main/*)
 ├── lib/                      client logic: IPC bridge, search ranking, template tokenizer, store
 └── src-tauri/
     ├── src/                  Tauri shell: store, IPC commands, windows, tray, hotkey
     └── crates/
-        ├── kudzu-core/       pure Rust: types, template parser/renderer, matcher, Espanso, backups
+        ├── kudzu-core/       pure Rust: types, template parser/renderer, matcher, Espanso, backups, clipboard model
         └── kudzu-engine/     system-wide engine: CGEventTap, insertion, permissions, apps (macOS)
 ```
 
@@ -39,7 +40,7 @@ A new dev library starts paused, with **⌃⌥⇧Space** for Quick Search instea
 
 `pnpm tauri dev` selects the development variant through the package's Tauri wrapper. Calling `pnpm exec tauri dev` directly bypasses that wrapper and uses the production identity and data. `pnpm tauri build` and `pnpm release:build` retain the production identity.
 
-The browser preview takes a few dev-only query params: `?view=insights`, `?view=settings:apps`, `?onboarding`, `?light`, `?update` (pretend a new version exists), and `/form?demo`.
+The browser preview takes a few dev-only query params: `?view=insights`, `?view=clipboard`, `?view=settings:apps`, `?onboarding`, `?light`, `?update` (pretend a new version exists), `/form?demo`, `/clipboard` (the picker), `?clips=5000` (fill clipboard history to its cap) and `?emptyclips`. Copying text in the preview adds it to the mock history.
 
 ## Release
 
@@ -56,6 +57,7 @@ Releases are cut by merging release-please's "chore: release x.y.z" PR. CI then 
 | **Quick search** | Press <kbd>⌃⌥Space</kbd> anywhere. Fuzzy, usage-boosted ranking across name, trigger and content, with `#group` filters, Tab to change scope, a live preview, and <kbd>↵</kbd> insert, <kbd>⌘↵</kbd> copy, <kbd>⌘E</kbd> edit, <kbd>⌘1–9</kbd> pick. It can also create a snippet from your query. |
 | **Forms** | A panel near the caret with a live preview. <kbd>Tab</kbd> moves between fields, <kbd>↵</kbd> inserts, and <kbd>Esc</kbd> cancels and leaves the trigger as typed. Fields remember their last values. |
 | **Library** | Favorites, recently used, turned-off snippets and nested groups (drag to move, right-click to manage). The list is virtualized, supports multi-select bulk actions and type-to-filter, and deletes can be undone. |
+| **Clipboard history** | Records every copy (text, code, links, colors, images, files and app-specific data) with the time and app it came from, and folds repeats into one item with a copy timeline. Kept for 1 week by default (1 day to 1 year, a custom number of days, or forever), pinned items never expire, and up to 5,000 items are kept. The sidebar's Clipboard section lists History, Pinned and a folder per kind (Text, Images, Links, Files, Code, Colors). Press <kbd>⌃⌥V</kbd> anywhere to search the history and paste into the app you were in. Previews for every kind: images, code with line numbers, colors with HEX/RGB/HSL/OKLCH values and contrast, links, and file lists with Finder icons. Passwords and anything marked concealed or transient are skipped, password managers are excluded, and the history never leaves the Mac. |
 | **Insights** | Expansions, characters and time saved (at a WPM you set), most-used, recently used and never-used snippets. Usage is per device, and typed text is never stored. |
 | **Data** | Import from Espanso (auto-detected) or a Kudzu JSON file, and export to Kudzu JSON or Espanso YAML. A backup is taken daily and before every import or restore; the last 14 are kept and can be restored in one click. |
 | **Shell** | Menu-bar app with status, pause, quick search, "new snippet from selection", open at login, and an optional Dock icon while the window is open. Onboarding walks through permissions (detected live), Espanso import, and a practice field. |
@@ -66,7 +68,9 @@ Every action has a shortcut. <kbd>⌘K</kbd> opens the command menu and <kbd>⌘
 
 <kbd>⌘N</kbd> new · <kbd>⌘F</kbd> filter · <kbd>⌘L</kbd> list · <kbd>⌘E</kbd> editor · <kbd>Esc</kbd> back to list ·
 <kbd>↑↓</kbd>/<kbd>J K</kbd> move · <kbd>⇧↑↓</kbd> extend selection · <kbd>⌘⌫</kbd> delete (undoable) · <kbd>⌘D</kbd> duplicate ·
-<kbd>⌘⇧F</kbd> favorite · <kbd>⌘⇧E</kbd> on/off · <kbd>⌘⇧P</kbd> pause · <kbd>⌘1–4</kbd> views · <kbd>⌘,</kbd> settings.
+<kbd>⌘⇧F</kbd> favorite · <kbd>⌘⇧E</kbd> on/off · <kbd>⌘⇧P</kbd> pause · <kbd>⌘1–5</kbd> views · <kbd>⌘,</kbd> settings.
+
+Clipboard history: <kbd>↵</kbd> copy (in the picker, paste) · <kbd>⇧↵</kbd> plain text · <kbd>⌘↵</kbd> copy only (picker) · <kbd>⌘1–9</kbd> paste the nth item (picker) · <kbd>Space</kbd> large preview · <kbd>⌘P</kbd> pin · <kbd>⌘S</kbd> save as snippet · <kbd>⌘O</kbd> open · <kbd>⌘⌫</kbd> delete (undoable) · <kbd>⇥</kbd> filter by kind (picker). Search also accepts `app:slack` and `is:image`.
 
 ## Performance notes
 
@@ -74,6 +78,7 @@ Every action has a shortcut. <kbd>⌘K</kbd> opens the command menu and <kbd>⌘
 - **Search:** with 5,000 snippets, each keystroke takes 1–4 ms and an index refresh after usage changes takes about 1 ms (folded fields are cached per edit stamp). `useDeferredValue` keeps typing responsive.
 - **Windows:** the palette and form webviews are created hidden at launch, so the shortcut only shows an existing window. The palette-specific JavaScript is about 7 KB gzipped on top of the shared runtime.
 - **List:** virtualized with TanStack Virtual. Row summaries are computed lazily and cached by content.
+- **Clipboard:** a background thread reads the pasteboard's change count every 300 ms and only reads data when it changes. Thumbnails are made once at copy time, and media reaches the webviews through the `kzclip://` protocol with immutable caching instead of IPC. The index is written at most once a second. With 5,000 items (production build), a search keystroke costs about 10 ms of script and moving the selection about 3.5 ms; the list renders only its visible rows.
 - **Disk:** writes are atomic (temp file + rename). A corrupt library is moved aside, never overwritten.
 
 ## Design

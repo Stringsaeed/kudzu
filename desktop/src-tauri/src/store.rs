@@ -25,7 +25,7 @@ pub struct Store {
     pub first_run: bool,
 }
 
-fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = path.with_extension("tmp");
     {
         let mut f = fs::File::create(&tmp)?;
@@ -78,6 +78,7 @@ impl Store {
         let settings = Settings {
             paused: true,
             palette_hotkey: "Control+Alt+Shift+Space".into(),
+            clipboard_hotkey: "Control+Alt+Shift+V".into(),
             ..Settings::default()
         };
         Self::load_with_defaults(dir, settings)
@@ -98,9 +99,18 @@ impl Store {
         if first_run {
             coordinator::ensure_getting_started_snippets(&mut library, Utc::now());
         }
+        // Keys missing from an older file take this variant's defaults (not the global ones), so a
+        // dev build that predates a setting still gets its dev-safe value.
         let settings = fs::read_to_string(dir.join("settings.json"))
             .ok()
-            .and_then(|s| serde_json::from_str(&s).ok())
+            .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+            .and_then(|file| {
+                let mut base = serde_json::to_value(&defaults).ok()?;
+                if let (serde_json::Value::Object(b), serde_json::Value::Object(f)) = (&mut base, file) {
+                    b.extend(f);
+                }
+                serde_json::from_value(base).ok()
+            })
             .unwrap_or(defaults);
         let form_memory = fs::read_to_string(dir.join("form-memory.json"))
             .ok()
@@ -223,6 +233,25 @@ mod tests {
         let again = Store::load_dev(dir.clone());
         assert!(!again.settings.paused);
         assert_eq!(again.settings.palette_hotkey, "Control+Alt+K");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn missing_settings_take_the_variant_defaults() {
+        let dir = temp_root("variant-defaults");
+        fs::write(dir.join("settings.json"), r#"{"paused":false,"paletteHotkey":"Control+Alt+K"}"#).unwrap();
+        let dev = Store::load_dev(dir.clone());
+        assert_eq!(dev.settings.clipboard_hotkey, "Control+Alt+Shift+V");
+        assert_eq!(dev.settings.palette_hotkey, "Control+Alt+K");
+        assert!(!dev.settings.paused);
+        let _ = fs::remove_dir_all(dir);
+
+        let dir = temp_root("variant-defaults-prod");
+        fs::write(dir.join("settings.json"), r#"{"paused":true}"#).unwrap();
+        let prod = Store::load(dir.clone());
+        assert_eq!(prod.settings.clipboard_hotkey, "Control+Alt+V");
+        assert_eq!(prod.settings.clipboard_retention_days, 7);
+        assert!(prod.settings.paused);
         let _ = fs::remove_dir_all(dir);
     }
 

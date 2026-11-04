@@ -1,5 +1,6 @@
 //! Kudzu desktop: Tauri shell around kudzu-core (logic) and kudzu-engine (system integration).
 
+mod clipboard;
 mod cloud;
 mod commands;
 mod host;
@@ -50,9 +51,12 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| windows::show_main(app)))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
+                .with_handler(|app, shortcut, event| {
                     if event.state() == ShortcutState::Pressed {
-                        windows::toggle_palette(app);
+                        match hotkey::slot_of(app, shortcut) {
+                            hotkey::Slot::Clipboard => windows::toggle_clipboard(app),
+                            hotkey::Slot::Palette => windows::toggle_palette(app),
+                        }
                     }
                 })
                 .build(),
@@ -60,6 +64,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .register_asynchronous_uri_scheme_protocol("kzclip", clipboard::protocol_handler)
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--hidden"])))
         .setup(move |app| {
             #[cfg(target_os = "macos")]
@@ -74,6 +79,7 @@ pub fn run() {
             };
             store.note_app_version(&app.package_info().version.to_string());
             let first_run = store.first_run;
+            let clip = clipboard::ClipStore::load(store.dir.join("clipboard"));
             let core = Arc::new(AppCore {
                 app: app.handle().clone(),
                 store: Mutex::new(store),
@@ -81,6 +87,9 @@ pub fn run() {
                 palette_target: Mutex::new(None),
                 pending_form: Mutex::new(None),
                 registered_hotkey: Mutex::new(None),
+                clip: Mutex::new(clip),
+                clip_target: Mutex::new(None),
+                registered_clip_hotkey: Mutex::new(None),
             });
             app.manage(core.clone());
 
@@ -97,9 +106,11 @@ pub fn run() {
             // Shell
             tray::create(app.handle())?;
             let accel = core.store.lock().settings.palette_hotkey.clone();
-            if let Err(e) = hotkey::register(app.handle(), &accel) {
+            if let Err(e) = hotkey::register(app.handle(), hotkey::Slot::Palette, &accel) {
                 log::warn!("palette hotkey: {e}");
             }
+            clipboard::apply_enabled(app.handle());
+            clipboard::start(app.handle());
             updater::start(app.handle());
             cloud::start(app.handle());
             windows::prewarm(app.handle());
@@ -125,6 +136,9 @@ pub fn run() {
             }
             WindowEvent::Focused(false) if window.label() == "palette" => {
                 windows::hide_palette(window.app_handle(), false);
+            }
+            WindowEvent::Focused(false) if window.label() == "clipboard" => {
+                windows::hide_clipboard(window.app_handle(), false);
             }
             _ => {}
         })
@@ -161,6 +175,7 @@ pub fn run() {
             commands::reveal_data_folder,
             commands::show_main,
             commands::hide_palette,
+            commands::show_main_view,
             commands::palette_insert,
             commands::palette_copy,
             commands::palette_create,
@@ -174,6 +189,20 @@ pub fn run() {
             commands::restart_to_update,
             commands::sync_status,
             commands::sync_now,
+            clipboard::clipboard_list,
+            clipboard::clipboard_text,
+            clipboard::clipboard_copy,
+            clipboard::clipboard_paste,
+            clipboard::clipboard_delete,
+            clipboard::clipboard_restore,
+            clipboard::clipboard_pin,
+            clipboard::clipboard_clear,
+            clipboard::clipboard_open,
+            clipboard::clipboard_reveal,
+            clipboard::show_clipboard,
+            clipboard::clipboard_to_snippet,
+            clipboard::hide_clipboard,
+            clipboard::set_clipboard_hotkey,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Kudzu")
@@ -183,6 +212,7 @@ pub fn run() {
                 windows::show_main(app);
             }
             if let tauri::RunEvent::Exit = &event {
+                clipboard::flush(app);
                 // Quitting with a downloaded update installs it, so the next launch is current.
                 updater::install_on_quit(app);
             }

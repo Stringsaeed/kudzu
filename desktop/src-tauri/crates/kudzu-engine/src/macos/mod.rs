@@ -2,6 +2,7 @@
 
 mod apps;
 mod ax;
+pub(crate) mod clipboard;
 mod engine;
 mod ffi;
 mod keys;

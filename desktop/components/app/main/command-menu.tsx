@@ -4,6 +4,7 @@ import { Command as CommandPrimitive } from "cmdk"
 import {
   BarChart3,
   CircleOff,
+  ClipboardList,
   Clock3,
   Copy,
   Download,
@@ -117,6 +118,16 @@ export function CommandMenu({ onOpenGroupSettings, onDelete }: { onOpenGroupSett
       { id: "favs", section: "Go to", icon: Star, label: "Favorites", shortcut: "mod+2", run: () => st().setView({ kind: "favorites" }) },
       { id: "recent", section: "Go to", icon: Clock3, label: "Recently used", shortcut: "mod+3", run: () => st().setView({ kind: "recent" }) },
       { id: "ins", section: "Go to", icon: BarChart3, label: "Insights", keywords: "stats statistics usage", shortcut: "mod+4", run: () => st().setView({ kind: "insights" }) },
+      { id: "clip", section: "Go to", icon: ClipboardList, label: "Clipboard history", keywords: "copy paste history copied", shortcut: "mod+5", run: () => st().setView({ kind: "clipboard" }) },
+      { id: "clipset", section: "Go to", icon: Settings, label: "Settings › Clipboard", keywords: "history retention keep days privacy", run: () => st().setView({ kind: "settings", section: "clipboard" }) },
+      {
+        id: "clippause",
+        section: "Actions",
+        icon: settings.clipboardEnabled ? Pause : Play,
+        label: settings.clipboardEnabled ? "Pause clipboard history" : "Resume clipboard history",
+        keywords: "copy record privacy stop",
+        run: () => st().updateSettings({ clipboardEnabled: !settings.clipboardEnabled }),
+      },
       { id: "set", section: "Go to", icon: Settings, label: "Settings", keywords: "preferences", shortcut: "mod+,", run: () => st().setView({ kind: "settings" }) },
       { id: "apps", section: "Go to", icon: Settings, label: "Settings › Apps", keywords: "exclude block terminal", run: () => st().setView({ kind: "settings", section: "apps" }) },
       { id: "data", section: "Go to", icon: Settings, label: "Settings › Backups & data", keywords: "restore import export", run: () => st().setView({ kind: "settings", section: "data" }) },
@@ -127,7 +138,7 @@ export function CommandMenu({ onOpenGroupSettings, onDelete }: { onOpenGroupSett
       a.push({ id: `gs-${n.group.id}`, section: "Actions", icon: SlidersHorizontal, label: `Group settings: ${path}`, keywords: "rules apps", run: () => onOpenGroupSettings(n.group) })
     }
     return a
-  }, [selected, status.paused, settings.theme, library.groups, st, onDelete, onOpenGroupSettings])
+  }, [selected, status.paused, settings.theme, settings.clipboardEnabled, library.groups, st, onDelete, onOpenGroupSettings])
 
   const q = query.trim().toLowerCase()
   const filtered = q

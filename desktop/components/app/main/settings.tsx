@@ -6,7 +6,19 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import { formatBytes, RETENTION_OPTIONS, retentionLabel, useClipboard } from "@/lib/clipboard"
 import { api, isTauri } from "@/lib/backend"
 import { appName, useInstalledApps } from "@/lib/apps"
 import { acceleratorFromEvent, acceleratorLabels } from "@/lib/keys"
@@ -26,6 +38,7 @@ import { runExport, runImport } from "./data-actions"
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "expansion", label: "Expansion" },
+  { id: "clipboard", label: "Clipboard" },
   { id: "apps", label: "Apps" },
   { id: "data", label: "Backups & data" },
   { id: "about", label: "About" },
@@ -73,12 +86,12 @@ function PermissionRow({ title, description, granted, onGrant }: { title: string
   )
 }
 
-export function HotkeyRecorder({ value, onChange }: { value: string; onChange: (accel: string) => void }) {
+export function HotkeyRecorder({ value, onChange, label = "Quick search shortcut" }: { value: string; onChange: (accel: string) => void; label?: string }) {
   const [recording, setRecording] = useState(false)
   return (
     <button
       type="button"
-      aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `Quick search shortcut: ${acceleratorLabels(value).join(" ")}. Press to change.`}
+      aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `${label}: ${acceleratorLabels(value).join(" ")}. Press to change.`}
       onClick={() => setRecording(true)}
       onBlur={() => setRecording(false)}
       onKeyDown={(e) => {
@@ -149,6 +162,7 @@ export function SettingsView({ section: initial }: { section?: SettingsSection }
           <div className="mx-auto flex max-w-[680px] flex-col gap-8 px-8 py-8 animate-rise" key={section}>
             {section === "general" && <General />}
             {section === "expansion" && <Expansion />}
+            {section === "clipboard" && <ClipboardSettings />}
             {section === "apps" && <Apps />}
             {section === "data" && <Data />}
             {section === "about" && <About />}
@@ -290,6 +304,149 @@ function Expansion() {
           </p>
         </div>
       </Group>
+    </>
+  )
+}
+
+function ClipboardSettings() {
+  const settings = useStore((s) => s.settings)
+  const update = useStore((s) => s.updateSettings)
+  const entries = useClipboard((s) => s.entries)
+  const diskUsage = useClipboard((s) => s.diskUsage)
+  const clear = useClipboard((s) => s.clear)
+  const days = settings.clipboardRetentionDays
+  const preset = RETENTION_OPTIONS.some((o) => o.days === days)
+  const [custom, setCustom] = useState(!preset)
+  const [draft, setDraft] = useState(String(days || 7))
+  const [confirm, setConfirm] = useState(false)
+  const pinned = entries.filter((e) => e.pinned).length
+  useEffect(() => void useClipboard.getState().refresh(), [])
+
+  const commitCustom = () => {
+    const n = Math.round(Number(draft))
+    if (Number.isFinite(n) && n >= 1 && n <= 3650) void update({ clipboardRetentionDays: n })
+    else setDraft(String(days || 7))
+  }
+
+  return (
+    <>
+      <Group title="Clipboard history" description="Kudzu remembers what you copy, so you can find it and paste it again. History stays on this Mac. It is never synced or uploaded.">
+        <Row title="Record what I copy" description="Text, links, images, files and colors, with the time each was copied." htmlFor="clip-on">
+          <Switch id="clip-on" checked={settings.clipboardEnabled} onCheckedChange={(clipboardEnabled) => void update({ clipboardEnabled })} />
+        </Row>
+        <Row
+          title="Shortcut"
+          description={
+            <>
+              Opens your history over any app. <Shortcut combo="enter" spoken /> pastes, <Shortcut combo="mod+enter" spoken /> only copies.
+            </>
+          }
+        >
+          <HotkeyRecorder
+            value={settings.clipboardHotkey}
+            label="Clipboard history shortcut"
+            onChange={(accel) =>
+              api.setClipboardHotkey(accel).then(
+                (s) => {
+                  useStore.setState({ settings: s })
+                  toast.success("Shortcut updated")
+                },
+                (e) => toast.error("That shortcut is taken", { description: String(e) }),
+              )
+            }
+          />
+        </Row>
+        <Row
+          title="Keep history"
+          description={days ? `Unpinned items are deleted ${retentionLabel(days).replace(/^for /, "after ")}. Pinned items stay until you unpin them.` : "Items stay until you delete them (up to 5,000). Pinned items always stay."}
+        >
+          {custom && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Input
+                aria-label="Days to keep history"
+                type="number"
+                min={1}
+                max={3650}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                onBlur={commitCustom}
+                onKeyDown={(e) => e.key === "Enter" && commitCustom()}
+                className="h-8 w-20 text-center tabular"
+              />
+              days
+            </span>
+          )}
+          <Select
+            value={custom ? "custom" : String(days)}
+            onValueChange={(v) => {
+              if (v === "custom") {
+                setCustom(true)
+                setDraft(String(days || 7))
+              } else {
+                setCustom(false)
+                void update({ clipboardRetentionDays: Number(v) })
+              }
+            }}
+          >
+            <SelectTrigger className="w-32" aria-label="Keep history for">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent align="end">
+              {RETENTION_OPTIONS.map((o) => (
+                <SelectItem key={o.days} value={String(o.days)}>
+                  {o.label}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">Custom…</SelectItem>
+            </SelectContent>
+          </Select>
+        </Row>
+        <Row
+          title="Paste as plain text"
+          description={
+            <>
+              Drops fonts, colors and links from formatted text. Hold <Shortcut combo="shift" spoken /> to do the opposite.
+            </>
+          }
+          htmlFor="clip-plain"
+        >
+          <Switch id="clip-plain" checked={settings.clipboardPastePlain} onCheckedChange={(clipboardPastePlain) => void update({ clipboardPastePlain })} />
+        </Row>
+      </Group>
+
+      <Group title="Privacy" description="Password managers are excluded. Kudzu also skips anything an app marks as private or temporary, like passwords and one-time codes.">
+        <div className="py-3">
+          <AppPicker value={settings.clipboardIgnoredApps} onChange={(clipboardIgnoredApps) => void update({ clipboardIgnoredApps })} addLabel="Never record from an app" />
+        </div>
+      </Group>
+
+      <Group title="Storage">
+        <Row
+          title={`${entries.length.toLocaleString()} item${entries.length === 1 ? "" : "s"}${diskUsage ? ` · ${formatBytes(diskUsage)}` : ""}`}
+          description={pinned ? `${pinned} pinned. Up to 5,000 unpinned items are kept; the oldest go first.` : "Up to 5,000 unpinned items are kept; the oldest go first."}
+        >
+          <Button size="sm" variant="secondary" disabled={!entries.length} onClick={() => setConfirm(true)}>
+            Clear history…
+          </Button>
+        </Row>
+      </Group>
+
+      <AlertDialog open={confirm} onOpenChange={setConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear clipboard history?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pinned ? `Deletes everything except your ${pinned} pinned item${pinned === 1 ? "" : "s"}.` : "Deletes everything Kudzu remembered."} This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => void clear(false).then((n) => toast.success(n === 1 ? "Deleted 1 item" : `Deleted ${n} items`))}>
+              Clear history
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

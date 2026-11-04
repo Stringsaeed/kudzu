@@ -3,11 +3,13 @@
 use kudzu_engine::{system, Rect};
 use tauri::{AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
-use crate::state::{core, EV_PALETTE_SHOW};
+use crate::state::{core, EV_CLIPBOARD_SHOW, EV_PALETTE_SHOW};
 
 pub const PALETTE_W: f64 = 760.0;
 pub const PALETTE_H: f64 = 480.0;
 pub const FORM_W: f64 = 440.0;
+pub const CLIP_W: f64 = 800.0;
+pub const CLIP_H: f64 = 520.0;
 
 #[cfg(target_os = "macos")]
 fn floating_effects(radius: f64) -> tauri::utils::config::WindowEffectsConfig {
@@ -37,7 +39,7 @@ fn floating(app: &AppHandle, label: &str, url: &str, w: f64, h: f64) -> tauri::R
         .focused(false)
         .visible_on_all_workspaces(true);
     #[cfg(target_os = "macos")]
-    let builder = builder.effects(floating_effects(if label == "palette" { PALETTE_RADIUS } else { FORM_RADIUS })).shadow(true);
+    let builder = builder.effects(floating_effects(if label == "form" { FORM_RADIUS } else { PALETTE_RADIUS })).shadow(true);
     #[cfg(not(target_os = "macos"))]
     let builder = builder.shadow(false);
     builder.build()
@@ -89,7 +91,7 @@ pub fn apply_theme(app: &AppHandle, theme: crate::settings::Theme) {
         Theme::Light => Some(tauri::Theme::Light),
         Theme::System => None,
     };
-    for label in ["main", "palette", "form"] {
+    for label in ["main", "palette", "form", "clipboard"] {
         if let Some(win) = app.get_webview_window(label) {
             let _ = win.set_theme(native);
         }
@@ -102,6 +104,12 @@ pub fn prewarm(app: &AppHandle) {
         match floating(app, "palette", "palette", PALETTE_W, PALETTE_H) {
             Ok(w) => round_corners(&w, PALETTE_RADIUS),
             Err(e) => log::error!("palette window: {e}"),
+        }
+    }
+    if app.get_webview_window("clipboard").is_none() {
+        match floating(app, "clipboard", "clipboard", CLIP_W, CLIP_H) {
+            Ok(w) => round_corners(&w, PALETTE_RADIUS),
+            Err(e) => log::error!("clipboard window: {e}"),
         }
     }
     if app.get_webview_window("form").is_none() {
@@ -174,6 +182,59 @@ pub fn hide_palette(app: &AppHandle, restore: bool) {
         let main_visible = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
         if !main_visible {
             if let Some(target) = core.palette_target.lock().clone() {
+                system::activate_app(&target);
+            }
+        }
+    }
+}
+
+/// Shows the clipboard history picker over the current app (or hides it if open).
+pub fn toggle_clipboard(app: &AppHandle) {
+    let Some(win) = app.get_webview_window("clipboard") else {
+        prewarm(app);
+        return;
+    };
+    if win.is_visible().unwrap_or(false) {
+        hide_clipboard(app, true);
+        return;
+    }
+    let core = core(app);
+    if !core.store.lock().settings.clipboard_enabled {
+        return;
+    }
+    hide_palette(app, false);
+    let front = system::frontmost_app().filter(|a| a.pid != Some(std::process::id() as i32));
+    *core.clip_target.lock() = front.clone();
+    if let Some(engine) = core.engine() {
+        engine.set_suppressed(true);
+    }
+    if let Some((x, y, w, h)) = active_monitor(app, &win) {
+        let _ = win.set_position(LogicalPosition::new(x + (w - CLIP_W) / 2.0, y + h * 0.18));
+    }
+    let _ = win.emit(EV_CLIPBOARD_SHOW, serde_json::json!({ "target": front, "canPaste": kudzu_engine::clipboard::can_paste() }));
+    let _ = win.show();
+    round_corners(&win, PALETTE_RADIUS);
+    let _ = win.set_focus();
+}
+
+/// Hides the clipboard picker; with `restore`, hands focus back to the app the user came from.
+pub fn hide_clipboard(app: &AppHandle, restore: bool) {
+    let core = core(app);
+    if let Some(win) = app.get_webview_window("clipboard") {
+        if !win.is_visible().unwrap_or(false) {
+            return;
+        }
+        let _ = win.hide();
+    }
+    if core.pending_form.lock().is_none() {
+        if let Some(engine) = core.engine() {
+            engine.set_suppressed(false);
+        }
+    }
+    if restore {
+        let main_focused = app.get_webview_window("main").and_then(|w| w.is_focused().ok()).unwrap_or(false);
+        if !main_focused {
+            if let Some(target) = core.clip_target.lock().clone() {
                 system::activate_app(&target);
             }
         }

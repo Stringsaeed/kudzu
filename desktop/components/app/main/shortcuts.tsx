@@ -26,6 +26,7 @@ const SECTIONS: { title: string; items: [string, string][] }[] = [
       ["mod+2", "Favorites"],
       ["mod+3", "Recently used"],
       ["mod+4", "Insights"],
+      ["mod+5", "Clipboard history"],
       ["mod+l", "Focus the list"],
       ["mod+e", "Edit content"],
       ["escape", "Back to the list"],
@@ -40,6 +41,18 @@ const SECTIONS: { title: string; items: [string, string][] }[] = [
       ["mod+a", "Select all"],
       ["enter", "Open in editor"],
       ["/", "Filter"],
+      ["mod+backspace", "Delete (undoable)"],
+    ],
+  },
+  {
+    title: "Clipboard history",
+    items: [
+      ["enter", "Copy"],
+      ["shift+enter", "Copy as plain text"],
+      ["space", "Large preview"],
+      ["mod+p", "Pin / unpin"],
+      ["mod+s", "Save as snippet"],
+      ["mod+o", "Open link or file"],
       ["mod+backspace", "Delete (undoable)"],
     ],
   },
@@ -60,6 +73,8 @@ export function ShortcutsDialog() {
   const open = useStore((s) => s.shortcutsOpen)
   const setOpen = useStore((s) => s.setShortcutsOpen)
   const hotkey = useStore((s) => s.settings.paletteHotkey)
+  const clipHotkey = useStore((s) => s.settings.clipboardHotkey)
+  const clipOn = useStore((s) => s.settings.clipboardEnabled)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-[720px] gap-0 rounded-2xl p-0 shadow-float ring-0 sm:max-w-[720px]">
@@ -67,11 +82,17 @@ export function ShortcutsDialog() {
           <DialogTitle className="text-[15px] font-semibold">Keyboard shortcuts</DialogTitle>
           <DialogDescription className="sr-only">Every shortcut in Kudzu.</DialogDescription>
           <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
-            Quick search from any app
+            From any app: search
             <Shortcut keys={acceleratorLabels(hotkey)} tone="accent" />
+            {clipOn && (
+              <>
+                <span className="text-faint">·</span> clipboard
+                <Shortcut keys={acceleratorLabels(clipHotkey)} tone="accent" />
+              </>
+            )}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-x-10 gap-y-6 px-6 py-5">
+        <div className="grid max-h-[min(640px,75vh)] grid-cols-2 gap-x-10 gap-y-6 overflow-y-auto px-6 py-5">
           {SECTIONS.map((s) => (
             <section key={s.title} aria-label={s.title}>
               <h3 className="mb-2 text-[11px] font-medium text-faint">{s.title}</h3>

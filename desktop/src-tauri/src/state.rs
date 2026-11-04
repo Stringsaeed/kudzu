@@ -16,6 +16,7 @@ pub const EV_LIBRARY: &str = "kudzu://library";
 pub const EV_SETTINGS: &str = "kudzu://settings";
 pub const EV_STATUS: &str = "kudzu://status";
 pub const EV_PALETTE_SHOW: &str = "kudzu://palette-show";
+pub const EV_CLIPBOARD_SHOW: &str = "kudzu://clipboard-show";
 pub const EV_FORM_REQUEST: &str = "kudzu://form-request";
 pub const EV_NAVIGATE: &str = "kudzu://navigate";
 pub const EV_NEW_SNIPPET: &str = "kudzu://new-snippet";
@@ -42,6 +43,12 @@ pub struct AppCore {
     pub pending_form: Mutex<Option<FormPayload>>,
     /// Shortcut currently registered for the palette.
     pub registered_hotkey: Mutex<Option<String>>,
+    /// Clipboard history.
+    pub clip: Mutex<crate::clipboard::ClipStore>,
+    /// The app that was frontmost when the clipboard picker opened (paste goes there).
+    pub clip_target: Mutex<Option<AppInfo>>,
+    /// Shortcut currently registered for the clipboard picker.
+    pub registered_clip_hotkey: Mutex<Option<String>>,
 }
 
 impl AppCore {

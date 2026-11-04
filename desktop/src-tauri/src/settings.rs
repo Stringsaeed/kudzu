@@ -61,6 +61,21 @@ pub struct Settings {
     /// The app version that last ran with this data; a change means "just updated".
     #[serde(rename = "lastRunVersion")]
     pub last_run_version: Option<String>,
+    /// Record clipboard history.
+    #[serde(rename = "clipboardEnabled")]
+    pub clipboard_enabled: bool,
+    /// Days to keep unpinned clipboard history; 0 keeps it until the size cap.
+    #[serde(rename = "clipboardRetentionDays")]
+    pub clipboard_retention_days: u32,
+    /// Global shortcut for the clipboard history picker.
+    #[serde(rename = "clipboardHotkey")]
+    pub clipboard_hotkey: String,
+    /// Apps whose copies are never recorded.
+    #[serde(rename = "clipboardIgnoredApps")]
+    pub clipboard_ignored_apps: Vec<String>,
+    /// Paste formatted text as plain text by default (⇧ flips it).
+    #[serde(rename = "clipboardPastePlain")]
+    pub clipboard_paste_plain: bool,
 }
 
 impl Default for Settings {
@@ -83,6 +98,11 @@ impl Default for Settings {
             update_channel: UpdateChannel::Stable,
             icloud_sync: true,
             last_run_version: None,
+            clipboard_enabled: true,
+            clipboard_retention_days: kudzu_core::clipboard::DEFAULT_RETENTION_DAYS,
+            clipboard_hotkey: "Control+Alt+V".into(),
+            clipboard_ignored_apps: kudzu_core::clipboard::default_ignored_apps(),
+            clipboard_paste_plain: false,
         }
     }
 }

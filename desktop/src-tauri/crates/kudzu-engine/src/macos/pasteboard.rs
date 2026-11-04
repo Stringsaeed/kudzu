@@ -23,6 +23,22 @@ pub(crate) struct Snapshot {
 /// A paste whose old clipboard still has to come back: (snapshot, change count after our write).
 static PENDING_RESTORE: Mutex<Option<(Snapshot, isize)>> = Mutex::new(None);
 
+/// Change counts produced by Kudzu's own writes (restores, copies), newest last. The clipboard
+/// history skips these so putting the user's clipboard back never looks like a new copy.
+static OWN_CHANGES: Mutex<[isize; 8]> = Mutex::new([-1; 8]);
+
+fn note_own_change() {
+    let count = change_count();
+    let mut own = lock(&OWN_CHANGES);
+    own.rotate_left(1);
+    own[7] = count;
+}
+
+/// Whether `count` came from one of Kudzu's own writes.
+pub(crate) fn is_own_change(count: isize) -> bool {
+    lock(&OWN_CHANGES).contains(&count)
+}
+
 fn general() -> Retained<NSPasteboard> {
     NSPasteboard::generalPasteboard()
 }
@@ -53,14 +69,44 @@ pub(crate) fn snapshot() -> Option<Snapshot> {
 
 /// Replaces the pasteboard with `snapshot`.
 pub(crate) fn restore(snapshot: &Snapshot) {
+    write_raw(&snapshot.items);
+    note_own_change();
+}
+
+/// Every item and type, skipping types whose (promised) data can't be read.
+pub(crate) fn read_items() -> Vec<Vec<(String, Vec<u8>)>> {
+    autoreleasepool(|_| {
+        let board = general();
+        let mut items = Vec::new();
+        if let Some(list) = board.pasteboardItems() {
+            for item in list.iter() {
+                let entries: Vec<(String, Vec<u8>)> =
+                    item.types().iter().filter_map(|kind| item.dataForType(&kind).map(|data| (kind.to_string(), data.to_vec()))).collect();
+                if !entries.is_empty() {
+                    items.push(entries);
+                }
+            }
+        }
+        items
+    })
+}
+
+/// Replaces the pasteboard with `items` (as Kudzu's own change). Returns the new change count.
+pub(crate) fn write_items(items: &[Vec<(String, Vec<u8>)>]) -> isize {
+    write_raw(items);
+    note_own_change();
+    change_count()
+}
+
+fn write_raw(items: &[Vec<(String, Vec<u8>)>]) {
+    let snapshot = items;
     autoreleasepool(|_| {
         let board = general();
         board.clearContents();
-        if snapshot.items.is_empty() {
+        if snapshot.is_empty() {
             return;
         }
         let items: Vec<Retained<ProtocolObject<dyn NSPasteboardWriting>>> = snapshot
-            .items
             .iter()
             .map(|entries| {
                 let item = NSPasteboardItem::new();
@@ -81,11 +127,13 @@ pub(crate) fn read_string() -> Option<String> {
 
 /// Writes plain text as the only item.
 pub(crate) fn write_string(text: &str) -> bool {
-    autoreleasepool(|_| {
+    let ok = autoreleasepool(|_| {
         let board = general();
         board.clearContents();
         board.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString })
-    })
+    });
+    note_own_change();
+    ok
 }
 
 /// Writes `text` marked transient and concealed so clipboard managers skip it.
