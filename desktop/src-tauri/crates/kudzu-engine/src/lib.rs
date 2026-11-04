@@ -216,6 +216,65 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Clipboard history plumbing (macOS; inert elsewhere). The model lives in `kudzu_core::clipboard`.
+pub mod clipboard {
+    use super::{platform, AppInfo};
+    pub use kudzu_core::clipboard::PasteItem;
+
+    /// A PNG thumbnail plus the original image's pixel size.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Thumbnail {
+        pub png: Vec<u8>,
+        pub width: u32,
+        pub height: u32,
+    }
+
+    /// Why pasting into another app didn't happen.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub enum PasteError {
+        /// No Accessibility permission, or Secure Input is on.
+        NotAllowed,
+        /// The app to paste into quit or couldn't be brought forward.
+        TargetGone,
+    }
+
+    /// The general pasteboard's change count; cheap enough to poll a few times a second.
+    pub fn change_count() -> i64 {
+        platform::clipboard::change_count()
+    }
+
+    /// Whether a change count came from Kudzu's own writes (snippet pastes, restores, history picks).
+    pub fn is_own_change(count: i64) -> bool {
+        platform::clipboard::is_own_change(count)
+    }
+
+    /// Every item and type on the pasteboard. May block briefly on data a source app provides lazily.
+    pub fn read() -> Vec<PasteItem> {
+        platform::clipboard::read()
+    }
+
+    /// Replaces the pasteboard with `items`, recorded as Kudzu's own change. Returns the new change count.
+    pub fn write(items: &[PasteItem]) -> i64 {
+        platform::clipboard::write(items)
+    }
+
+    /// Whether synthetic ⌘V can reach other apps right now.
+    pub fn can_paste() -> bool {
+        platform::clipboard::can_paste()
+    }
+
+    /// Brings `target` forward (when given) and presses ⌘V. Blocks up to ~1 s: call off the UI thread.
+    pub fn paste(target: Option<&AppInfo>) -> Result<(), PasteError> {
+        platform::clipboard::paste(target)
+    }
+
+    /// Decodes image data (PNG, TIFF, JPEG, HEIC, PDF …) and renders a PNG at most `max_px` on its
+    /// longer side (never upscaled).
+    pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
+        platform::clipboard::thumbnail(data, max_px)
+    }
+}
+
 /// OS services that don't need a running engine.
 pub mod system {
     use super::{platform, AppInfo, PermissionStatus, Rect};

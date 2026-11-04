@@ -10,7 +10,7 @@ use objc2::rc::{autoreleasepool, Retained};
 use objc2::AnyThread;
 use objc2_app_kit::{
     NSApplicationActivationOptions, NSBitmapImageFileType, NSBitmapImageRep, NSCompositingOperation, NSDeviceRGBColorSpace,
-    NSGraphicsContext, NSImageInterpolation, NSRunningApplication, NSWorkspace,
+    NSGraphicsContext, NSImage, NSImageInterpolation, NSRunningApplication, NSWorkspace,
 };
 use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString, NSURL};
 
@@ -174,36 +174,44 @@ pub(crate) fn icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
     }
     autoreleasepool(|_| {
         let image = NSWorkspace::sharedWorkspace().iconForFile(&NSString::from_str(path));
-        let pixels = size as isize;
-        // SAFETY: null planes ask AppKit to allocate the buffer; the arguments describe 8-bit RGBA.
-        let rep = unsafe {
-            NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
-                NSBitmapImageRep::alloc(),
-                std::ptr::null_mut(),
-                pixels,
-                pixels,
-                8,
-                4,
-                true,
-                false,
-                NSDeviceRGBColorSpace,
-                0,
-                32,
-            )
-        }?;
-        let points = NSSize::new(f64::from(size), f64::from(size));
-        rep.setSize(points);
-        let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&rep)?;
-        NSGraphicsContext::saveGraphicsState_class();
-        NSGraphicsContext::setCurrentContext(Some(&context));
-        context.setImageInterpolation(NSImageInterpolation::High);
-        let target = NSRect::new(NSPoint::new(0.0, 0.0), points);
-        image.drawInRect_fromRect_operation_fraction(target, NSRect::ZERO, NSCompositingOperation::Copy, 1.0);
-        context.flushGraphics();
-        NSGraphicsContext::restoreGraphicsState_class();
-        let data = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }?;
-        Some(data.to_vec())
+        draw_png(&image, size, size)
     })
+}
+
+/// Draws `image` into a `width`×`height` RGBA bitmap and encodes it as PNG.
+/// Call inside an autorelease pool; safe off the main thread (it uses its own bitmap context).
+pub(crate) fn draw_png(image: &NSImage, width: u32, height: u32) -> Option<Vec<u8>> {
+    if width == 0 || height == 0 || width > 8192 || height > 8192 {
+        return None;
+    }
+    // SAFETY: null planes ask AppKit to allocate the buffer; the arguments describe 8-bit RGBA.
+    let rep = unsafe {
+        NSBitmapImageRep::initWithBitmapDataPlanes_pixelsWide_pixelsHigh_bitsPerSample_samplesPerPixel_hasAlpha_isPlanar_colorSpaceName_bytesPerRow_bitsPerPixel(
+            NSBitmapImageRep::alloc(),
+            std::ptr::null_mut(),
+            width as isize,
+            height as isize,
+            8,
+            4,
+            true,
+            false,
+            NSDeviceRGBColorSpace,
+            0,
+            32,
+        )
+    }?;
+    let points = NSSize::new(f64::from(width), f64::from(height));
+    rep.setSize(points);
+    let context = NSGraphicsContext::graphicsContextWithBitmapImageRep(&rep)?;
+    NSGraphicsContext::saveGraphicsState_class();
+    NSGraphicsContext::setCurrentContext(Some(&context));
+    context.setImageInterpolation(NSImageInterpolation::High);
+    let target = NSRect::new(NSPoint::new(0.0, 0.0), points);
+    image.drawInRect_fromRect_operation_fraction(target, NSRect::ZERO, NSCompositingOperation::Copy, 1.0);
+    context.flushGraphics();
+    NSGraphicsContext::restoreGraphicsState_class();
+    let data = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }?;
+    Some(data.to_vec())
 }
 
 #[cfg(test)]

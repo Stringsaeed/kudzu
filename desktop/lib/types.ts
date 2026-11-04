@@ -78,7 +78,62 @@ export interface Settings {
   updateChannel: "stable" | "beta"
   /** App version that last ran with this data (set by the backend). */
   lastRunVersion: string | null
+  /** Record clipboard history. */
+  clipboardEnabled: boolean
+  /** Days unpinned clipboard history is kept; 0 = until the size cap. */
+  clipboardRetentionDays: number
+  /** Accelerator for the clipboard history picker. */
+  clipboardHotkey: string
+  /** Apps whose copies are never recorded. */
+  clipboardIgnoredApps: string[]
+  /** Paste formatted text as plain text by default (⇧ flips it). */
+  clipboardPastePlain: boolean
 }
+
+// Mirrors kudzu-core `clipboard.rs`.
+export type ClipKind = "text" | "code" | "link" | "color" | "image" | "file" | "other"
+
+export interface ClipSource {
+  bundleId: string
+  name: string
+  path?: string | null
+}
+
+export interface ClipEntry {
+  id: string
+  kind: ClipKind
+  /** Plain text excerpt (≤ 2,048 characters); the full text comes from `clipboardText`. */
+  text?: string
+  textLen: number
+  lineCount: number
+  files?: string[]
+  image?: { width: number; height: number }
+  color?: string
+  rich: boolean
+  types: string[]
+  size: number
+  source?: ClipSource
+  hash: string
+  firstCopiedAt: string
+  copiedAt: string
+  copyCount: number
+  /** Most recent copy times, oldest first. */
+  timings: string[]
+  lastUsedAt?: string
+  useCount: number
+  pinned: boolean
+}
+
+export interface ClipboardInfo {
+  entries: ClipEntry[]
+  diskUsage: number
+  canPaste: boolean
+}
+
+export type ClipEvent =
+  | { type: "upsert"; entry: ClipEntry }
+  | { type: "remove"; ids: string[] }
+  | { type: "reset"; entries: ClipEntry[] }
 
 /** Mirrors the Rust `SyncStatus` (tagged by `state`). */
 export type SyncStatus =

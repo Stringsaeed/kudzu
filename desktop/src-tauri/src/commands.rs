@@ -318,6 +318,14 @@ pub fn update_settings(app: AppHandle, core: Core, patch: serde_json::Value) -> 
         windows::apply_theme(&app, new.theme);
     }
     core.settings_changed();
+    if old.clipboard_enabled != new.clipboard_enabled {
+        crate::clipboard::apply_enabled(&app);
+        tray::set_clipboard_enabled(&app, new.clipboard_enabled);
+    }
+    if old.clipboard_retention_days != new.clipboard_retention_days {
+        let c = core.inner().clone();
+        std::thread::spawn(move || crate::clipboard::prune(&c));
+    }
     Ok(new)
 }
 
@@ -351,7 +359,7 @@ pub fn open_system_settings(pane: String) {
 
 #[tauri::command]
 pub fn set_palette_hotkey(app: AppHandle, core: Core, accelerator: String) -> Res<Settings> {
-    hotkey::register(&app, &accelerator)?;
+    hotkey::register(&app, hotkey::Slot::Palette, &accelerator)?;
     let settings = {
         let mut s = core.store.lock();
         s.settings.palette_hotkey = accelerator.clone();
@@ -500,6 +508,13 @@ pub fn show_main(app: AppHandle, snippet_id: Option<Uuid>) {
     if snippet_id.is_some() {
         let _ = app.emit(EV_NAVIGATE, serde_json::json!({ "snippetId": snippet_id }));
     }
+}
+
+#[tauri::command]
+pub fn show_main_view(app: AppHandle, view: serde_json::Value) {
+    windows::hide_clipboard(&app, false);
+    windows::show_main(&app);
+    let _ = app.emit(EV_NAVIGATE, serde_json::json!({ "view": view }));
 }
 
 #[tauri::command]

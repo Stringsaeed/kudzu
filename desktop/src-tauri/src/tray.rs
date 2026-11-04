@@ -18,6 +18,7 @@ struct Items {
     status: MenuItem<Wry>,
     pause: MenuItem<Wry>,
     search: MenuItem<Wry>,
+    clipboard: MenuItem<Wry>,
     updates: MenuItem<Wry>,
 }
 
@@ -131,14 +132,15 @@ pub fn summary(status: &EngineStatus) -> String {
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let dev = crate::is_dev(app);
-    let (paused, hotkey) = {
+    let (paused, hotkey, clip_hotkey, clip_on) = {
         let c = core(app);
         let s = c.store.lock();
-        (s.settings.paused, s.settings.palette_hotkey.clone())
+        (s.settings.paused, s.settings.palette_hotkey.clone(), s.settings.clipboard_hotkey.clone(), s.settings.clipboard_enabled)
     };
     let status = MenuItem::with_id(app, "status", "Starting…", false, None::<&str>)?;
     let pause = MenuItem::with_id(app, "pause", if paused { "Resume Expanding" } else { "Pause Expanding" }, true, Some("CmdOrCtrl+Shift+P"))?;
     let search = MenuItem::with_id(app, "search", format!("Quick Search      {}", hotkey_label(&hotkey)), true, None::<&str>)?;
+    let clipboard = MenuItem::with_id(app, "clipboard", format!("Clipboard History      {}", hotkey_label(&clip_hotkey)), clip_on, None::<&str>)?;
     let from_sel = MenuItem::with_id(app, "from-selection", "New Snippet from Selection", true, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", if dev { "Open Kudzu Dev…" } else { "Open Kudzu…" }, true, Some("CmdOrCtrl+O"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
@@ -150,6 +152,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             &status,
             &PredefinedMenuItem::separator(app)?,
             &search,
+            &clipboard,
             &from_sel,
             &pause,
             &PredefinedMenuItem::separator(app)?,
@@ -160,7 +163,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             &quit,
         ],
     )?;
-    app.manage(parking_lot::Mutex::new(Items { status, pause, search, updates }));
+    app.manage(parking_lot::Mutex::new(Items { status, pause, search, clipboard, updates }));
 
     let mut tray = TrayIconBuilder::with_id(TRAY_ID)
         .icon(icon(if paused { Glyph::Paused } else { Glyph::Normal }))
@@ -183,6 +186,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 }
             }
             "search" => windows::toggle_palette(app),
+            "clipboard" => windows::toggle_clipboard(app),
             "from-selection" => {
                 let app = app.clone();
                 std::thread::spawn(move || {
@@ -247,6 +251,20 @@ pub fn update(app: &AppHandle, status: &EngineStatus) {
 pub fn set_hotkey_hint(app: &AppHandle, accel: &str) {
     if let Some(items) = app.try_state::<parking_lot::Mutex<Items>>() {
         let _ = items.lock().search.set_text(format!("Quick Search      {}", hotkey_label(accel)));
+    }
+}
+
+/// Updates the hotkey hint next to "Clipboard History".
+pub fn set_clipboard_hint(app: &AppHandle, accel: &str) {
+    if let Some(items) = app.try_state::<parking_lot::Mutex<Items>>() {
+        let _ = items.lock().clipboard.set_text(format!("Clipboard History      {}", hotkey_label(accel)));
+    }
+}
+
+/// Greys out "Clipboard History" while recording is off.
+pub fn set_clipboard_enabled(app: &AppHandle, enabled: bool) {
+    if let Some(items) = app.try_state::<parking_lot::Mutex<Items>>() {
+        let _ = items.lock().clipboard.set_enabled(enabled);
     }
 }
 

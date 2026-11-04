@@ -10,9 +10,11 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useHotkeys } from "@/hooks/use-hotkeys"
 import { useStore } from "@/lib/store"
 import { api, Events, isTauri, on } from "@/lib/backend"
+import { useClipboard } from "@/lib/clipboard"
 import { applyTheme } from "@/lib/theme"
 import type { Group, UpdateState } from "@/lib/types"
 
+import { ClipboardView, type ClipboardViewHandle } from "../clipboard/clipboard-view"
 import { EditorEmpty, SnippetEditor } from "../editor/snippet-editor"
 import { CommandMenu } from "./command-menu"
 import { GroupSettingsDialog } from "./group-settings"
@@ -43,6 +45,7 @@ export function MainApp() {
   const setCommandOpen = useStore((s) => s.setCommandOpen)
   const setShortcutsOpen = useStore((s) => s.setShortcutsOpen)
   const listRef = useRef<SnippetListHandle>(null)
+  const clipRef = useRef<ClipboardViewHandle>(null)
   const [groupSettings, setGroupSettings] = useState<Group | null>(null)
   const [isDev, setIsDev] = useState(false)
 
@@ -56,6 +59,8 @@ export function MainApp() {
   }, [])
 
   useEffect(() => init(), [init])
+  // Clipboard history stays live in the background (sidebar count, instant view switches).
+  useEffect(() => useClipboard.getState().init(), [])
   useEffect(() => {
     if (ready) applyTheme(settings.theme)
   }, [ready, settings.theme])
@@ -95,7 +100,7 @@ export function MainApp() {
     if (cm) cm.focus()
   }
 
-  const inLibrary = view.kind !== "insights" && view.kind !== "settings"
+  const inLibrary = view.kind !== "insights" && view.kind !== "settings" && view.kind !== "clipboard"
 
   useHotkeys([
     { combo: "mod+k", allowInInput: true, handler: () => setCommandOpen(true) },
@@ -105,16 +110,18 @@ export function MainApp() {
       combo: "mod+f",
       allowInInput: true,
       handler: () => {
+        if (view.kind === "clipboard") return clipRef.current?.focusSearch()
         if (!inLibrary) setView({ kind: "all" })
         requestAnimationFrame(() => listRef.current?.focusFilter())
       },
     },
-    { combo: "mod+l", allowInInput: true, handler: () => listRef.current?.focusList() },
+    { combo: "mod+l", allowInInput: true, handler: () => (view.kind === "clipboard" ? clipRef.current?.focusList() : listRef.current?.focusList()) },
     { combo: "mod+e", allowInInput: true, handler: focusEditor, enabled: inLibrary && !!snippet },
     { combo: "mod+1", allowInInput: true, handler: () => setView({ kind: "all" }) },
     { combo: "mod+2", allowInInput: true, handler: () => setView({ kind: "favorites" }) },
     { combo: "mod+3", allowInInput: true, handler: () => setView({ kind: "recent" }) },
     { combo: "mod+4", allowInInput: true, handler: () => setView({ kind: "insights" }) },
+    { combo: "mod+5", allowInInput: true, handler: () => setView({ kind: "clipboard" }) },
     { combo: "mod+,", allowInInput: true, handler: () => setView({ kind: "settings" }) },
     { combo: ["mod+/", "shift+?"], allowInInput: false, handler: () => setShortcutsOpen(true) },
     { combo: "mod+/", allowInInput: true, handler: () => setShortcutsOpen(true) },
@@ -168,6 +175,8 @@ export function MainApp() {
               </>
             ) : view.kind === "insights" ? (
               <Insights />
+            ) : view.kind === "clipboard" ? (
+              <ClipboardView ref={clipRef} filter={view.filter} />
             ) : (
               <SettingsView key={view.kind === "settings" ? (view.section ?? "general") : "general"} section={view.kind === "settings" ? view.section : undefined} />
             )}

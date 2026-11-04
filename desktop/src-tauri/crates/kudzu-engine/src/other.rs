@@ -126,3 +126,31 @@ pub(crate) mod system {
             .unwrap_or_else(|| "en_US".to_string())
     }
 }
+
+/// Clipboard history plumbing; inert.
+pub(crate) mod clipboard {
+    use crate::clipboard::{PasteError, Thumbnail};
+    use crate::AppInfo;
+
+    pub fn change_count() -> i64 {
+        0
+    }
+    pub fn is_own_change(_count: i64) -> bool {
+        false
+    }
+    pub fn read() -> Vec<Vec<(String, Vec<u8>)>> {
+        Vec::new()
+    }
+    pub fn write(_items: &[Vec<(String, Vec<u8>)>]) -> i64 {
+        0
+    }
+    pub fn can_paste() -> bool {
+        false
+    }
+    pub fn paste(_target: Option<&AppInfo>) -> Result<(), PasteError> {
+        Err(PasteError::NotAllowed)
+    }
+    pub fn thumbnail(_data: &[u8], _max_px: u32) -> Option<Thumbnail> {
+        None
+    }
+}
