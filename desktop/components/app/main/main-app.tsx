@@ -1,13 +1,15 @@
 "use client"
 
+import { getIdentifier } from "@tauri-apps/api/app"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { Badge } from "@/components/ui/badge"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useHotkeys } from "@/hooks/use-hotkeys"
 import { useStore } from "@/lib/store"
-import { api, Events, on } from "@/lib/backend"
+import { api, Events, isTauri, on } from "@/lib/backend"
 import { applyTheme } from "@/lib/theme"
 import type { Group, UpdateState } from "@/lib/types"
 
@@ -42,6 +44,16 @@ export function MainApp() {
   const setShortcutsOpen = useStore((s) => s.setShortcutsOpen)
   const listRef = useRef<SnippetListHandle>(null)
   const [groupSettings, setGroupSettings] = useState<Group | null>(null)
+  const [isDev, setIsDev] = useState(false)
+
+  useEffect(() => {
+    if (!isTauri()) return
+    let live = true
+    getIdentifier().then((identifier) => {
+      if (live) setIsDev(identifier === "sh.saeed.kudzu.dev")
+    }, () => {})
+    return () => { live = false }
+  }, [])
 
   useEffect(() => init(), [init])
   useEffect(() => {
@@ -135,11 +147,14 @@ export function MainApp() {
   return (
     <TooltipProvider delayDuration={500} skipDelayDuration={200}>
       {!settings.onboardingCompleted ? (
-        <Onboarding />
+        <>
+          <Onboarding />
+          {isDev && <Badge className="fixed top-4 right-4">Dev</Badge>}
+        </>
       ) : (
         <div className="flex h-full min-h-0">
           <div className="w-[232px] shrink-0 border-r border-hairline">
-            <Sidebar onOpenGroupSettings={setGroupSettings} />
+            <Sidebar onOpenGroupSettings={setGroupSettings} isDev={isDev} />
           </div>
           <main className="flex min-w-0 flex-1 bg-background">
             {inLibrary ? (

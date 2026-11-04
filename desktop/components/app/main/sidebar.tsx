@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
+import { Badge } from "@/components/ui/badge"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -281,7 +282,7 @@ function RenameRow({ group, depth, onDone }: { group: Group; depth: number; onDo
   )
 }
 
-export function Sidebar({ onOpenGroupSettings }: { onOpenGroupSettings: (g: Group) => void }) {
+export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (g: Group) => void; isDev: boolean }) {
   const library = useStore((s) => s.library)
   const usage = useStore((s) => s.usage)
   const view = useStore((s) => s.view)
@@ -322,7 +323,9 @@ export function Sidebar({ onOpenGroupSettings }: { onOpenGroupSettings: (g: Grou
   return (
     <aside aria-label="Sidebar" className="flex h-full w-full flex-col bg-sidebar">
       {/* Space for the traffic lights + drag */}
-      <div className="drag h-12 shrink-0" data-tauri-drag-region />
+      <div className="drag flex h-12 shrink-0 items-center justify-end px-3" data-tauri-drag-region>
+        {isDev && <Badge>Dev</Badge>}
+      </div>
       <div className="px-2.5 pb-2">
         <button
           onClick={() => setCommandOpen(true)}

@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "tauri": "scripts/tauri.sh",
+    "tauri:build:dev": "tauri build --config src-tauri/tauri.dev.conf.json --bundles app",
     "release:build": "scripts/release/build.sh"
   },
   "dependencies": {

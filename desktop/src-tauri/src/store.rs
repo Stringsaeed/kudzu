@@ -70,6 +70,20 @@ fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
 impl Store {
     /// Loads (or creates) state in `dir`. A corrupt library is moved aside, never overwritten.
     pub fn load(dir: PathBuf) -> Self {
+        Self::load_with_defaults(dir, Settings::default())
+    }
+
+    /// Loads the isolated development variant with safe defaults for new settings.
+    pub fn load_dev(dir: PathBuf) -> Self {
+        let settings = Settings {
+            paused: true,
+            palette_hotkey: "Control+Alt+Shift+Space".into(),
+            ..Settings::default()
+        };
+        Self::load_with_defaults(dir, settings)
+    }
+
+    fn load_with_defaults(dir: PathBuf, defaults: Settings) -> Self {
         let _ = fs::create_dir_all(&dir);
         let lib_path = dir.join("library.json");
         let first_run = !lib_path.exists();
@@ -87,7 +101,7 @@ impl Store {
         let settings = fs::read_to_string(dir.join("settings.json"))
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
-            .unwrap_or_default();
+            .unwrap_or(defaults);
         let form_memory = fs::read_to_string(dir.join("form-memory.json"))
             .ok()
             .and_then(|s| serde_json::from_str(&s).ok())
@@ -194,6 +208,22 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("kudzu-store-{name}-{}", Uuid::new_v4()));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn dev_first_run_is_safe_and_preserves_later_choices() {
+        let dir = temp_root("dev-defaults");
+        let mut store = Store::load_dev(dir.clone());
+        assert!(store.settings.paused);
+        assert_ne!(store.settings.palette_hotkey, Settings::default().palette_hotkey);
+        store.settings.paused = false;
+        store.settings.palette_hotkey = "Control+Alt+K".into();
+        store.save_settings();
+
+        let again = Store::load_dev(dir.clone());
+        assert!(!again.settings.paused);
+        assert_eq!(again.settings.palette_hotkey, "Control+Alt+K");
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]
