@@ -130,7 +130,44 @@ pub fn summary(status: &EngineStatus) -> String {
     }
 }
 
+#[cfg(target_os = "macos")]
+fn create_app_menu(app: &AppHandle) -> tauri::Result<()> {
+    use tauri::menu::{AboutMetadata, Submenu};
+
+    let name = app.config().product_name.as_deref().unwrap_or("Kudzu");
+    let app_menu = Submenu::with_items(
+        app,
+        name,
+        true,
+        &[
+            &PredefinedMenuItem::about(app, None, Some(AboutMetadata {
+                name: Some(name.into()),
+                version: Some(app.package_info().version.to_string()),
+                copyright: app.config().bundle.copyright.clone(),
+                ..Default::default()
+            }))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, None)?,
+            &PredefinedMenuItem::hide_others(app, None)?,
+            &PredefinedMenuItem::separator(app)?,
+            &MenuItem::with_id(app, "close-windows", "Close Windows", true, Some("CmdOrCtrl+Q"))?,
+            &MenuItem::with_id(app, "quit", format!("Quit {name}"), true, None::<&str>)?,
+        ],
+    )?;
+    // Replace the native Quit shortcut, retaining Tauri's standard editing and window menus.
+    let menu = Menu::default(app)?;
+    menu.remove_at(0)?;
+    menu.prepend(&app_menu)?;
+    app.set_menu(menu)?;
+    Ok(())
+}
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    create_app_menu(app)?;
+
     let dev = crate::is_dev(app);
     let (paused, hotkey, clip_hotkey, clip_on) = {
         let c = core(app);
@@ -145,7 +182,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let open = MenuItem::with_id(app, "open", if dev { "Open Kudzu Dev…" } else { "Open Kudzu…" }, true, Some("CmdOrCtrl+O"))?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, Some("CmdOrCtrl+,"))?;
     let updates = MenuItem::with_id(app, "updates", "Check for Updates…", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", if dev { "Quit Kudzu Dev" } else { "Quit Kudzu" }, true, Some("CmdOrCtrl+Q"))?;
+    let quit = MenuItem::with_id(app, "quit", if dev { "Quit Kudzu Dev" } else { "Quit Kudzu" }, true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
@@ -199,6 +236,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 });
             }
             "open" => windows::show_main(app),
+            "close-windows" => windows::hide_all(app),
             "settings" => {
                 windows::show_main(app);
                 let _ = app.emit(EV_NAVIGATE, serde_json::json!({ "view": { "kind": "settings" } }));

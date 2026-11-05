@@ -76,6 +76,8 @@ Every action has a shortcut. <kbd>⌘K</kbd> opens the command menu and <kbd>⌘
 <kbd>↑↓</kbd>/<kbd>J K</kbd> move · <kbd>⇧↑↓</kbd> extend selection · <kbd>⌘⌫</kbd> delete (undoable) · <kbd>⌘D</kbd> duplicate ·
 <kbd>⌘⇧F</kbd> favorite · <kbd>⌘⇧E</kbd> on/off · <kbd>⌘⇧P</kbd> pause · <kbd>⌘1–5</kbd> views · <kbd>⌘,</kbd> settings.
 
+<kbd>⌘Q</kbd> closes Kudzu's windows and keeps expansion, clipboard history, and the menu bar running. Reopen the library with **Open Kudzu…** in the menu bar. Choose **Quit Kudzu** there to exit completely.
+
 Clipboard history: <kbd>↵</kbd> copy (in the picker, paste) · <kbd>⇧↵</kbd> plain text · <kbd>⌘↵</kbd> copy only (picker) · <kbd>⌘1–9</kbd> paste the nth item (picker) · <kbd>Space</kbd> large preview · <kbd>⌘P</kbd> pin · <kbd>⌘S</kbd> save as snippet · <kbd>⌘O</kbd> open · <kbd>⌘⌫</kbd> delete (undoable) · <kbd>⇥</kbd> filter by kind (picker). Search also accepts `app:slack` and `is:image`.
 
 ## Performance notes

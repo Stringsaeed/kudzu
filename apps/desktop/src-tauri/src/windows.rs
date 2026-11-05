@@ -305,3 +305,23 @@ pub fn hide_main(app: &AppHandle) {
     #[cfg(target_os = "macos")]
     let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 }
+
+/// Returns to the menu bar without destroying webviews or interrupting background services.
+pub fn hide_all(app: &AppHandle) {
+    let core = core(app);
+    let pending = core.pending_form.lock().take();
+    if let Some(engine) = core.engine() {
+        if let Some(pending) = pending {
+            engine.cancel_form(pending.token);
+        }
+        engine.set_suppressed(false);
+    }
+    hide_palette(app, false);
+    hide_clipboard(app, false);
+    hide_form(app);
+    if let Some(win) = app.get_webview_window("permissions") {
+        crate::permissions::stop_guide(&win);
+        let _ = win.hide();
+    }
+    hide_main(app);
+}
