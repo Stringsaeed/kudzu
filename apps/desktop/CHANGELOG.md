@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0](https://github.com/Stringsaeed/kudzu/compare/v0.3.0...v0.4.0) (2026-11-05)
+
+
+### Features
+
+* **desktop:** add spring micro-interactions across the UI ([2996ac6](https://github.com/Stringsaeed/kudzu/commit/2996ac6576ed706e4fa9d6889cea46a611ea8d25))
+
+
+### Fixes
+
+* **desktop:** fit the toolbar and sidebar to the macOS window chrome ([72d2df3](https://github.com/Stringsaeed/kudzu/commit/72d2df3cba93ebeb7ebe5cd7aafc60fa665e8115))
+
 ## [0.3.0](https://github.com/Stringsaeed/kudzu/compare/v0.2.0...v0.3.0) (2026-11-05)
 
 
