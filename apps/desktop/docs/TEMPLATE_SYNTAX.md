@@ -39,12 +39,39 @@ Any `field` or `choice` makes the snippet a **form snippet**: the engine shows t
 
 ## Rendering contract
 
-```rust
-kudzu_core::template::render(source: &str, context: &RenderContext) -> RenderResult
-// RenderResult { text: String, cursor_offset: Option<usize> /* UTF-16 units from the start of `text` */, diagnostics }
+### Formatting metadata
+
+`content` always remains the plain-text template. A snippet can additionally store
+`formatting: { source, spans }`. `source` is an exact copy of `content`; a mismatch disables
+the formatting so an older client editing only `content` cannot apply stale ranges.
+Omitting `formatting` means plain text; an empty `spans` array enables formatted output and
+formatting inherited from nested snippets.
+
+Each span contains UTF-16 `start` and `end` offsets and a tagged `style`:
+
+```json
+{ "start": 0, "end": 5, "style": { "kind": "bold" } }
 ```
 
-`RenderContext` supplies `now` (with its UTC offset), `locale`, `clipboard: Option<String>`, `form_values`, `resolve_snippet: &dyn Fn(Uuid) -> Option<String>`, and optionally `root_snippet_id: Option<Uuid>`. When the root ID is set, it starts on the active reference path, so a snippet that includes itself is a cycle on the first reference instead of expanding once. The renderer is pure and deterministic given a context.
+Supported kinds are `bold`, `italic`, `underline`, `link` (with `url`), and `image`
+(with a PNG/JPEG `dataUrl` and integer `width` from 1 to 512). Images cover their textual
+alternative, such as `[Logo]`, in the source. The editor embeds compact PNG data; remote URLs
+and SVG images are not accepted. Links accept only HTTP, HTTPS, and mailto URLs.
+
+Formatting endpoints must be valid source boundaries; a variable chip is formatted as a whole.
+Rendering maps those ranges onto the expanded values, including escaped literals, UTF-16,
+and nested snippets. All text and attribute values are escaped when generating HTML.
+The HTML clipboard flavor contains embedded images; the plain-text flavor retains alternatives.
+`RenderResult.formatting` optionally carries spans in the **rendered text's** coordinate space.
+
+### Text rendering
+
+```rust
+kudzu_core::template::render(source: &str, context: &RenderContext) -> RenderResult
+// RenderResult { text: String, formatting: Option<Vec<FormatSpan>>, cursor_offset: Option<usize> /* UTF-16 units */, diagnostics }
+```
+
+`RenderContext` supplies `now` (with its UTC offset), `locale`, `clipboard: Option<String>`, `form_values`, `resolve_snippet: &dyn Fn(Uuid) -> Option<String>`, an optional `resolve_formatting` resolver, and optionally `root_snippet_id: Option<Uuid>`. When the root ID is set, it starts on the active reference path, so a snippet that includes itself is a cycle on the first reference instead of expanding once. The renderer is pure and deterministic given a context. `render_formatted` accepts the root's optional formatting metadata; `render` always produces plain text.
 
 ## Espanso mapping (import)
 
@@ -58,7 +85,7 @@ kudzu_core::template::render(source: &str, context: &RenderContext) -> RenderRes
 | `type: shell` / `script` / `random` / `echo` and others | Imported as literal text with an import warning; v2 adds support |
 | `word: true` | `fireMode: wholeWord` |
 | `propagate_case: true` | `caseMode: propagate` (otherwise `exact`) |
-| `replace` / `markdown` / `html` | Imported as plain text; rich formats get a warning (v2) |
+| `replace` / `markdown` / `html` | Imported as plain text; importing rich formatting emits a warning |
 
 ## Parsing, serialization, and recursion details
 

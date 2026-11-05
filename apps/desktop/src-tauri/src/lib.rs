@@ -180,6 +180,7 @@ pub fn run() {
             commands::open_system_settings,
             commands::set_palette_hotkey,
             commands::render_preview,
+            commands::copy_preview,
             commands::list_apps,
             commands::app_icon,
             commands::detect_espanso,

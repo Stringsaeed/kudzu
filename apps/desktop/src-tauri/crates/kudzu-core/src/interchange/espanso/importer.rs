@@ -358,13 +358,13 @@ pub(super) fn perform_import(
             } else if let Some(md) = &m.markdown {
                 warnings.push(origin.warn(
                     None,
-                    "Markdown match imported as plain text; rich text formatting is not supported in v1.".into(),
+                    "Markdown match imported as plain text; importing rich text formatting is not supported.".into(),
                 ));
                 md
             } else if let Some(html) = &m.html {
                 warnings.push(origin.warn(
                     None,
-                    "HTML match imported as plain text; rich text formatting is not supported in v1.".into(),
+                    "HTML match imported as plain text; importing rich text formatting is not supported.".into(),
                 ));
                 html
             } else {

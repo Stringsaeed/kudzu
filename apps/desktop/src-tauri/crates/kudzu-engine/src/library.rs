@@ -76,7 +76,9 @@ impl Library {
         form_values: HashMap<String, String>,
     ) -> RenderResult {
         let resolve = |id: Uuid| self.source(id);
+        let resolve_formatting = |id| self.snippets.get(&id).and_then(|s| s.formatting.clone());
         let context = RenderContext {
+            resolve_formatting: Some(&resolve_formatting),
             now,
             locale: self.locale.clone(),
             clipboard,
@@ -84,7 +86,7 @@ impl Library {
             resolve_snippet: &resolve,
             root_snippet_id: Some(snippet.id),
         };
-        template::render(&snippet.content, &context)
+        template::render_formatted(&snippet.content, snippet.formatting.as_ref(), &context)
     }
 
     /// The snippet's own rule and insertion, else the nearest ancestor group's (cycle-safe).

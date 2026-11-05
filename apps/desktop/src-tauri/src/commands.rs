@@ -375,10 +375,12 @@ pub fn set_palette_hotkey(app: AppHandle, core: Core, accelerator: String) -> Re
 // MARK: Templates
 
 #[tauri::command]
-pub fn render_preview(core: Core, content: String, snippet_id: Option<Uuid>, form_values: HashMap<String, String>) -> RenderResult {
-    let sources: HashMap<Uuid, String> = core.store.lock().library.snippets.iter().map(|s| (s.id, s.content.clone())).collect();
-    let resolve = |id: Uuid| sources.get(&id).cloned();
+pub fn render_preview(core: Core, content: String, snippet_id: Option<Uuid>, form_values: HashMap<String, String>, formatting: Option<kudzu_core::formatting::Formatting>) -> RenderResult {
+    let snippets: HashMap<_, _> = core.store.lock().library.snippets.iter().map(|s| (s.id, s.clone())).collect();
+    let resolve = |id: Uuid| snippets.get(&id).map(|s| s.content.clone());
+    let resolve_formatting = |id| snippets.get(&id).and_then(|s| s.formatting.clone());
     let ctx = RenderContext {
+        resolve_formatting: Some(&resolve_formatting),
         now: Local::now().fixed_offset(),
         locale: system::locale(),
         clipboard: system::read_clipboard(),
@@ -386,7 +388,21 @@ pub fn render_preview(core: Core, content: String, snippet_id: Option<Uuid>, for
         resolve_snippet: &resolve,
         root_snippet_id: snippet_id,
     };
-    template::render(&content, &ctx)
+    template::render_formatted(&content, formatting.as_ref(), &ctx)
+}
+
+#[tauri::command]
+pub fn copy_preview(core: Core, content: String, snippet_id: Option<Uuid>, formatting: Option<kudzu_core::formatting::Formatting>) {
+    let result = render_preview(core, content, snippet_id, HashMap::new(), formatting);
+    copy_rendered(result);
+}
+
+fn copy_rendered(result: RenderResult) {
+    let mut item = vec![("public.utf8-plain-text".into(), result.text.as_bytes().to_vec())];
+    if let Some(spans) = &result.formatting {
+        item.push(("public.html".into(), kudzu_core::formatting::html(&result.text, spans).into_bytes()));
+    }
+    kudzu_engine::clipboard::write(&[item]);
 }
 
 // MARK: Apps
@@ -536,8 +552,8 @@ pub fn palette_insert(app: AppHandle, core: Core, snippet_id: Uuid) {
 #[tauri::command]
 pub fn palette_copy(app: AppHandle, core: Core, snippet_id: Uuid) -> Res<()> {
     let engine = core.engine().ok_or("Engine not running")?;
-    let text = engine.render_snippet(snippet_id, HashMap::new()).ok_or("Snippet not found")?;
-    system::write_clipboard(&text);
+    let result = engine.render_snippet_formatted(snippet_id, HashMap::new()).ok_or("Snippet not found")?;
+    copy_rendered(result);
     let app2 = app.clone();
     std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(260));

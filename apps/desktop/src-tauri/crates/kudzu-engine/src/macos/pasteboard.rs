@@ -137,14 +137,14 @@ pub(crate) fn write_string(text: &str) -> bool {
 }
 
 /// Writes `text` marked transient and concealed so clipboard managers skip it.
-fn write_transient(text: &str) -> bool {
+fn write_transient(text: &str, html: Option<&str>) -> bool {
     autoreleasepool(|_| {
         let item = NSPasteboardItem::new();
         let empty = NSData::new();
         let ok = item.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString })
             && item.setData_forType(&empty, &NSString::from_str("org.nspasteboard.TransientType"))
             && item.setData_forType(&empty, &NSString::from_str("org.nspasteboard.ConcealedType"));
-        if !ok {
+        if !ok || html.is_some_and(|html| !item.setString_forType(&NSString::from_str(html), &NSString::from_str("public.html"))) {
             return false;
         }
         let board = general();
@@ -162,11 +162,11 @@ pub(crate) enum PasteError {
 }
 
 /// Pastes `text` via ⌘V, then restores the previous clipboard after a delay (blocking).
-pub(crate) fn paste_text(text: &str) -> Result<(), PasteError> {
+pub(crate) fn paste_text(text: &str, html: Option<&str>) -> Result<(), PasteError> {
     // A previous paste still pending restoration owns the "real" clipboard; put it back first.
     restore_pending();
     let saved = snapshot().ok_or(PasteError::Unavailable)?;
-    if !write_transient(text) {
+    if !write_transient(text, html) {
         restore(&saved);
         return Err(PasteError::Unavailable);
     }

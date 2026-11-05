@@ -90,6 +90,23 @@ pub(crate) fn cased_cursor_offset(style: CaseStyle, rendered: &str, offset: usiz
     case_propagation::apply(style, utf16_prefix(rendered, offset)).encode_utf16().count()
 }
 
+pub(crate) fn cased_formatting(style: CaseStyle, text: &str, spans: &[kudzu_core::formatting::FormatSpan]) -> Vec<kudzu_core::formatting::FormatSpan> {
+    spans.iter().map(|s| kudzu_core::formatting::FormatSpan {
+        start: cased_cursor_offset(style, text, s.start),
+        end: cased_cursor_offset(style, text, s.end),
+        style: s.style.clone(),
+    }).collect()
+}
+
+/// Choose the attachment or plain-text shape only when the app's caret confirms it.
+/// Unknown delivery must not arm a destructive Backspace undo or move the caret by a guess.
+pub(crate) fn image_delivery(text: &str, spans: &[kudzu_core::formatting::FormatSpan], cursor: Option<usize>, observed: Option<usize>) -> Option<(String, Option<usize>)> {
+    let length = observed?;
+    if length == text.encode_utf16().count() { return Some((text.into(), cursor)); }
+    let visual = kudzu_core::formatting::insertion_text(text, spans);
+    (length == visual.encode_utf16().count()).then(|| (visual, cursor.map(|o| kudzu_core::formatting::insertion_offset(o, spans))))
+}
+
 /// Inserted graphemes minus typed trigger graphemes, never negative.
 pub(crate) fn chars_saved(inserted: &str, typed_trigger: &str) -> i64 {
     let saved = grapheme_count(inserted) as i64 - grapheme_count(typed_trigger) as i64;
@@ -138,6 +155,25 @@ mod tests {
             case_style: CaseStyle::AsIs,
             fire_mode,
         }
+    }
+
+    #[test]
+    fn formatting_follows_unicode_case_expansion() {
+        use kudzu_core::formatting::{FormatSpan, FormatStyle};
+        let spans = cased_formatting(CaseStyle::Upper, "ß hi", &[FormatSpan { start: 2, end: 4, style: FormatStyle::Bold }]);
+        assert_eq!((spans[0].start, spans[0].end), (3, 5));
+    }
+
+    #[test]
+    fn image_caret_and_undo_use_the_confirmed_clipboard_flavor() {
+        use kudzu_core::formatting::{FormatSpan, FormatStyle};
+        let spans = [FormatSpan { start: 3, end: 9, style: FormatStyle::Image {
+            data_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAJUlEQVR4nGMICLj0n5aYYdSCUQtGLRi1YNSCUQtGLRi1YGhYAACpwH6M7RqhEQAAAABJRU5ErkJggg==".into(), width: 120,
+        } }];
+        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(5)), Some(("Hi \u{fffc}!".into(), Some(4))));
+        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(10)), Some(("Hi [Logo]!".into(), Some(9))));
+        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), None), None);
+        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(99)), None);
     }
 
     #[test]

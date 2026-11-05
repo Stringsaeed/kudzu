@@ -5,7 +5,7 @@
 // so what you see round-trips byte-for-byte through the Rust parser.
 
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
-import { EditorState, RangeSetBuilder, StateEffect, StateField, type Extension } from "@codemirror/state"
+import { EditorState, RangeSetBuilder, StateEffect, StateField, Transaction, type Extension } from "@codemirror/state"
 import {
   Decoration,
   type DecorationSet,
@@ -14,7 +14,12 @@ import {
   placeholder as cmPlaceholder,
   WidgetType,
 } from "@codemirror/view"
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
+import { forwardRef, useEffect, useId, useImperativeHandle, useRef, useState } from "react"
+
+import { changeFormat, formattingField, formattingHistory, setFormatting } from "@/lib/editor-formatting"
+import { sameSpans, sourceSpans } from "@/lib/formatting"
+import type { FormatSpan, Formatting } from "@/lib/types"
+import { FormattingToolbar } from "./formatting-toolbar"
 
 import { chipLabel, chipTone, tokenize, type TagToken } from "@/lib/template"
 
@@ -40,7 +45,9 @@ export interface TemplateEditorHandle {
 
 interface Props {
   value: string
-  onChange: (value: string) => void
+  onChange: (value: string, formatting?: FormatSpan[]) => void
+  formatting?: Formatting
+  allowFormatting?: boolean
   snippetName: (id: string) => string | undefined
   onChipClick: (click: ChipClick) => void
   onSlash: (open: SlashOpen) => void
@@ -106,6 +113,10 @@ function chipsField(initial: (id: string) => string | undefined): Extension {
 
 const theme = EditorView.theme({
   "&": { height: "100%" },
+  ".kz-format-bold": { fontWeight: "700" },
+  ".kz-format-italic": { fontStyle: "italic" },
+  ".kz-format-underline": { textDecoration: "underline" },
+  ".kz-format-link": { textDecoration: "underline", color: "var(--iris)" },
   ".kz-chip": {
     display: "inline-flex",
     alignItems: "center",
@@ -126,10 +137,12 @@ const theme = EditorView.theme({
 
 
 export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function TemplateEditor(
-  { value, onChange, snippetName, onChipClick, onSlash, placeholder, ariaLabel, className, onEscape },
+  { value, onChange, formatting, allowFormatting, snippetName, onChipClick, onSlash, placeholder, ariaLabel, className, onEscape },
   ref,
 ) {
+  const [editorState, setEditorState] = useState<EditorState | null>(null)
   const host = useRef<HTMLDivElement>(null)
+  const formatHelpId = useId()
   const viewRef = useRef<EditorView | null>(null)
   const cb = useRef({ onChange, onChipClick, onSlash, onEscape })
   cb.current = { onChange, onChipClick, onSlash, onEscape }
@@ -141,12 +154,20 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
         doc: value,
         extensions: [
           history(),
+          formattingField.init(() => sourceSpans(value, formatting)),
+          formattingHistory,
           EditorView.lineWrapping,
           cmPlaceholder(placeholder ?? ""),
           chipsField(snippetName),
           theme,
-          EditorView.contentAttributes.of({ "aria-label": ariaLabel ?? "Snippet content", "aria-multiline": "true", spellcheck: "true" }),
+          EditorView.contentAttributes.of({
+            "aria-label": ariaLabel ?? "Snippet content", "aria-multiline": "true", spellcheck: "true",
+            ...(allowFormatting ? { "aria-describedby": formatHelpId } : {}),
+          }),
           keymap.of([
+            { key: "Mod-b", run: (view) => changeFormat(view, { kind: "bold" }) },
+            { key: "Mod-i", run: (view) => changeFormat(view, { kind: "italic" }) },
+            { key: "Mod-u", run: (view) => changeFormat(view, { kind: "underline" }) },
             {
               key: "Escape",
               run: () => {
@@ -159,8 +180,13 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
             indentWithTab,
           ]),
           EditorView.updateListener.of((u) => {
+            setEditorState(u.state)
+            const formattingChanged = u.transactions.some((tr) => tr.effects.some((e) => e.is(setFormatting)))
+            if (!u.docChanged && !formattingChanged) return
+            if (!u.transactions.every((tr) => tr.annotation(Transaction.addToHistory) === false)) {
+              cb.current.onChange(u.state.doc.toString(), u.state.field(formattingField) ?? undefined)
+            }
             if (!u.docChanged) return
-            cb.current.onChange(u.state.doc.toString())
             // Slash menu: a "/" typed at the start of a word.
             if (!u.transactions.some((t) => t.isUserEvent("input.type"))) return
             u.changes.iterChanges((_fa, _ta, fromB, toB, inserted) => {
@@ -188,6 +214,7 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
       }),
     })
     viewRef.current = view
+    setEditorState(view.state)
     return () => {
       view.destroy()
       viewRef.current = null
@@ -201,8 +228,14 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
     const view = viewRef.current
     if (!view) return
     const cur = view.state.doc.toString()
-    if (cur !== value) view.dispatch({ changes: { from: 0, to: cur.length, insert: value } })
-  }, [value])
+    const spans = sourceSpans(value, formatting)
+    if (cur !== value || !sameSpans(view.state.field(formattingField), spans)) {
+      view.dispatch({
+        changes: cur !== value ? { from: 0, to: cur.length, insert: value } : undefined,
+        effects: setFormatting.of(spans), annotations: Transaction.addToHistory.of(false),
+      })
+    }
+  }, [value, formatting])
 
   useEffect(() => {
     viewRef.current?.dispatch({ effects: setResolver.of(snippetName) })
@@ -230,5 +263,13 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
     view: () => viewRef.current,
   }))
 
-  return <div ref={host} className={`kz-editor ${className ?? ""}`} />
+  return <>
+    {allowFormatting && <FormattingToolbar state={editorState} view={() => viewRef.current} />}
+    <div ref={host} className={`kz-editor ${editorState?.field(formattingField) != null ? "kz-editor-formatted" : ""} ${className ?? ""}`} />
+    {allowFormatting && <p id={formatHelpId} className="border-t border-hairline px-3 py-2 text-xs text-muted-foreground">
+      {editorState?.field(formattingField) != null
+        ? "Select text to apply styles or add a link. Use Image to add a logo or picture."
+        : "Choose Formatted to add styles, links, and images."}
+    </p>}
+  </>
 })

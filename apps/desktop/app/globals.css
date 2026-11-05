@@ -456,6 +456,9 @@
   font-size: 13px;
   line-height: 1.7;
 }
+.kz-editor.kz-editor-formatted .cm-scroller {
+  font-family: var(--app-sans);
+}
 .kz-editor .cm-editor.cm-focused {
   outline: none;
 }

@@ -12,6 +12,7 @@ import { applyTheme } from "@/lib/theme"
 import type { FormRequest, Library, RenderResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { FormattedText } from "../formatted-text"
 import { Shortcut } from "../shortcut"
 
 export function FormPanel() {
@@ -44,7 +45,7 @@ export function FormPanel() {
     if (!request) return
     let live = true
     const t = setTimeout(() => {
-      renderPreview(request.content, request.snippetId, values, (id) => library?.snippets.find((s) => s.id === id)?.content).then((r) => live && setPreview(r))
+      renderPreview(request.content, request.snippetId, values, (id) => library?.snippets.find((s) => s.id === id)?.content, library?.snippets.find((s) => s.id === request.snippetId)?.formatting, (id) => library?.snippets.find((s) => s.id === id)?.formatting).then((r) => live && setPreview(r))
     }, 50)
     return () => {
       live = false
@@ -133,7 +134,7 @@ export function FormPanel() {
 
         <div className="mx-4 mb-3.5 max-h-40 overflow-y-auto rounded-lg bg-foreground/[0.03] px-3 py-2.5 shadow-well">
           <div className="mb-1 text-[10.5px] font-medium text-faint">Preview</div>
-          <div className="selectable text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{preview?.text ?? "…"}</div>
+          <div className="selectable text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{preview ? <FormattedText result={preview} /> : "…"}</div>
         </div>
 
         <footer className="flex items-center gap-4 border-t border-hairline px-4 py-2.5 text-[11.5px] text-muted-foreground">

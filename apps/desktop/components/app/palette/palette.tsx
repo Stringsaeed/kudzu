@@ -18,6 +18,7 @@ import {
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
 import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
+import { FormattedText } from "../formatted-text"
 import { api, Events, on, renderPreview } from "@/lib/backend"
 import { groupPath } from "@/lib/groups"
 import { isMac } from "@/lib/keys"
@@ -200,17 +201,18 @@ export function Palette() {
 
   // Live preview of the active snippet.
   const resolve = useCallback((id: string) => library?.snippets.find((s) => s.id === id)?.content, [library])
+  const resolveFormatting = useCallback((id: string) => library?.snippets.find((s) => s.id === id)?.formatting, [library])
   useEffect(() => {
     if (!current) return
     let live = true
     const t = setTimeout(() => {
-      renderPreview(current.content, current.id, {}, resolve).then((r) => live && setRendered({ id: current.id, result: r }))
+      renderPreview(current.content, current.id, {}, resolve, current.formatting, resolveFormatting).then((r) => live && setRendered({ id: current.id, result: r }))
     }, 40)
     return () => {
       live = false
       clearTimeout(t)
     }
-  }, [current, resolve])
+  }, [current, resolve, resolveFormatting])
 
   const pick = useCallback(
     (i: number, mode: "insert" | "copy" | "edit" = "insert") => {
@@ -382,15 +384,7 @@ export function Palette() {
                   <div className="mb-2 text-[11px] font-medium text-faint">Will insert</div>
                   <div className="selectable text-[13.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
                     {preview ? (
-                      preview.cursorOffset != null ? (
-                        <>
-                          {preview.text.slice(0, preview.cursorOffset)}
-                          <span className="mx-px inline-block h-[1.05em] w-[2px] translate-y-[2px] rounded-full bg-iris" aria-label="cursor" />
-                          {preview.text.slice(preview.cursorOffset)}
-                        </>
-                      ) : (
-                        preview.text || <span className="text-faint">Empty snippet</span>
-                      )
+                      preview.text ? <FormattedText result={preview} /> : <span className="text-faint">Empty snippet</span>
                     ) : (
                       <span className="block h-4 w-2/3 rounded bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--foreground)_8%,transparent),transparent)] bg-[length:200%_100%] animate-shimmer" />
                     )}

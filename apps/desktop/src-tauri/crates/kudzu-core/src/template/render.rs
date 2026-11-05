@@ -2,6 +2,8 @@
 
 use chrono::{DateTime, Duration, FixedOffset, Months};
 use uuid::Uuid;
+use unicode_segmentation::UnicodeSegmentation;
+use crate::formatting::{FormatSpan, Formatting};
 
 use super::parser::{self, utf16_len};
 use super::{
@@ -11,18 +13,20 @@ use super::{
 /// Maximum nesting depth: the root is depth 0 and a reference at depth 8 is rejected.
 const MAX_DEPTH: usize = 8;
 
-pub(crate) fn render(source: &str, context: &RenderContext<'_>) -> RenderResult {
+pub(crate) fn render(source: &str, formatting: Option<&Formatting>, context: &RenderContext<'_>) -> RenderResult {
     let mut renderer = Renderer {
         context,
         text: String::new(),
         utf16: 0,
         cursor: None,
         diagnostics: Vec::new(),
+        spans: formatting.map(|_| Vec::new()),
     };
     let mut path: Vec<Uuid> = context.root_snippet_id.into_iter().collect();
-    renderer.render(source, &mut path, 0);
+    renderer.render(source, &mut path, 0, formatting);
     RenderResult {
         text: renderer.text,
+        formatting: renderer.spans,
         cursor_offset: renderer.cursor,
         diagnostics: renderer.diagnostics,
     }
@@ -34,6 +38,7 @@ struct Renderer<'c, 'a> {
     utf16: usize,
     cursor: Option<usize>,
     diagnostics: Vec<Diagnostic>,
+    spans: Option<Vec<FormatSpan>>,
 }
 
 impl Renderer<'_, '_> {
@@ -51,17 +56,24 @@ impl Renderer<'_, '_> {
     }
 
     /// `path` holds the snippet IDs on the active reference chain (a stack, so separate branches may repeat).
-    fn render(&mut self, source: &str, path: &mut Vec<Uuid>, depth: usize) {
+    fn render(&mut self, source: &str, path: &mut Vec<Uuid>, depth: usize, formatting: Option<&Formatting>) {
+        let source_utf16: Vec<_> = if formatting.is_some() { source.encode_utf16().collect() } else { Vec::new() };
+        let mut positions = formatting.map(|_| vec![None; source_utf16.len() + 1]);
         let parsed = parser::parse(source);
         self.diagnostics.extend(parsed.diagnostics);
         for node in &parsed.nodes {
             let tag = match node {
-                Node::Text { text, .. } => {
+                Node::Text { text, range } => {
+                    if let Some(positions) = &mut positions {
+                        let raw = String::from_utf16_lossy(&source_utf16[range.clone()]);
+                        literal_positions(&raw, range.start, self.utf16, positions);
+                    }
                     self.append(text);
                     continue;
                 }
                 Node::Tag(tag) => tag,
             };
+            if let Some(positions) = &mut positions { positions[tag.range.start] = Some(self.utf16); }
             match super::typed(tag) {
                 TemplateTag::Cursor => {
                     if depth == 0 && self.cursor.is_none() {
@@ -93,7 +105,9 @@ impl Renderer<'_, '_> {
                         );
                     } else if let Some(nested) = (self.context.resolve_snippet)(id) {
                         path.push(id);
-                        self.render(&nested, path, depth + 1);
+                        let formatting = self.spans.as_ref().and(self.context.resolve_formatting)
+                            .and_then(|resolve| resolve(id)).filter(|f| f.source == nested);
+                        self.render(&nested, path, depth + 1, formatting.as_ref());
                         path.pop();
                     } else {
                         self.diagnose(
@@ -134,7 +148,34 @@ impl Renderer<'_, '_> {
                     self.append(&source);
                 }
             }
+            if let Some(positions) = &mut positions { positions[tag.range.end] = Some(self.utf16); }
         }
+        if let (Some(formatting), Some(positions), Some(spans)) = (formatting, positions, &mut self.spans) {
+            spans.extend(formatting.spans.iter().filter_map(|span| {
+                let start = positions.get(span.start).copied().flatten()?;
+                let end = positions.get(span.end).copied().flatten()?;
+                (start < end).then(|| FormatSpan { start, end, style: span.style.clone() })
+            }));
+        }
+    }
+}
+
+// Match the parser's grapheme-aware escape handling. Tag interiors deliberately have no
+// position: styling part of a variable is invalid, while styling its whole chip is stable.
+fn literal_positions(raw: &str, start: usize, output: usize, positions: &mut [Option<usize>]) {
+    let graphemes: Vec<_> = raw.graphemes(true).collect();
+    let (mut i, mut input, mut rendered) = (0, start, output);
+    positions[input] = Some(rendered);
+    while i < graphemes.len() {
+        let escaped = graphemes[i] == "\\" &&
+            (graphemes.get(i + 1) == Some(&"\\") ||
+             (graphemes.get(i + 1) == Some(&"{") && graphemes.get(i + 2) == Some(&"{")));
+        if escaped { input += 1; i += 1; }
+        let count = utf16_len(graphemes[i]);
+        input += count;
+        rendered += count;
+        positions[input] = Some(rendered);
+        i += 1;
     }
 }
 

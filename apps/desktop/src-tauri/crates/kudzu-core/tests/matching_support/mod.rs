@@ -16,6 +16,7 @@ pub struct Snip(pub SnippetRecord);
 pub fn snip(triggers: &[&str]) -> Snip {
     let epoch: DateTime<Utc> = Utc.timestamp_opt(0, 0).unwrap();
     Snip(SnippetRecord {
+        formatting: None,
         id: Uuid::new_v4(),
         name: triggers.first().copied().unwrap_or("").to_string(),
         triggers: triggers.iter().map(|t| t.to_string()).collect(),

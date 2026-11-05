@@ -45,6 +45,7 @@ impl Fixture {
     pub fn render(&self, source: &str) -> RenderResult {
         let resolve = |id: Uuid| self.snippets.get(&id).cloned();
         let context = RenderContext {
+            resolve_formatting: None,
             now: now(),
             locale: self.locale.clone(),
             clipboard: self.clipboard.clone(),

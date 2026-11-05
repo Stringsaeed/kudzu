@@ -318,7 +318,7 @@ mod interchange {
                 clipboard: None,
                 form_values: HashMap::new(),
                 resolve_snippet: &resolve,
-                root_snippet_id: None,
+                resolve_formatting: None, root_snippet_id: None,
             };
             template::render(&s.content, &ctx).text
         };

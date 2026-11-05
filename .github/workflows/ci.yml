@@ -62,6 +62,7 @@ jobs:
       - name: Frontends (types, lint, production builds)
         run: |
           pnpm check
+          pnpm --filter kudzu-desktop test:formatting
           pnpm --filter kudzu-website test:deployment
           pnpm build
       - name: Rust (clippy, tests)

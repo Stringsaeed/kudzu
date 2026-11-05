@@ -76,6 +76,8 @@ pub struct SnippetRecord {
     /// Template source; see docs/TEMPLATE_SYNTAX.md.
     #[serde(default)]
     pub content: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formatting: Option<crate::formatting::Formatting>,
     #[serde(rename = "groupID", default, skip_serializing_if = "Option::is_none")]
     pub group_id: Option<Uuid>,
     #[serde(rename = "fireMode", default)]
@@ -107,6 +109,7 @@ impl SnippetRecord {
             name: name.into(),
             triggers,
             content: content.into(),
+            formatting: None,
             group_id: None,
             fire_mode: FireMode::Immediate,
             case_mode: CaseMode::Propagate,
