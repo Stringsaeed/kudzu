@@ -1,0 +1,11 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "oxc", "react", "jsx-a11y", "nextjs", "import"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "nextjs/no-img-element": "warn"
+  },
+  "ignorePatterns": [".next/**", ".turbo/**", "out/**", "build/**", "dist/**", "next-env.d.ts"]
+}
