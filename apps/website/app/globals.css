@@ -21,10 +21,11 @@
     width: 74.7826%;
     height: 71.7143%;
     border-radius: 7px;
-    overflow: hidden;
+    overflow: clip;
     background: light-dark(#bdc8ae, #293829);
   }
   .device-workspace {
+    position: relative;
     width: 960px;
     height: 600px;
     transform: scale(var(--device-scale, 1));
@@ -52,18 +53,18 @@
     margin-left: auto;
   }
   .device-workspace .app-window {
-    margin: 29px 20px 0;
+    margin: 17px 20px 0;
     width: 920px;
   }
   .device-workspace .app-layout {
     grid-template-columns: 166px 300px 1fr;
-    min-height: 435px;
+    min-height: 405px;
   }
   .device-workspace .app-sidebar {
     display: block;
   }
   .device-workspace .snippet-editor {
-    padding-inline: 24px;
+    padding: 20px 24px 16px;
   }
   .device-workspace .snippet-tabs {
     display: flex;
@@ -74,7 +75,7 @@
   }
   .device-workspace .snippet-content {
     font-size: 12px;
-    min-height: 155px;
+    min-height: 125px;
   }
   .device-workspace .demo-input-wrap textarea {
     max-height: 84px;
@@ -789,63 +790,6 @@
   .tiny-spark {
     color: light-dark(#859165, #c9ccbf);
     font-size: 18px;
-  }
-  .works-strip {
-    margin-top: 60px;
-    padding: 30px 0 40px;
-    border-bottom: 1px solid var(--line);
-  }
-  .works-strip > span {
-    color: light-dark(#919782, #c2c4bd);
-    font-size: 11px;
-  }
-  .works-strip > div {
-    margin-top: 23px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 43px;
-    color: light-dark(#68705c, #cccfc8);
-  }
-  .app-name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 16px;
-    font-weight: 550;
-    letter-spacing: -0.3px;
-  }
-  .app-letter {
-    font-family: var(--font-figtree), system-ui, sans-serif;
-    font-size: 16px;
-    border: 1px solid light-dark(#8a917c, #595d53);
-    padding: 1px 4px;
-    border-radius: 3px;
-  }
-  .slack-mark {
-    font-size: 28px;
-    line-height: 1;
-  }
-  .notion-mark {
-    font-family: var(--font-figtree), system-ui, sans-serif;
-    border: 1.5px solid light-dark(#89917c, #595d53);
-    line-height: 19px;
-    width: 19px;
-    border-radius: 2px;
-    font-weight: 700;
-    font-size: 17px;
-  }
-  .code-mark {
-    font-family: monospace;
-    font-size: 19px;
-  }
-  .app-name.and-more {
-    font-family: var(--font-figtree), system-ui, sans-serif;
-    font-style: normal;
-    font-size: 15px;
-    font-weight: 400;
-    color: light-dark(#929984, #c1c4bc);
   }
   .intro-section {
     padding: 108px 0 100px;
@@ -1684,15 +1628,6 @@
     .app-sidebar {
       display: none;
     }
-    .works-strip > div {
-      gap: 25px;
-    }
-    .app-name {
-      font-size: 14px;
-    }
-    .app-name.and-more {
-      display: none;
-    }
     .feature-row {
       gap: 28px;
       grid-template-columns: 1fr 1fr;
@@ -1934,31 +1869,6 @@
       gap: 6px;
       padding-inline: 12px;
       margin-top: 20px;
-    }
-    .works-strip {
-      margin-top: 30px;
-      padding: 20px 0 27px;
-    }
-    .works-strip > span {
-      font-size: 10px;
-    }
-    .works-strip > div {
-      gap: 20px;
-      margin-top: 18px;
-    }
-    .app-name {
-      font-size: 12px;
-      gap: 5px;
-    }
-    .app-letter,
-    .notion-mark {
-      font-size: 13px;
-    }
-    .slack-mark {
-      font-size: 23px;
-    }
-    .code-mark {
-      font-size: 15px;
     }
     .intro-section {
       padding: 70px 0 60px;
@@ -2245,16 +2155,6 @@
     stroke: currentColor;
     stroke-width: 1.6;
   }
-  .app-name img {
-    width: 26px;
-    height: 26px;
-    object-fit: contain;
-  }
-  .app-name.and-more {
-    font-family: inherit;
-    font-style: normal;
-    font-size: 12px;
-  }
   .date-stamp {
     color: light-dark(#dde0cf, #343e30);
   }
@@ -2317,13 +2217,6 @@
     }
     .hero-accent {
       letter-spacing: inherit;
-    }
-    .app-name img {
-      width: 23px;
-      height: 23px;
-    }
-    .works-strip > div {
-      gap: 16px;
     }
   }
 }
@@ -2621,6 +2514,125 @@
     .date-visual code {
       font-size: clamp(10px, 3.5vw, 15px);
       padding-inline: 10px;
+    }
+  }
+}
+
+@layer device {
+  .device-workspace .demo-input-wrap {
+    margin-top: 10px;
+    padding-top: 12px;
+  }
+  .macos-dock {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    display: flex;
+    align-items: end;
+    gap: 7px;
+    width: max-content;
+    padding: 8px 12px 10px;
+    border: 1px solid light-dark(#ffffff9e, #ffffff30);
+    border-radius: 19px;
+    background: light-dark(#e6e9e2bd, #242c22b8);
+    backdrop-filter: blur(18px) saturate(1.3);
+    box-shadow:
+      inset 0 0 0 1px #ffffff0c,
+      0 7px 18px #00000020;
+  }
+  .dock-app {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+  }
+  .dock-app img {
+    display: block;
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+    transform-origin: center bottom;
+    transition: transform 140ms ease-out;
+    filter: drop-shadow(0 2px 2px #00000024);
+  }
+  .dock-app:hover img,
+  .dock-app:focus-visible img {
+    transform: translateY(-3px) scale(1.12);
+  }
+  .dock-app[data-running]::after {
+    content: "";
+    position: absolute;
+    bottom: -6px;
+    left: calc(50% - 1.5px);
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: light-dark(#374131, #dce5d5);
+  }
+  .dock-app:focus-visible {
+    outline: 2px solid light-dark(#3255e7, #bdc9ff);
+    outline-offset: 4px;
+  }
+  .dock-tooltip {
+    position: absolute;
+    bottom: calc(100% + 14px);
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 10px;
+    border: 1px solid light-dark(#ffffffa6, #ffffff25);
+    border-radius: 7px;
+    background: light-dark(#f7f8f0ed, #262e23ed);
+    color: light-dark(#293126, #f0f3eb);
+    box-shadow: 0 4px 10px #00000018;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .dock-app:hover .dock-tooltip,
+  .dock-app:focus-visible .dock-tooltip {
+    opacity: 1;
+  }
+}
+@layer responsive {
+  @media (max-width: 600px) {
+    .macos-dock {
+      position: relative;
+      left: auto;
+      bottom: auto;
+      transform: none;
+      margin: 18px auto 0;
+      max-width: 100%;
+      gap: 5px;
+      padding: 7px 10px 10px;
+      border-radius: 16px;
+    }
+    .dock-app,
+    .dock-app img {
+      width: 40px;
+      height: 40px;
+    }
+    .dock-tooltip {
+      font-size: 10px;
+    }
+    .dock-app:last-child .dock-tooltip {
+      left: auto;
+      right: 0;
+      transform: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dock-app img {
+      transition: none;
+    }
+    .dock-app:hover img,
+    .dock-app:focus-visible img {
+      transform: none;
     }
   }
 }

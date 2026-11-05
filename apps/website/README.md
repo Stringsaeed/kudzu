@@ -51,8 +51,8 @@ Local app icon sources:
 
 - GitHub: `GitHub_Invertocat_Black.svg` from `https://brand.github.com/GitHub_Logos.zip`, stored unmodified and rendered as a theme-aware mask.
 - Mail: the installed macOS Mail app’s `ApplicationIcon.icns`.
-- Slack: `https://a.slack-edge.com/9cc0056/img/icons/favicon-32.png`.
-- Notion: `https://www.notion.so/images/logo-ios.png`.
-- Visual Studio Code: `https://code.visualstudio.com/assets/branding/code-stable.png`.
+- Slack: `electron.icns` from the official Slack 4.53.280 macOS download, `https://slack.com/ssb/download-osx-silicon`.
+- Notion: `electron.icns` from the official Notion 7.42.1 macOS download, `https://www.notion.com/desktop/mac-universal/download`.
+- Visual Studio Code: the installed macOS app’s `Code.icns`.
 
-The icons link to their respective products. They identify compatible apps and are not endorsement badges.
+The native app icons sit in a translucent Dock inside the laptop screen, alongside Kudzu. On narrow screens the Dock follows the full-width app preview. The icons link to their respective products. They identify compatible apps and are not endorsement badges.

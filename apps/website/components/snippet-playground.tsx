@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { AppleMark } from "./apple-mark";
+import { MacOSDock } from "./macos-dock";
 import { SketchArrow } from "./sketch-arrow";
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
@@ -265,6 +266,7 @@ export function SnippetPlayground() {
                 </div>
               </div>
             </div>
+            <MacOSDock />
           </div>
         </div>
       </div>

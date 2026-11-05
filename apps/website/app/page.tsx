@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { AppleMark } from "@/components/apple-mark";
-import { CompatibleApps } from "@/components/compatible-apps";
 import { SketchArrow } from "@/components/sketch-arrow";
 import { site } from "@/lib/site";
 import { IconDefinitions } from "@/components/icons";
@@ -49,7 +48,6 @@ export default function Home() {
           </p>
 
           <SnippetPlayground />
-          <CompatibleApps />
         </section>
 
         <section className="intro-section wrap" id="features">
