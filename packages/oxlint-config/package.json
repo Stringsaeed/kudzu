@@ -1,0 +1,8 @@
+{
+  "name": "@kudzu/oxlint-config",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./next.json": "./next.json"
+  }
+}

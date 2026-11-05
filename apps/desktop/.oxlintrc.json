@@ -1,0 +1,36 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": [
+    "../../packages/oxlint-config/next.json"
+  ],
+  "ignorePatterns": [
+    "src-tauri/target/**",
+    "src-tauri/gen/**"
+  ],
+  "rules": {
+    "react/incompatible-library": "warn",
+    "react/immutability": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "jsx-a11y/no-noninteractive-element-interactions": "warn",
+    "jsx-a11y/interactive-supports-focus": "warn",
+    "jsx-a11y/no-noninteractive-element-to-interactive-role": "warn",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/label-has-associated-control": [
+      "error",
+      {
+        "depth": 3
+      }
+    ]
+  },
+  "settings": {
+    "jsx-a11y": {
+      "components": {
+        "Input": "input",
+        "Textarea": "textarea",
+        "Switch": "input"
+      }
+    }
+  }
+}

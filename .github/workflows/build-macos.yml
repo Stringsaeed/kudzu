@@ -29,28 +29,27 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     defaults:
       run:
-        working-directory: desktop
+        working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
 
       - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: desktop/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: desktop/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop/src-tauri
+          workspaces: apps/desktop/src-tauri
 
       - run: pnpm install --frozen-lockfile
+        working-directory: .
 
       - name: Version
         run: |
@@ -136,7 +135,7 @@ jobs:
           path: tap
       - name: Bump cask
         run: |
-          kudzu/desktop/scripts/release/update-cask.sh "${{ needs.macos.outputs.version }}" "${{ needs.macos.outputs.sha }}" tap
+          kudzu/apps/desktop/scripts/release/update-cask.sh "${{ needs.macos.outputs.version }}" "${{ needs.macos.outputs.sha }}" tap
           cd tap
           git config user.name "kudzu-release[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

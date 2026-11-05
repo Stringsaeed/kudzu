@@ -2,10 +2,30 @@ name: CI
 
 on:
   pull_request:
-    paths: ["desktop/**", ".github/workflows/ci.yml"]
+    paths:
+      [
+        "apps/desktop/**",
+        "apps/website/**",
+        "packages/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "turbo.json",
+        ".github/workflows/ci.yml",
+      ]
   push:
     branches: [main]
-    paths: ["desktop/**", ".github/workflows/ci.yml"]
+    paths:
+      [
+        "apps/desktop/**",
+        "apps/website/**",
+        "packages/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "turbo.json",
+        ".github/workflows/ci.yml",
+      ]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,38 +35,33 @@ jobs:
   desktop:
     runs-on: macos-15
     timeout-minutes: 40
-    defaults:
-      run:
-        working-directory: desktop
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: desktop/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: desktop/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: desktop/src-tauri
+          workspaces: apps/desktop/src-tauri
 
       - run: pnpm install --frozen-lockfile
       - name: Design exports
+        working-directory: apps/desktop
         run: |
           python3 scripts/check-design-assets.py
           python3 -m unittest discover -s scripts/tests -p test_design_assets.py
-      - name: Frontend (types, lint, static export)
+      - name: Frontends (types, lint, production builds)
         run: |
-          pnpm exec tsc --noEmit
-          pnpm lint
+          pnpm check
           pnpm build
       - name: Rust (clippy, tests)
-        working-directory: desktop/src-tauri
+        working-directory: apps/desktop/src-tauri
         run: |
           cargo clippy --workspace --all-targets -- -D warnings
           cargo test --workspace

@@ -21,7 +21,7 @@
     { "type": "style", "section": "Style", "hidden": true }
   ],
   "packages": {
-    "desktop": {
+    "apps/desktop": {
       "release-type": "node",
       "package-name": "kudzu",
       "component": "kudzu",
