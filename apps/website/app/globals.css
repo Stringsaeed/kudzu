@@ -1493,10 +1493,10 @@
     top: -340px;
     left: calc(50% - 275px);
     box-shadow:
-      0 0 0 50px #ffffff16,
-      0 0 0 51px #d8deee80,
-      0 0 0 100px #ffffff0d,
-      0 0 0 101px #d8deee50;
+      0 0 0 50px light-dark(#ffffff16, #ffffff03),
+      0 0 0 51px light-dark(#d8deee80, #56658b20),
+      0 0 0 100px light-dark(#ffffff0d, #ffffff02),
+      0 0 0 101px light-dark(#d8deee50, #56658b14);
   }
   .download-icon {
     margin: 0 auto 23px;
@@ -2443,6 +2443,164 @@
       display: inline-flex;
       font-size: 10px;
       padding: 6px 9px;
+    }
+  }
+}
+
+@layer components {
+  .site-header {
+    height: auto;
+    min-height: 74px;
+    margin-top: 26px;
+    padding: 13px 18px;
+    border: 1px solid var(--line);
+    border-radius: 19px;
+    background: light-dark(#fffefa, #232821);
+    box-shadow: 0 6px 18px #00000008;
+  }
+  .site-header .brand {
+    font-size: 25px;
+    gap: 9px;
+  }
+  .site-header .brand img {
+    width: 36px;
+    height: 36px;
+  }
+  .site-header .desktop-navigation {
+    margin-left: 0;
+    gap: 28px;
+  }
+  .mobile-navigation {
+    display: none;
+  }
+  .template-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .template-grid article {
+    min-width: 0;
+  }
+  .template-visual {
+    min-width: 0;
+  }
+}
+@layer responsive {
+  @media (max-width: 850px) and (min-width: 601px) {
+    .site-header {
+      gap: 14px;
+      padding-inline: 14px;
+    }
+    .site-header .desktop-navigation {
+      gap: 15px;
+    }
+    .site-header .github-star {
+      gap: 6px;
+      font-size: 11px;
+    }
+    .site-header .github-star .icon:last-child {
+      display: none;
+    }
+  }
+  @media (max-width: 600px) {
+    .site-header {
+      height: auto;
+      position: sticky;
+      top: 10px;
+      z-index: 20;
+      width: calc(100% - 24px);
+      margin-top: 12px;
+      padding: 9px 10px;
+      min-height: 58px;
+      gap: 8px;
+      border-radius: 15px;
+    }
+    .site-header .brand {
+      font-size: 22px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .site-header .brand img {
+      width: 28px;
+      height: 28px;
+    }
+    .site-header .desktop-navigation {
+      display: none;
+    }
+    .site-header .header-actions {
+      gap: 6px;
+    }
+    .site-header .theme-control {
+      width: 32px;
+      height: 36px;
+    }
+    .site-header .button-small {
+      padding: 9px 10px;
+      min-height: 36px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .mobile-navigation {
+      display: block;
+    }
+    .mobile-navigation summary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      list-style: none;
+      cursor: pointer;
+    }
+    .mobile-navigation summary::-webkit-details-marker {
+      display: none;
+    }
+    .mobile-navigation .menu-close-icon {
+      display: none;
+    }
+    .mobile-navigation[open] .menu-open-icon {
+      display: none;
+    }
+    .mobile-navigation[open] .menu-close-icon {
+      display: block;
+    }
+    .site-header .mobile-navigation nav {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      margin: 0;
+      padding: 12px;
+      gap: 3px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: light-dark(#fffefa, #232821);
+      box-shadow: 0 12px 26px #00000020;
+    }
+    .site-header .mobile-navigation nav > a {
+      padding: 13px 12px;
+      color: var(--ink);
+      font-size: 14px;
+      border-radius: 7px;
+    }
+    .site-header .mobile-navigation nav > a:hover {
+      background: light-dark(#edeee6, #32392d);
+    }
+    .site-header .mobile-navigation .github-star {
+      margin-top: 5px;
+    }
+    .template-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .nested-snippet > div {
+      flex-wrap: wrap;
+    }
+    .date-visual code {
+      font-size: clamp(10px, 3.5vw, 15px);
+      padding-inline: 10px;
     }
   }
 }

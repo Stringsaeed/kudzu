@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ThemeToggle } from "./theme-toggle";
 import { Icon } from "./icons";
+import { MobileNavigation } from "./mobile-navigation";
 
 export function SiteHeader() {
   return (
@@ -9,8 +10,8 @@ export function SiteHeader() {
         <Image src="/assets/kudzu-icon.png" width="40" height="40" alt="" />
         <span>kudzu</span>
       </a>
-      <nav aria-label="Main navigation">
-        <a href="#features">The little things</a>
+      <nav className="desktop-navigation" aria-label="Main navigation">
+        <a href="#features">Features</a>
         <a href="#playground">Try it out</a>
         <a
           className="github-star"
@@ -23,9 +24,10 @@ export function SiteHeader() {
       </nav>
       <div className="header-actions">
         <ThemeToggle />
-        <a className="button button-small button-dark" href="#download">
+        <a className="button button-small button-primary" href="#download">
           Get Kudzu
         </a>
+        <MobileNavigation />
       </div>
     </header>
   );

@@ -1,6 +1,12 @@
 export function IconDefinitions() {
   return (
     <svg className="icon-definitions" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="i-menu" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+      </symbol>
+      <symbol id="i-close" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M6 18 18 6" />
+      </symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24">
         <path d="M5 12h14m-6-6 6 6-6 6" />
       </symbol>
