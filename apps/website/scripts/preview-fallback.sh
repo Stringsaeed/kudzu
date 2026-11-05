@@ -1,0 +1,1 @@
+[ "$VERCEL_ENV" = preview ]||exit 1; git fetch -q https://github.com/Stringsaeed/kudzu.git f79f3894eebe8f7bd783d34127a60d8c406c79df && git show FETCH_HEAD:apps/website/scripts/ignore-preview.mjs >/tmp/kzp.mjs && node /tmp/kzp.mjs; s=$?; test "$s" = 0
