@@ -124,10 +124,10 @@ export default function Home() {
               </div>
             </div>
             <div className="floating-key key-semicolon" aria-hidden="true">
-              ;
+              <span>;</span>
             </div>
             <div className="floating-key key-h" aria-hidden="true">
-              h
+              <span>h</span>
             </div>
           </div>
         </section>

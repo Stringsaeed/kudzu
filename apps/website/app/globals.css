@@ -1020,6 +1020,7 @@
     right: 22px;
     width: 49px;
     height: 51px;
+    padding-bottom: 5px;
     background: linear-gradient(150deg, light-dark(#fff, #212121), light-dark(#f5f4e8, #353320));
     border: 1px solid light-dark(#c5c9b6, #4f5244);
     border-radius: 10px;
@@ -1030,6 +1031,7 @@
       0 10px 14px #4c57221a;
     font-family: var(--font-figtree), system-ui, sans-serif;
     font-size: 26px;
+    line-height: 1;
     display: grid;
     place-items: center;
     transform: rotate(11deg);
@@ -1038,6 +1040,12 @@
     right: 73px;
     bottom: 12px;
     transform: rotate(-10deg);
+  }
+  .floating-key > span {
+    transform: translateY(-1px);
+  }
+  .key-semicolon > span {
+    transform: translateY(-4px);
   }
   .reverse {
     grid-template-columns: 1.15fr 1fr;
