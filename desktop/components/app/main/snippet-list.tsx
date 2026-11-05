@@ -5,6 +5,7 @@ import { ArrowDownUp, CircleOff, FolderInput, Plus, Search, Star, Trash2, X } fr
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,7 +101,7 @@ const Row = memo(function Row({
   const s = hit.snippet
   const off = !s.isEnabled || groupOff
   return (
-    <div
+    <Item
       id={`snippet-${s.id}`}
       role="option"
       aria-selected={inSelection}
@@ -108,31 +109,33 @@ const Row = memo(function Row({
       onDragStart={(e) => onDragStart(e, s.id)}
       onMouseDown={(e) => onClick(e, s.id)}
       className={cn(
-        "group/row relative mx-2 flex h-[60px] cursor-default flex-col justify-center gap-1 rounded-lg px-3 transition-colors duration-75",
+        "group/row relative mx-2 h-[60px] w-auto cursor-default flex-nowrap px-3 py-0 duration-75",
         "hover:bg-foreground/[0.035]",
         inSelection && "bg-foreground/[0.06] shadow-selected hover:bg-foreground/[0.07]",
         selected && active && "bg-iris-soft hover:bg-iris-soft",
         selected && active && "after:absolute after:inset-0 after:rounded-lg after:ring-1 after:ring-iris/35 after:ring-inset",
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={cn("min-w-0 flex-1 truncate text-[13px] font-medium", off && "text-muted-foreground", !s.name && "text-muted-foreground italic")}>
-          <Highlighted text={s.name || "Untitled"} hits={s.name ? hit.nameHits : []} />
-        </span>
-        {s.isFavorite && <Star className="size-3 shrink-0 fill-favorite text-favorite" aria-label="Favorite" />}
-        {off && <CircleOff className="size-3 shrink-0 text-faint" aria-label="Turned off" />}
-        {s.triggers[0] && (
-          <span className={cn("max-w-[45%] shrink-0 truncate font-mono text-[11.5px]", off ? "text-faint" : "text-iris-foreground/90")}>
-            {s.triggers[0]}
-            {s.triggers.length > 1 && <span className="text-faint"> +{s.triggers.length - 1}</span>}
-          </span>
-        )}
-      </div>
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">{summary || <span className="italic">Empty</span>}</span>
-        {usage > 0 && <span className="shrink-0 text-[10.5px] text-faint tabular">{formatCount(usage)}×</span>}
-      </div>
-    </div>
+      <ItemContent className="min-w-0 gap-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <ItemTitle className={cn("block min-w-0 flex-1 truncate text-[13px]", off && "text-muted-foreground", !s.name && "text-muted-foreground italic")}>
+            <Highlighted text={s.name || "Untitled"} hits={s.name ? hit.nameHits : []} />
+          </ItemTitle>
+          {s.isFavorite && <Star className="size-3 shrink-0 fill-favorite text-favorite" aria-label="Favorite" />}
+          {off && <CircleOff className="size-3 shrink-0 text-faint" aria-label="Turned off" />}
+          {s.triggers[0] && (
+            <span className={cn("max-w-[45%] shrink-0 truncate font-mono text-[11.5px]", off ? "text-faint" : "text-iris-foreground/90")}>
+              {s.triggers[0]}
+              {s.triggers.length > 1 && <span className="text-faint"> +{s.triggers.length - 1}</span>}
+            </span>
+          )}
+        </div>
+        <div className="flex min-w-0 items-center gap-2">
+          <ItemDescription className="min-w-0 flex-1 truncate text-xs text-muted-foreground/80">{summary || <span className="italic">Empty</span>}</ItemDescription>
+          {usage > 0 && <span className="shrink-0 text-[10.5px] text-faint tabular">{formatCount(usage)}×</span>}
+        </div>
+      </ItemContent>
+    </Item>
   )
 })
 

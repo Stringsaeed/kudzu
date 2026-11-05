@@ -70,6 +70,7 @@ import type { ClipEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { Shortcut } from "../shortcut"
+import { Breadcrumbs } from "../breadcrumbs"
 import { ClipList, type ClipListHandle } from "./clip-list"
 import { ClipContent, ClipDetails, ClipHeading } from "./clip-preview"
 
@@ -348,8 +349,8 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-1">
-      <section aria-label="Clipboard history" className="flex w-[372px] shrink-0 flex-col border-r border-hairline">
+    <div className="flex h-full min-h-0 min-w-0 flex-1">
+      <section aria-label="Clipboard history" className="flex w-[clamp(300px,30vw,372px)] shrink-0 flex-col border-r border-hairline">
         <header className="drag flex h-12 shrink-0 items-center gap-2 pr-2 pl-5" data-tauri-drag-region>
           <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold" data-tauri-drag-region>
             {filter === "all" ? "Clipboard" : FILTERS.find((f) => f.value === filter)?.label} <span className="ml-1 font-normal text-faint tabular">{results.length}</span>
@@ -507,24 +508,28 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
       </section>
 
       <section aria-label="Preview" className="flex min-w-0 flex-1 flex-col">
-        <header className="drag flex h-12 shrink-0 items-center gap-2 px-6" data-tauri-drag-region>
-          {active && <ClipHeading entry={active} />}
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hairline px-6">
+          {active && <Breadcrumbs label="Clipboard item breadcrumb" items={[
+            { label: filter === "all" ? "History" : FILTERS.find((f) => f.value === filter)?.label ?? "History", onSelect: () => listRef.current?.focus() },
+            { label: describe(active).title },
+          ]} />}
         </header>
         {active ? (
           <>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6" key={active.id}>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5" key={active.id}>
               <div className="flex flex-col gap-6 animate-rise">
+                <ClipHeading entry={active} />
                 <ClipContent entry={active} terms={terms} />
                 <ClipDetails entry={active} retentionDays={retention} />
               </div>
             </div>
             <footer role="toolbar" aria-label="Item actions" className="flex h-14 shrink-0 items-center gap-1 border-t border-hairline px-4">
               <Button size="sm" onClick={() => void copy(active)} aria-keyshortcuts="Enter">
-                <Copy /> Copy <Shortcut combo="enter" className="ml-0.5" />
+                <Copy /> Copy <Shortcut combo="enter" className="ml-0.5 max-[1100px]:hidden" />
               </Button>
               {active.rich && (
                 <Button size="sm" variant="ghost" onClick={() => void copy(active, true)} aria-keyshortcuts="Shift+Enter">
-                  <Type /> {settings.clipboardPastePlain ? "With formatting" : "As plain text"} <Shortcut combo="shift+enter" tone="ghost" />
+                  <Type /> {settings.clipboardPastePlain ? "With formatting" : "As plain text"} <Shortcut combo="shift+enter" tone="ghost" className="max-[1100px]:hidden" />
                 </Button>
               )}
               <span className="flex-1" />

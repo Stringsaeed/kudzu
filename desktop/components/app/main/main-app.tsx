@@ -24,6 +24,7 @@ import { SettingsView } from "./settings"
 import { ShortcutsDialog } from "./shortcuts"
 import { Sidebar } from "./sidebar"
 import { SnippetList, type SnippetListHandle } from "./snippet-list"
+import { Toolbar } from "./toolbar"
 
 export function MainApp() {
   const init = useStore((s) => s.init)
@@ -48,6 +49,7 @@ export function MainApp() {
   const clipRef = useRef<ClipboardViewHandle>(null)
   const [groupSettings, setGroupSettings] = useState<Group | null>(null)
   const [isDev, setIsDev] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
   useEffect(() => {
     if (!isTauri()) return
@@ -159,28 +161,38 @@ export function MainApp() {
           {isDev && <Badge className="fixed top-4 right-4">Dev</Badge>}
         </>
       ) : (
-        <div className="flex h-full min-h-0">
-          <div className="w-[232px] shrink-0 border-r border-hairline">
-            <Sidebar onOpenGroupSettings={setGroupSettings} isDev={isDev} />
+        <div className="flex h-full min-h-0 flex-col bg-sidebar">
+          <Toolbar
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((open) => !open)}
+            onNavigate={(destination) => {
+              setView(destination)
+              requestAnimationFrame(() => listRef.current?.focusList())
+            }}
+          />
+          <div className="flex min-h-0 flex-1">
+            <div id="main-sidebar" hidden={!sidebarOpen} className="w-[224px] shrink-0">
+              <Sidebar onOpenGroupSettings={setGroupSettings} isDev={isDev} />
+            </div>
+            <main className={`my-2 mr-2 flex min-w-0 flex-1 overflow-hidden rounded-2xl bg-background shadow-card ${sidebarOpen ? "" : "ml-2"}`}>
+              {inLibrary ? (
+                <>
+                  <div className="w-[clamp(260px,27vw,320px)] shrink-0 border-r border-hairline">
+                    <SnippetList ref={listRef} onRequestDelete={requestDelete} onOpen={focusEditor} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    {snippet ? <SnippetEditor key={snippet.id} snippet={snippet} onRequestDelete={requestDelete} /> : <EditorEmpty onNew={() => void newSnippet()} />}
+                  </div>
+                </>
+              ) : view.kind === "insights" ? (
+                <Insights />
+              ) : view.kind === "clipboard" ? (
+                <ClipboardView ref={clipRef} filter={view.filter} />
+              ) : (
+                <SettingsView section={view.kind === "settings" ? view.section : undefined} />
+              )}
+            </main>
           </div>
-          <main className="flex min-w-0 flex-1 bg-background">
-            {inLibrary ? (
-              <>
-                <div className="w-[320px] shrink-0 border-r border-hairline">
-                  <SnippetList ref={listRef} onRequestDelete={requestDelete} onOpen={focusEditor} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  {snippet ? <SnippetEditor key={snippet.id} snippet={snippet} onRequestDelete={requestDelete} /> : <EditorEmpty onNew={() => void newSnippet()} />}
-                </div>
-              </>
-            ) : view.kind === "insights" ? (
-              <Insights />
-            ) : view.kind === "clipboard" ? (
-              <ClipboardView ref={clipRef} filter={view.filter} />
-            ) : (
-              <SettingsView key={view.kind === "settings" ? (view.section ?? "general") : "general"} section={view.kind === "settings" ? view.section : undefined} />
-            )}
-          </main>
         </div>
       )}
       <CommandMenu onOpenGroupSettings={setGroupSettings} onDelete={requestDelete} />

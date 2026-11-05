@@ -38,7 +38,7 @@ import { Segmented } from "../segmented"
 import { Shortcut } from "../shortcut"
 import { runExport, runImport } from "./data-actions"
 
-const SECTIONS: { id: SettingsSection; label: string }[] = [
+export const SETTINGS_SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "expansion", label: "Expansion" },
   { id: "clipboard", label: "Clipboard" },
@@ -106,9 +106,9 @@ export function HotkeyRecorder({ value, onChange, label = "Quick search shortcut
   )
 }
 
-export function SettingsView({ section: initial }: { section?: SettingsSection }) {
-  // Keyed by the requested section in the parent, so a new deep link remounts with it.
-  const [section, setSection] = useState<SettingsSection>(initial ?? "general")
+export function SettingsView({ section = "general" }: { section?: SettingsSection }) {
+  const setView = useStore((s) => s.setView)
+  const setSection = (section: SettingsSection) => setView({ kind: "settings", section })
 
   return (
     <div className="flex h-full min-h-0 flex-1">
@@ -118,7 +118,7 @@ export function SettingsView({ section: initial }: { section?: SettingsSection }
             Settings
           </h1>
         </div>
-        {SECTIONS.map((s) => (
+        {SETTINGS_SECTIONS.map((s) => (
           <button
             key={s.id}
             aria-current={section === s.id ? "page" : undefined}
@@ -126,8 +126,8 @@ export function SettingsView({ section: initial }: { section?: SettingsSection }
             onKeyDown={(e) => {
               if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return
               e.preventDefault()
-              const i = SECTIONS.findIndex((x) => x.id === s.id)
-              const n = SECTIONS[(i + (e.key === "ArrowDown" ? 1 : -1) + SECTIONS.length) % SECTIONS.length]
+              const i = SETTINGS_SECTIONS.findIndex((x) => x.id === s.id)
+              const n = SETTINGS_SECTIONS[(i + (e.key === "ArrowDown" ? 1 : -1) + SETTINGS_SECTIONS.length) % SETTINGS_SECTIONS.length]
               setSection(n.id)
               ;(e.currentTarget.parentElement?.querySelector(`[data-sec="${n.id}"]`) as HTMLElement | null)?.focus()
             }}
@@ -143,7 +143,7 @@ export function SettingsView({ section: initial }: { section?: SettingsSection }
       </nav>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="drag flex h-12 shrink-0 items-center border-b border-hairline px-6" data-tauri-drag-region>
-          <h2 className="text-[13px] font-semibold">{SECTIONS.find((s) => s.id === section)?.label}</h2>
+          <h2 className="text-[13px] font-semibold">{SETTINGS_SECTIONS.find((s) => s.id === section)?.label}</h2>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto flex max-w-[680px] flex-col gap-8 px-8 py-8 animate-rise" key={section}>
