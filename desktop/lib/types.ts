@@ -165,6 +165,8 @@ export interface PermissionStatus {
 }
 
 export interface EngineStatus {
+  canPostEvents: boolean
+  canExpand: boolean
   paused: boolean
   tap: TapMode
   permissions: PermissionStatus

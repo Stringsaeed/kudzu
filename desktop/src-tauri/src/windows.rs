@@ -91,7 +91,7 @@ pub fn apply_theme(app: &AppHandle, theme: crate::settings::Theme) {
         Theme::Light => Some(tauri::Theme::Light),
         Theme::System => None,
     };
-    for label in ["main", "palette", "form", "clipboard"] {
+    for label in ["main", "palette", "form", "clipboard", "permissions"] {
         if let Some(win) = app.get_webview_window(label) {
             let _ = win.set_theme(native);
         }

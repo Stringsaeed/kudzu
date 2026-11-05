@@ -141,6 +141,21 @@ These are enforced in `kudzu_core::sync` and its tests. Keep them:
 - **Settings → Actions → General → Workflow permissions:** "Read and write", plus "Allow GitHub Actions to create and approve pull requests". release-please needs both.
 - The repo must be **public**: the updater and Homebrew download release assets without credentials.
 
+## Design exports and release checks
+
+The release uses committed artwork. CI and `scripts/release/build.sh` run `python3 scripts/check-design-assets.py` before building. The check compares source and output hashes with `design/assets-manifest.json`; it does not render images or require Icon Composer on the runner.
+
+When changing the icon, wordmark, tagline, or installer artwork:
+
+1. Edit the source in `design/`. Product copy lives in `design/brand.json`.
+2. If the generated k changes, run `python3 scripts/brand-assets.py`, then use **Image → Replace** in Icon Composer to import `design/app-icon/layers/02-echo-k-printed.svg`. Save `Kudzu.icon`. Keep its native placement and blend settings.
+3. Run `scripts/update-design-assets.sh` from `desktop/` on the design Mac. It exports the native document, refreshes app/menu-bar icons, public wordmarks and the installer background, and records the renderer and macOS versions in the manifest.
+4. Inspect the exports, then commit the sources, exports, and manifest together. The manifest catches stale inputs, missing files, and changed outputs; it does not replace visual review. It deliberately excludes the application version so release-please and beta version stamping do not require new artwork.
+
+Before promoting the first release with this onboarding flow, use a production-identity beta to check a fresh install and an update from the previous version. Open the final DMG in Finder and check the icon positions, background, Applications link, and footer. Copy to Applications before launching. Check permission setup, real snippet insertion, clipboard capture/retrieval, and preservation of existing data and grants after the update. Verify the universal build on Intel as well as Apple Silicon.
+
+A signed Kudzu Dev preview is not release evidence for notarization or Intel execution. The normal release script still signs, notarizes, staples, and assesses the production app and DMG before publishing. A Finder AppleEvent timeout is a packaging failure; retry once Finder is responsive. Do not skip the layout step when checking the custom installer.
+
 ## Building locally
 
 `scripts/release/build.sh` is the same script CI runs. Use a certificate **SHA-1** for the identity: this Mac has several identically named Developer ID certificates, so `codesign` rejects the name as ambiguous.

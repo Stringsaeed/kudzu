@@ -5,6 +5,7 @@ mod cloud;
 mod commands;
 mod host;
 mod hotkey;
+mod permissions;
 mod settings;
 mod state;
 mod store;
@@ -34,6 +35,7 @@ pub fn run() {
     let started_hidden = std::env::args().any(|a| a == "--hidden");
 
     tauri::Builder::default()
+        .manage(permissions::Selection::default())
         .plugin(
             // ~/Library/Logs/sh.saeed.kudzu/Kudzu.log (rotated), plus the terminal in dev.
             tauri_plugin_log::Builder::new()
@@ -126,9 +128,17 @@ pub fn run() {
             if !started_hidden || first_run {
                 windows::show_main(app.handle());
             }
+            permissions::resume_after_restart(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { api, .. } if window.label() == "permissions" => {
+                api.prevent_close();
+                if let Some(win) = window.app_handle().get_webview_window("permissions") {
+                    permissions::stop_guide(&win);
+                    let _ = win.hide();
+                }
+            }
             WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
                 // Closing the window keeps Kudzu running in the menu bar.
                 api.prevent_close();
@@ -143,6 +153,14 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
+            permissions::show_permissions,
+            permissions::permission_context,
+            permissions::install_permission_icon,
+            permissions::begin_permission,
+            permissions::stop_permission_guide,
+            permissions::close_permissions,
+            permissions::restart_permission_app,
+            permissions::reveal_permission_app,
             commands::get_state,
             commands::create_snippet,
             commands::save_snippet,

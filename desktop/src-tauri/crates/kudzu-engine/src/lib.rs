@@ -82,6 +82,12 @@ pub enum TapMode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineStatus {
+    /// Permission to insert synthetic keystrokes, independent of pause/Secure Input.
+    #[serde(default)]
+    pub can_post_events: bool,
+    /// A live listener can insert, and neither pause nor Secure Input blocks it.
+    #[serde(default)]
+    pub can_expand: bool,
     pub paused: bool,
     pub tap: TapMode,
     pub permissions: PermissionStatus,

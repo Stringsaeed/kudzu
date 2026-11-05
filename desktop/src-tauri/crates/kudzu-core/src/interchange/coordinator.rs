@@ -19,7 +19,7 @@ use crate::types::{GroupRecord, KudzuLibrary, SnippetRecord, UsageRecord};
 /// Starter trigger used in onboarding.
 pub const SAMPLE_TRIGGER: &str = ";kudzu";
 /// Starter expansion used in onboarding.
-pub const SAMPLE_EXPANSION: &str = "Kudzu is working! 🌱";
+pub const SAMPLE_EXPANSION: &str = "Kudzu is working!";
 /// Name of the group that holds the starter snippets.
 pub const GETTING_STARTED_GROUP: &str = "Getting Started";
 

@@ -17,6 +17,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 ROOT=$PWD
+python3 scripts/check-design-assets.py
 TARGET=universal-apple-darwin
 VERSION=$(node -p "require('./package.json').version")
 TAG="v$VERSION"

@@ -47,6 +47,8 @@ fn platform() -> &'static str {
 
 fn status_of(core: &AppCore) -> EngineStatus {
     core.engine().map(|e| e.status()).unwrap_or(EngineStatus {
+        can_post_events: false,
+        can_expand: false,
         paused: core.store.lock().settings.paused,
         tap: kudzu_engine::TapMode::Off,
         permissions: system::permissions(),

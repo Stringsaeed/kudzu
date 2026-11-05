@@ -51,6 +51,7 @@ export function on<T>(event: string, handler: (payload: T) => void): () => void 
 }
 
 export const Events = {
+  permissionShow: "kudzu://permission-show",
   library: "kudzu://library",
   settings: "kudzu://settings",
   status: "kudzu://status",
@@ -83,6 +84,18 @@ export const api = {
   findConflicts: () => call<TriggerConflict[]>("find_conflicts"),
 
   // Settings & engine
+  showPermissions: (kind: "accessibility" | "inputMonitoring" = "accessibility") =>
+    // A full navigation gives the browser preview the same isolated state as a new native window.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    isTauri() ? call<void>("show_permissions", { kind }) : Promise.resolve(location.assign(`/permissions?kind=${kind}`)),
+  permissionContext: () => call<{ kind: "accessibility" | "inputMonitoring"; appName: string; accessibilityName: string }>("permission_context"),
+  installPermissionIcon: (bounds: { x: number; y: number; width: number; height: number }) => call<boolean>("install_permission_icon", bounds),
+  beginPermission: (kind: "accessibility" | "inputMonitoring") => call<void>("begin_permission", { kind }),
+  stopPermissionGuide: () => call<void>("stop_permission_guide"),
+  restartPermissionApp: () => call<void>("restart_permission_app"),
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- return from the isolated window preview
+  closePermissions: () => isTauri() ? call<void>("close_permissions") : Promise.resolve(location.assign("/?onboarding")),
+  revealPermissionApp: () => call<void>("reveal_permission_app"),
   updateSettings: (patch: Partial<Settings>) => call<Settings>("update_settings", { patch }),
   setPaused: (paused: boolean) => call<EngineStatus>("set_paused", { paused }),
   requestPermission: (kind: "accessibility" | "inputMonitoring") => call<void>("request_permission", { kind }),
