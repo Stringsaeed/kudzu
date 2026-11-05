@@ -36,7 +36,7 @@ concurrency:
 jobs:
   desktop:
     # Keep this on the same image as the release build in build-macos.yml.
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4

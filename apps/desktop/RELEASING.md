@@ -19,7 +19,7 @@ release-please keeps a "chore: release x.y.z" PR open
 tag vX.Y.Z + draft GitHub release
         │
         ▼
-.github/workflows/build-macos.yml  (macos-26)
+.github/workflows/build-macos.yml  (xcode-27)
   build universal app ─► sign (Developer ID, hardened runtime) ─► notarize + staple app
   ─► DMG: sign, notarize, staple ─► updater archive + minisign signature ─► latest.json
         │
