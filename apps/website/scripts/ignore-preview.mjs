@@ -25,11 +25,16 @@ function decide() {
     base = previous;
   } else {
     // First preview: compare the whole branch, not just its latest commit.
+    const remote =
+      git(["remote", "get-url", "origin"], root).status === 0
+        ? "origin"
+        : "https://github.com/Stringsaeed/kudzu.git";
     if (git(["rev-parse", "--is-shallow-repository"], root).stdout.trim() === "true") {
-      git(["fetch", "--quiet", "--no-tags", "--deepen=100", "origin"], root);
+      const head = git(["rev-parse", "HEAD"], root).stdout.trim();
+      git(["fetch", "--quiet", "--no-tags", "--deepen=100", remote, head], root);
     }
     git(
-      ["fetch", "--quiet", "--no-tags", "--depth=100", "origin", "main:refs/remotes/origin/main"],
+      ["fetch", "--quiet", "--no-tags", "--depth=100", remote, "main:refs/remotes/origin/main"],
       root,
     );
     const ancestor = git(["merge-base", "HEAD", "refs/remotes/origin/main"], root);
