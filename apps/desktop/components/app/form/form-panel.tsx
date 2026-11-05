@@ -143,7 +143,7 @@ export function FormPanel() {
           <span className="flex items-center gap-1.5">
             <Shortcut combo="escape" /> Cancel
           </span>
-          <button onClick={submit} className="ml-auto flex h-7 items-center gap-2 rounded-lg bg-iris px-3 text-xs font-medium text-iris-contrast shadow-accent sheen-strong transition hover:brightness-110 active:translate-y-px active:shadow-pressed active:bg-none">
+          <button onClick={submit} className="ml-auto flex h-7 items-center gap-2 rounded-lg bg-iris px-3 text-xs font-medium text-iris-contrast shadow-accent sheen-strong press hover:brightness-110 active:shadow-pressed active:bg-none">
             Insert <Shortcut combo="enter" tone="onAccent" />
           </button>
         </footer>

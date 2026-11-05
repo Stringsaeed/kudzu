@@ -32,10 +32,10 @@ export function PermissionSetup({ status }: { status: EngineStatus }) {
         </div>
       </div>
       <div className="my-4 flex items-center gap-2 text-xs text-muted-foreground">
-        {status.permissions.accessibility ? <Check className="size-3.5 text-success" /> : <ShieldCheck className="size-3.5" />}
+        {status.permissions.accessibility ? <Check className="size-3.5 text-success animate-check" /> : <ShieldCheck className="size-3.5" />}
         Accessibility
         <span className="mx-1 text-faint">·</span>
-        {status.permissions.inputMonitoring ? <Check className="size-3.5 text-success" /> : <Keyboard className="size-3.5" />}
+        {status.permissions.inputMonitoring ? <Check className="size-3.5 text-success animate-check" /> : <Keyboard className="size-3.5" />}
         Input Monitoring
       </div>
       <Button className="w-full" variant={ready ? "outline" : "default"} onClick={() => void open()} disabled={opening}>

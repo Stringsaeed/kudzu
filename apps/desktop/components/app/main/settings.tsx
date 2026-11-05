@@ -35,6 +35,7 @@ import { AppIcon } from "../app-icon"
 import { Wordmark } from "../wordmark"
 import { AppPicker } from "../app-picker"
 import { Segmented } from "../segmented"
+import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { runExport, runImport } from "./data-actions"
 
@@ -112,7 +113,8 @@ export function SettingsView({ section = "general" }: { section?: SettingsSectio
 
   return (
     <div className="flex h-full min-h-0 flex-1">
-      <nav aria-label="Settings sections" className="flex w-48 shrink-0 flex-col gap-px border-r border-hairline px-2.5">
+      <nav aria-label="Settings sections" className="relative isolate flex w-48 shrink-0 flex-col gap-px border-r border-hairline px-2.5">
+        <SelectionPill className="rounded-md bg-accent shadow-selected" />
         <div className="drag flex h-12 shrink-0 items-center px-2.5" data-tauri-drag-region>
           <h1 className="text-[13px] font-semibold" data-tauri-drag-region>
             Settings
@@ -133,8 +135,8 @@ export function SettingsView({ section = "general" }: { section?: SettingsSectio
             }}
             data-sec={s.id}
             className={cn(
-              "flex h-7 items-center rounded-md px-2.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-              section === s.id && "bg-accent text-foreground shadow-selected",
+              "flex h-7 items-center rounded-md px-2.5 text-left text-[13px] text-muted-foreground press [--press-scale:0.985] hover:text-foreground",
+              section === s.id ? "text-foreground" : "hover:bg-accent",
             )}
           >
             {s.label}
@@ -146,7 +148,7 @@ export function SettingsView({ section = "general" }: { section?: SettingsSectio
           <h2 className="text-[13px] font-semibold">{SETTINGS_SECTIONS.find((s) => s.id === section)?.label}</h2>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto flex max-w-[680px] flex-col gap-8 px-8 py-8 animate-rise" key={section}>
+          <div className="mx-auto flex max-w-[680px] flex-col gap-8 px-8 py-8 stagger" key={section}>
             {section === "general" && <General />}
             {section === "expansion" && <Expansion />}
             {section === "clipboard" && <ClipboardSettings />}
@@ -617,7 +619,7 @@ function ICloudSync() {
         description={
           <span className={cn("flex items-center gap-1.5", line.tone)} aria-live="polite">
             {busy && <Loader2 className="size-3 shrink-0 animate-spin" aria-hidden />}
-            {status.state === "upToDate" && <Check className="size-3 shrink-0 text-success" aria-hidden />}
+            {status.state === "upToDate" && <Check className="size-3 shrink-0 text-success animate-check" aria-hidden />}
             {line.text}
           </span>
         }

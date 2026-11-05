@@ -42,6 +42,7 @@ import { useStore, type View } from "@/lib/store"
 import type { Group } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { StatusIndicator } from "./status"
 import { Wordmark } from "../wordmark"
@@ -110,7 +111,7 @@ function SectionHeader({ id, label, open, onToggle, trailing }: { id: string; la
         className="-ml-1 flex h-6 min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-[11px] font-semibold tracking-wide text-faint outline-none transition-colors hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="truncate">{label}</span>
-        <ChevronRight className={cn("size-3 shrink-0 opacity-0 transition-[transform,opacity] group-hover/sec:opacity-100 group-focus-within/sec:opacity-100", open && "rotate-90", !open && "opacity-100")} />
+        <ChevronRight className={cn("size-3 shrink-0 opacity-0 transition-[rotate,opacity] duration-(--motion-moderate) ease-spring group-hover/sec:opacity-100 group-focus-within/sec:opacity-100", open && "rotate-90", !open && "opacity-100")} />
       </button>
       {trailing}
     </div>
@@ -180,12 +181,13 @@ function NavItem({
           : undefined
       }
       className={cn(
-        "group/nav relative flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] transition-colors duration-100 outline-none",
-        "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+        "group/nav relative flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] press [--press-scale:0.985] outline-none",
+        "text-sidebar-foreground/80 hover:text-sidebar-foreground",
+        !active && "hover:bg-sidebar-accent",
         "focus-visible:ring-2 focus-visible:ring-ring",
-        active && "bg-sidebar-accent text-sidebar-foreground shadow-selected",
+        active && "text-sidebar-foreground",
         muted && "text-muted-foreground/70",
-        (over || dropActive) && "bg-iris-soft text-iris-foreground ring-1 ring-iris/40",
+        (over || dropActive) && "scale-[1.02] bg-iris-soft text-iris-foreground ring-1 ring-iris/40",
       )}
       style={{ paddingLeft: 8 + depth * 14 }}
       {...rest}
@@ -193,7 +195,7 @@ function NavItem({
       <Icon className={cn("size-4 shrink-0 text-muted-foreground transition-colors", active && "text-iris")} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {trailing}
-      {count !== undefined && count > 0 && <span className="text-[11px] text-faint tabular">{count}</span>}
+      {count !== undefined && count > 0 && <span key={count} className="text-[11px] text-faint tabular animate-tick">{count}</span>}
       {shortcut && <Shortcut combo={shortcut} />}
     </button>
   )
@@ -284,7 +286,7 @@ function GroupRow({
                     }}
                     className="-mr-1 flex size-5 items-center justify-center rounded text-faint hover:text-foreground"
                   >
-                    <ChevronRight className={cn("size-3 transition-transform", !isCollapsed && "rotate-90")} />
+                    <ChevronRight className={cn("size-3 transition-[rotate] duration-(--motion-moderate) ease-spring", !isCollapsed && "rotate-90")} />
                   </span>
                 )}
               </>
@@ -415,7 +417,8 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
         </button>
         {isDev && <Badge className="ml-auto">Dev</Badge>}
       </div>
-      <nav aria-label="Library" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
+      <nav aria-label="Library" className="relative isolate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
+        <SelectionPill className={NAV_PILL} />
         <section aria-label="Snippets" className="flex flex-col gap-px">
           <SectionHeader id="sec-snippets" label="Snippets" open={!closed.has("snippets")} onToggle={() => toggleSection("snippets")} />
           {!closed.has("snippets") && (
@@ -446,10 +449,10 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
                 <button
                   data-nav-item
                   onClick={() => createGroup("New group", null).then((g) => setRenaming(g.id))}
-                  className="flex size-5 items-center justify-center rounded text-faint opacity-60 transition hover:bg-sidebar-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100"
+                  className="flex size-5 items-center justify-center rounded text-faint opacity-60 press hover:bg-sidebar-accent hover:text-foreground hover:opacity-100 focus-visible:opacity-100 [&:hover>svg]:rotate-90"
                   aria-label="New group"
                 >
-                  <Plus className="size-3.5" />
+                  <Plus className="size-3.5 transition-[rotate] duration-(--motion-slow) ease-pop" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">
@@ -498,7 +501,8 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
           )}
         </section>
       </nav>
-      <div className="flex flex-col gap-px border-t border-hairline px-2.5 py-2" onKeyDown={onNavKeyDown}>
+      <div className="relative isolate flex flex-col gap-px border-t border-hairline px-2.5 py-2" onKeyDown={onNavKeyDown}>
+        <SelectionPill className={NAV_PILL} />
         {item({ kind: "insights" }, BarChart3, "Insights", undefined, "mod+4")}
         <NavItem icon={Settings} label="Settings" active={view.kind === "settings"} onSelect={() => setView({ kind: "settings" })} shortcut="mod+," />
       </div>
@@ -506,6 +510,8 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
     </aside>
   )
 }
+
+const NAV_PILL = "rounded-md bg-sidebar-accent shadow-selected"
 
 type NavItemIcon = React.ComponentType<{ className?: string }>
 
