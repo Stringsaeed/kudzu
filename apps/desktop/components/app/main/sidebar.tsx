@@ -402,7 +402,7 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
   )
 
   return (
-    <aside aria-label="Sidebar" className="flex h-full w-full flex-col bg-sidebar">
+    <aside aria-label="Sidebar" className="flex h-full w-full flex-col">
       <div className="flex h-[72px] shrink-0 items-center gap-2 px-4">
         <button
           onClick={() => setView({ kind: "all" })}

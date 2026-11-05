@@ -5,6 +5,7 @@ import { PanelLeft, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useFullscreen } from "@/hooks/use-fullscreen"
 import { FILTERS } from "@/lib/clipboard"
 import { useStore, type View } from "@/lib/store"
 import { Breadcrumbs, type BreadcrumbEntry } from "../breadcrumbs"
@@ -17,6 +18,8 @@ export function Toolbar({ sidebarOpen, onToggleSidebar, onNavigate }: { sidebarO
   const snippet = useStore((s) => s.library.snippets.find((item) => item.id === s.selectedId))
   const setCommandOpen = useStore((s) => s.setCommandOpen)
   const platform = useStore((s) => s.platform)
+  // macOS hides the traffic lights in fullscreen, so their inset would just be empty space.
+  const fullscreen = useFullscreen()
   const items: BreadcrumbEntry[] = []
   const add = (label: string, destination: View) => items.push({ label, onSelect: () => onNavigate(destination) })
 
@@ -53,7 +56,7 @@ export function Toolbar({ sidebarOpen, onToggleSidebar, onNavigate }: { sidebarO
   }
 
   return (
-    <header data-tauri-drag-region className={`drag flex h-[52px] shrink-0 items-center gap-3 border-b border-hairline pr-4 ${platform === "macos" ? "pl-[88px]" : "pl-3"}`}>
+    <header data-tauri-drag-region className={`drag flex h-[42px] shrink-0 items-center gap-3 border-b border-hairline pr-4 ${platform === "macos" && !fullscreen ? "pl-[88px]" : "pl-3"}`}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="no-drag text-muted-foreground" onClick={onToggleSidebar} aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"} aria-expanded={sidebarOpen} aria-controls="main-sidebar">
@@ -62,7 +65,7 @@ export function Toolbar({ sidebarOpen, onToggleSidebar, onNavigate }: { sidebarO
         </TooltipTrigger>
         <TooltipContent>{sidebarOpen ? "Hide sidebar" : "Show sidebar"}</TooltipContent>
       </Tooltip>
-      <Separator orientation="vertical" className="my-4" />
+      <Separator orientation="vertical" className="my-3" />
       <div className="min-w-0 flex-1"><Breadcrumbs items={items} /></div>
       <Button variant="outline" className="no-drag h-8 w-48 justify-start gap-2 text-xs text-muted-foreground max-[1000px]:w-36" onClick={() => setCommandOpen(true)} aria-label="Search commands and snippets">
         <Search className="size-3.5" />
