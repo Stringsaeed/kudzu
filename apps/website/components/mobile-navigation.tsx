@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "./icons";
 import { GitHubLogo } from "./github-logo";
+import { NavLinks } from "./nav-links";
 
 export function MobileNavigation() {
   const menu = useRef<HTMLDetailsElement>(null);
@@ -44,12 +45,7 @@ export function MobileNavigation() {
         <Icon name="close" className="menu-close-icon" />
       </summary>
       <nav aria-label="Mobile navigation">
-        <a href="#features" onClick={close}>
-          Features
-        </a>
-        <a href="#playground" onClick={close}>
-          Try it out
-        </a>
+        <NavLinks onNavigate={close} />
         <a
           className="github-star"
           href="https://github.com/Stringsaeed/kudzu"

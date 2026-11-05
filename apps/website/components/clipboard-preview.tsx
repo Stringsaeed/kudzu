@@ -33,7 +33,9 @@ export function ClipboardPreview() {
         <div className="clipboard-items">
           {items.map((item) => (
             <div className="clip-item" key={item.id}>
-              <span className={`clip-kind ${item.id}-kind`}>{item.symbol}</span>
+              <span className={`clip-kind ${item.id}-kind`}>
+                {item.icon ? <Icon name={item.icon} /> : item.symbol}
+              </span>
               <div>
                 <strong>{item.content}</strong>
                 <small>

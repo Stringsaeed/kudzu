@@ -14,17 +14,22 @@ pnpm build:website        # production build through Turbo
 pnpm --filter kudzu-website start
 ```
 
-The site uses server components for the page and small client components for the snippet playground, clipboard search, template examples, and copy button. It has no analytics, database, or third-party browser requests. Sample content is illustrative and stays in the browser.
+The site uses server components for its pages and small client components for the snippet playground, clipboard search, template examples, app gallery, navigation, download button, and copy button. It has no analytics, database, or third-party browser requests. Sample content is illustrative and stays in the browser. The server reads release details from the GitHub API, caching them for an hour; no token is needed.
 
 ## Files
 
-- `app/page.tsx`: page composition and marketing sections.
+- `app/page.tsx`: home page composition and marketing sections.
+- `app/download/route.ts`: redirects `/download` to the latest stable DMG, or to the releases page if GitHub can't be reached.
+- `app/docs/`, `app/compare/`, `app/changelog/`, `app/privacy/`: inner pages. The changelog renders GitHub release notes as plain text.
 - `app/globals.css`: responsive styles, tokens, and reduced-motion behavior.
 - `components/`: header, footer, icons, and interactive previews.
 - `lib/examples.ts`: typed sample snippets and clipboard items.
-- `lib/site.ts`: URLs, download target, metadata, and Homebrew command. Update the verified DMG target here when a new stable version ships.
+- `lib/site.ts`: URLs, navigation, metadata, and Homebrew command.
+- `lib/releases.ts`, `lib/release-notes.ts`: cached GitHub release lookups and release note parsing. New releases appear without a redeploy.
+- `lib/compare.ts`: comparison page content. Competitor details come from each vendor's own pages, so update the `checked` date whenever you confirm them again.
 - `app/opengraph-image.tsx`, `robots.ts`, `sitemap.ts`: Next.js metadata routes.
 - `public/assets/`: copies of Kudzu’s brand assets and locally hosted fonts, with their licenses. Brand sources remain in `apps/desktop/design/`.
+- `public/assets/app/`: app screens for the gallery, captured from the desktop UI preview (`pnpm dev` in `apps/desktop`) with its sample data. Recapture them when the UI changes noticeably.
 
 ## Vercel
 
@@ -58,14 +63,14 @@ The project-level fallback is tracked in `scripts/preview-fallback.sh`. It allow
 
 The header offers Light, Dark, and System modes. `lib/theme.ts` initializes the saved choice before paint; `components/theme-toggle.tsx` persists it in local storage and syncs changes across tabs. CSS `light-dark()` pairs cover the page and interactive previews. System mode follows the operating system automatically.
 
-The hero uses the supplied 3220 × 2100 MacBook Neo Citrus PNG without modifying it. Its screen aperture is positioned at x=406, y=297, width=2408, height=1506. The interactive example scales inside the aperture. On narrow screens the bezel is hidden and the example renders at full width so controls remain usable. The window chrome is a custom macOS-style frame, not an imported Figma component.
+The hero uses the supplied 3220 × 2100 MacBook Neo Citrus PNG without modifying it. Its screen aperture is positioned at x=406, y=297, width=2408, height=1506. The interactive example scales inside the aperture. At 1100 px and narrower the bezel is hidden and the example renders at full width so text and controls stay readable. The example plays once when it scrolls into view, unless the visitor has already interacted or prefers reduced motion. The window chrome is a custom macOS-style frame, not an imported Figma component.
 
 Local app icon sources:
 
 - GitHub: `GitHub_Invertocat_Black.svg` from `https://brand.github.com/GitHub_Logos.zip`, stored unmodified and rendered as a theme-aware mask.
 - Mail: the installed macOS Mail app’s `ApplicationIcon.icns`.
 - Slack: `electron.icns` from the official Slack 4.53.280 macOS download, `https://slack.com/ssb/download-osx-silicon`.
-- Notion: `electron.icns` from the official Notion 7.42.1 macOS download, `https://www.notion.com/desktop/mac-universal/download`.
+- Craft: the installed macOS app’s `AppIcon.icns` (version 3.7.1).
 - Visual Studio Code: the installed macOS app’s `Code.icns`.
 
-The native app icons sit in a translucent Dock inside the laptop screen, alongside Kudzu. On narrow screens the Dock follows the full-width app preview. The icons link to their respective products. They identify compatible apps and are not endorsement badges.
+The native app icons sit in a translucent Dock inside the laptop screen, alongside Kudzu. At 1100 px and narrower the Dock follows the full-width app preview. The Dock is decorative, so its icons don't link anywhere. They identify compatible apps and are not endorsement badges.

@@ -27,7 +27,7 @@ export function TemplateExamples() {
           </h2>
         </div>
         <p>
-          Same starting point. The right details, every time.
+          Same starting point. The right details, every time.{" "}
           <br />
           Let your snippets do a little thinking for you.
         </p>

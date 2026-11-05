@@ -1,11 +1,7 @@
 import type { NextConfig } from "next";
-import { site } from "./lib/site";
 
 const config: NextConfig = {
   devIndicators: false,
-  async redirects() {
-    return [{ source: "/download", destination: site.download, permanent: false }];
-  },
   async headers() {
     return [
       {
