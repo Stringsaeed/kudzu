@@ -4,7 +4,7 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**", "out/**"],
-      "env": ["NEXT_PUBLIC_*", "NODE_ENV"]
+      "env": ["NEXT_PUBLIC_*", "NODE_ENV", "VERCEL_ENV"]
     },
     "lint": { "dependsOn": ["^lint"], "outputs": [] },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },

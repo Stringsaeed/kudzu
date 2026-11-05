@@ -1,4 +1,6 @@
 import Image from "next/image";
+import { Suspense } from "react";
+import { HeaderPrototypes } from "@/components/_prototypes/header-prototypes";
 import { AppleMark } from "@/components/apple-mark";
 import { CompatibleApps } from "@/components/compatible-apps";
 import { SketchArrow } from "@/components/sketch-arrow";
@@ -18,7 +20,13 @@ export default function Home() {
         Skip to content
       </a>
       <IconDefinitions />
-      <SiteHeader />
+      {process.env.NODE_ENV === "development" || process.env.VERCEL_ENV === "preview" ? (
+        <Suspense fallback={<SiteHeader />}>
+          <HeaderPrototypes />
+        </Suspense>
+      ) : (
+        <SiteHeader />
+      )}
       <main id="main">
         <section className="hero wrap" aria-labelledby="hero-title">
           <a className="release-pill" href="https://github.com/Stringsaeed/kudzu/releases/latest">
