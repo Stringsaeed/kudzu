@@ -4,6 +4,8 @@ import { useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
+import { SelectionPill } from "./selection-pill"
+
 export interface SegmentOption<T extends string> {
   value: T
   label: string
@@ -29,7 +31,8 @@ export function Segmented<T extends string>({
   const refs = useRef<(HTMLButtonElement | null)[]>([])
   const index = options.findIndex((o) => o.value === value)
   return (
-    <div role="radiogroup" aria-label={label} className={cn("inline-flex rounded-lg bg-foreground/[0.04] p-0.5 shadow-well", className)}>
+    <div role="radiogroup" aria-label={label} className={cn("relative isolate inline-flex rounded-lg bg-foreground/[0.04] p-0.5 shadow-well", className)}>
+      <SelectionPill className="rounded-md bg-surface-raised shadow-soft sheen" />
       {options.map((o, i) => (
         <button
           key={o.value}
@@ -51,9 +54,9 @@ export function Segmented<T extends string>({
             refs.current[n]?.focus()
           }}
           className={cn(
-            "rounded-md px-2.5 font-medium whitespace-nowrap text-muted-foreground transition-[color,background,box-shadow] duration-150 hover:text-foreground",
+            "rounded-md px-2.5 font-medium whitespace-nowrap text-muted-foreground press hover:text-foreground",
             size === "md" ? "h-7 text-xs" : "h-6 text-[11px]",
-            value === o.value && "bg-surface-raised text-foreground shadow-soft sheen",
+            value === o.value && "text-foreground",
           )}
         >
           {o.label}

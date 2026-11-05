@@ -120,7 +120,7 @@ export function ClipDetails({ entry, retentionDays, compact }: { entry: ClipEntr
       {!compact && entry.types.length > 0 && (
         <details className="group/fmt text-xs">
           <summary className="flex w-fit cursor-default list-none items-center gap-1 rounded text-faint outline-none hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-            <ChevronRight className="size-3 transition-transform group-open/fmt:rotate-90" />
+            <ChevronRight className="size-3 transition-[rotate] duration-(--motion-moderate) ease-spring group-open/fmt:rotate-90" />
             {entry.types.length} format{entry.types.length === 1 ? "" : "s"}
             {entry.rich && <span className="ml-1 rounded bg-foreground/[0.06] px-1 text-[10px]">Formatted</span>}
           </summary>

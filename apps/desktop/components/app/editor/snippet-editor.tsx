@@ -226,7 +226,8 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
         </DropdownMenu>
 
         <div className="ml-auto flex items-center gap-1 no-drag">
-          <span aria-live="polite" className={cn("mr-2 text-[11px] text-faint transition-opacity", saved === "idle" && "opacity-0")}>
+          <span aria-live="polite" className={cn("mr-2 flex items-center gap-1 text-[11px] text-faint transition-opacity", saved === "idle" && "opacity-0")}>
+            {saved !== "saving" && <Check className="size-3 text-success animate-check" aria-hidden />}
             {saved === "saving" ? "Saving…" : "Saved"}
           </span>
           <Tooltip>
@@ -239,7 +240,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
                 onClick={() => update({ isFavorite: !draft.isFavorite })}
                 className={cn(draft.isFavorite && "text-favorite hover:text-favorite")}
               >
-                <Star className={cn(draft.isFavorite && "fill-current")} />
+                <FavoriteStar key={draft.id} on={draft.isFavorite} />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Favorite <Shortcut combo="mod+shift+f" /></TooltipContent>
@@ -459,6 +460,17 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
       </div>
     </div>
   )
+}
+
+/** The star bursts only when it's turned on. Keyed by snippet, so switching snippets stays still. */
+function FavoriteStar({ on }: { on: boolean }) {
+  const [was, setWas] = useState(on)
+  const [burst, setBurst] = useState(false)
+  if (on !== was) {
+    setWas(on)
+    setBurst(on)
+  }
+  return <Star className={cn(on && "fill-current", burst && "animate-star")} />
 }
 
 function PreviewText({ result }: { result: RenderResult }) {

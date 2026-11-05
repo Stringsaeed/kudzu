@@ -67,7 +67,7 @@ export function StatusIndicator() {
             onClick={() => setPaused(!status.paused)}
             aria-label={status.paused ? "Resume expansion" : "Pause expansion"}
             aria-pressed={status.paused}
-            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground press hover:bg-sidebar-accent hover:text-foreground"
           >
             {status.paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
           </button>

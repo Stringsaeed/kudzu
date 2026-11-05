@@ -52,7 +52,7 @@ export function Insights() {
         <h1 className="text-[13px] font-semibold">Insights</h1>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex max-w-[880px] flex-col gap-8 px-8 py-8 animate-rise">
+        <div className="mx-auto flex max-w-[880px] flex-col gap-8 px-8 py-8 stagger">
           <div className="grid grid-cols-4 gap-3">
             <Tile label="Expansions" value={formatCount(t.expansions)} sub={`${t.usedSnippets} snippets used`} />
             <Tile label="Characters saved" value={formatCount(t.chars)} sub={`≈ ${formatCount(Math.round(t.chars / CHARS_PER_WORD))} words`} />
@@ -76,7 +76,7 @@ export function Insights() {
                               {s.triggers[0] && <TriggerChip trigger={s.triggers[0]} muted />}
                             </span>
                             <span className="h-1 overflow-hidden rounded-full bg-foreground/[0.05]">
-                              <span className="block h-full rounded-full bg-iris/80 transition-[width] duration-500" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%` }} />
+                              <span className="block h-full origin-left rounded-full bg-iris/80 transition-[width] duration-500 animate-bar" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%`, animationDelay: `${60 + i * 40}ms` }} />
                             </span>
                           </span>
                           <span className="text-xs text-muted-foreground tabular">{formatCount(u!.count)}</span>
@@ -114,7 +114,7 @@ export function Insights() {
                   </h2>
                   <div className="flex flex-wrap gap-1.5">
                     {unused.slice(0, 18).map((s) => (
-                      <button key={s.id} onClick={() => open(s.id)} className="rounded-md bg-surface-raised px-2 py-1 text-xs text-muted-foreground shadow-raised transition-[color,box-shadow] hover:text-foreground hover:shadow-raised-hover active:shadow-pressed">
+                      <button key={s.id} onClick={() => open(s.id)} className="rounded-md bg-surface-raised px-2 py-1 text-xs text-muted-foreground shadow-raised press hover:text-foreground hover:shadow-raised-hover active:shadow-pressed">
                         {s.name || s.triggers[0]}
                       </button>
                     ))}

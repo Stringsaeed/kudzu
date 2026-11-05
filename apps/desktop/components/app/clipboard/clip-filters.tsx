@@ -5,6 +5,8 @@ import { useRef } from "react"
 import { FILTERS, type ClipFilter } from "@/lib/clipboard"
 import { cn } from "@/lib/utils"
 
+import { SelectionPill } from "../selection-pill"
+
 /**
  * Kind filters as a single-select chip row (a radio group: arrow keys move, one tab stop).
  * Scrolls sideways when narrow, with a soft fade at the edge.
@@ -32,8 +34,9 @@ export function ClipFilters({
     <div
       role="radiogroup"
       aria-label="Show"
-      className={cn("flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}
+      className={cn("relative isolate flex items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", className)}
     >
+      <SelectionPill className="rounded-full bg-surface-raised shadow-soft sheen" />
       {list.map((f, i) => {
         const on = f.value === value
         const n = counts?.[f.value]
@@ -60,9 +63,8 @@ export function ClipFilters({
               refs.current[n2]?.scrollIntoView({ block: "nearest", inline: "nearest" })
             }}
             className={cn(
-              "flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap text-muted-foreground transition-[color,background,box-shadow] duration-150",
-              "hover:bg-foreground/[0.05] hover:text-foreground",
-              on && "bg-surface-raised text-foreground shadow-soft sheen hover:bg-surface-raised",
+              "flex h-6 shrink-0 items-center gap-1 rounded-full px-2.5 text-[11.5px] font-medium whitespace-nowrap text-muted-foreground press hover:text-foreground",
+              on ? "text-foreground" : "hover:bg-foreground/[0.05]",
               hidden && "opacity-45",
             )}
           >

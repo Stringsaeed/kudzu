@@ -31,6 +31,7 @@ import { buildTag, DATE_FORMAT_PRESETS, joinOptions, splitOptions, type TagToken
 import type { Snippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { TriggerChip } from "../trigger-chip"
 
@@ -132,7 +133,8 @@ function Field({ label, children, hint }: { label: string; children: React.React
 
 function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex rounded-lg bg-foreground/[0.04] p-0.5 shadow-well">
+    <div role="radiogroup" aria-label={label} className="relative isolate flex rounded-lg bg-foreground/[0.04] p-0.5 shadow-well">
+      <SelectionPill className="rounded-md bg-surface-raised shadow-soft" />
       {options.map((o) => (
         <button
           key={o.value}
@@ -140,8 +142,8 @@ function Segmented<T extends string>({ value, options, onChange, label }: { valu
           aria-checked={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "h-7 flex-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors",
-            value === o.value && "bg-surface-raised text-foreground shadow-soft",
+            "h-7 flex-1 rounded-md px-2 text-xs font-medium text-muted-foreground press",
+            value === o.value && "text-foreground",
           )}
         >
           {o.label}
@@ -387,7 +389,7 @@ function DateForm({ name, attrs, set }: { name: string; attrs: Record<string, un
               onClick={() => set({ offset: p.value || undefined })}
               aria-pressed={offset === p.value}
               className={cn(
-                "h-6 rounded-md bg-surface-raised px-2 text-xs text-muted-foreground shadow-raised transition-[color,box-shadow] hover:text-foreground hover:shadow-raised-hover",
+                "h-6 rounded-md bg-surface-raised px-2 text-xs text-muted-foreground shadow-raised press hover:text-foreground hover:shadow-raised-hover",
                 offset === p.value && "bg-iris-soft text-iris-foreground shadow-pressed",
               )}
             >

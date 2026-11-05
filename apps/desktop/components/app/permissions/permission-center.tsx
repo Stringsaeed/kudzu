@@ -139,7 +139,7 @@ export function PermissionCenter() {
                       <ItemDescription className="text-[11px]">{kind === "accessibility" ? "Insert snippets into other apps." : "Additional keyboard monitoring access."}</ItemDescription>
                     </ItemContent>
                     <ItemActions className={cn("shrink-0 gap-1 text-[10px] font-medium", granted ? "text-success" : "text-muted-foreground")}>
-                      {granted ? <><Check className="size-3.5" />Allowed</> : kind === "accessibility" ? "Required" : "Optional"}
+                      {granted ? <><Check className="size-3.5 animate-check" />Allowed</> : kind === "accessibility" ? "Required" : "Optional"}
                     </ItemActions>
                   </button>
                 </Item>

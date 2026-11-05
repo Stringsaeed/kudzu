@@ -28,6 +28,7 @@ import { applyTheme } from "@/lib/theme"
 import type { AppInfo, AppState, Library, RenderResult, Settings, Snippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { TriggerChip } from "../trigger-chip"
 
@@ -312,7 +313,8 @@ export function Palette() {
             autoComplete="off"
             className="h-full min-w-0 flex-1 bg-transparent text-[17px] tracking-[-0.01em] outline-none placeholder:text-faint"
           />
-          <div role="radiogroup" aria-label="Scope" className="flex shrink-0 rounded-lg bg-foreground/[0.04] p-0.5 shadow-well">
+          <div role="radiogroup" aria-label="Scope" className="relative isolate flex shrink-0 rounded-lg bg-foreground/[0.04] p-0.5 shadow-well">
+            <SelectionPill className="rounded-md bg-surface-raised shadow-soft" />
             {SCOPES.map((s) => (
               <button
                 key={s.value}
@@ -324,7 +326,7 @@ export function Palette() {
                   setScope(s.value)
                   setActive(0)
                 }}
-                className={cn("h-6 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors", scope === s.value && "bg-surface-raised text-foreground shadow-soft")}
+                className={cn("h-6 rounded-md px-2 text-[11px] font-medium text-muted-foreground press", scope === s.value && "text-foreground")}
               >
                 {s.label}
               </button>

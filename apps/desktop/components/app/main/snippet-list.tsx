@@ -336,7 +336,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="ghost" size="icon-sm" className="no-drag text-muted-foreground" onClick={() => newSnippet()} aria-label="New snippet">
-              <Plus />
+              <Plus className="transition-[rotate] duration-(--motion-slow) ease-pop group-hover/button:rotate-90" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>

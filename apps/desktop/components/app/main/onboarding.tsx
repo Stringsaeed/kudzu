@@ -136,7 +136,7 @@ export function Onboarding() {
             </div>
             {importState.kind === "done" ? (
               <div className="flex items-center justify-between rounded-xl bg-success/10 px-4 py-3 text-sm text-success" role="status">
-                <span className="flex items-center gap-2"><Check className="size-4" />Imported {importState.count} snippets</span>
+                <span className="flex items-center gap-2"><Check className="size-4 animate-check" />Imported {importState.count} snippets</span>
                 <Button size="sm" onClick={next} autoFocus>Continue<ArrowRight /></Button>
               </div>
             ) : (
@@ -159,7 +159,7 @@ export function Onboarding() {
         <ol className="flex justify-center gap-5" aria-label="Setup progress">
           {steps.map((item, i) => (
             <li key={item} aria-current={item === step ? "step" : undefined} className={cn("flex items-center gap-1.5 text-[10px] transition-colors", i === index ? "text-iris-foreground" : "text-faint")}>
-              {i < index ? <Check className="size-3 text-iris" /> : <span className={cn("size-1.5 rounded-full", i === index ? "bg-iris" : "bg-foreground/15")} />}
+              {i < index ? <Check className="size-3 text-iris animate-check" /> : <span className={cn("size-1.5 rounded-full", i === index ? "bg-iris" : "bg-foreground/15")} />}
               {stepLabels[item]}
             </li>
           ))}
@@ -203,7 +203,7 @@ function Practice({ onDone, hotkey, finishing }: { onDone: () => void; hotkey: s
       {success ? (
         <div className="flex flex-col gap-4 animate-rise">
           <p className="flex items-center gap-2 text-sm font-medium text-success">
-            <Sparkles className="size-4" /> That&apos;s how a snippet expands.
+            <Sparkles className="size-4 animate-star" /> That&apos;s how a snippet expands.
           </p>
           <p className="text-xs text-muted-foreground">
             {isTauri() ? "When expansion is enabled, your library’s triggers work in Notes, Mail, your browser, and other apps." : "In the desktop app this works in every app."}
