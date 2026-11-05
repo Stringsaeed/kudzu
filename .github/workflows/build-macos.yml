@@ -21,7 +21,8 @@ permissions:
 
 jobs:
   macos:
-    runs-on: macos-15
+    # macOS picks the window chrome from the linked SDK: below 26, apps get the flat pre-glass look.
+    runs-on: macos-26
     timeout-minutes: 75
     env:
       TAG: ${{ inputs.tag }}
