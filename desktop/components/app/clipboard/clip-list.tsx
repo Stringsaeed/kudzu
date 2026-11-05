@@ -4,6 +4,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { Pin } from "lucide-react"
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef } from "react"
 
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { clipTime, describe, matchRanges, spokenLabel, type ClipRow } from "@/lib/clipboard"
 import type { ClipEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -65,7 +66,7 @@ const Row = memo(function Row({
   const { title, subtitle } = describe(entry)
   const mono = entry.kind === "code" || entry.kind === "color"
   return (
-    <div
+    <Item
       id={`clip-${entry.id}`}
       role="option"
       aria-selected={active || selected}
@@ -73,22 +74,24 @@ const Row = memo(function Row({
       onMouseDown={(e) => onPointer(e, entry.id)}
       onDoubleClick={() => onPick(entry.id)}
       className={cn(
-        "group/row relative mx-1.5 flex h-full cursor-default items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-75",
+        "group/row relative mx-1.5 h-full w-auto cursor-default flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 duration-75",
         "hover:bg-foreground/[0.035]",
         selected && "bg-foreground/[0.06] shadow-selected",
         active && (focused ? "bg-iris-soft hover:bg-iris-soft after:pointer-events-none after:absolute after:inset-0 after:rounded-[10px] after:ring-1 after:ring-iris/30 after:ring-inset" : "bg-foreground/[0.07] shadow-selected hover:bg-foreground/[0.07]"),
       )}
     >
-      <ClipTile entry={entry} active={active && focused} size={SIZES[density].tile} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn("truncate text-[13px] leading-[18px] font-medium", mono && "font-mono text-[12.5px]", !title && "text-muted-foreground italic")}>
+      <ItemMedia className="group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center">
+        <ClipTile entry={entry} active={active && focused} size={SIZES[density].tile} />
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0.5">
+        <ItemTitle className={cn("block w-full truncate text-[13px] leading-[18px]", mono && "font-mono text-[12.5px]", !title && "text-muted-foreground italic")}>
           <Marked text={title.slice(0, 200) || "Empty"} terms={terms} />
-        </span>
-        <span className={cn("truncate text-[11.5px] leading-4 text-muted-foreground/85", entry.kind === "link" && "font-mono text-[11px]")}>
+        </ItemTitle>
+        <ItemDescription className={cn("truncate text-[11.5px] leading-4 text-muted-foreground/85", entry.kind === "link" && "font-mono text-[11px]")}>
           <Marked text={subtitle.slice(0, 200)} terms={terms} />
-        </span>
-      </div>
-      <div className="flex shrink-0 flex-col items-end gap-1 self-center">
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions className="shrink-0 flex-col items-end gap-1 self-center">
         <span className="text-[11px] leading-none text-faint tabular">{clipTime(entry.copiedAt, undefined, dated)}</span>
         <span className="flex h-3.5 items-center gap-1">
           {entry.copyCount > 1 && (
@@ -98,9 +101,9 @@ const Row = memo(function Row({
           )}
           {entry.pinned && <Pin className="size-3 -rotate-45 fill-current text-iris-foreground/80" aria-hidden />}
         </span>
-      </div>
+      </ItemActions>
       {number !== null && <Shortcut combo={`mod+${number}`} tone={showNumbers ? "accent" : "ghost"} className="shrink-0" />}
-    </div>
+    </Item>
   )
 })
 

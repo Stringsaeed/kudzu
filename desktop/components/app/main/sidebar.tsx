@@ -20,7 +20,6 @@ import {
   Pencil,
   Play,
   Plus,
-  Search,
   Settings,
   SlidersHorizontal,
   Star,
@@ -45,6 +44,7 @@ import { cn } from "@/lib/utils"
 
 import { Shortcut } from "../shortcut"
 import { StatusIndicator } from "./status"
+import { Wordmark } from "../wordmark"
 
 export const SNIPPET_DRAG_TYPE = "application/x-kudzu-snippets"
 const GROUP_DRAG_TYPE = "application/x-kudzu-group"
@@ -361,7 +361,6 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
   const view = useStore((s) => s.view)
   const setView = useStore((s) => s.setView)
   const createGroup = useStore((s) => s.createGroup)
-  const setCommandOpen = useStore((s) => s.setCommandOpen)
   const saveGroup = useStore((s) => s.saveGroup)
   const moveSnippets = useStore((s) => s.moveSnippets)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -404,19 +403,17 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
 
   return (
     <aside aria-label="Sidebar" className="flex h-full w-full flex-col bg-sidebar">
-      {/* Space for the traffic lights + drag */}
-      <div className="drag flex h-12 shrink-0 items-center justify-end px-3" data-tauri-drag-region>
-        {isDev && <Badge>Dev</Badge>}
-      </div>
-      <div className="px-2.5 pb-2">
+      <div className="flex h-[72px] shrink-0 items-center gap-2 px-4">
         <button
-          onClick={() => setCommandOpen(true)}
-          className="flex h-8 w-full items-center gap-2 rounded-lg bg-foreground/[0.03] px-2.5 text-[13px] text-muted-foreground shadow-well transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+          onClick={() => setView({ kind: "all" })}
+          aria-label="Kudzu — all snippets"
+          className="flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-foreground/90 transition-colors hover:text-foreground"
         >
-          <Search className="size-3.5" />
-          <span className="flex-1 truncate text-left whitespace-nowrap">Search…</span>
-          <Shortcut combo="mod+k" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- bundled app artwork */}
+          <img src="/icon.png" alt="" width={36} height={36} draggable={false} />
+          <Wordmark variant="small" className="w-[76px]" />
         </button>
+        {isDev && <Badge className="ml-auto">Dev</Badge>}
       </div>
       <nav aria-label="Library" className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
         <section aria-label="Snippets" className="flex flex-col gap-px">

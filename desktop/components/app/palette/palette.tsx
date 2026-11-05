@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { api, Events, on, renderPreview } from "@/lib/backend"
 import { groupPath } from "@/lib/groups"
 import { isMac } from "@/lib/keys"
@@ -83,34 +84,34 @@ const ResultRow = memo(function ResultRow({
 }) {
   const s = hit.snippet
   return (
-    <div
+    <Item
       id={`pal-${s.id}`}
       role="option"
       aria-selected={active}
       onMouseMove={() => onHover(index)}
       onClick={() => onPick(index)}
       className={cn(
-        "relative flex h-11 cursor-default items-center gap-3 rounded-[10px] px-2.5 transition-colors duration-75",
+        "relative h-11 cursor-default flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 duration-75",
         active ? "bg-foreground/[0.08] shadow-selected" : "hover:bg-foreground/[0.03]",
         !s.isEnabled && "opacity-60",
       )}
     >
-      <span className={cn("flex size-7 shrink-0 items-center justify-center rounded-lg transition-colors", active ? "bg-iris text-iris-contrast shadow-accent sheen-strong" : "bg-foreground/[0.06] text-muted-foreground")}>
+      <ItemMedia className={cn("size-7 rounded-lg transition-colors group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center", active ? "bg-iris text-iris-contrast shadow-accent sheen-strong" : "bg-foreground/[0.06] text-muted-foreground")}>
         <KindIcon snippet={s} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex min-w-0 items-center gap-1.5">
+      </ItemMedia>
+      <ItemContent className="min-w-0 gap-0">
+        <ItemTitle className="w-full min-w-0 gap-1.5">
           <span className="truncate text-[13.5px] font-medium">
             <Highlight text={s.name || "Untitled"} hits={s.name ? hit.nameHits : []} />
           </span>
           {s.isFavorite && <Star className="size-3 shrink-0 fill-favorite text-favorite" />}
-        </span>
-        {path && <span className="truncate text-[11px] text-faint">{path}</span>}
-      </span>
+        </ItemTitle>
+        {path && <ItemDescription className="truncate text-[11px] text-faint">{path}</ItemDescription>}
+      </ItemContent>
       {s.triggers[0] && <TriggerChip trigger={s.triggers[0]} muted={!active} className="shrink-0" />}
       {/* Always shown; lights up while the modifier is held, when the number picks the row. */}
       {index < 9 && <Shortcut combo={`mod+${index + 1}`} tone={showNumbers ? "accent" : "default"} className="shrink-0" />}
-    </div>
+    </Item>
   )
 })
 
@@ -352,12 +353,12 @@ export function Palette() {
                 ))}
                 {createRow && (
                   <div data-row={hits.length}>
-                    <div
+                    <Item
                       role="option"
                       aria-selected={clamped === hits.length}
                       onMouseMove={() => setActive(hits.length)}
                       onClick={() => pick(hits.length)}
-                      className={cn("flex h-11 items-center gap-3 rounded-[10px] px-2.5 text-[13.5px]", clamped === hits.length ? "bg-foreground/[0.08]" : "text-muted-foreground")}
+                      className={cn("h-11 flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 text-[13.5px]", clamped === hits.length ? "bg-foreground/[0.08]" : "text-muted-foreground")}
                     >
                       <span className="flex size-7 items-center justify-center rounded-lg bg-foreground/[0.06]">
                         <Plus className="size-3.5" />
@@ -365,7 +366,7 @@ export function Palette() {
                       <span className="truncate">
                         Create snippet <span className="text-foreground">“{query.trim()}”</span>
                       </span>
-                    </div>
+                    </Item>
                   </div>
                 )}
               </>

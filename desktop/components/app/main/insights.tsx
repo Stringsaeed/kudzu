@@ -3,6 +3,7 @@
 import { Lock } from "lucide-react"
 import { useMemo } from "react"
 
+import { Item } from "@/components/ui/item"
 import { useStore } from "@/lib/store"
 import { CHARS_PER_WORD, formatCount, formatDuration, relativeTime, totals } from "@/lib/stats"
 
@@ -66,19 +67,21 @@ export function Insights() {
                 <ol className="flex flex-col gap-0.5">
                   {top.map(({ s, u }, i) => (
                     <li key={s.id}>
-                      <button onClick={() => open(s.id)} className="group grid w-full grid-cols-[18px_1fr_auto] items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
-                        <span className="text-[11px] text-faint tabular">{i + 1}</span>
-                        <span className="flex min-w-0 flex-col gap-1">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span className="truncate text-[13px]">{s.name || "Untitled"}</span>
-                            {s.triggers[0] && <TriggerChip trigger={s.triggers[0]} muted />}
+                      <Item asChild className="group grid grid-cols-[18px_minmax(0,1fr)_auto] gap-3 px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
+                        <button onClick={() => open(s.id)}>
+                          <span className="text-[11px] text-faint tabular">{i + 1}</span>
+                          <span className="flex min-w-0 flex-col gap-1">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate text-[13px]">{s.name || "Untitled"}</span>
+                              {s.triggers[0] && <TriggerChip trigger={s.triggers[0]} muted />}
+                            </span>
+                            <span className="h-1 overflow-hidden rounded-full bg-foreground/[0.05]">
+                              <span className="block h-full rounded-full bg-iris/80 transition-[width] duration-500" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%` }} />
+                            </span>
                           </span>
-                          <span className="h-1 overflow-hidden rounded-full bg-foreground/[0.05]">
-                            <span className="block h-full rounded-full bg-iris/80 transition-[width] duration-500" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%` }} />
-                          </span>
-                        </span>
-                        <span className="text-xs text-muted-foreground tabular">{formatCount(u!.count)}</span>
-                      </button>
+                          <span className="text-xs text-muted-foreground tabular">{formatCount(u!.count)}</span>
+                        </button>
+                      </Item>
                     </li>
                   ))}
                 </ol>
@@ -93,10 +96,12 @@ export function Insights() {
                 <ul className="flex flex-col gap-0.5">
                   {recent.map(({ s, u }) => (
                     <li key={s.id}>
-                      <button onClick={() => open(s.id)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
-                        <span className="min-w-0 flex-1 truncate text-[13px]">{s.name || "Untitled"}</span>
-                        <span className="text-[11px] text-faint">{relativeTime(u!.last)}</span>
-                      </button>
+                      <Item asChild className="flex-nowrap gap-2 px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
+                        <button onClick={() => open(s.id)}>
+                          <span className="min-w-0 flex-1 truncate text-[13px]">{s.name || "Untitled"}</span>
+                          <span className="text-[11px] text-faint">{relativeTime(u!.last)}</span>
+                        </button>
+                      </Item>
                     </li>
                   ))}
                   {!recent.length && <li className="px-2 text-xs text-muted-foreground">Nothing yet.</li>}
