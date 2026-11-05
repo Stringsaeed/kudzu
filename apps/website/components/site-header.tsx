@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { ThemeToggle } from "./theme-toggle";
 import { Icon } from "./icons";
+import { GitHubLogo } from "./github-logo";
 import { MobileNavigation } from "./mobile-navigation";
 
 export function SiteHeader() {
@@ -19,7 +20,7 @@ export function SiteHeader() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <Icon name="github" /> Star on GitHub <Icon name="star" />
+          <GitHubLogo /> Star on GitHub <Icon name="star" />
         </a>
       </nav>
       <div className="header-actions">

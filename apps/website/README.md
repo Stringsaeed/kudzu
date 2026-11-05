@@ -49,6 +49,7 @@ The hero uses the supplied 3220 × 2100 MacBook Neo Citrus PNG without modifying
 
 Local app icon sources:
 
+- GitHub: `GitHub_Invertocat_Black.svg` from `https://brand.github.com/GitHub_Logos.zip`, stored unmodified and rendered as a theme-aware mask.
 - Mail: the installed macOS Mail app’s `ApplicationIcon.icns`.
 - Slack: `https://a.slack-edge.com/9cc0056/img/icons/favicon-32.png`.
 - Notion: `https://www.notion.so/images/logo-ios.png`.

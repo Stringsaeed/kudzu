@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Icon } from "./icons";
+import { GitHubLogo } from "./github-logo";
 
 export function MobileNavigation() {
   const menu = useRef<HTMLDetailsElement>(null);
@@ -56,7 +57,7 @@ export function MobileNavigation() {
           rel="noopener noreferrer"
           onClick={close}
         >
-          <Icon name="github" />
+          <GitHubLogo />
           Star on GitHub
           <Icon name="star" />
         </a>
