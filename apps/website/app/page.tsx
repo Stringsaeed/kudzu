@@ -1,50 +1,77 @@
+import Link from "next/link";
 import Image from "next/image";
-import { AppleMark } from "@/components/apple-mark";
-import { SketchArrow } from "@/components/sketch-arrow";
+import { AppGallery } from "@/components/app-gallery";
+import { DownloadAction } from "@/components/download-action";
+import { Icon } from "@/components/icons";
+import { PlayOnView } from "@/components/play-on-view";
+import { switching } from "@/lib/compare";
+import { getLatestRelease } from "@/lib/releases";
 import { site } from "@/lib/site";
-import { IconDefinitions } from "@/components/icons";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
 import { SnippetPlayground } from "@/components/snippet-playground";
 import { ClipboardPreview } from "@/components/clipboard-preview";
 import { TemplateExamples } from "@/components/template-examples";
 import { CopyCommand } from "@/components/copy-command";
 
-export default function Home() {
+export const revalidate = 3600;
+
+const moreFeatures = [
+  {
+    title: "Formatted snippets",
+    body: "Bold, links, lists, and embedded images, pasted as rich text where apps support it.",
+  },
+  {
+    title: "Quick search",
+    body: "Press ⌃⌥Space in any app. Search names, triggers, and content, then insert.",
+  },
+  {
+    title: "Per-app rules",
+    body: "Allow or block snippets by app, and choose how each one inserts its text.",
+  },
+  {
+    title: "Insights",
+    body: "See expansions, characters, and time saved. What you type is never stored.",
+  },
+  {
+    title: "iCloud sync",
+    body: "Your snippet library follows you between Macs through your private iCloud.",
+  },
+  {
+    title: "Backups",
+    body: "Daily local backups, with the last 14 kept and one click to restore.",
+  },
+];
+
+export default async function Home() {
+  const release = await getLatestRelease();
   return (
     <>
-      <a className="skip-link" href="#main">
-        Skip to content
-      </a>
-      <IconDefinitions />
-      <SiteHeader />
       <main id="main">
         <section className="hero wrap" aria-labelledby="hero-title">
-          <a className="release-pill" href="https://github.com/Stringsaeed/kudzu/releases/latest">
-            <span className="status-dot"></span>A little less typing. A little more you.
-          </a>
+          <Link className="release-pill" href="/changelog">
+            <span className="status-dot"></span>
+            {release ? `Kudzu ${release.version} is here. See what’s new` : "See what’s new in Kudzu"}
+            <Icon name="arrow" />
+          </Link>
           <h1 id="hero-title">
             For things
             <br />
             worth <span className="hero-accent">repeating.</span>
-            <SketchArrow variant="up" className="echo-mark" />
           </h1>
           <p className="hero-description">
-            Your best words, a few keystrokes away.
+            <strong>A free text expander and clipboard manager for your Mac.</strong>
             <br />
-            Text shortcuts and clipboard history that feel right at home on your Mac.
+            Your best words, a few keystrokes away.
           </p>
-          <div className="hero-actions">
-            <a className="button button-primary" href={site.download}>
-              <AppleMark />
-              Download for Mac
-            </a>
-            <a className="button button-text" href="#playground">
-              Give it a spin{" "}
-            </a>
-          </div>
+          <DownloadAction
+            secondary={
+              <a className="button button-text" href="#playground">
+                Give it a spin
+              </a>
+            }
+          />
           <p className="fine-print">
             Free & open source<span>·</span>macOS 14+<span>·</span>Apple Silicon & Intel
+            <span>·</span>Notarized by Apple
           </p>
 
           <SnippetPlayground />
@@ -75,7 +102,8 @@ export default function Home() {
               replies, addresses, code, your very particular sign-off. Write it once. Make it yours.
             </p>
             <a className="inline-link" href="#playground">
-              Try your first shortcut{" "}
+              Try your first shortcut
+              <Icon name="arrow" />
             </a>
             <div className="feature-detail">
               <svg className="icon">
@@ -84,7 +112,7 @@ export default function Home() {
               Changed your mind? Backspace undoes an expansion.
             </div>
           </div>
-          <div className="shortcut-art feature-art" aria-labelledby="shortcut-title">
+          <PlayOnView className="shortcut-art feature-art" labelledBy="shortcut-title">
             <h3 className="visually-hidden" id="shortcut-title">
               A short trigger becomes a complete email
             </h3>
@@ -96,7 +124,7 @@ export default function Home() {
               <span className="bubble-time">now</span>
             </div>
             <div className="shortcut-path" aria-hidden="true">
-              <span>↓</span>
+              <Icon name="arrow-down" />
               <span>Kudzu takes it from here</span>
             </div>
             <div className="email-paper">
@@ -127,10 +155,10 @@ export default function Home() {
             <div className="floating-key key-h" aria-hidden="true">
               <span>h</span>
             </div>
-          </div>
+          </PlayOnView>
         </section>
 
-        <section className="feature-row reverse wrap" aria-labelledby="clipboard-title">
+        <section className="feature-row reverse wrap" id="clipboard" aria-labelledby="clipboard-title">
           <div className="feature-copy">
             <span className="feature-number">02 / CLIPBOARD HISTORY</span>
             <h2 id="clipboard-title">
@@ -161,6 +189,20 @@ export default function Home() {
 
         <TemplateExamples />
 
+        <section className="more-features wrap" aria-labelledby="more-title">
+          <h2 className="visually-hidden" id="more-title">
+            More in Kudzu
+          </h2>
+          {moreFeatures.map((feature) => (
+            <article key={feature.title}>
+              <h3>{feature.title}</h3>
+              <p>{feature.body}</p>
+            </article>
+          ))}
+        </section>
+
+        <AppGallery />
+
         <section className="privacy-section" id="privacy">
           <div className="wrap privacy-inner">
             <div className="privacy-copy">
@@ -176,13 +218,9 @@ export default function Home() {
                 No account to create. No subscription to cancel. No analytics watching over your
                 shoulder. Just a useful little app, doing its thing.
               </p>
-              <a
-                className="inline-link"
-                href="https://github.com/Stringsaeed/kudzu"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open source. Come have a look.{" "}
+              <a className="inline-link" href={site.github} target="_blank" rel="noopener noreferrer">
+                Open source. Come have a look.
+                <Icon name="arrow" />
               </a>
             </div>
             <div className="privacy-notes">
@@ -201,8 +239,8 @@ export default function Home() {
                 <div>
                   <h3>Your Macs, in sync.</h3>
                   <p>
-                    Keep your snippet library with you through iCloud. Your words travel between
-                    your Macs through your own iCloud account.
+                    Turn on iCloud sync and your snippet library travels between your Macs through
+                    your private iCloud database, which Kudzu’s developer can’t see.
                   </p>
                 </div>
               </article>
@@ -218,9 +256,97 @@ export default function Home() {
               </article>
             </div>
           </div>
+          <div className="wrap trust-section" id="permissions">
+            <div className="trust-heading">
+              <h3>What Kudzu can see, and what it does with it.</h3>
+              <p>
+                A text expander has to watch for your shortcuts, so macOS asks you to approve
+                Accessibility access (called Device Control and Data Access on macOS 27 and later).
+                Here’s exactly what that’s for.
+              </p>
+            </div>
+            <div className="trust-grid">
+              <article>
+                <h4>What it does</h4>
+                <ul>
+                  <li>
+                    <Icon name="check" />
+                    Keeps a short rolling buffer of recent keys in memory, just enough to spot a
+                    shortcut.
+                  </li>
+                  <li>
+                    <Icon name="check" />
+                    Inserts your snippet into the app you’re using, restoring your clipboard if it
+                    pasted.
+                  </li>
+                  <li>
+                    <Icon name="check" />
+                    Records what you copy for clipboard history, on this Mac, for as long as you
+                    choose.
+                  </li>
+                </ul>
+              </article>
+              <article>
+                <h4>What it never does</h4>
+                <ul>
+                  <li>
+                    <Icon name="close" />
+                    Store what you type. Insights only count expansions.
+                  </li>
+                  <li>
+                    <Icon name="close" />
+                    Record passwords or concealed copies, or expand in password managers by default.
+                  </li>
+                  <li>
+                    <Icon name="close" />
+                    Phone home. There are no Kudzu servers. It only goes online to check for updates
+                    and, if you turn it on, for iCloud sync.
+                  </li>
+                </ul>
+              </article>
+            </div>
+            <p className="trust-footnote">
+              You stay in charge: macOS owns the permission, and you can revoke it in System
+              Settings at any time.{" "}
+              <a href={site.keyBufferSource} target="_blank" rel="noopener noreferrer">
+                Read the key buffer
+              </a>{" "}
+              or the{" "}
+              <a href={site.engineSource} target="_blank" rel="noopener noreferrer">
+                whole engine
+              </a>
+              . <Link href="/privacy">Privacy details</Link>
+            </p>
+          </div>
         </section>
 
-        <section className="faq-section wrap" aria-labelledby="faq-title">
+        <section className="switch-section wrap" aria-labelledby="switch-title">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">ALREADY HAVE A SYSTEM?</span>
+              <h2 id="switch-title">Coming from somewhere else.</h2>
+            </div>
+            <p>
+              An honest look at how Kudzu compares,{" "}
+              <br />
+              and what moving over really takes.
+            </p>
+          </div>
+          <div className="switch-grid">
+            {switching.map((item) => (
+              <Link key={item.slug} href={`/compare/${item.slug}`}>
+                <strong>{item.name}</strong>
+                <span>{item.migration}</span>
+                <em>
+                  Compare
+                  <Icon name="arrow" />
+                </em>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="faq-section wrap" id="faq" aria-labelledby="faq-title">
           <div>
             <span className="eyebrow">THE LAST FEW THINGS</span>
             <h2 id="faq-title">Glad you asked.</h2>
@@ -229,7 +355,7 @@ export default function Home() {
           <div className="faq-list">
             <details>
               <summary>
-                Actually free?<span aria-hidden="true">+</span>
+                Actually free?<Icon name="plus" />
               </summary>
               <p>
                 Yes. Kudzu is free and open source under the MIT license. No subscription, no
@@ -238,7 +364,17 @@ export default function Home() {
             </details>
             <details>
               <summary>
-                Will it work on my Mac?<span aria-hidden="true">+</span>
+                Does Kudzu read what I type?<Icon name="plus" />
+              </summary>
+              <p>
+                Only enough to spot your shortcuts. Kudzu keeps a short rolling buffer of recent
+                keys in memory and never stores what you type. <a href="#permissions">See exactly
+                what it can see</a>, or read the source code.
+              </p>
+            </details>
+            <details>
+              <summary>
+                Will it work on my Mac?<Icon name="plus" />
               </summary>
               <p>
                 Kudzu needs macOS 14 Sonoma or later and runs on both Apple Silicon and Intel Macs.
@@ -247,7 +383,7 @@ export default function Home() {
             </details>
             <details>
               <summary>
-                Where do my shortcuts work?<span aria-hidden="true">+</span>
+                Where do my shortcuts work?<Icon name="plus" />
               </summary>
               <p>
                 Kudzu expands text across your Mac, wherever an app supports text insertion. It
@@ -258,7 +394,7 @@ export default function Home() {
             </details>
             <details>
               <summary>
-                Why does it need Accessibility permission?<span aria-hidden="true">+</span>
+                Why does it need Accessibility permission?<Icon name="plus" />
               </summary>
               <p>
                 Kudzu needs macOS permissions to recognize your shortcuts and insert their text into
@@ -268,7 +404,7 @@ export default function Home() {
             </details>
             <details>
               <summary>
-                Can I bring my Espanso snippets?<span aria-hidden="true">+</span>
+                Can I bring my Espanso snippets?<Icon name="plus" />
               </summary>
               <p>
                 Absolutely. Kudzu can detect and import an existing Espanso library, including
@@ -279,7 +415,7 @@ export default function Home() {
             </details>
             <details>
               <summary>
-                How do updates work?<span aria-hidden="true">+</span>
+                How do updates work?<Icon name="plus" />
               </summary>
               <p>
                 Kudzu checks for updates and lets you install and restart when you’re ready. You can
@@ -306,21 +442,39 @@ export default function Home() {
               <br />
               <em>A little more living.</em>
             </h2>
-            <a className="button button-primary" href={site.download}>
-              <AppleMark />
-              Get Kudzu for Mac
-            </a>
+            <DownloadAction label="Get Kudzu for Mac" />
             <p className="fine-print">
               Free. Open source. Yours.<span>·</span>macOS 14+
+              {release && (
+                <>
+                  <span>·</span>Version {release.version}
+                </>
+              )}
             </p>
             <CopyCommand />
-            <a className="release-link" href="https://github.com/Stringsaeed/kudzu/releases/latest">
-              Release notes & other downloads
+            <a className="release-link" href={site.releases}>
+              All downloads on GitHub
             </a>
           </div>
+          <ol className="install-steps" id="install" aria-label="After you download">
+            <li>
+              <span>1</span>
+              <h3>Drag it to Applications.</h3>
+              <p>Open the DMG and move Kudzu over. It’s signed and notarized, so it opens normally.</p>
+            </li>
+            <li>
+              <span>2</span>
+              <h3>Say yes to access.</h3>
+              <p>A guided helper sits beside System Settings and walks you through the permission.</p>
+            </li>
+            <li>
+              <span>3</span>
+              <h3>Type your first shortcut.</h3>
+              <p>Practice in the preview, then use it anywhere. Espanso users can import on the way.</p>
+            </li>
+          </ol>
         </section>
       </main>
-      <SiteFooter />
     </>
   );
 }

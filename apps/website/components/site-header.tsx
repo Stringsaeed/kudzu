@@ -1,33 +1,30 @@
+import Link from "next/link";
 import Image from "next/image";
+import { site } from "@/lib/site";
 import { ThemeToggle } from "./theme-toggle";
 import { Icon } from "./icons";
 import { GitHubLogo } from "./github-logo";
 import { MobileNavigation } from "./mobile-navigation";
+import { NavLinks } from "./nav-links";
 
 export function SiteHeader() {
   return (
     <header className="site-header wrap">
-      <a className="brand" href="#main" aria-label="Kudzu home">
+      <Link className="brand" href="/" aria-label="Kudzu home">
         <Image src="/assets/kudzu-icon.png" width="40" height="40" alt="" />
         <span>kudzu</span>
-      </a>
+      </Link>
       <nav className="desktop-navigation" aria-label="Main navigation">
-        <a href="#features">Features</a>
-        <a href="#playground">Try it out</a>
-        <a
-          className="github-star"
-          href="https://github.com/Stringsaeed/kudzu"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <NavLinks />
+        <a className="github-star" href={site.github} target="_blank" rel="noopener noreferrer">
           <GitHubLogo /> Star on GitHub <Icon name="star" />
         </a>
       </nav>
       <div className="header-actions">
         <ThemeToggle />
-        <a className="button button-small button-primary" href="#download">
+        <Link className="button button-small button-primary" href="/#download">
           Get Kudzu
-        </a>
+        </Link>
         <MobileNavigation />
       </div>
     </header>

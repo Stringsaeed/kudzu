@@ -3,40 +3,87 @@
 import Image from "next/image";
 import { AppleMark } from "./apple-mark";
 import { MacOSDock } from "./macos-dock";
-import { SketchArrow } from "./sketch-arrow";
-import { useEffect, useRef, useState } from "react";
+import { StageCallouts } from "./stage-callouts";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { snippets } from "@/lib/examples";
 import { Icon } from "./icons";
 
-type Expansion = { previous: string; caret: number; expanded: string; end: number };
+type Snippet = (typeof snippets)[number];
+type Filter = "all" | "favorites" | "everyday" | "work";
+type Expansion = { previous: string; caret: number; expanded: string; end: number; saved: number };
+
+const idleMessage = "A few keys. All the right words.";
+const typingDelay = 110;
+const filters: { id: Filter; label: string; heading: string; icon: string }[] = [
+  { id: "all", label: "All snippets", heading: "All snippets", icon: "grid" },
+  { id: "favorites", label: "Favorites", heading: "Favorites", icon: "star" },
+  { id: "everyday", label: "Everyday", heading: "Everyday words", icon: "folder" },
+  { id: "work", label: "Work stuff", heading: "Work stuff", icon: "folder" },
+];
+
+function inFilter(snippet: Snippet, filter: Filter) {
+  if (filter === "all") return true;
+  if (filter === "favorites") return snippet.favorite;
+  return snippet.group === filter;
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function hasKeyboard() {
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
+function result(snippet: Snippet, ending: string) {
+  return `${snippet.trigger.length} keys → ${snippet.text.length} characters. ${ending}`;
+}
 
 export function SnippetPlayground() {
   const [selected, setSelected] = useState(snippets[0]);
+  const [filter, setFilter] = useState<Filter>("all");
   const [value, setValue] = useState("");
   const [expansion, setExpansion] = useState<Expansion | null>(null);
-  const [message, setMessage] = useState("A few keys. All the right words.");
+  const [message, setMessage] = useState(idleMessage);
+  const [saved, setSaved] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const screen = screenRef.current;
-    if (!screen) return;
-    const observer = new ResizeObserver(([entry]) => {
-      screen.style.setProperty("--device-scale", String(entry.contentRect.width / 960));
-    });
-    observer.observe(screen);
-    return () => observer.disconnect();
-  }, []);
+  const panelRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const timers = useRef<number[]>([]);
+  const touched = useRef(false);
+  const autoplayed = useRef(false);
 
-  function reset() {
-    setValue("");
-    setExpansion(null);
-    setMessage("A few keys. All the right words.");
+  const visible = snippets.filter((snippet) => inFilter(snippet, filter));
+  const heading = filters.find((item) => item.id === filter)?.heading;
+
+  function clearTimers() {
+    timers.current.forEach((timer) => window.clearTimeout(timer));
+    timers.current = [];
   }
 
-  function select(index: number) {
-    setSelected(snippets[index]);
+  function reset() {
+    clearTimers();
+    autoplayed.current = false;
+    setPlaying(false);
+    setValue("");
+    setExpansion(null);
+    setMessage(idleMessage);
+  }
+
+  function select(snippet: Snippet) {
+    touched.current = true;
+    setSelected(snippet);
+    reset();
+  }
+
+  function chooseFilter(next: Filter) {
+    touched.current = true;
+    const nextVisible = snippets.filter((snippet) => inFilter(snippet, next));
+    setFilter(next);
+    if (!nextVisible.some((snippet) => snippet.id === selected.id)) setSelected(nextVisible[0]);
     reset();
   }
 
@@ -47,9 +94,9 @@ export function SnippetPlayground() {
       event.key === "Home"
         ? 0
         : event.key === "End"
-          ? snippets.length - 1
-          : (index + (event.key === "ArrowDown" ? 1 : -1) + snippets.length) % snippets.length;
-    select(next);
+          ? visible.length - 1
+          : (index + (event.key === "ArrowDown" ? 1 : -1) + visible.length) % visible.length;
+    select(visible[next]);
     tabRefs.current[next]?.focus();
   }
 
@@ -59,37 +106,109 @@ export function SnippetPlayground() {
     const before = text.slice(0, caret);
     setValue(text);
     setExpansion(null);
-    setMessage("A few keys. All the right words.");
+    setMessage(idleMessage);
     if (!before.endsWith(selected.trigger) || element.selectionEnd !== caret) return;
     const start = caret - selected.trigger.length;
     const expanded = text.slice(0, start) + selected.text + text.slice(caret);
     const end = start + selected.text.length;
+    const gained = selected.text.length - selected.trigger.length;
     setValue(expanded);
-    setExpansion({ previous: text, caret, expanded, end });
-    setMessage(
-      `${selected.trigger.length} keys → ${selected.text.length} characters. Backspace to undo.`,
-    );
+    setExpansion({ previous: text, caret, expanded, end, saved: gained });
+    setSaved((total) => total + gained);
+    setMessage(result(selected, "Backspace to undo."));
     requestAnimationFrame(() => inputRef.current?.setSelectionRange(end, end));
   }
 
+  function play(snippet: Snippet, auto: boolean) {
+    reset();
+    const characters = [...snippet.trigger];
+    const finish = () => {
+      timers.current = [];
+      const gained = snippet.text.length - snippet.trigger.length;
+      setValue(snippet.text);
+      setExpansion({
+        previous: snippet.trigger,
+        caret: snippet.trigger.length,
+        expanded: snippet.text,
+        end: snippet.text.length,
+        saved: gained,
+      });
+      setSaved((total) => total + gained);
+      setPlaying(false);
+      autoplayed.current = auto;
+      const canUndo = !auto && hasKeyboard();
+      setMessage(result(snippet, auto ? "Your turn." : canUndo ? "Backspace to undo." : ""));
+      if (canUndo) {
+        inputRef.current?.focus();
+        requestAnimationFrame(() =>
+          inputRef.current?.setSelectionRange(snippet.text.length, snippet.text.length),
+        );
+      }
+    };
+    if (prefersReducedMotion()) {
+      finish();
+      return;
+    }
+    setPlaying(true);
+    characters.forEach((_, index) => {
+      timers.current.push(
+        window.setTimeout(
+          () => setValue(characters.slice(0, index + 1).join("")),
+          typingDelay * (index + 1),
+        ),
+      );
+    });
+    timers.current.push(window.setTimeout(finish, typingDelay * (characters.length + 3)));
+  }
+
+  const startAutoplay = useEffectEvent(() => {
+    if (!touched.current && !prefersReducedMotion()) play(selected, true);
+  });
+
+  useEffect(() => {
+    const screen = screenRef.current;
+    if (!screen) return;
+    const observer = new ResizeObserver(([entry]) => {
+      screen.style.setProperty("--device-scale", String(entry.contentRect.width / 960));
+    });
+    observer.observe(screen);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        observer.disconnect();
+        startAutoplay();
+      },
+      { threshold: 0.7 },
+    );
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(
+    () => () => {
+      timers.current.forEach((timer) => window.clearTimeout(timer));
+    },
+    [],
+  );
+
   return (
     <div className="product-stage" id="playground">
-      <div className="stage-note note-left">
-        <span>Pick a snippet</span>
-        <SketchArrow variant="right" />
-      </div>
-      <div className="stage-note note-right">
-        <SketchArrow variant="left" />
-        <span>Type its shortcut</span>
-      </div>
       <div className="device-frame">
+        <StageCallouts />
         <Image
           className="device-bezel"
           src="/assets/macbook-neo-citrus.png"
           width={3220}
           height={2100}
           alt="MacBook Neo in Citrus"
-          sizes="(max-width: 600px) 1px, (max-width: 1240px) 100vw, 1160px"
+          sizes="(max-width: 1100px) 1px, 1160px"
+          preload
         />
         <div className="device-screen" ref={screenRef}>
           <div className="device-workspace">
@@ -111,39 +230,29 @@ export function SnippetPlayground() {
                   <i />
                 </div>
                 <span>Kudzu</span>
-                <span className="toolbar-status">
+                <span className="toolbar-status" key={saved}>
                   <span className="status-dot" />
-                  Ready when you are
+                  {saved > 0 ? `${saved.toLocaleString("en-US")} keystrokes saved` : "Ready when you are"}
                 </span>
               </div>
               <div className="app-layout">
-                <aside className="app-sidebar" aria-label="Illustrative library sidebar">
+                <aside className="app-sidebar" aria-label="Filter example snippets">
                   <div className="sidebar-brand">
                     <Image src="/assets/kudzu-icon.png" width={29} height={29} alt="" />
                     Your words, organized.
                   </div>
-                  <div className="sidebar-item selected">
-                    <Icon name="grid" />
-                    All snippets <span>4</span>
-                  </div>
-                  <div className="sidebar-item">
-                    <Icon name="star" />
-                    Favorites <span>2</span>
-                  </div>
+                  {filters.slice(0, 2).map((item) => (
+                    <SidebarButton key={item.id} item={item} active={filter} onChoose={chooseFilter} />
+                  ))}
                   <div className="sidebar-label">YOUR COLLECTIONS</div>
-                  <div className="sidebar-item">
-                    <Icon name="folder" />
-                    Everyday
-                  </div>
-                  <div className="sidebar-item">
-                    <Icon name="folder" />
-                    Work stuff
-                  </div>
+                  {filters.slice(2).map((item) => (
+                    <SidebarButton key={item.id} item={item} active={filter} onChoose={chooseFilter} />
+                  ))}
                   <div className="sidebar-label">ALWAYS WITH YOU</div>
-                  <div className="sidebar-item">
+                  <a className="sidebar-item" href="#clipboard">
                     <Icon name="copy" />
                     Clipboard history
-                  </div>
+                  </a>
                   <div className="sidebar-bottom">
                     <span className="status-dot" />
                     All good. Keep creating.
@@ -151,7 +260,10 @@ export function SnippetPlayground() {
                 </aside>
                 <div className="snippet-list">
                   <div className="list-heading">
-                    Everyday words<span>4 snippets</span>
+                    {heading}
+                    <span>
+                      {visible.length} {visible.length === 1 ? "snippet" : "snippets"}
+                    </span>
                   </div>
                   <div
                     className="snippet-tabs"
@@ -159,7 +271,7 @@ export function SnippetPlayground() {
                     aria-label="Example snippets"
                     aria-orientation="vertical"
                   >
-                    {snippets.map((snippet, index) => (
+                    {visible.map((snippet, index) => (
                       <button
                         key={snippet.id}
                         ref={(node) => {
@@ -171,11 +283,11 @@ export function SnippetPlayground() {
                         aria-selected={selected.id === snippet.id}
                         aria-controls="snippet-panel"
                         tabIndex={selected.id === snippet.id ? 0 : -1}
-                        onClick={() => select(index)}
+                        onClick={() => select(snippet)}
                         onKeyDown={(event) => navigateTabs(event, index)}
                       >
                         <span className="snippet-emoji" aria-hidden="true">
-                          {snippet.symbol}
+                          <Icon name={snippet.icon} />
                         </span>
                         <span>
                           <strong>{snippet.name}</strong>
@@ -195,31 +307,54 @@ export function SnippetPlayground() {
                   id="snippet-panel"
                   role="tabpanel"
                   aria-labelledby={`tab-${selected.id}`}
+                  ref={panelRef}
                 >
                   <div className="editor-heading">
-                    <span>SNIPPET PREVIEW</span>
-                    <Icon name="star" />
+                    <span>TRY IT</span>
+                    <Icon name="star" className={selected.favorite ? "is-favorite" : ""} />
                   </div>
-                  <h2>{selected.name}</h2>
+                  <p className="editor-title">{selected.name}</p>
                   <div className="trigger-line">
-                    When I type <code>{selected.trigger}</code>
-                    <span>↵</span>
+                    Type
+                    <button
+                      type="button"
+                      className="trigger-chip"
+                      aria-label={`Watch ${selected.trigger} expand`}
+                      onClick={() => {
+                        touched.current = true;
+                        play(selected, false);
+                      }}
+                    >
+                      <code>{selected.trigger}</code>
+                      <Icon name="play" />
+                    </button>
+                    or press it to watch
                   </div>
-                  <div className="snippet-content">{selected.text}</div>
                   <div className="demo-input-wrap">
-                    <label htmlFor="demo-input">
-                      TRY IT HERE <span>Type {selected.trigger} below</span>
+                    <label className="visually-hidden" htmlFor="demo-input">
+                      Try the {selected.trigger} shortcut
                     </label>
-                    <textarea
+                    <div className={`demo-field ${expansion ? "expanded" : ""}`}>
+                      <textarea
                       ref={inputRef}
                       id="demo-input"
-                      rows={2}
-                      placeholder={selected.trigger}
+                      rows={5}
+                      placeholder={`Type ${selected.trigger} here…`}
                       spellCheck={false}
                       aria-describedby="demo-status"
                       value={value}
-                      className={expansion ? "expanded" : ""}
+                      className={expansion ? "expanded" : playing ? "playing" : ""}
+                      onFocus={() => {
+                        touched.current = true;
+                        // Reads the ref because this also fires during finish(), before React
+                        // has re-rendered, when the playing state would still be stale.
+                        if (timers.current.length > 0 || autoplayed.current) reset();
+                      }}
                       onChange={(event) => {
+                        touched.current = true;
+                        clearTimers();
+                        setPlaying(false);
+                        autoplayed.current = false;
                         if (
                           event.nativeEvent instanceof InputEvent &&
                           event.nativeEvent.isComposing
@@ -241,6 +376,7 @@ export function SnippetPlayground() {
                           return;
                         event.preventDefault();
                         setValue(expansion.previous);
+                        setSaved((total) => Math.max(0, total - expansion.saved));
                         const caret = expansion.caret;
                         requestAnimationFrame(() =>
                           inputRef.current?.setSelectionRange(caret, caret),
@@ -249,17 +385,20 @@ export function SnippetPlayground() {
                         setMessage("Undone. Your shortcut is back.");
                       }}
                     />
+                    </div>
                     <div className="demo-bottom">
                       <output id="demo-status">{message}</output>
                       <button
                         type="button"
                         aria-label="Reset snippet demo"
                         onClick={() => {
+                          touched.current = true;
                           reset();
-                          inputRef.current?.focus();
+                          if (hasKeyboard()) inputRef.current?.focus();
                         }}
                       >
-                        Reset ↺
+                        Reset
+                        <Icon name="reset" />
                       </button>
                     </div>
                   </div>
@@ -271,11 +410,32 @@ export function SnippetPlayground() {
         </div>
       </div>
       <p className="demo-caption">
-        <span className="tiny-spark" aria-hidden="true">
-          ✳
-        </span>
-        A little interactive preview. Pick a snippet, then type its shortcut.
+        <Icon name="sparkle" className="tiny-spark" />
+        Just a practice run. On your Mac, this works in every app that accepts text.
       </p>
     </div>
+  );
+}
+
+function SidebarButton({
+  item,
+  active,
+  onChoose,
+}: {
+  item: (typeof filters)[number];
+  active: Filter;
+  onChoose: (filter: Filter) => void;
+}) {
+  const count = snippets.filter((snippet) => inFilter(snippet, item.id)).length;
+  return (
+    <button
+      type="button"
+      className={`sidebar-item ${active === item.id ? "selected" : ""}`}
+      aria-pressed={active === item.id}
+      onClick={() => onChoose(item.id)}
+    >
+      <Icon name={item.icon} />
+      {item.label} <span>{count}</span>
+    </button>
   );
 }

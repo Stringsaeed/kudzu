@@ -1,0 +1,136 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { site } from "@/lib/site";
+
+const description =
+  "Add dates, clipboard contents, fill-in fields, dropdowns, and nested snippets to your Kudzu shortcuts.";
+
+export const metadata: Metadata = {
+  title: "Template guide",
+  description,
+  alternates: { canonical: "/docs/templates" },
+};
+
+const tags = [
+  {
+    tag: "{{date}}",
+    does: "Today’s date, as 2026-11-06 by default.",
+    example: '{{date format="MMMM d, yyyy" offset="+1w"}}',
+  },
+  {
+    tag: "{{time}}",
+    does: "The current time, as 14:30 by default. Takes the same options as date.",
+    example: '{{time format="h:mm a"}}',
+  },
+  {
+    tag: "{{clipboard}}",
+    does: "Whatever you last copied, as plain text.",
+    example: "{{clipboard trim=true}}",
+  },
+  {
+    tag: "{{cursor}}",
+    does: "Where your caret lands after the text is inserted.",
+    example: "Hi {{cursor}},",
+  },
+  {
+    tag: "{{field}}",
+    does: "A text box that appears before inserting. Repeat a name to reuse its value.",
+    example: '{{field name="Client" default="there"}}',
+  },
+  {
+    tag: "{{choice}}",
+    does: "A dropdown that appears before inserting.",
+    example: '{{choice name="Tone" options="Warm|Direct|Brief"}}',
+  },
+];
+
+export default function TemplatesPage() {
+  return (
+    <main id="main" className="page wrap docs-layout">
+      <nav className="docs-nav" aria-label="Documentation">
+        <Link href="/docs">Getting started</Link>
+        <Link href="/docs/templates" aria-current="page">
+          Template guide
+        </Link>
+      </nav>
+      <div>
+        <header className="page-heading">
+          <span className="eyebrow">DOCS</span>
+          <h1>Template guide.</h1>
+          <p>{description}</p>
+        </header>
+        <div className="prose">
+          <p>
+            In the editor, type <kbd>/</kbd> or use <strong>Insert</strong> to add a variable, then
+            click its chip to configure it with a live example. You never have to write these by
+            hand. Here’s the form they take, for when you want to.
+          </p>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Tag</th>
+                  <th scope="col">What it does</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tags.map((item) => (
+                  <tr key={item.tag}>
+                    <th scope="row">
+                      <code>{item.tag}</code>
+                    </th>
+                    <td>
+                      {item.does}
+                      <code className="tag-example">{item.example}</code>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <h2>Dates and times</h2>
+          <p>
+            <code>format</code> takes an ICU pattern, such as <code>yyyy-MM-dd</code> or{" "}
+            <code>EEEE, MMMM d</code>. <code>offset</code> moves the date: <code>+3d</code>,{" "}
+            <code>-1w</code>, <code>+2m</code>, <code>+1y</code>, <code>-4h</code>, or{" "}
+            <code>+30min</code>. You can combine them, as in <code>+1w2d</code>.{" "}
+            <code>locale</code> sets the language, such as <code>en_US</code>.
+          </p>
+
+          <h2>Forms</h2>
+          <p>
+            A snippet with a <code>field</code> or <code>choice</code> shows a small panel near your
+            caret with a live preview. <kbd>Tab</kbd> moves between fields, <kbd>↵</kbd> inserts, and{" "}
+            <kbd>Esc</kbd> cancels and leaves your trigger as typed. Fields remember their last
+            values.
+          </p>
+
+          <h2>Nested snippets</h2>
+          <p>
+            Choose another snippet from <strong>Insert</strong> to include it, so one signature can
+            live inside many replies. Update it once and it changes everywhere. Nesting goes up to
+            eight levels, and Kudzu handles loops safely.
+          </p>
+
+          <h2>Formatting and images</h2>
+          <p>
+            Choose <strong>Formatted</strong> above the editor for bold, italic, underline, links,
+            lists, and images. Apps that accept rich text get the formatting, and others get plain
+            text.
+          </p>
+
+          <h2>Writing literal braces</h2>
+          <p>
+            To insert the text <code>{"{{date}}"}</code> itself, write <code>{"\\{{date}}"}</code>.
+          </p>
+
+          <p>
+            Need every detail? Read the{" "}
+            <a href={site.templateSyntax}>full template syntax reference</a>.
+          </p>
+        </div>
+      </div>
+    </main>
+  );
+}

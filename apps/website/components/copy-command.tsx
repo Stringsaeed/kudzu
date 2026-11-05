@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { site } from "@/lib/site";
 import { Icon } from "./icons";
 
 export function CopyCommand() {
   const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
   return (
     <>
       <div className="brew-install">
@@ -17,12 +19,14 @@ export function CopyCommand() {
             try {
               await navigator.clipboard.writeText(site.brew);
               setStatus("copied");
+              window.clearTimeout(timer.current);
+              timer.current = window.setTimeout(() => setStatus("idle"), 2500);
             } catch {
               setStatus("failed");
             }
           }}
         >
-          <Icon name={status === "copied" ? "check" : "copy"} />
+          <Icon key={status} name={status === "copied" ? "check" : "copy"} />
         </button>
       </div>
       <output className="copy-status">
