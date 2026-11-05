@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Icon } from "./icons";
+import { GitHubLogo } from "./github-logo";
 
 export function SiteFooter() {
   return (
@@ -12,7 +13,7 @@ export function SiteFooter() {
         <span>For things worth repeating.</span>
         <div>
           <a className="source-link" href="https://github.com/Stringsaeed/kudzu">
-            <Icon name="github" />
+            <GitHubLogo />
             Source code
           </a>
           <a

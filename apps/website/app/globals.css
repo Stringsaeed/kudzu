@@ -2441,6 +2441,18 @@
     width: 14px;
     height: 14px;
   }
+  .github-logo {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    background: light-dark(#24292f, #f0f6fc);
+    mask: url("/assets/apps/github.svg") center / contain no-repeat;
+  }
+  .source-link .github-logo {
+    width: 16px;
+    height: 16px;
+  }
   .footer-star {
     display: none;
   }

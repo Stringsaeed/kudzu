@@ -40,9 +40,6 @@ export function IconDefinitions() {
         <rect x="5" y="10" width="14" height="11" rx="2" />
         <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
       </symbol>
-      <symbol id="i-github" viewBox="0 0 24 24">
-        <path d="M9 21v-4c-4 1-4-2-6-2m12 6v-4c0-1 .4-1.5 1-2 3-.4 5-1.7 5-5 0-1.5-.5-2.5-1.5-3.5.3-1 .3-2-.2-3.5-1.5 0-3 1-3.8 1.5a13 13 0 0 0-7 0C7.5 4 6 3 4.5 3c-.5 1.5-.5 2.5-.2 3.5C3.5 7.5 3 8.5 3 10c0 3.3 2 4.6 5 5 .6.5 1 1 1 2" />
-      </symbol>
       <symbol id="i-command" viewBox="0 0 24 24">
         <path d="M8 8H5a3 3 0 1 1 3-3v14a3 3 0 1 1-3-3h14a3 3 0 1 1-3 3V5a3 3 0 1 1 3 3H8Z" />
       </symbol>
