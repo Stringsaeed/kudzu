@@ -61,6 +61,7 @@ jobs:
       - name: Frontends (types, lint, production builds)
         run: |
           pnpm check
+          pnpm --filter kudzu-website test:deployment
           pnpm build
       - name: Rust (clippy, tests)
         working-directory: apps/desktop/src-tauri

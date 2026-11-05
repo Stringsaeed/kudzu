@@ -39,7 +39,20 @@ The desktop package keeps its own Next.js static-export configuration. Website b
 
 The commands above are tracked in `vercel.json`. Git pushes to feature branches create preview deployments; merging into `main` deploys to `kudzu.site`. The Vercel build runs website lint and type checks before building. No Vercel API token is stored in GitHub Actions.
 
-Vercel's **Skip unaffected projects** setting is enabled. It follows the pnpm dependency graph: website changes and changes to its shared config packages deploy; changes confined to `apps/desktop` are skipped. Relevant lockfile changes and global files outside the workspace packages can also trigger a build. Keep internal workspace dependencies explicit in `package.json` so this detection stays accurate.
+Vercel's **Skip unaffected projects** setting remains enabled. `scripts/ignore-preview.mjs` adds a stricter preview filter, because Vercel otherwise treats files such as release workflows as global changes.
+
+Preview builds run when these inputs change:
+
+- `apps/website/`
+- `packages/oxlint-config/` or `packages/typescript-config/`
+- Root `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml`, or `turbo.json`
+- Root `.npmrc`, `.node-version`, or `.nvmrc`
+
+Desktop-only, release-workflow-only, and general documentation changes skip the preview build. Production builds keep their existing behavior. Vercel may still display a skipped/canceled deployment check; no preview is built in that case.
+
+The filter compares with the last successful preview SHA. For a first preview it fetches enough history to compare the branch with `main`, including earlier commits in the same PR. If history cannot be established, it builds rather than risk dropping a website change. Run `pnpm --filter kudzu-website test:deployment` to verify the behavior against temporary Git repositories and shallow clones. Update the watched paths when introducing a new shared website package.
+
+A project-level inline copy of this filter also covers older branches that do not yet contain the script. Branches with this `vercel.json` use the repository script.
 
 ## Themes and preview assets
 
