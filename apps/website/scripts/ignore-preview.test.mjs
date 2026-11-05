@@ -125,5 +125,31 @@ test("production deployments still build", (t) => {
 
 test("missing comparison history builds rather than silently dropping a preview", (t) => {
   const f = fixture(t);
+  f.git("remote", "add", "origin", join(f.root, "unavailable-remote"));
   assert.equal(f.run({ previous: "0".repeat(40) }).status, 1);
+});
+
+test("supports Vercel checkouts without a configured origin", (t) => {
+  const f = fixture(t);
+  f.commit(".github/workflows/release.yml");
+  const clone = join(f.root, "clone");
+  execFileSync("git", [
+    "clone",
+    "--quiet",
+    "--depth=1",
+    "--branch=feature",
+    pathToFileURL(f.repo).href,
+    clone,
+  ]);
+  execFileSync("git", ["remote", "remove", "origin"], { cwd: clone });
+  execFileSync(
+    "git",
+    [
+      "config",
+      `url.${pathToFileURL(f.repo).href}.insteadOf`,
+      "https://github.com/Stringsaeed/kudzu.git",
+    ],
+    { cwd: clone },
+  );
+  assert.equal(f.run({ cwd: clone, previous: "" }).status, 0);
 });
