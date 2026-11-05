@@ -4,6 +4,7 @@ import { Check, Download, FolderOpen, History, Loader2, RefreshCw, RotateCcw, Sh
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
+import brand from "@/design/brand.json"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -29,7 +30,9 @@ import { openExternal, parseNotes, RELEASES_URL, useSyncStatus, useUpdateState }
 import type { BackupInfo, EspansoDetection, InsertionMethod, ThemePreference } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { PermissionSetup } from "../permissions/permission-setup"
 import { AppIcon } from "../app-icon"
+import { Wordmark } from "../wordmark"
 import { AppPicker } from "../app-picker"
 import { Segmented } from "../segmented"
 import { Shortcut } from "../shortcut"
@@ -67,22 +70,6 @@ function Row({ title, description, children, htmlFor }: { title: string; descrip
       </div>
       <div className="flex shrink-0 items-center gap-2">{children}</div>
     </div>
-  )
-}
-
-function PermissionRow({ title, description, granted, onGrant }: { title: string; description: string; granted: boolean; onGrant: () => void }) {
-  return (
-    <Row title={title} description={description}>
-      {granted ? (
-        <span className="flex items-center gap-1.5 text-xs font-medium text-success">
-          <Check className="size-3.5" /> Granted
-        </span>
-      ) : (
-        <Button size="sm" onClick={onGrant}>
-          Grant access
-        </Button>
-      )}
-    </Row>
   )
 }
 
@@ -181,20 +168,10 @@ function General() {
   return (
     <>
       {(platform === "macos" || platform === "web") && (
-        <Group title="Permissions" description="macOS asks you to allow these once. Kudzu never records what you type.">
-          <PermissionRow
-            title="Input Monitoring"
-            description="Lets Kudzu notice when you type a trigger."
-            granted={status.permissions.inputMonitoring}
-            onGrant={() => void api.requestPermission("inputMonitoring").then(() => api.openSystemSettings("inputMonitoring"))}
-          />
-          <PermissionRow
-            title="Accessibility"
-            description="Lets Kudzu replace the trigger with your text and place forms near the caret."
-            granted={status.permissions.accessibility}
-            onGrant={() => void api.requestPermission("accessibility").then(() => api.openSystemSettings("accessibility"))}
-          />
-        </Group>
+        <section aria-label="Permissions" className="flex flex-col gap-2">
+          <h2 className="px-1 text-[13px] font-semibold">Permissions</h2>
+          <PermissionSetup status={status} />
+        </section>
       )}
       <Group title="Quick search">
         <Row
@@ -676,10 +653,10 @@ function About() {
         {/* eslint-disable-next-line @next/next/no-img-element -- static export */}
         <img src="/icon.png" alt="" width={88} height={88} className="-my-2 drop-shadow-[0_12px_24px_oklch(0.488_0.243_264.376/0.3)]" draggable={false} />
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">Kudzu</h2>
+          <h2><Wordmark variant="small" className="mb-2 w-36 text-foreground" /></h2>
           <p className="text-xs text-muted-foreground">Version {version ?? "…"} · MIT licensed</p>
         </div>
-        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">Type less. Kudzu turns short triggers into the text you write every day — in every app, instantly.</p>
+        <p className="max-w-sm text-sm leading-relaxed text-muted-foreground"><span className="font-medium text-foreground">{brand.tagline}</span><br />{brand.description}</p>
       </div>
 
       <Group title="Updates">

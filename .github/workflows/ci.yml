@@ -36,6 +36,10 @@ jobs:
           workspaces: desktop/src-tauri
 
       - run: pnpm install --frozen-lockfile
+      - name: Design exports
+        run: |
+          python3 scripts/check-design-assets.py
+          python3 -m unittest discover -s scripts/tests -p test_design_assets.py
       - name: Frontend (types, lint, static export)
         run: |
           pnpm exec tsc --noEmit

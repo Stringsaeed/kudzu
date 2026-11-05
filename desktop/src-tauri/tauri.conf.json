@@ -49,7 +49,7 @@
       "dmg"
     ],
     "category": "Productivity",
-    "shortDescription": "A fast, keyboard-first text expander",
+    "shortDescription": "Clipboard history and text shortcuts for your Mac.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -64,21 +64,22 @@
       "signingIdentity": null,
       "dmg": {
         "windowSize": {
-          "width": 560,
-          "height": 360
+          "width": 660,
+          "height": 440
         },
         "appPosition": {
-          "x": 150,
-          "y": 175
+          "x": 170,
+          "y": 220
         },
         "applicationFolderPosition": {
-          "x": 410,
-          "y": 175
-        }
+          "x": 490,
+          "y": 220
+        },
+        "background": "../design/dmg/background.png"
       }
     },
     "createUpdaterArtifacts": true,
-    "copyright": "© 2026 Muhammed Ibrahim"
+    "copyright": "\u00a9 2026 Muhammed Ibrahim"
   },
   "plugins": {
     "updater": {

@@ -427,3 +427,22 @@
   color: var(--faint);
   font-family: var(--app-sans);
 }
+
+/* Permission handoff: celebrate once; never make the system prompt compete for attention. */
+@keyframes permission-confirm {
+  from { opacity: 0; transform: translateY(4px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.permission-success { animation: permission-confirm 240ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .permission-success { animation: none; }
+  .permission-app-icon { transition: none; }
+  .permission-app-icon:hover { transform: none; }
+}
+
+.onboarding-atmosphere {
+  background: radial-gradient(ellipse at 50% 30%, color-mix(in oklch, var(--iris) 7%, transparent), transparent 60%);
+}
+@media (prefers-reduced-motion: reduce) {
+  [aria-label^="Setup:"] .animate-rise { animation: none; }
+}

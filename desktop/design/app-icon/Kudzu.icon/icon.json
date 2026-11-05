@@ -4,14 +4,17 @@
     {
       "layers" : [
         {
+          "blend-mode" : "multiply",
           "glass" : false,
-          "image-name" : "03-sprouting-dot.svg",
-          "name" : "03-sprouting-dot"
-        },
-        {
-          "glass" : false,
-          "image-name" : "02-olive-dot.svg",
-          "name" : "02-olive-dot"
+          "image-name" : "02-echo-k-printed.svg",
+          "name" : "02-echo-k-printed",
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              1.481999999999971,
+              3.599999999999909
+            ]
+          }
         },
         {
           "glass" : false,

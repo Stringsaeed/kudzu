@@ -234,6 +234,8 @@ class MockBackend {
   private state: AppState
   private listeners = new Map<string, Set<Handler>>()
   private mediaUrls = new Map<string, string>()
+  private importPreviewFailed = false
+  private finishPreviewFailed = false
   private clips: ClipEntry[] = []
 
   constructor() {
@@ -247,6 +249,10 @@ class MockBackend {
       status: this.status(settings.paused),
       platform: "web",
     }
+    if (location.pathname.startsWith("/permissions")) this.previewPermission("missing")
+    window.addEventListener("kudzu:preview-permission", (event) => {
+      if (event instanceof CustomEvent && typeof event.detail === "string") this.previewPermission(event.detail)
+    })
     this.clips = location.search.includes("emptyclips") ? [] : seedClips(this.mediaUrls)
     // Copying in the preview records it, like the real watcher.
     document.addEventListener("copy", () => {
@@ -288,8 +294,24 @@ class MockBackend {
     this.emit("kudzu://clipboard", { type: "upsert", entry: structuredClone(entry) })
   }
 
+  private previewPermission(mode: string) {
+    const granted = mode !== "missing" && mode !== "revoked"
+    this.state.status = {
+      ...this.status(mode === "paused"),
+      permissions: { accessibility: granted, inputMonitoring: false },
+      tap: granted && mode !== "restart" ? "active" : "off",
+      canPostEvents: granted && mode !== "restart",
+      canExpand: mode === "allowed",
+      secureInput: mode === "secure",
+      summary: mode === "paused" ? "Paused" : mode === "secure" ? "Secure Input on — expansion blocked" : granted ? "Ready" : "Needs Accessibility",
+    }
+    this.emit("kudzu://status", this.state.status)
+  }
+
   private status(paused: boolean): EngineStatus {
     return {
+      canPostEvents: true,
+      canExpand: !paused,
       paused,
       tap: "active",
       permissions: { accessibility: true, inputMonitoring: true },
@@ -414,6 +436,10 @@ class MockBackend {
       case "update_settings":
       case "set_palette_hotkey": {
         const patch = cmd === "update_settings" ? (a.patch as Partial<Settings>) : { paletteHotkey: a.accelerator as string }
+        if (patch.onboardingCompleted && new URLSearchParams(location.search).get("finish") === "retry" && !this.finishPreviewFailed) {
+          this.finishPreviewFailed = true
+          throw new Error("Preview: settings could not be saved.")
+        }
         this.state.settings = { ...this.state.settings, ...patch }
         this.commitSettings()
         if ("icloudSync" in patch)
@@ -426,6 +452,16 @@ class MockBackend {
         this.commitSettings()
         this.emit("kudzu://status", this.state.status)
         return r(this.state.status)
+      case "permission_context":
+        return r({ kind: new URLSearchParams(location.search).get("kind") === "inputMonitoring" ? "inputMonitoring" : "accessibility", appName: "Kudzu", accessibilityName: "Accessibility" })
+      case "install_permission_icon":
+        return r(false)
+      case "begin_permission":
+      case "stop_permission_guide":
+        return r(undefined)
+      case "restart_permission_app":
+        this.previewPermission("allowed")
+        return r(undefined)
       case "engine_status":
         return r(this.state.status)
       case "render_preview":
@@ -441,7 +477,18 @@ class MockBackend {
       case "app_icon":
         return r(null)
       case "detect_espanso":
-        return r([])
+        return r(new URLSearchParams(location.search).has("espanso") ? [
+          { path: "preview://espanso/work", snippetCount: 3, groupCount: 1 },
+          { path: "preview://espanso/personal", snippetCount: 2, groupCount: 1 },
+        ] : [])
+      case "import_espanso": {
+        if (a.path !== "preview://espanso/work" && a.path !== "preview://espanso/personal") throw new Error("Import is available in the desktop app.")
+        if (a.path.endsWith("personal") && new URLSearchParams(location.search).get("espanso") === "retry" && !this.importPreviewFailed) {
+          this.importPreviewFailed = true
+          throw new Error("Preview: the second source is temporarily unavailable.")
+        }
+        return r({ importedSnippets: a.path.endsWith("work") ? 3 : 2, importedGroups: 1, warnings: [] })
+      }
       case "list_backups":
         return r([
           { path: "/backups/a.json", filename: "kudzu-2026-11-03-daily.json", createdAt: daysAgo(0), reason: "daily" },

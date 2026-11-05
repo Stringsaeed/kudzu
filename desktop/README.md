@@ -1,5 +1,9 @@
 # Kudzu desktop app
 
+**For things worth repeating**
+
+Clipboard history and text shortcuts for your Mac. Shared product copy lives in `design/brand.json`.
+
 The Kudzu app: **Tauri 2 + Next.js 16 (static export) + Tailwind v4 + shadcn/ui**, with the text-expansion engine and all logic in Rust. Dark first, keyboard first.
 
 ```
@@ -40,7 +44,7 @@ A new dev library starts paused, with **⌃⌥⇧Space** for Quick Search instea
 
 `pnpm tauri dev` selects the development variant through the package's Tauri wrapper. Calling `pnpm exec tauri dev` directly bypasses that wrapper and uses the production identity and data. `pnpm tauri build` and `pnpm release:build` retain the production identity.
 
-The browser preview takes a few dev-only query params: `?view=insights`, `?view=clipboard`, `?view=settings:apps`, `?onboarding`, `?light`, `?update` (pretend a new version exists), `/form?demo`, `/clipboard` (the picker), `?clips=5000` (fill clipboard history to its cap) and `?emptyclips`. Copying text in the preview adds it to the mock history.
+The browser preview takes a few dev-only query params: `?view=insights`, `?view=clipboard`, `?view=settings:apps`, `?onboarding` (add `&espanso=retry` for import recovery or `&finish=retry` for a failed completion save), `?light`, `?update` (pretend a new version exists), `/form?demo`, `/clipboard` (the picker), `?clips=5000` (fill clipboard history to its cap) and `?emptyclips`. `/permissions` previews the permission companion with controls for grant, revocation, pause, and Secure Input. Copying text in the preview adds it to the mock history.
 
 ## Release
 
@@ -60,7 +64,7 @@ Releases are cut by merging release-please's "chore: release x.y.z" PR. CI then 
 | **Clipboard history** | Records every copy (text, code, links, colors, images, files and app-specific data) with the time and app it came from, and folds repeats into one item with a copy timeline. Kept for 1 week by default (1 day to 1 year, a custom number of days, or forever), pinned items never expire, and up to 5,000 items are kept. The sidebar's Clipboard section lists History, Pinned and a folder per kind (Text, Images, Links, Files, Code, Colors). Press <kbd>⌃⌥V</kbd> anywhere to search the history and paste into the app you were in. Previews for every kind: images, code with line numbers, colors with HEX/RGB/HSL/OKLCH values and contrast, links, and file lists with Finder icons. Passwords and anything marked concealed or transient are skipped, password managers are excluded, and the history never leaves the Mac. |
 | **Insights** | Expansions, characters and time saved (at a WPM you set), most-used, recently used and never-used snippets. Usage is per device, and typed text is never stored. |
 | **Data** | Import from Espanso (auto-detected) or a Kudzu JSON file, and export to Kudzu JSON or Espanso YAML. A backup is taken daily and before every import or restore; the last 14 are kept and can be restored in one click. |
-| **Shell** | Menu-bar app with status, pause, quick search, "new snippet from selection", open at login, and an optional Dock icon while the window is open. Onboarding walks through permissions (detected live), Espanso import, and a practice field. |
+| **Shell** | Menu-bar app with status, pause, quick search, "new snippet from selection", open at login, and an optional Dock icon while the window is open. Onboarding walks through a guided permission companion (draggable app icon, native Settings animation, and live detection), Espanso import, and a practice preview. See [permission setup](docs/PERMISSIONS.md). |
 
 ## Keyboard
 

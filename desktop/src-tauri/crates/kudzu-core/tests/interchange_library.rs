@@ -529,7 +529,7 @@ mod interchange {
             .iter()
             .find(|s| s.triggers == [SAMPLE_TRIGGER])
             .unwrap();
-        assert_eq!(sample.content, "Kudzu is working! 🌱");
+        assert_eq!(sample.content, "Kudzu is working!");
 
         let out = temp.path().join("exported-espanso");
         let files = coordinator::export_espanso_to_dir(&library, &out).unwrap();

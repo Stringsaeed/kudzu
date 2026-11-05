@@ -68,6 +68,8 @@ interface Store {
 
 const emptyLibrary: Library = { formatVersion: 1, groups: [], snippets: [], usage: [] }
 const defaultStatus: EngineStatus = {
+  canPostEvents: false,
+  canExpand: false,
   paused: false,
   tap: "off",
   permissions: { accessibility: false, inputMonitoring: false },
@@ -132,8 +134,13 @@ export const useStore = create<Store>((set, get) => ({
           const [kind, section] = v.split(":")
           set({ view: (kind === "settings" ? { kind, section } : { kind }) as View })
         }
-        if (new URLSearchParams(location.search).has("onboarding")) set({ settings: { ...s.settings, onboardingCompleted: false } })
-        if (new URLSearchParams(location.search).has("light")) set({ settings: { ...s.settings, theme: "light" } })
+        const params = new URLSearchParams(location.search)
+        if (params.has("onboarding") || params.has("light")) {
+          set({ settings: { ...s.settings,
+            ...(params.has("onboarding") ? { onboardingCompleted: false } : {}),
+            ...(params.has("light") ? { theme: "light" } : {}),
+          } })
+        }
       }
       get().refreshConflicts()
     })

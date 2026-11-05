@@ -18,6 +18,8 @@ pub(crate) struct StatusInputs {
 pub(crate) fn build(inputs: StatusInputs) -> EngineStatus {
     let summary = summary(&inputs);
     EngineStatus {
+        can_post_events: inputs.post_event,
+        can_expand: inputs.tap != TapMode::Off && inputs.post_event && !inputs.paused && !inputs.secure_input,
         paused: inputs.paused,
         tap: inputs.tap,
         permissions: inputs.permissions,
@@ -64,6 +66,23 @@ mod tests {
     #[test]
     fn ready_when_active() {
         assert_eq!(build(inputs()).summary, "Ready");
+    }
+
+    #[test]
+    fn readiness_requires_a_listener_and_permission_to_insert() {
+        assert!(build(inputs()).can_expand);
+        assert!(!build(StatusInputs { tap: TapMode::Off, ..inputs() }).can_expand);
+        let listening_only = build(StatusInputs { tap: TapMode::ListenOnly, post_event: false, ..inputs() });
+        assert!(!listening_only.can_expand);
+        assert!(!listening_only.can_post_events);
+        assert!(build(StatusInputs { tap: TapMode::ListenOnly, ..inputs() }).can_expand);
+    }
+
+    #[test]
+    fn grants_do_not_override_pause_or_secure_input() {
+        assert!(!build(StatusInputs { paused: true, ..inputs() }).can_expand);
+        assert!(!build(StatusInputs { secure_input: true, ..inputs() }).can_expand);
+        assert!(build(StatusInputs { paused: true, ..inputs() }).can_post_events);
     }
 
     #[test]

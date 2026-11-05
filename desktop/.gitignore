@@ -12,3 +12,7 @@ src-tauri/gen/
 
 # Developer ID provisioning profile (iCloud). Supplied by CI from a secret; see RELEASING.md.
 src-tauri/*.provisionprofile
+
+# Local Python helper/test caches
+__pycache__/
+*.py[cod]
