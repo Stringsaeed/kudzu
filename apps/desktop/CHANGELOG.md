@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/Stringsaeed/kudzu/compare/v0.4.0...v0.5.0) (2026-11-05)
+
+
+### Features
+
+* **desktop:** add formatted snippets with embedded images ([3b59ca3](https://github.com/Stringsaeed/kudzu/commit/3b59ca3758a6e7e15fdda10aa1f8db7b8d828c30))
+
+
+### Fixes
+
+* **desktop:** build releases against the macOS 26 SDK ([a8cafe4](https://github.com/Stringsaeed/kudzu/commit/a8cafe4e94d43b4d91c2245b8adecceae14541f4))
+* **desktop:** drag the window from empty toolbar space ([4b03447](https://github.com/Stringsaeed/kudzu/commit/4b03447184575a2ee6553a02a7a73527409e6abe))
+* **desktop:** keep the menu bar running after Cmd-Q ([2853e52](https://github.com/Stringsaeed/kudzu/commit/2853e529edf38c82df56a41a2eadf0d0d1adcd4f))
+
 ## [0.4.0](https://github.com/Stringsaeed/kudzu/compare/v0.3.0...v0.4.0) (2026-11-05)
 
 
