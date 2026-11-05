@@ -29,8 +29,8 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      created: ${{ steps.rp.outputs['desktop--release_created'] }}
-      tag: ${{ steps.rp.outputs['desktop--tag_name'] }}
+      created: ${{ steps.rp.outputs['apps/desktop--release_created'] }}
+      tag: ${{ steps.rp.outputs['apps/desktop--tag_name'] }}
     steps:
       - id: rp
         uses: googleapis/release-please-action@v4
