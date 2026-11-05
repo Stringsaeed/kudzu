@@ -56,7 +56,8 @@ export function Toolbar({ sidebarOpen, onToggleSidebar, onNavigate }: { sidebarO
   }
 
   return (
-    <header data-tauri-drag-region className={`drag flex h-[42px] shrink-0 items-center gap-3 border-b border-hairline pr-4 ${platform === "macos" && !fullscreen ? "pl-[88px]" : "pl-3"}`}>
+    // "deep" so empty space inside the breadcrumbs also drags; Tauri still excludes buttons and links.
+    <header data-tauri-drag-region="deep" className={`drag flex h-[42px] shrink-0 items-center gap-3 border-b border-hairline pr-4 ${platform === "macos" && !fullscreen ? "pl-[88px]" : "pl-3"}`}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" className="no-drag text-muted-foreground" onClick={onToggleSidebar} aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"} aria-expanded={sidebarOpen} aria-controls="main-sidebar">

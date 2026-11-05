@@ -14,7 +14,7 @@ export function Breadcrumbs({ items, label = "Breadcrumb" }: { items: Breadcrumb
   const visible = collapsed ? [items[0], ...items.slice(-2)] : items
 
   return (
-    <Breadcrumb aria-label={label} className="no-drag min-w-0">
+    <Breadcrumb aria-label={label} className="min-w-0">
       <BreadcrumbList>
         {visible.map((item, index) => (
           <Fragment key={index}>
