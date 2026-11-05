@@ -155,7 +155,7 @@ fn merge_json<T: Serialize>(value: &T, base: Option<&str>, known: &[&str]) -> St
 }
 
 const SNIPPET_KEYS: &[&str] = &[
-    "id", "name", "triggers", "content", "groupID", "fireMode", "caseMode", "insertion", "rule", "isFavorite",
+    "id", "name", "triggers", "content", "formatting", "groupID", "fireMode", "caseMode", "insertion", "rule", "isFavorite",
     "isEnabled", "createdAt", "updatedAt",
 ];
 const GROUP_KEYS: &[&str] = &["id", "name", "parentID", "sortIndex", "isEnabled", "insertion", "rule"];

@@ -203,11 +203,16 @@ impl Engine {
 
     /// Renders a snippet to plain text (no cursor tag, no form → defaults) for "copy" actions.
     pub fn render_snippet(&self, snippet_id: Uuid, form_values: HashMap<String, String>) -> Option<String> {
+        self.render_snippet_formatted(snippet_id, form_values).map(|r| r.text)
+    }
+
+    /// Renders both clipboard flavors for explicit copy actions.
+    pub fn render_snippet_formatted(&self, snippet_id: Uuid, form_values: HashMap<String, String>) -> Option<kudzu_core::template::RenderResult> {
         let library = self.imp.library();
         let snippet = library.snippets.get(&snippet_id)?;
         let values = library::with_defaults(&library.form_fields(snippet), form_values);
         let clipboard = if library.uses_clipboard(snippet) { system::read_clipboard() } else { None };
-        Some(library.render(snippet, library::now(), clipboard, values).text)
+        Some(library.render(snippet, library::now(), clipboard, values))
     }
 }
 

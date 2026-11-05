@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "oxlint .",
     "typecheck": "next typegen && tsc --noEmit",
+    "test:formatting": "node --test scripts/tests/formatting.test.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --workspace",
     "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --workspace --all-targets -- -D warnings",
     "tauri": "scripts/tauri.sh",

@@ -53,7 +53,7 @@ export async function runExport(kind: "json" | "espanso") {
       const dir = await dialog.open({ directory: true, title: "Choose a folder for the Espanso match files" })
       if (typeof dir !== "string") return
       const n = await api.exportEspanso(dir)
-      toast.success(`Exported ${n} Espanso file${n === 1 ? "" : "s"}`, { description: dir })
+      toast.success(`Exported ${n} Espanso file${n === 1 ? "" : "s"}`, { description: `${dir} · Formatting and images export as plain text. Use Kudzu JSON to keep them.` })
     }
   } catch (e) {
     toast.error("Export failed", { description: String(e) })

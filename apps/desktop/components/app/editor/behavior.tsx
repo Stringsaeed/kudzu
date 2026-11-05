@@ -95,7 +95,11 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
         <Row
           title="Insert by"
           description={
-            snippet.insertion
+            snippet.formatting?.source === snippet.content
+              ? (snippet.insertion ?? inheritedInsertion?.value) === "type"
+                ? "Types plain text. Images use their text alternatives."
+                : "Pastes formatting and images. Apps that need plain text use the text alternative."
+              : snippet.insertion
               ? snippet.insertion === "type"
                 ? "Types the text key by key. Most compatible."
                 : snippet.insertion === "paste"

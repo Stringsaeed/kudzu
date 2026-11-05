@@ -136,3 +136,32 @@ pub(crate) fn selected_text() -> Option<String> {
     let value = attribute(&element, "AXSelectedText")?;
     value.downcast::<CFString>().map(|s| s.to_string()).filter(|s| !s.is_empty())
 }
+
+pub(crate) struct CaretSnapshot {
+    element: CFType,
+    location: usize,
+}
+
+#[repr(C)]
+#[derive(Default)]
+struct TextRange { location: isize, length: isize }
+
+fn collapsed_offset(element: &CFType) -> Option<usize> {
+    let range = ax_value::<TextRange>(&attribute(element, "AXSelectedTextRange")?, 4)?;
+    (range.length == 0).then(|| usize::try_from(range.location).ok()).flatten()
+}
+
+/// Only offsets are read; the user's surrounding text is never captured.
+pub(crate) fn caret_snapshot() -> Option<CaretSnapshot> {
+    let element = focused_element()?;
+    let location = collapsed_offset(&element)?;
+    Some(CaretSnapshot { element, location })
+}
+
+impl CaretSnapshot {
+    pub(crate) fn inserted_utf16(&self) -> Option<usize> {
+        let focused = focused_element()?;
+        if focused != self.element { return None; }
+        collapsed_offset(&focused)?.checked_sub(self.location)
+    }
+}

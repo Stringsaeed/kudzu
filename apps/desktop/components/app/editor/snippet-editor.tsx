@@ -36,7 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDebounced } from "@/hooks/use-debounced"
-import { renderPreview } from "@/lib/backend"
+import { copyPreview, renderPreview } from "@/lib/backend"
 import { buildTree, flatten, groupPath, isGroupEnabled } from "@/lib/groups"
 import { keyLabels } from "@/lib/keys"
 import { relativeTime } from "@/lib/stats"
@@ -45,6 +45,7 @@ import { analyze, buildTag, tokenize, type TagToken } from "@/lib/template"
 import type { RenderResult, Snippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { FormattedText } from "../formatted-text"
 import { Shortcut } from "../shortcut"
 import { BehaviorSection } from "./behavior"
 import { ChipEditor, InsertMenu, type InsertChoice } from "./tag-tools"
@@ -96,7 +97,8 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
 
   const update = useCallback(
     (patch: Partial<Snippet>) => {
-      setDraft((d) => ({ ...d, ...patch }))
+      latest.current = { ...latest.current, ...patch }
+      setDraft(latest.current)
       dirty.current = true
       setSaved("saving")
       clearTimeout(timer.current)
@@ -128,6 +130,8 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
 
   const snippetName = useCallback((id: string) => library.snippets.find((s) => s.id === id)?.name || undefined, [library.snippets])
   const resolve = useCallback((id: string) => library.snippets.find((s) => s.id === id)?.content, [library.snippets])
+
+  const resolveFormatting = useCallback((id: string) => library.snippets.find((s) => s.id === id)?.formatting, [library.snippets])
 
   // Tag tools
   const [menu, setMenu] = useState<{ rect: DOMRect; slashAt: number | null } | null>(null)
@@ -164,15 +168,15 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
   }, [myConflicts, snippet.id])
 
   // Preview
-  const debouncedContent = useDebounced(draft.content, 120)
+  const debouncedDraft = useDebounced(draft, 120)
   const [preview, setPreview] = useState<RenderResult | null>(null)
   useEffect(() => {
     let live = true
-    renderPreview(debouncedContent, snippet.id, {}, resolve).then((r) => live && setPreview(r))
+    renderPreview(debouncedDraft.content, snippet.id, {}, resolve, debouncedDraft.formatting, resolveFormatting).then((r) => live && setPreview(r))
     return () => {
       live = false
     }
-  }, [debouncedContent, snippet.id, resolve])
+  }, [debouncedDraft.content, debouncedDraft.formatting, snippet.id, resolve, resolveFormatting])
   const facts = useMemo(() => analyze(draft.content), [draft.content])
 
   const groups = library.groups
@@ -181,9 +185,10 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
   const groupDisabled = !isGroupEnabled(groups, draft.groupID)
 
   const copyText = async () => {
-    if (!preview) return
-    await navigator.clipboard.writeText(preview.text)
-    toast.success("Copied expanded text")
+    try {
+      await copyPreview(draft.content, snippet.id, draft.formatting, resolve, resolveFormatting)
+      toast.success("Copied expanded snippet")
+    } catch (e) { toast.error("Couldn't copy snippet", { description: String(e) }) }
   }
 
   return (
@@ -262,7 +267,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuItem onSelect={copyText}>
-                <Clipboard /> Copy expanded text
+                <Clipboard /> Copy expanded snippet
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => duplicate(snippet.id)}>
                 <Copy /> Duplicate <DropdownMenuShortcut>{keyLabels("mod+d").join("")}</DropdownMenuShortcut>
@@ -387,7 +392,9 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
               <TemplateEditor
                 ref={editorRef}
                 value={draft.content}
-                onChange={(content) => update({ content })}
+                allowFormatting
+                formatting={draft.formatting}
+                onChange={(content, spans) => update({ content, formatting: spans ? { source: content, spans } : undefined })}
                 snippetName={snippetName}
                 onChipClick={({ tag, rect }) => setChip({ tag, rect, from: tag.from, to: tag.to })}
                 onSlash={({ pos, rect }) => setMenu({ rect, slashAt: pos })}
@@ -441,7 +448,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
             </div>
             <div className="selectable relative min-h-12 rounded-xl bg-foreground/[0.025] px-4 py-3 text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-well">
               {preview && preview.text ? (
-                <PreviewText result={preview} />
+                <FormattedText result={preview} />
               ) : (
                 <span className="text-faint">Nothing to show yet.</span>
               )}
@@ -471,18 +478,6 @@ function FavoriteStar({ on }: { on: boolean }) {
     setBurst(on)
   }
   return <Star className={cn(on && "fill-current", burst && "animate-star")} />
-}
-
-function PreviewText({ result }: { result: RenderResult }) {
-  const { text, cursorOffset } = result
-  if (cursorOffset == null) return <>{text}</>
-  return (
-    <>
-      {text.slice(0, cursorOffset)}
-      <span aria-label="cursor" className="relative mx-px inline-block h-[1.1em] w-[2px] translate-y-[3px] animate-pulse rounded-full bg-iris" />
-      {text.slice(cursorOffset)}
-    </>
-  )
 }
 
 export function EditorEmpty({ onNew }: { onNew: () => void }) {

@@ -5,6 +5,7 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core"
 import { listen as tauriListen, type UnlistenFn } from "@tauri-apps/api/event"
 
+import { formattedHtml } from "./formatting"
 import { renderLocal } from "./render-local"
 import { mockBackend } from "./mock"
 import type {
@@ -16,6 +17,7 @@ import type {
   EngineStatus,
   EspansoDetection,
   FormRequest,
+  Formatting,
   Group,
   ImportSummary,
   Library,
@@ -104,8 +106,10 @@ export const api = {
   engineStatus: () => call<EngineStatus>("engine_status"),
 
   // Templates
-  renderPreview: (content: string, snippetId: string | null, formValues: Record<string, string>) =>
-    call<RenderResult>("render_preview", { content, snippetId, formValues }),
+  renderPreview: (content: string, snippetId: string | null, formValues: Record<string, string>, formatting?: Formatting) =>
+    call<RenderResult>("render_preview", { content, snippetId, formValues, formatting: formatting ?? null }),
+  copyPreview: (content: string, snippetId: string | null, formatting?: Formatting) =>
+    call<void>("copy_preview", { content, snippetId, formatting: formatting ?? null }),
 
   // Apps
   listApps: () => call<AppInfo[]>("list_apps"),
@@ -182,15 +186,28 @@ export async function renderPreview(
   snippetId: string | null,
   formValues: Record<string, string>,
   resolve: (id: string) => string | undefined,
+  formatting?: Formatting,
+  resolveFormatting?: (id: string) => Formatting | undefined,
 ): Promise<RenderResult> {
   if (isTauri()) {
     try {
-      return await api.renderPreview(content, snippetId, formValues)
+      return await api.renderPreview(content, snippetId, formValues, formatting)
     } catch {
       /* fall through to local */
     }
   }
-  return renderLocal(content, { formValues, resolve, clipboard: "clipboard text" })
+  return renderLocal(content, { formValues, resolve, formatting, resolveFormatting, clipboard: "clipboard text" })
 }
 
 export type { Library }
+
+export async function copyPreview(content: string, snippetId: string, formatting: Formatting | undefined, resolve: (id: string) => string | undefined, resolveFormatting?: (id: string) => Formatting | undefined) {
+  if (isTauri()) return api.copyPreview(content, snippetId, formatting)
+  const result = renderLocal(content, { formatting, resolve, resolveFormatting, clipboard: "clipboard text" })
+  if (result.formatting) {
+    await navigator.clipboard.write([new ClipboardItem({
+      "text/plain": new Blob([result.text], { type: "text/plain" }),
+      "text/html": new Blob([formattedHtml(result.text, result.formatting)], { type: "text/html" }),
+    })])
+  } else await navigator.clipboard.writeText(result.text)
+}

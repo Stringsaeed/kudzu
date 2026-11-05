@@ -11,11 +11,16 @@ export interface AppRule {
   insertion?: InsertionMethod
 }
 
+export type FormatStyle = { kind: "bold" | "italic" | "underline" } | { kind: "link"; url: string } | { kind: "image"; dataUrl: string; width: number }
+export interface FormatSpan { start: number; end: number; style: FormatStyle }
+export interface Formatting { source: string; spans: FormatSpan[] }
+
 export interface Snippet {
   id: string
   name: string
   triggers: string[]
   content: string
+  formatting?: Formatting
   groupID?: string
   fireMode: FireMode
   caseMode: CaseMode
@@ -209,6 +214,7 @@ export interface Diagnostic {
 
 export interface RenderResult {
   text: string
+  formatting?: FormatSpan[] | null
   cursorOffset?: number | null
   diagnostics: Diagnostic[]
 }

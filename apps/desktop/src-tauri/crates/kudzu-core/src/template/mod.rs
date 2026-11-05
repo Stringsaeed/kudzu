@@ -133,6 +133,8 @@ pub struct RenderContext<'a> {
     pub form_values: HashMap<String, String>,
     /// Resolves a snippet ID to its template **source**.
     pub resolve_snippet: &'a dyn Fn(Uuid) -> Option<String>,
+    /// Optional rich-source resolver. A plain root always renders nested snippets as plain text.
+    pub resolve_formatting: Option<&'a dyn Fn(Uuid) -> Option<crate::formatting::Formatting>>,
     /// The snippet being rendered; referencing it is a cycle even at the top level.
     pub root_snippet_id: Option<Uuid>,
 }
@@ -142,6 +144,8 @@ pub struct RenderContext<'a> {
 #[serde(rename_all = "camelCase")]
 pub struct RenderResult {
     pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub formatting: Option<Vec<crate::formatting::FormatSpan>>,
     /// Caret offset in UTF-16 code units from the start of `text`, if a root `{{cursor}}` exists.
     pub cursor_offset: Option<usize>,
     pub diagnostics: Vec<Diagnostic>,
@@ -222,7 +226,12 @@ pub fn split_options(source: &str) -> Vec<String> {
 
 /// Renders `source` with at most eight nested snippet levels.
 pub fn render(source: &str, context: &RenderContext<'_>) -> RenderResult {
-    render::render(source, context)
+    render::render(source, None, context)
+}
+
+/// Renders formatting only when it belongs to this exact template source.
+pub fn render_formatted(source: &str, formatting: Option<&crate::formatting::Formatting>, context: &RenderContext<'_>) -> RenderResult {
+    render::render(source, formatting.filter(|f| f.source == source), context)
 }
 
 /// Analyzes recognized tags of one source; the first definition of each form name wins.

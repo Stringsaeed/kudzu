@@ -68,6 +68,37 @@ Releases are cut by merging release-please's "chore: release x.y.z" PR. CI then 
 | **Data** | Import from Espanso (auto-detected) or a Kudzu JSON file, and export to Kudzu JSON or Espanso YAML. A backup is taken daily and before every import or restore; the last 14 are kept and can be restored in one click. |
 | **Shell** | Menu-bar app with status, pause, quick search, "new snippet from selection", open at login, and an optional Dock icon while the window is open. Onboarding walks through a guided permission companion (draggable app icon, native Settings animation, and live detection), Espanso import, and a practice preview. See [permission setup](docs/PERMISSIONS.md). |
 
+## Formatted snippets
+
+Choose **Formatted** in the **Plain text / Formatted** selector above the content editor. Select text to apply
+bold, italic, underline, or a link. The toolbar also adds bulleted and numbered lines; their
+markers remain visible in plain-text apps. **⌘B**, **⌘I**, and **⌘U** format a selection.
+Template chips still work, including styling the value of a fill-in field.
+
+Use **Image** to embed a PNG, JPEG, or WebP image, choose its display width, and give it
+a text alternative. Images are converted to compact PNGs, with a maximum dimension of 512
+pixels and up to 144 KiB of image data per image (384 KiB per snippet). They are stored inside
+the snippet, so they work offline and travel with backups, Kudzu JSON exports, and iCloud sync.
+Select an image and use **Remove formatting** to replace it with its text alternative, or
+Backspace to delete it. Formatting changes and image deletion can be undone in the editor.
+
+Formatted snippets paste HTML and plain text together. Apps choose the format they support;
+an explicit **Typing** insertion rule uses plain text. Image alternatives appear as `[Label]`
+in plain text. A formatted snippet also preserves formatting and images from nested snippets;
+a plain-text snippet uses their plain-text versions.
+
+The editor, quick-search palette, and fill-in forms preview formatting and images. JSON export
+preserves them; Espanso export currently writes the plain-text template. Choose **Plain text**
+in the format selector to remove formatting and retain image alternatives; undo restores it.
+
+Image pastes use the target app's reported caret movement to distinguish real attachments from
+plain-text alternatives. If the app does not report a matching result, Kudzu skips automatic
+cursor repositioning and its immediate Backspace-to-trigger undo for that expansion. Normal
+editing and the target app's own undo remain available.
+
+Run `pnpm test:formatting` for editor-state, rendering, and native macOS HTML-import checks.
+The native check uses AppKit without changing the system clipboard or opening user documents.
+
 ## Keyboard
 
 Every action has a shortcut. <kbd>⌘K</kbd> opens the command menu and <kbd>⌘/</kbd> shows the cheat sheet.

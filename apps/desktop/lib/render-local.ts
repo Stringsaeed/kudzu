@@ -1,8 +1,9 @@
 // A small JavaScript renderer used only when the Rust backend isn't available (browser
 // preview / design work). The app itself renders through kudzu-core for exact results.
 
+import { literalPositions, sourceSpans } from "./formatting"
 import { splitOptions, tokenize } from "./template"
-import type { RenderResult } from "./types"
+import type { FormatSpan, Formatting, RenderResult } from "./types"
 
 const pad = (n: number, w = 2) => String(n).padStart(w, "0")
 
@@ -104,6 +105,9 @@ export function formatIcu(date: Date, pattern: string, locale = navigator.langua
 export function renderLocal(
   source: string,
   opts: {
+    formatting?: Formatting
+    resolveFormatting?: (id: string) => Formatting | undefined
+    rich?: boolean
     formValues?: Record<string, string>
     clipboard?: string
     resolve?: (id: string) => string | undefined
@@ -114,13 +118,21 @@ export function renderLocal(
   const now = new Date()
   let text = ""
   let cursorOffset: number | null = null
+  const spans = sourceSpans(source, opts.formatting)
+  const rich = opts.rich ?? spans !== null
+  const nestedSpans: FormatSpan[] = []
+  const positions = new Map<number, number>()
   for (const t of tokenize(source)) {
+    positions.set(t.from, text.length)
     if (t.kind === "text") {
+      if (spans) literalPositions(source.slice(t.from, t.to), t.from, text.length, positions)
       text += t.text
+      positions.set(t.to, text.length)
       continue
     }
     if (t.verbatim) {
       text += t.source
+      positions.set(t.to, text.length)
       continue
     }
     const a = t.attrs
@@ -147,7 +159,9 @@ export function renderLocal(
         const path = opts.path ?? []
         const nested = opts.resolve?.(id)
         if (nested !== undefined && depth < 8 && !path.includes(id)) {
-          text += renderLocal(nested, { ...opts, depth: depth + 1, path: [...path, id] }).text
+          const result = renderLocal(nested, { ...opts, rich, formatting: rich ? opts.resolveFormatting?.(id) : undefined, depth: depth + 1, path: [...path, id] })
+          nestedSpans.push(...(result.formatting ?? []).map((s) => ({ ...s, start: s.start + text.length, end: s.end + text.length })))
+          text += result.text
         }
         break
       }
@@ -159,6 +173,13 @@ export function renderLocal(
           opts.formValues?.[a.name as string] ?? (a.default as string) ?? splitOptions((a.options as string) ?? "")[0] ?? ""
         break
     }
+    positions.set(t.to, text.length)
   }
-  return { text, cursorOffset, diagnostics: [] }
+  const ownSpans = spans?.flatMap((span) => {
+    const start = positions.get(span.start)
+    const end = positions.get(span.end)
+    return start !== undefined && end !== undefined && start < end ? [{ ...span, start, end }] : []
+  })
+  const formatting = rich ? [...nestedSpans, ...(ownSpans ?? [])] : undefined
+  return { text, cursorOffset, formatting, diagnostics: [] }
 }

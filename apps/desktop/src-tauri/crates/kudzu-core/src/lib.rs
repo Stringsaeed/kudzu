@@ -7,6 +7,7 @@
 //! - [`clipboard`]: clipboard history model: classification, timings, retention, blobs.
 
 pub mod clipboard;
+pub mod formatting;
 pub mod interchange;
 pub mod matching;
 pub mod sync;

@@ -715,14 +715,14 @@ impl Imp {
     }
 
     /// Delivers text by typing or pasting.
-    fn deliver(&self, text: &str, method: InsertionMethod) -> Result<(), InsertError> {
+    fn deliver(&self, text: &str, html: Option<&str>, method: InsertionMethod) -> Result<(), InsertError> {
         if text.is_empty() {
             return Ok(());
         }
-        if plan::should_type(method, text) {
+        if plan::should_type(method, text) && (html.is_none() || method == InsertionMethod::Type) {
             keys::type_text(text)?;
         } else {
-            pasteboard::paste_text(text)?;
+            pasteboard::paste_text(text, html)?;
         }
         Ok(())
     }
@@ -738,9 +738,22 @@ impl Imp {
     ) -> Result<(), InsertError> {
         let text = case_propagation::apply(trigger.case_style, &rendered.text);
         let offset = rendered.cursor_offset.map(|o| plan::cased_cursor_offset(trigger.case_style, &rendered.text, o));
-        let plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
+        let spans = rendered.formatting.as_ref().map(|spans| plan::cased_formatting(trigger.case_style, &rendered.text, spans));
+        let html = spans.as_ref().map(|spans| kudzu_core::formatting::html(&text, spans));
+        let has_images = trigger.insertion != InsertionMethod::Type && spans.as_ref().is_some_and(|s| s.iter().any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. })));
+        let mut plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
         keys::delete_backward(plan.delete_count)?;
-        self.deliver(&plan.text, trigger.insertion)?;
+        let caret = has_images.then(ax::caret_snapshot).flatten();
+        self.deliver(&plan.text, html.as_deref(), trigger.insertion)?;
+        let mut can_undo = true;
+        if has_images {
+            if let Some((text, cursor)) = plan::image_delivery(&plan.text, spans.as_deref().unwrap_or_default(), offset, caret.and_then(|c| c.inserted_utf16())) {
+                plan = InsertionPlan::new(trigger, text, cursor, mode, swallowed);
+            } else {
+                plan.caret_left_count = 0;
+                can_undo = false;
+            }
+        }
         if !self.is_current(token) || !self.allowed(guard) {
             return Ok(());
         }
@@ -750,10 +763,12 @@ impl Imp {
         keys::move_left(plan.caret_left_count)?;
         {
             let mut core = lock(&self.core);
-            if core.generation == token {
+            if core.generation == token && can_undo {
                 // The undo tracker accounts for the re-emitted separator itself.
                 core.matcher.did_expand(trigger, plan::grapheme_count(&plan.text));
                 core.undo_caret_left = plan.caret_left_count;
+            } else if core.generation == token {
+                core.reset_matcher();
             }
         }
         self.host.expanded(ExpansionEvent {
@@ -959,12 +974,18 @@ impl Imp {
         target: Option<&AppInfo>,
     ) -> Result<(), InsertError> {
         let method = library.insertion_for(snippet, target.map(|t| t.bundle_id.as_str()).filter(|b| !b.is_empty()));
-        self.deliver(&rendered.text, method)?;
+        let html = rendered.formatting.as_ref().map(|spans| kudzu_core::formatting::html(&rendered.text, spans));
+        let has_images = method != InsertionMethod::Type && rendered.formatting.as_ref().is_some_and(|s| s.iter().any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. })));
+        let caret = has_images.then(ax::caret_snapshot).flatten();
+        self.deliver(&rendered.text, html.as_deref(), method)?;
         if !self.is_current(generation) || !self.explicit_allowed() {
             return Ok(());
         }
-        if let Some(offset) = rendered.cursor_offset {
-            keys::move_left(plan::graphemes_after_utf16(&rendered.text, offset))?;
+        let delivered = if has_images {
+            plan::image_delivery(&rendered.text, rendered.formatting.as_deref().unwrap_or_default(), rendered.cursor_offset, caret.and_then(|c| c.inserted_utf16()))
+        } else { Some((rendered.text.clone(), rendered.cursor_offset)) };
+        if let Some((text, Some(offset))) = delivered {
+            keys::move_left(plan::graphemes_after_utf16(&text, offset))?;
         }
         self.host.expanded(ExpansionEvent { snippet_id: snippet.id, chars_saved: plan::chars_saved(&rendered.text, "") });
         Ok(())
