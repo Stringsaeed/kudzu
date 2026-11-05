@@ -52,7 +52,7 @@ Desktop-only, release-workflow-only, and general documentation changes skip the 
 
 The filter compares with the last successful preview SHA. For a first preview it fetches enough history to compare the branch with `main`, including earlier commits in the same PR. If history cannot be established, it builds rather than risk dropping a website change. Run `pnpm --filter kudzu-website test:deployment` to verify the behavior against temporary Git repositories and shallow clones. Update the watched paths when introducing a new shared website package.
 
-The project-level fallback fetches the filter from a pinned, tested commit in this repository, so older branches without the script are covered too. Branches with this `vercel.json` use their repository script.
+The project-level fallback is tracked in `scripts/preview-fallback.sh`. It allows production builds immediately, before any Git fetch, then fetches a pinned, tested filter for preview builds on older branches without the script. Branches with this `vercel.json` use their repository script. The regression tests check both the production bypass and Vercel’s 256-character command limit.
 
 ## Themes and preview assets
 

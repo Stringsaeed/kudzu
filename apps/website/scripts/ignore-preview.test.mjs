@@ -1,12 +1,35 @@
 import assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const script = fileURLToPath(new URL("./ignore-preview.mjs", import.meta.url));
+const fallback = fileURLToPath(new URL("./preview-fallback.sh", import.meta.url));
+
+test("project-level production guard allows builds without calling Git", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "kudzu-production-guard-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const marker = join(root, "git-called");
+  writeFileSync(join(root, "git"), '#!/bin/sh\nprintf called > "$KUDZU_GIT_PROBE"\nexit 128\n', {
+    mode: 0o755,
+  });
+  const result = spawnSync("/bin/sh", [fallback], {
+    cwd: root,
+    env: {
+      ...process.env,
+      VERCEL_ENV: "production",
+      PATH: `${root}:${process.env.PATH}`,
+      KUDZU_GIT_PROBE: marker,
+    },
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 1);
+  assert.equal(existsSync(marker), false);
+  assert.ok(readFileSync(fallback, "utf8").trim().length <= 256);
+});
 
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), "kudzu-preview-filter-"));
