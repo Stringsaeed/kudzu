@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
+import { DownloadAction } from "@/components/download-action";
+import { pageMetadata } from "@/lib/metadata";
 import { Icon } from "@/components/icons";
-import { getReleases } from "@/lib/releases";
+import { getReleases, releaseAnchor } from "@/lib/releases";
 import { parseReleaseNotes } from "@/lib/release-notes";
 import { site } from "@/lib/site";
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Changelog",
   description: "What’s new in each Kudzu release.",
-  alternates: { canonical: "/changelog" },
-};
+  path: "/changelog",
+});
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
   dateStyle: "long",
@@ -24,20 +26,21 @@ export default async function ChangelogPage() {
       <header className="page-heading">
         <span className="eyebrow">CHANGELOG</span>
         <h1>What’s new.</h1>
-        <p>Kudzu updates itself and lets you restart when you’re ready.</p>
+        <p>Kudzu downloads new versions quietly and waits for you to restart.</p>
+        <DownloadAction />
       </header>
-      {releases.length === 0 && (
-        <p className="prose">
-          <a href={site.releases}>See every release on GitHub</a>
-        </p>
-      )}
       <div className="changelog">
         {releases.map((release, index) => (
-          <article key={release.version}>
+          <article key={release.version} id={releaseAnchor(release.version)}>
             <div className="changelog-meta">
               <h2>
-                {release.version}
-                {index === 0 && <span className="latest-badge">Latest</span>}
+                <a href={`#${releaseAnchor(release.version)}`}>{release.version}</a>
+                {index === 0 && (
+                  <>
+                    {" "}
+                    <span className="latest-badge">Latest</span>
+                  </>
+                )}
               </h2>
               {release.publishedAt && (
                 <time dateTime={release.publishedAt}>
@@ -71,6 +74,9 @@ export default async function ChangelogPage() {
           </article>
         ))}
       </div>
+      <p className="page-note">
+        <a href={site.allReleases}>Every release, including betas, is on GitHub</a>.
+      </p>
     </main>
   );
 }

@@ -5,8 +5,9 @@ import { DownloadAction } from "@/components/download-action";
 import { Icon } from "@/components/icons";
 import { PlayOnView } from "@/components/play-on-view";
 import { switching } from "@/lib/compare";
-import { getLatestRelease } from "@/lib/releases";
+import { getLatestRelease, releaseAnchor } from "@/lib/releases";
 import { site } from "@/lib/site";
+import { worstCase, worstClipboardItems, worstSnippets } from "@/lib/worst-case";
 import { SnippetPlayground } from "@/components/snippet-playground";
 import { ClipboardPreview } from "@/components/clipboard-preview";
 import { TemplateExamples } from "@/components/template-examples";
@@ -43,11 +44,31 @@ const moreFeatures = [
 
 export default async function Home() {
   const release = await getLatestRelease();
+  const worst = await worstCase();
+  const softwareSchema = JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "@id": `${site.url}/#software`,
+    name: site.name,
+    url: site.url,
+    description: site.description,
+    applicationCategory: "UtilitiesApplication",
+    operatingSystem: "macOS 14 or later",
+    license: site.license,
+    sameAs: [site.github],
+    downloadUrl: `${site.url}${site.download}`,
+    ...(release ? { softwareVersion: release.version } : {}),
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  }).replace(/</g, "\\u003c");
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: softwareSchema }} />
       <main id="main">
         <section className="hero wrap" aria-labelledby="hero-title">
-          <Link className="release-pill" href="/changelog">
+          <Link
+            className="release-pill"
+            href={release ? `/changelog#${releaseAnchor(release.version)}` : "/changelog"}
+          >
             <span className="status-dot"></span>
             {release ? `Kudzu ${release.version} is here. See what’s new` : "See what’s new in Kudzu"}
             <Icon name="arrow" />
@@ -74,7 +95,7 @@ export default async function Home() {
             <span>·</span>Notarized by Apple
           </p>
 
-          <SnippetPlayground />
+          <SnippetPlayground snippets={worst ? worstSnippets : undefined} />
         </section>
 
         <section className="intro-section wrap" id="features">
@@ -90,10 +111,10 @@ export default async function Home() {
           </p>
         </section>
 
-        <section className="feature-row wrap" aria-labelledby="shortcut-title">
+        <section className="feature-row wrap" aria-labelledby="shortcut-section-title">
           <div className="feature-copy">
             <span className="feature-number">01 / TEXT SHORTCUTS</span>
-            <h2>
+            <h2 id="shortcut-section-title">
               A few keys.
               <br />A whole lot said.
             </h2>
@@ -184,7 +205,7 @@ export default async function Home() {
               Your clipboard history stays on this Mac.
             </div>
           </div>
-          <ClipboardPreview />
+          <ClipboardPreview items={worst ? worstClipboardItems : undefined} />
         </section>
 
         <TemplateExamples />
@@ -230,7 +251,7 @@ export default async function Home() {
                   <h3>Local feels right.</h3>
                   <p>
                     Your clipboard history stays on your Mac. Password managers are excluded by
-                    default, and concealed clipboard content is skipped.
+                    default, and copies an app marks private are skipped.
                   </p>
                 </div>
               </article>
@@ -239,8 +260,8 @@ export default async function Home() {
                 <div>
                   <h3>Your Macs, in sync.</h3>
                   <p>
-                    Turn on iCloud sync and your snippet library travels between your Macs through
-                    your private iCloud database, which Kudzu’s developer can’t see.
+                    Your snippet library travels between your Macs through your private iCloud
+                    database, which Kudzu’s developer can’t see. Rather not? Switch it off.
                   </p>
                 </div>
               </article>
@@ -295,12 +316,13 @@ export default async function Home() {
                   </li>
                   <li>
                     <Icon name="close" />
-                    Record passwords or concealed copies, or expand in password managers by default.
+                    Record copies an app marks private, or anything from a password manager unless
+                    you allow it.
                   </li>
                   <li>
                     <Icon name="close" />
                     Phone home. There are no Kudzu servers. It only goes online to check for updates
-                    and, if you turn it on, for iCloud sync.
+                    and to sync through your iCloud, and you can turn off either one.
                   </li>
                 </ul>
               </article>
@@ -329,7 +351,7 @@ export default async function Home() {
             <p>
               An honest look at how Kudzu compares,{" "}
               <br />
-              and what moving over really takes.
+              and what moving over really takes. <Link href="/compare">See all comparisons</Link>
             </p>
           </div>
           <div className="switch-grid">
@@ -418,9 +440,9 @@ export default async function Home() {
                 How do updates work?<Icon name="plus" />
               </summary>
               <p>
-                Kudzu checks for updates and lets you install and restart when you’re ready. You can
-                also check manually in Settings → About. Your library gets a backup before an update
-                migration.
+                Kudzu checks a few times a day, downloads new versions quietly, and waits for you to
+                restart. Turn automatic checks off, or check by hand, in Settings → About. Your
+                library gets a backup before an update migration.
               </p>
             </details>
           </div>
@@ -442,7 +464,7 @@ export default async function Home() {
               <br />
               <em>A little more living.</em>
             </h2>
-            <DownloadAction label="Get Kudzu for Mac" />
+            <DownloadAction />
             <p className="fine-print">
               Free. Open source. Yours.<span>·</span>macOS 14+
               {release && (
@@ -464,8 +486,11 @@ export default async function Home() {
             </li>
             <li>
               <span>2</span>
-              <h3>Say yes to access.</h3>
-              <p>A guided helper sits beside System Settings and walks you through the permission.</p>
+              <h3>Allow shortcut detection.</h3>
+              <p>
+                A helper opens beside System Settings. Turn Kudzu on in Accessibility so it can spot
+                your triggers and insert text.
+              </p>
             </li>
             <li>
               <span>3</span>

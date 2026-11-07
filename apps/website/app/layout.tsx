@@ -2,8 +2,9 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { IconDefinitions } from "@/components/icons";
 import { SiteFooter } from "@/components/site-footer";
+import { ScrollMotion } from "@/components/scroll-motion";
 import { SiteHeader } from "@/components/site-header";
-import { getLatestRelease } from "@/lib/releases";
+import { WorstCaseToggle } from "@/components/worst-case-toggle";
 import { site } from "@/lib/site";
 import { themeInitialization } from "@/lib/theme";
 import "./globals.css";
@@ -13,10 +14,13 @@ const figtree = localFont({
   variable: "--font-figtree",
   display: "swap",
 });
+// Paper Mono only sets labels and code, so it isn't preloaded ahead of the Figtree headline.
 const paperMono = localFont({
   src: "../public/assets/paper-mono.woff2",
   variable: "--font-paper",
   display: "swap",
+  preload: false,
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -42,21 +46,9 @@ export const viewport: Viewport = {
   ],
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  const release = await getLatestRelease();
-  const softwareSchema = JSON.stringify({
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: site.name,
-    url: site.url,
-    description: site.description,
-    applicationCategory: "UtilitiesApplication",
-    operatingSystem: "macOS 14 or later",
-    license: site.license,
-    downloadUrl: `${site.url}${site.download}`,
-    ...(release ? { softwareVersion: release.version } : {}),
-    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-  }).replace(/</g, "\\u003c");
+// The layout reads no data, so pages without release details (docs, compare, privacy) stay
+// fully static. The home page carries the app's structured data, with its version.
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
@@ -65,7 +57,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     >
       <head>
         <script id="kudzu-theme" dangerouslySetInnerHTML={{ __html: themeInitialization }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: softwareSchema }} />
       </head>
       <body>
         <a className="skip-link" href="#main">
@@ -75,6 +66,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <SiteHeader />
         {children}
         <SiteFooter />
+        <ScrollMotion />
+        {process.env.NODE_ENV === "development" && <WorstCaseToggle />}
       </body>
     </html>
   );

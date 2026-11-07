@@ -40,14 +40,15 @@ export function ThemeToggle() {
 
   useEffect(() => {
     if (!open) return;
-    items.current[activeIndex]?.focus();
+    // preventScroll: the menu sits in the sticky header, so there's nothing to scroll to.
+    items.current[activeIndex]?.focus({ preventScroll: true });
     const closeOutside = (event: Event) => {
       if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
     };
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setOpen(false);
-      button.current?.focus();
+      button.current?.focus({ preventScroll: true });
     };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("focusin", closeOutside);
@@ -68,7 +69,7 @@ export function ThemeToggle() {
     }
     window.dispatchEvent(new Event("kudzu-theme-change"));
     setOpen(false);
-    button.current?.focus();
+    button.current?.focus({ preventScroll: true });
   }
 
   function navigate(event: KeyboardEvent<HTMLDivElement>) {
@@ -81,7 +82,7 @@ export function ThemeToggle() {
         : event.key === "End"
           ? options.length - 1
           : (current + (event.key === "ArrowDown" ? 1 : -1) + options.length) % options.length;
-    items.current[next]?.focus();
+    items.current[next]?.focus({ preventScroll: true });
   }
 
   return (

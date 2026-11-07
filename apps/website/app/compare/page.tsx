@@ -2,15 +2,17 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Icon } from "@/components/icons";
 import { comparisons } from "@/lib/compare";
+import { pageMetadata } from "@/lib/metadata";
 
 const description =
   "How Kudzu compares with Espanso, TextExpander, and Raycast, including when another app is the better choice.";
 
-export const metadata: Metadata = {
-  title: "Compare Kudzu",
+export const metadata: Metadata = pageMetadata({
+  title: "Text expander alternatives for Mac: Kudzu compared",
   description,
-  alternates: { canonical: "/compare" },
-};
+  path: "/compare",
+  absolute: true,
+});
 
 export default function ComparePage() {
   return (

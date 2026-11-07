@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { site } from "@/lib/site";
+import { FooterWordmark } from "./footer-wordmark";
 
 const columns = [
   {
@@ -61,7 +62,7 @@ export function SiteFooter() {
           ))}
         </nav>
       </div>
-      <div className="footer-wordmark wrap" aria-hidden="true" />
+      <FooterWordmark />
     </footer>
   );
 }

@@ -54,17 +54,18 @@ export function DownloadAction({
         </a>
         <button type="button" className="button button-primary download-send" onClick={send}>
           <Icon name="send" />
-          Send to my Mac
+          Share the Mac link
         </button>
         {secondary}
       </div>
       <output className="download-status">
         {status === "started" && (
           <>
-            Your download has started. <Link href="/#install">Here’s what happens next</Link>
+            Getting the latest DMG from GitHub. If a release page opens instead, pick the DMG under
+            Assets. <Link href="/#install">Here’s what happens next</Link>
           </>
         )}
-        {status === "shared" && "Sent. See you on your Mac."}
+        {status === "shared" && "Link shared. Open it on your Mac to install Kudzu."}
         {status === "copied" && "Link copied. Open it on your Mac."}
         {status === "failed" && "Kudzu runs on Mac. Visit kudzu.site on yours to download it."}
       </output>

@@ -22,14 +22,14 @@ The site uses server components for its pages and small client components for th
 - `app/download/route.ts`: redirects `/download` to the latest stable DMG, or to the releases page if GitHub can't be reached.
 - `app/docs/`, `app/compare/`, `app/changelog/`, `app/privacy/`: inner pages. The changelog renders GitHub release notes as plain text.
 - `app/globals.css`: responsive styles, tokens, and reduced-motion behavior.
-- `components/`: header, footer, icons, and interactive previews.
+- `components/`: header, footer, icons, and interactive previews. `scroll-motion.tsx` holds all scroll motion, scrubbed with GSAP ScrollTrigger: reveals, the hero lid, the gallery, and the footer wordmark's echoes. GSAP loads after the page renders, reduced motion turns every effect off, and reveals tween the CSS `translate` property so hover and press transforms keep working.
 - `lib/examples.ts`: typed sample snippets and clipboard items.
 - `lib/site.ts`: URLs, navigation, metadata, and Homebrew command.
 - `lib/releases.ts`, `lib/release-notes.ts`: cached GitHub release lookups and release note parsing. New releases appear without a redeploy.
 - `lib/compare.ts`: comparison page content. Competitor details come from each vendor's own pages, so update the `checked` date whenever you confirm them again.
 - `app/opengraph-image.tsx`, `robots.ts`, `sitemap.ts`: Next.js metadata routes.
 - `public/assets/`: copies of Kudzu’s brand assets and locally hosted fonts, with their licenses. Brand sources remain in `apps/desktop/design/`.
-- `public/assets/app/`: app screens for the gallery, captured from the desktop UI preview (`pnpm dev` in `apps/desktop`) with its sample data. Recapture them when the UI changes noticeably.
+- `public/assets/app/`: app screens for the gallery, one `-light` and one `-dark` PNG per screen; the gallery shows the one that matches the page theme. They're captured from the desktop UI preview (`pnpm dev` in `apps/desktop`, sample data, `?light` for the light theme) at 1280 × 800, 2x. The floating windows use their real sizes from `windows.rs`: Quick search (`/palette`) at 760 × 480 and the clipboard panel (`/clipboard`) at 800 × 520. The preview reports itself as `web`, so for each capture the window toolbar gets the 88px macOS traffic-light inset from `toolbar.tsx`. Each capture is then framed as a macOS window (16px corners, traffic lights at the `tauri.conf.json` position, window shadow) on a transparent 1440 × 900 canvas. Quick search and the clipboard panel float over a dimmed library window at the same scale. Recapture them when the UI changes noticeably.
 
 ## Vercel
 

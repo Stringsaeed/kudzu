@@ -1,20 +1,22 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { DocsNav } from "@/components/docs-nav";
+import { pageMetadata } from "@/lib/metadata";
 import { site } from "@/lib/site";
 
 const description =
   "Add dates, clipboard contents, fill-in fields, dropdowns, and nested snippets to your Kudzu shortcuts.";
 
-export const metadata: Metadata = {
-  title: "Template guide",
+export const metadata: Metadata = pageMetadata({
+  title: "Template syntax: dates, forms, and variables",
   description,
-  alternates: { canonical: "/docs/templates" },
-};
+  path: "/docs/templates",
+});
 
 const tags = [
   {
     tag: "{{date}}",
-    does: "Today’s date, as 2026-11-06 by default.",
+    does: "Today’s date, in yyyy-MM-dd format by default.",
     example: '{{date format="MMMM d, yyyy" offset="+1w"}}',
   },
   {
@@ -33,29 +35,31 @@ const tags = [
     example: "Hi {{cursor}},",
   },
   {
-    tag: "{{field}}",
-    does: "A text box that appears before inserting. Repeat a name to reuse its value.",
+    tag: '{{field name="…"}}',
+    does: "A text box that appears before inserting. Repeat a name to reuse its value. Add multiline=true for a bigger box.",
     example: '{{field name="Client" default="there"}}',
   },
   {
-    tag: "{{choice}}",
-    does: "A dropdown that appears before inserting.",
-    example: '{{choice name="Tone" options="Warm|Direct|Brief"}}',
+    tag: '{{choice name="…" options="…"}}',
+    does: "A dropdown that appears before inserting. Separate options with |, and write \\| for a literal pipe.",
+    example: '{{choice name="Tone" options="Warm|Direct|Brief" default="Warm"}}',
+  },
+  {
+    tag: '{{snippet id="…"}}',
+    does: "Another snippet, included in place. Insert adds it for you, so you never type the id.",
+    example: '{{snippet id="4F2A…"}}',
   },
 ];
 
 export default function TemplatesPage() {
   return (
     <main id="main" className="page wrap docs-layout">
-      <nav className="docs-nav" aria-label="Documentation">
-        <Link href="/docs">Getting started</Link>
-        <Link href="/docs/templates" aria-current="page">
-          Template guide
-        </Link>
-      </nav>
+      <DocsNav current="/docs/templates" />
       <div>
         <header className="page-heading">
-          <span className="eyebrow">DOCS</span>
+          <Link className="eyebrow" href="/docs">
+            DOCS
+          </Link>
           <h1>Template guide.</h1>
           <p>{description}</p>
         </header>
