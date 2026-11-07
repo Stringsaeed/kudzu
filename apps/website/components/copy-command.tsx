@@ -23,6 +23,8 @@ export function CopyCommand() {
               timer.current = window.setTimeout(() => setStatus("idle"), 2500);
             } catch {
               setStatus("failed");
+              window.clearTimeout(timer.current);
+              timer.current = window.setTimeout(() => setStatus("idle"), 6000);
             }
           }}
         >

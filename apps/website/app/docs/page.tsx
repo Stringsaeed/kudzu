@@ -1,16 +1,19 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CopyCommand } from "@/components/copy-command";
+import { DocsNav } from "@/components/docs-nav";
 import { DownloadAction } from "@/components/download-action";
+import { pageMetadata } from "@/lib/metadata";
 
 const description =
   "Install Kudzu, approve its permission, write your first shortcut, and learn the keyboard shortcuts.";
 
-export const metadata: Metadata = {
-  title: "Getting started",
+export const metadata: Metadata = pageMetadata({
+  title: "Getting started with Kudzu, the free Mac text expander",
   description,
-  alternates: { canonical: "/docs" },
-};
+  path: "/docs",
+  absolute: true,
+});
 
 const sections = [
   { id: "install", label: "Install" },
@@ -25,19 +28,7 @@ const sections = [
 export default function DocsPage() {
   return (
     <main id="main" className="page wrap docs-layout">
-      <nav className="docs-nav" aria-label="On this page">
-        <Link href="/docs" aria-current="page">
-          Getting started
-        </Link>
-        <ul>
-          {sections.map((section) => (
-            <li key={section.id}>
-              <a href={`#${section.id}`}>{section.label}</a>
-            </li>
-          ))}
-        </ul>
-        <Link href="/docs/templates">Template guide</Link>
-      </nav>
+      <DocsNav current="/docs" sections={sections} />
       <div>
         <header className="page-heading">
           <span className="eyebrow">DOCS</span>
@@ -89,6 +80,12 @@ export default function DocsPage() {
           <h2 id="everyday">Everyday shortcuts</h2>
           <div className="table-scroll">
             <table>
+              <thead>
+                <tr>
+                  <th scope="col">Shortcut</th>
+                  <th scope="col">What it does</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr>
                   <th scope="row">
@@ -132,14 +129,20 @@ export default function DocsPage() {
           </p>
           <p>
             History is kept for a week by default. Choose anything from a day to forever. It keeps up
-            to 5,000 unpinned items, pinned items never expire, and nothing leaves your Mac. Passwords and
-            anything marked concealed or transient are skipped.
+            to 5,000 unpinned items, pinned items never expire, and nothing leaves your Mac. Copies an
+            app marks concealed or transient are skipped, and so is anything from a password manager.
+            Add more apps to skip in <strong>Settings → Clipboard</strong>.
           </p>
 
           <h2 id="your-data">Your data</h2>
+          <p>
+            Everything here lives in <strong>Settings → Backups & data</strong>, except sync, which
+            is in <strong>Settings → General</strong>.
+          </p>
           <ul>
             <li>
               <strong>Import:</strong> from Espanso (detected automatically) or a Kudzu JSON file.
+              Kudzu takes a backup first.
             </li>
             <li>
               <strong>Export:</strong> to Kudzu JSON or Espanso YAML. Espanso export writes plain
@@ -150,8 +153,9 @@ export default function DocsPage() {
               are kept.
             </li>
             <li>
-              <strong>Sync:</strong> your snippet library can sync through your private iCloud.
-              Clipboard history doesn’t sync.
+              <strong>Sync:</strong> your snippet library syncs through your private iCloud when your
+              Mac is signed in. It’s on by default, and you can turn it off. Clipboard history never
+              syncs.
             </li>
           </ul>
 

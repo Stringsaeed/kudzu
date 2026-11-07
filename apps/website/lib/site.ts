@@ -14,6 +14,7 @@ export const site = {
   templateSyntax:
     "https://github.com/Stringsaeed/kudzu/blob/main/apps/desktop/docs/TEMPLATE_SYNTAX.md",
   releases: "https://github.com/Stringsaeed/kudzu/releases/latest",
+  allReleases: "https://github.com/Stringsaeed/kudzu/releases",
   // Resolves to the newest stable DMG. See app/download/route.ts.
   download: "/download",
   brew: "brew install --cask stringsaeed/tap/kudzu",
@@ -25,6 +26,6 @@ export const navItems: NavItem[] = [
   { href: "/#features", label: "Features", section: "features" },
   { href: "/#playground", label: "Try it", section: "playground" },
   { href: "/#privacy", label: "Privacy", section: "privacy" },
-  { href: "/#faq", label: "FAQ", section: "faq" },
+  { href: "/compare", label: "Compare" },
   { href: "/docs", label: "Docs" },
 ];

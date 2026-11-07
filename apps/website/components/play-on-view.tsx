@@ -15,7 +15,7 @@ export function PlayOnView({
   labelledBy?: string;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = ref.current;
     if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -34,8 +34,8 @@ export function PlayOnView({
     return () => observer.disconnect();
   }, []);
   return (
-    <div ref={ref} className={className} aria-labelledby={labelledBy}>
+    <figure ref={ref} className={className} aria-labelledby={labelledBy}>
       {children}
-    </div>
+    </figure>
   );
 }

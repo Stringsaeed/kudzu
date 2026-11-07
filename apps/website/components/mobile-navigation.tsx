@@ -25,7 +25,7 @@ export function MobileNavigation() {
       if (event.key === "Escape" && menu.current?.open) {
         event.preventDefault();
         menu.current.open = false;
-        menu.current.querySelector("summary")?.focus();
+        menu.current.querySelector("summary")?.focus({ preventScroll: true });
       }
     };
     document.addEventListener("pointerdown", closeOutside);

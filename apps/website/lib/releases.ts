@@ -2,6 +2,8 @@
 // follows new releases without a redeploy. Every failure resolves to null or an empty list, and
 // callers fall back to the GitHub releases page.
 
+import { worstCase, worstReleases } from "./worst-case";
+
 const api = "https://api.github.com/repos/Stringsaeed/kudzu/releases";
 const downloadPrefix = "https://github.com/Stringsaeed/kudzu/releases/download/";
 
@@ -54,13 +56,20 @@ function toRelease(release: GitHubRelease): Release {
   };
 }
 
+/** The changelog's fragment id for a version, so a release can be linked directly. */
+export function releaseAnchor(version: string) {
+  return `v${version.replace(/[^\w.-]/g, "-")}`;
+}
+
 /** GitHub's "latest" is the newest stable release, so betas and the update feed are skipped. */
 export async function getLatestRelease(): Promise<Release | null> {
+  if (await worstCase()) return worstReleases[0];
   const release = await request<GitHubRelease>("/latest");
   return release ? toRelease(release) : null;
 }
 
 export async function getReleases(): Promise<Release[]> {
+  if (await worstCase()) return worstReleases;
   const releases = await request<GitHubRelease[]>("?per_page=30");
   return (releases ?? [])
     .filter((release) => !release.draft && !release.prerelease && /^v\d/.test(release.tag_name))

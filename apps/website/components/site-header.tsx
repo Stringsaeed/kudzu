@@ -11,7 +11,7 @@ export function SiteHeader() {
   return (
     <header className="site-header wrap">
       <Link className="brand" href="/" aria-label="Kudzu home">
-        <Image src="/assets/kudzu-icon.png" width="40" height="40" alt="" />
+        <Image src="/assets/kudzu-icon.png" width="40" height="40" alt="" loading="eager" />
         <span>kudzu</span>
       </Link>
       <nav className="desktop-navigation" aria-label="Main navigation">

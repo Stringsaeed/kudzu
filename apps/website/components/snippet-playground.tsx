@@ -6,10 +6,10 @@ import { MacOSDock } from "./macos-dock";
 import { StageCallouts } from "./stage-callouts";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
-import { snippets } from "@/lib/examples";
+import { snippets as demoSnippets } from "@/lib/examples";
 import { Icon } from "./icons";
 
-type Snippet = (typeof snippets)[number];
+type Snippet = (typeof demoSnippets)[number];
 type Filter = "all" | "favorites" | "everyday" | "work";
 type Expansion = { previous: string; caret: number; expanded: string; end: number; saved: number };
 
@@ -40,7 +40,7 @@ function result(snippet: Snippet, ending: string) {
   return `${snippet.trigger.length} keys → ${snippet.text.length} characters. ${ending}`;
 }
 
-export function SnippetPlayground() {
+export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snippet[] }) {
   const [selected, setSelected] = useState(snippets[0]);
   const [filter, setFilter] = useState<Filter>("all");
   const [value, setValue] = useState("");
@@ -48,6 +48,8 @@ export function SnippetPlayground() {
   const [message, setMessage] = useState(idleMessage);
   const [saved, setSaved] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // Autoplay runs as the visitor scrolls, so its result isn't announced to screen readers.
+  const [quiet, setQuiet] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const screenRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,7 @@ export function SnippetPlayground() {
     clearTimers();
     autoplayed.current = false;
     setPlaying(false);
+    setQuiet(false);
     setValue("");
     setExpansion(null);
     setMessage(idleMessage);
@@ -88,14 +91,16 @@ export function SnippetPlayground() {
   }
 
   function navigateTabs(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    // The list is a column on wide screens and a 2×2 grid on phones, so both axes move.
+    const step = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+    if (step === undefined && event.key !== "Home" && event.key !== "End") return;
     event.preventDefault();
     const next =
       event.key === "Home"
         ? 0
         : event.key === "End"
           ? visible.length - 1
-          : (index + (event.key === "ArrowDown" ? 1 : -1) + visible.length) % visible.length;
+          : (index + (step ?? 0) + visible.length) % visible.length;
     select(visible[next]);
     tabRefs.current[next]?.focus();
   }
@@ -135,6 +140,7 @@ export function SnippetPlayground() {
       });
       setSaved((total) => total + gained);
       setPlaying(false);
+      setQuiet(auto);
       autoplayed.current = auto;
       const canUndo = !auto && hasKeyboard();
       setMessage(result(snippet, auto ? "Your turn." : canUndo ? "Backspace to undo." : ""));
@@ -175,16 +181,28 @@ export function SnippetPlayground() {
     return () => observer.disconnect();
   }, []);
 
+  const stopOffscreen = useEffectEvent(() => {
+    if (timers.current.length === 0) return;
+    clearTimers();
+    setPlaying(false);
+    setValue("");
+  });
+
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
+    const state = { started: false };
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (!entry.isIntersecting) return;
-        observer.disconnect();
-        startAutoplay();
+        if (entry.intersectionRatio >= 0.5 && !state.started) {
+          state.started = true;
+          startAutoplay();
+        } else if (!entry.isIntersecting && state.started) {
+          // Scrolled away mid-demo: stop the timers rather than type to nobody.
+          stopOffscreen();
+        }
       },
-      { threshold: 0.7 },
+      { threshold: [0, 0.5] },
     );
     observer.observe(panel);
     return () => observer.disconnect();
@@ -209,6 +227,7 @@ export function SnippetPlayground() {
           alt="MacBook Neo in Citrus"
           sizes="(max-width: 1100px) 1px, 1160px"
           preload
+          fetchPriority="high"
         />
         <div className="device-screen" ref={screenRef}>
           <div className="device-workspace">
@@ -242,11 +261,23 @@ export function SnippetPlayground() {
                     Your words, organized.
                   </div>
                   {filters.slice(0, 2).map((item) => (
-                    <SidebarButton key={item.id} item={item} active={filter} onChoose={chooseFilter} />
+                    <SidebarButton
+                      key={item.id}
+                      item={item}
+                      count={snippets.filter((snippet) => inFilter(snippet, item.id)).length}
+                      active={filter}
+                      onChoose={chooseFilter}
+                    />
                   ))}
                   <div className="sidebar-label">YOUR COLLECTIONS</div>
                   {filters.slice(2).map((item) => (
-                    <SidebarButton key={item.id} item={item} active={filter} onChoose={chooseFilter} />
+                    <SidebarButton
+                      key={item.id}
+                      item={item}
+                      count={snippets.filter((snippet) => inFilter(snippet, item.id)).length}
+                      active={filter}
+                      onChoose={chooseFilter}
+                    />
                   ))}
                   <div className="sidebar-label">ALWAYS WITH YOU</div>
                   <a className="sidebar-item" href="#clipboard">
@@ -320,8 +351,10 @@ export function SnippetPlayground() {
                       type="button"
                       className="trigger-chip"
                       aria-label={`Watch ${selected.trigger} expand`}
+                      aria-disabled={playing}
                       onClick={() => {
                         touched.current = true;
+                        if (playing) return;
                         play(selected, false);
                       }}
                     >
@@ -387,7 +420,9 @@ export function SnippetPlayground() {
                     />
                     </div>
                     <div className="demo-bottom">
-                      <output id="demo-status">{message}</output>
+                      <output id="demo-status" aria-live={quiet ? "off" : "polite"}>
+                        {message}
+                      </output>
                       <button
                         type="button"
                         aria-label="Reset snippet demo"
@@ -419,14 +454,15 @@ export function SnippetPlayground() {
 
 function SidebarButton({
   item,
+  count,
   active,
   onChoose,
 }: {
   item: (typeof filters)[number];
+  count: number;
   active: Filter;
   onChoose: (filter: Filter) => void;
 }) {
-  const count = snippets.filter((snippet) => inFilter(snippet, item.id)).length;
   return (
     <button
       type="button"

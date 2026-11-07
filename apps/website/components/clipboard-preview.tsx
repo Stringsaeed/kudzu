@@ -4,9 +4,13 @@ import { useState } from "react";
 import { clipboardItems } from "@/lib/examples";
 import { Icon } from "./icons";
 
-export function ClipboardPreview() {
+export function ClipboardPreview({
+  items: all = clipboardItems,
+}: {
+  items?: (typeof clipboardItems)[number][];
+}) {
   const [query, setQuery] = useState("");
-  const items = clipboardItems.filter((item) =>
+  const items = all.filter((item) =>
     `${item.search} ${item.content}`.toLowerCase().includes(query.trim().toLowerCase()),
   );
   return (
@@ -22,10 +26,10 @@ export function ClipboardPreview() {
             type="search"
             placeholder="Find that thing you copied…"
             autoComplete="off"
+            aria-describedby="clipboard-count"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <kbd>⌘ K</kbd>
         </div>
         <div className="clipboard-meta">
           A FEW THINGS WORTH KEEPING<span>EXAMPLE HISTORY</span>
@@ -53,7 +57,7 @@ export function ClipboardPreview() {
           )}
         </div>
         <div className="clipboard-footer">
-          <output>
+          <output id="clipboard-count">
             {items.length} {items.length === 1 ? "thing" : "things"}, right where you left them.
           </output>
           <span>↵ paste</span>
