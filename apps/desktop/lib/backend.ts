@@ -9,6 +9,7 @@ import { formattedHtml } from "./formatting"
 import { renderLocal } from "./render-local"
 import { mockBackend } from "./mock"
 import type {
+  AgentSetup,
   AppInfo,
   AppState,
   BackupInfo,
@@ -147,6 +148,11 @@ export const api = {
   // iCloud sync
   syncStatus: () => call<SyncStatus>("sync_status"),
   syncNow: () => call<void>("sync_now"),
+
+  // AI agents (MCP)
+  agentSetup: () => call<AgentSetup>("agent_setup"),
+  /** Writes the Claude Code skill; resolves to its path. */
+  installAgentSkill: () => call<string>("install_agent_skill"),
 
   // Clipboard history
   clipboardList: () => call<ClipboardInfo>("clipboard_list"),

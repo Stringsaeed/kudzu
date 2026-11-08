@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Download, FolderOpen, History, Loader2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Upload, X } from "lucide-react"
+import { Check, Copy, Download, FolderOpen, History, Loader2, RefreshCw, RotateCcw, ShieldCheck, Sparkles, Upload, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -27,7 +27,7 @@ import { useStore, type SettingsSection } from "@/lib/store"
 import { relativeTime } from "@/lib/stats"
 import { applyTheme } from "@/lib/theme"
 import { openExternal, parseNotes, RELEASES_URL, useSyncStatus, useUpdateState } from "@/lib/updates"
-import type { BackupInfo, EspansoDetection, InsertionMethod, ThemePreference } from "@/lib/types"
+import type { AgentSetup, BackupInfo, EspansoDetection, InsertionMethod, ThemePreference } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { PermissionSetup } from "../permissions/permission-setup"
@@ -43,6 +43,7 @@ export const SETTINGS_SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "expansion", label: "Expansion" },
   { id: "clipboard", label: "Clipboard" },
+  { id: "agents", label: "AI agents" },
   { id: "apps", label: "Apps" },
   { id: "data", label: "Backups & data" },
   { id: "about", label: "About" },
@@ -152,6 +153,7 @@ export function SettingsView({ section = "general" }: { section?: SettingsSectio
             {section === "general" && <General />}
             {section === "expansion" && <Expansion />}
             {section === "clipboard" && <ClipboardSettings />}
+            {section === "agents" && <Agents />}
             {section === "apps" && <Apps />}
             {section === "data" && <Data />}
             {section === "about" && <About />}
@@ -426,6 +428,122 @@ function ClipboardSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  )
+}
+
+function copyText(text: string, what: string) {
+  navigator.clipboard.writeText(text).then(
+    () => toast.success(`Copied ${what}`),
+    () => toast.error("Couldn't copy"),
+  )
+}
+
+/** A command or config block with a copy button. */
+function CopyBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="relative mt-2 rounded-lg bg-foreground/[0.025] shadow-well dark:bg-black/15">
+      <pre className="overflow-x-auto py-2.5 pr-11 pl-3 font-mono text-[11.5px] leading-relaxed whitespace-pre select-all">{value}</pre>
+      <Button variant="ghost" size="icon-xs" className="absolute top-1.5 right-1.5" aria-label={`Copy ${label}`} onClick={() => copyText(value, label)}>
+        <Copy />
+      </Button>
+    </div>
+  )
+}
+
+function Agents() {
+  const settings = useStore((s) => s.settings)
+  const update = useStore((s) => s.updateSettings)
+  const [setup, setSetup] = useState<AgentSetup | null>(null)
+  const [installing, setInstalling] = useState(false)
+  const on = settings.agentAccess
+  const reload = () => api.agentSetup().then(setSetup, () => setSetup(null))
+  useEffect(() => void reload(), [on])
+
+  const installSkill = () => {
+    setInstalling(true)
+    api
+      .installAgentSkill()
+      .then(
+        (path) => toast.success("Skill installed", { description: path }),
+        (e) => toast.error("Couldn't install the skill", { description: String(e) }),
+      )
+      .finally(() => {
+        setInstalling(false)
+        void reload()
+      })
+  }
+
+  return (
+    <>
+      <Group
+        title="AI agents"
+        description="Let assistants like Claude Code look up your snippets, expand them and save new ones, using the Model Context Protocol (MCP). Agents connect to Kudzu on this Mac; Kudzu doesn't upload anything."
+      >
+        <Row
+          title="Allow AI agents"
+          htmlFor="agent-on"
+          description={on ? (setup?.running ? "Agents you've connected can use Kudzu while it's running." : "Couldn't start. Turn it off and on again, or restart Kudzu.") : "Off. Connected agents are told Kudzu is unavailable."}
+        >
+          <Switch id="agent-on" checked={on} onCheckedChange={(agentAccess) => void update({ agentAccess })} />
+        </Row>
+        <Row title="Create and edit snippets" description="Agents can add snippets and change existing ones. They can't delete anything." htmlFor="agent-write">
+          <Switch id="agent-write" disabled={!on} checked={settings.agentWrite} onCheckedChange={(agentWrite) => void update({ agentWrite })} />
+        </Row>
+        <Row
+          title="Share clipboard history"
+          description={settings.clipboardEnabled ? "Agents can search what you've copied, such as a link or an error message." : "Clipboard history is turned off."}
+          htmlFor="agent-clip"
+        >
+          <Switch id="agent-clip" disabled={!on || !settings.clipboardEnabled} checked={settings.agentClipboard && settings.clipboardEnabled} onCheckedChange={(agentClipboard) => void update({ agentClipboard })} />
+        </Row>
+      </Group>
+
+      <Group title="Passwords and keys">
+        <div className="flex gap-3 py-3.5">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+          <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+            <p>
+              <span className="font-medium text-foreground">Secrets are withheld from agents.</span> Before anything reaches an agent, Kudzu replaces text that looks like a password, API key, access token or private key with <span className="font-mono">[redacted]</span>. Clipboard items that are only a secret aren&apos;t shared at all, and agents can&apos;t search for them.
+            </p>
+            <p>Detection is a best guess. A short, plain password can look like an ordinary word, so keep passwords in a password manager. Kudzu never records copies from one.</p>
+          </div>
+        </div>
+      </Group>
+
+      <Group title="Connect an agent" description="Do this once per app. The agent starts Kudzu's MCP server itself; Kudzu just needs to be running.">
+        <div className="py-3.5">
+          <div className="text-[13px] font-medium">Claude Code</div>
+          <div className="text-xs text-muted-foreground">Run this in Terminal:</div>
+          {setup && <CopyBlock label="command" value={setup.claudeCommand} />}
+        </div>
+        <Row
+          title="Claude Code skill"
+          description={
+            setup?.skill === "current"
+              ? `Installed in ${setup.skillPath.replace(/^\/Users\/[^/]+/, "~")}`
+              : setup?.skill === "outdated"
+                ? "This version of Kudzu has a newer skill."
+                : "Teaches Claude when to use your snippets and how to write Kudzu templates."
+          }
+        >
+          {setup?.skill === "current" ? (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Check className="size-3.5 text-success" aria-hidden /> Installed
+            </span>
+          ) : (
+            <Button size="sm" variant="secondary" disabled={installing || !setup} onClick={installSkill}>
+              {installing && <Loader2 className="animate-spin" />}
+              {setup?.skill === "outdated" ? "Update skill" : "Install skill"}
+            </Button>
+          )}
+        </Row>
+        <div className="py-3.5">
+          <div className="text-[13px] font-medium">Other apps</div>
+          <div className="text-xs text-muted-foreground">Claude Desktop, Cursor and other MCP apps: add this to their MCP server settings.</div>
+          {setup && <CopyBlock label="configuration" value={setup.configJson} />}
+        </div>
+      </Group>
     </>
   )
 }

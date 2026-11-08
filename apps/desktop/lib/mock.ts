@@ -84,6 +84,9 @@ const defaultSettings: Settings = {
   clipboardHotkey: "Control+Alt+V",
   clipboardIgnoredApps: ["com.1password.1password", "com.apple.keychainaccess", "com.apple.Passwords"],
   clipboardPastePlain: false,
+  agentAccess: false,
+  agentWrite: true,
+  agentClipboard: true,
 }
 
 // MARK: Clipboard history seed
@@ -238,6 +241,7 @@ class MockBackend {
   private importedPreviews = new Set<string>()
   private finishPreviewFailed = false
   private clips: ClipEntry[] = []
+  private skillInstalled = false
 
   constructor() {
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem("kudzu-mock") : null
@@ -534,6 +538,23 @@ class MockBackend {
         )
       case "sync_now":
         return r(undefined)
+      case "agent_setup": {
+        const command = "/Applications/Kudzu.app/Contents/MacOS/Kudzu"
+        const mcpServers = { kudzu: { command, args: ["--mcp"] } }
+        return r({
+          running: this.state.settings.agentAccess,
+          name: "kudzu",
+          command,
+          args: ["--mcp"],
+          claudeCommand: `claude mcp add --scope user kudzu -- ${command} --mcp`,
+          configJson: JSON.stringify({ mcpServers }, null, 2),
+          skillPath: "~/.claude/skills/kudzu/SKILL.md",
+          skill: this.skillInstalled ? "current" : "missing",
+        })
+      }
+      case "install_agent_skill":
+        this.skillInstalled = true
+        return r("~/.claude/skills/kudzu/SKILL.md")
       case "clipboard_list":
         return r({ entries: this.clips, diskUsage: 38_400_000, canPaste: true })
       case "clipboard_text":

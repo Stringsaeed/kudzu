@@ -76,6 +76,15 @@ pub struct Settings {
     /// Paste formatted text as plain text by default (⇧ flips it).
     #[serde(rename = "clipboardPastePlain")]
     pub clipboard_paste_plain: bool,
+    /// Answer AI agents (MCP) on the local socket.
+    #[serde(rename = "agentAccess")]
+    pub agent_access: bool,
+    /// Agents may create and edit snippets.
+    #[serde(rename = "agentWrite")]
+    pub agent_write: bool,
+    /// Agents may search clipboard history (secrets are always withheld).
+    #[serde(rename = "agentClipboard")]
+    pub agent_clipboard: bool,
 }
 
 impl Default for Settings {
@@ -103,6 +112,9 @@ impl Default for Settings {
             clipboard_hotkey: "Control+Alt+V".into(),
             clipboard_ignored_apps: kudzu_core::clipboard::default_ignored_apps(),
             clipboard_paste_plain: false,
+            agent_access: false,
+            agent_write: true,
+            agent_clipboard: true,
         }
     }
 }

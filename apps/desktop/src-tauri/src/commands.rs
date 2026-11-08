@@ -324,6 +324,9 @@ pub fn update_settings(app: AppHandle, core: Core, patch: serde_json::Value) -> 
         crate::clipboard::apply_enabled(&app);
         tray::set_clipboard_enabled(&app, new.clipboard_enabled);
     }
+    if old.agent_access != new.agent_access {
+        crate::agent::apply(&app);
+    }
     if old.clipboard_retention_days != new.clipboard_retention_days {
         let c = core.inner().clone();
         std::thread::spawn(move || crate::clipboard::prune(&c));

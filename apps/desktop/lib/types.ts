@@ -93,6 +93,27 @@ export interface Settings {
   clipboardIgnoredApps: string[]
   /** Paste formatted text as plain text by default (⇧ flips it). */
   clipboardPastePlain: boolean
+  /** Answer AI agents over MCP (local socket). */
+  agentAccess: boolean
+  /** Agents may create and edit snippets. */
+  agentWrite: boolean
+  /** Agents may search clipboard history; secrets are always withheld. */
+  agentClipboard: boolean
+}
+
+/** How to connect an MCP client to this copy of Kudzu (mirrors Rust `AgentSetup`). */
+export interface AgentSetup {
+  running: boolean
+  /** Server name to register, e.g. "kudzu". */
+  name: string
+  command: string
+  args: string[]
+  /** Ready-to-paste `claude mcp add …`. */
+  claudeCommand: string
+  /** `mcpServers` JSON for other MCP clients. */
+  configJson: string
+  skillPath: string
+  skill: "missing" | "current" | "outdated"
 }
 
 // Mirrors kudzu-core `clipboard.rs`.

@@ -64,6 +64,7 @@ Releases are cut by merging release-please's "chore: release x.y.z" PR. CI then 
 | **Forms** | A panel near the caret with a live preview. <kbd>Tab</kbd> moves between fields, <kbd>↵</kbd> inserts, and <kbd>Esc</kbd> cancels and leaves the trigger as typed. Fields remember their last values. |
 | **Library** | Favorites, recently used, turned-off snippets and nested groups (drag to move, right-click to manage). The list is virtualized, supports multi-select bulk actions and type-to-filter, and deletes can be undone. |
 | **Clipboard history** | Records every copy (text, code, links, colors, images, files and app-specific data) with the time and app it came from, and folds repeats into one item with a copy timeline. Kept for 1 week by default (1 day to 1 year, a custom number of days, or forever), pinned items never expire, and up to 5,000 items are kept. The sidebar's Clipboard section lists History, Pinned and a folder per kind (Text, Images, Links, Files, Code, Colors). Press <kbd>⌃⌥V</kbd> anywhere to search the history and paste into the app you were in. Previews for every kind: images, code with line numbers, colors with HEX/RGB/HSL/OKLCH values and contrast, links, and file lists with Finder icons. Passwords and anything marked concealed or transient are skipped, password managers are excluded, and the history never leaves the Mac. |
+| **AI agents** | An MCP server, off by default, under **Settings ▸ AI agents**. It lets assistants like Claude Code search, read and expand snippets, create and edit them, and search clipboard history. Agents can't delete anything. Passwords, API keys, tokens and private keys are redacted before anything leaves the app. See [AI agents](#ai-agents-mcp). |
 | **Insights** | Expansions, characters and time saved (at a WPM you set), most-used, recently used and never-used snippets. Usage is per device, and typed text is never stored. |
 | **Data** | Import from Espanso (auto-detected), Raycast (`.json`), TextExpander (`.textexpander` or CSV) or a Kudzu JSON file, and export to Kudzu JSON or Espanso YAML. A backup is taken daily and before every import or restore; the last 14 are kept and can be restored in one click. |
 | **Shell** | Menu-bar app with status, pause, quick search, "new snippet from selection", open at login, and an optional Dock icon while the window is open. Onboarding walks through a guided permission companion (draggable app icon, native Settings animation, and live detection), an import step (Espanso is detected; Raycast and TextExpander exports are chosen as files), and a practice preview. See [permission setup](docs/PERMISSIONS.md). |
@@ -98,6 +99,21 @@ editing and the target app's own undo remain available.
 
 Run `pnpm test:formatting` for editor-state, rendering, and native macOS HTML-import checks.
 The native check uses AppKit without changing the system clipboard or opening user documents.
+
+## AI agents (MCP)
+
+Turn on **Settings ▸ AI agents ▸ Allow AI agents**. Agents then start `Kudzu --mcp`, a stdio MCP server that relays each JSON-RPC line to the running app over `agent.sock` in the data folder. The socket exists only while access is on and is owner-only. When the app can't be reached, the bridge still lists the tools and returns a message explaining how to turn access on. The settings page shows the `claude mcp add` command and the JSON configuration for this copy of the app. Development builds register as `kudzu-dev` and add `--dev`.
+
+| Tool | Does |
+|---|---|
+| `list_snippets`, `get_snippet`, `list_groups` | Search and read the library |
+| `expand_snippet` | Render a snippet now, with fill-in `values` |
+| `create_snippet`, `update_snippet` | Write, when **Create and edit snippets** is on. Triggers can't collide, missing groups are created, and edits are saved, synced and backed up like any other. |
+| `list_clipboard`, `get_clipboard_item` | Search clipboard history, when **Share clipboard history** is on |
+
+**Secrets.** `kudzu_core::secrets` scans every value before it is sent. It looks for PEM keys, JWTs, vendor-prefixed tokens (`ghp_`, `sk-ant-`, `AKIA…`, `xoxb-`, …), labelled values (`password=`, `"api_key": …`, `Bearer …`), passwords in URLs, webhook URLs, and generated-looking words. Each match is replaced with `[redacted: …]`. Clipboard items that are entirely secret are withheld, and searches run on the redacted text, so a query can't confirm a secret. Content is never written back over a snippet that holds a secret. Short, plain passwords look like ordinary words, so detection is best effort.
+
+The protocol and tools are in `crates/kudzu-core/src/agent/` and are tested with a fake host. The socket and bridge are in `src-tauri/src/agent.rs`. [`skills/kudzu/SKILL.md`](skills/kudzu/SKILL.md) is the Claude Code skill. **Install skill** in Settings copies it to `~/.claude/skills/kudzu/`.
 
 ## Keyboard
 
