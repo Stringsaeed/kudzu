@@ -9,6 +9,7 @@
 //! - [`agent`]: the MCP server that lets AI agents read and write snippets.
 
 pub mod agent;
+pub mod client;
 pub mod clipboard;
 pub mod formatting;
 pub mod interchange;
