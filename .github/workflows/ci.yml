@@ -12,6 +12,7 @@ on:
         "pnpm-workspace.yaml",
         "turbo.json",
         ".github/workflows/ci.yml",
+        ".github/workflows/build-macos.yml",
         ".github/workflows/release.yml",
       ]
   push:
@@ -26,6 +27,7 @@ on:
         "pnpm-workspace.yaml",
         "turbo.json",
         ".github/workflows/ci.yml",
+        ".github/workflows/build-macos.yml",
         ".github/workflows/release.yml",
       ]
 
@@ -68,5 +70,33 @@ jobs:
       - name: Rust (clippy, tests)
         working-directory: apps/desktop/src-tauri
         run: |
-          cargo clippy --workspace --all-targets -- -D warnings
-          cargo test --workspace
+          cargo clippy --workspace --exclude kudzu-app --all-targets -- -D warnings
+          cargo test --workspace --exclude kudzu-app
+
+  native:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+          key: native
+      - run: pnpm install --frozen-lockfile
+      - name: Generated Rune assets
+        working-directory: apps/desktop
+        run: |
+          node scripts/rune-tokens.mjs --check
+          node scripts/rune-icons.mjs --check
+      - name: Build and test the native app
+        working-directory: apps/desktop/src-tauri
+        run: |
+          cargo build --locked -p kudzu-app
+          cargo test --locked -p kudzu-app

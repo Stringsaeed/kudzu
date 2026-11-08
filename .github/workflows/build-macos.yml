@@ -15,6 +15,32 @@ on:
         description: stable or beta
         type: string
         default: stable
+      native:
+        description: Build the native Rune app instead of Tauri
+        type: boolean
+        default: false
+      publish:
+        description: Publish release assets and update feeds/Homebrew
+        type: boolean
+        default: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag (vX.Y.Z)
+        type: string
+        required: true
+      channel:
+        type: choice
+        options: [stable, beta]
+        default: stable
+      native:
+        description: Build the native Rune app instead of Tauri
+        type: boolean
+        default: false
+      publish:
+        description: Publish release assets and update feeds/Homebrew (otherwise upload workflow artifacts only)
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -43,6 +69,12 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - uses: dtolnay/rust-toolchain@stable
+        if: ${{ !inputs.native }}
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      # Rune requires Rust >= 1.99; keep the shipping Tauri toolchain unchanged.
+      - uses: dtolnay/rust-toolchain@1.99.1
+        if: inputs.native
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - uses: Swatinem/rust-cache@v2
@@ -88,9 +120,24 @@ jobs:
           # Set the repo variable REQUIRE_ICLOUD=1 once the profile secret exists, so a release
           # can never ship without sync by accident.
           REQUIRE_ICLOUD: ${{ vars.REQUIRE_ICLOUD }}
-        run: scripts/release/build.sh
+          NATIVE_BUILD: ${{ inputs.native }}
+        run: |
+          if [ "$NATIVE_BUILD" = true ]; then
+            scripts/native/release.sh
+          else
+            scripts/release/build.sh
+          fi
+
+      - name: Keep build artifacts
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: kudzu-macos-${{ inputs.native && 'native' || 'tauri' }}-${{ inputs.tag }}
+          path: apps/desktop/dist/*
+          if-no-files-found: error
 
       - name: Upload and publish
+        if: inputs.publish
         run: |
           gh release upload "$TAG" dist/* --clobber
           if [ "$CHANNEL" = beta ]; then
@@ -100,6 +147,7 @@ jobs:
           fi
 
       - name: Update the beta feed
+        if: inputs.publish
         run: |
           gh release view update-feed >/dev/null 2>&1 || gh release create update-feed --prerelease --title "Update feed" \
             --notes "Machine-readable update feeds for Kudzu's beta channel. Not a release; nothing to download here." --target "$GITHUB_SHA"
@@ -122,7 +170,7 @@ jobs:
 
   homebrew:
     needs: macos
-    if: inputs.channel != 'beta'
+    if: inputs.publish && inputs.channel != 'beta'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -172,6 +172,41 @@ export APPLE_API_KEY=XXXXXXXXXX APPLE_API_ISSUER=xxxxxxxx-… APPLE_API_KEY_PATH
 pnpm release:build                            # the full thing, into apps/desktop/dist/
 ```
 
+## Native build
+
+The Rune release uses Rust **1.99 or newer** and `scripts/native/release.sh`. It calls
+`scripts/native/bundle.sh --release --universal`, keeps the `kudzu-desktop` executable name,
+and produces the same five files in `dist/` as the Tauri release. The updater tarball has
+`Kudzu.app/` at its root and is made after the app is notarized and stapled. Both platform
+entries in `latest.json` use that archive and the existing updater key. DMG layout and
+background come from `tauri.conf.json`; Finder must be available and allow Automation
+from the build process. A Finder failure stops packaging.
+
+Use the same `APPLE_*`, `TAURI_SIGNING_PRIVATE_KEY` / `_PASSWORD`, `RELEASE_NOTES_FILE`,
+and `REQUIRE_ICLOUD` settings documented above. The native script imports CI's optional
+`APPLE_CERTIFICATE` / `_PASSWORD` into a temporary keychain and deletes it on exit.
+All provisioning-profile identity, container, entitlement, embedding, and signing-certificate
+checks also apply. `SKIP_NOTARIZE=1` skips Apple submission and Gatekeeper assessment;
+Developer ID signing and updater signing still run.
+
+```sh
+cd apps/desktop
+scripts/native/release.sh                     # full release, same credentials as Tauri
+SKIP_NOTARIZE=1 scripts/native/release.sh      # signed packaging check
+scripts/native/bundle.sh                      # ad-hoc Kudzu Dev.app, no GUI launch
+```
+
+For a local packaging check without a Developer ID, set `APPLE_SIGNING_IDENTITY=-` and
+`SKIP_NOTARIZE=1`, and supply a throwaway updater key. This requires no provisioning
+profile; iCloud builds reject ad-hoc signing. Never publish these test artifacts.
+
+CI's **native** job checks generated tokens/icons and builds/tests `kudzu-app` separately.
+The shipping release remains Tauri by default. To test a native release, run **Build macOS
+release** manually with `native=true`, an existing tag containing the native sources, and
+`publish=false` (the manual default). Download the workflow artifacts for review. Reusable
+workflow callers can also pass `native: true`; publication still defaults to on for existing
+callers. With `publish=true`, the existing upload, beta-feed, and Homebrew steps run unchanged.
+
 ## When something goes wrong
 
 - **The build failed:** fix it on `main`, then **Actions → Release → Run workflow** with the tag (for example `v0.3.0`). The draft release is reused, and uploads use `--clobber`.
