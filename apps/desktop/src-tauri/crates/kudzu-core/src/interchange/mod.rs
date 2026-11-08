@@ -2,6 +2,8 @@
 //!
 //! - [`kudzu_json`]: the native library file format.
 //! - [`espanso`]: Espanso match-file import and export.
+//! - [`raycast`]: Raycast snippet JSON import.
+//! - [`textexpander`]: TextExpander (`.textexpander` property list and CSV) import.
 //! - [`strftime`]: strftime ⇄ ICU pattern and offset conversion used by the Espanso bridge.
 //! - [`backup`]: timestamped JSON snapshots on disk.
 //! - [`dedupe`]: deterministic duplicate detection and merging.
@@ -14,9 +16,15 @@ pub mod coordinator;
 pub mod dedupe;
 pub mod espanso;
 pub mod kudzu_json;
+pub mod raycast;
 pub mod stats;
 pub mod strftime;
+pub mod textexpander;
+mod template_out;
 pub mod unique_name;
+
+/// A library built from another app's export, plus everything that didn't convert cleanly.
+pub type ImportResult = espanso::EspansoImportResult;
 
 /// Errors from reading, writing or decoding interchange files.
 #[derive(Debug, thiserror::Error)]
@@ -24,6 +32,9 @@ pub enum InterchangeError {
     /// The library was written by a newer Kudzu than this build understands.
     #[error("Unsupported Kudzu library format version {found}. Maximum supported version is {max_supported}.")]
     UnsupportedFormatVersion { found: i64, max_supported: i64 },
+    /// A file from another app couldn't be read as the format it claims to be.
+    #[error("{0}")]
+    InvalidSource(String),
     /// The JSON was malformed or did not match the library shape.
     #[error("Failed to decode Kudzu library: {0}")]
     Decoding(String),

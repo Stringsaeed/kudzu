@@ -48,7 +48,7 @@ pub fn to_icu(strftime: &str) -> ConversionResult {
     }
 }
 
-fn map_specifier(spec: char) -> Option<&'static str> {
+pub(crate) fn map_specifier(spec: char) -> Option<&'static str> {
     Some(match spec {
         'Y' => "yyyy",
         'y' => "yy",
@@ -72,7 +72,7 @@ fn map_specifier(spec: char) -> Option<&'static str> {
 }
 
 /// Quotes ASCII letter runs so ICU reads them literally; a single quote becomes `''`.
-fn escape_icu_literal(text: &str) -> String {
+pub(crate) fn escape_icu_literal(text: &str) -> String {
     let mut out = String::new();
     let mut in_quotes = false;
     for ch in text.chars() {

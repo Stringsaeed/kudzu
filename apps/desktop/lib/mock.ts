@@ -235,6 +235,7 @@ class MockBackend {
   private listeners = new Map<string, Set<Handler>>()
   private mediaUrls = new Map<string, string>()
   private importPreviewFailed = false
+  private importedPreviews = new Set<string>()
   private finishPreviewFailed = false
   private clips: ClipEntry[] = []
 
@@ -488,6 +489,20 @@ class MockBackend {
           throw new Error("Preview: the second source is temporarily unavailable.")
         }
         return r({ importedSnippets: a.path.endsWith("work") ? 3 : 2, importedGroups: 1, warnings: [] })
+      }
+      case "import_file": {
+        if (!String(a.path).startsWith("preview://")) throw new Error("Import is available in the desktop app.")
+        const raycast = a.path === "preview://raycast"
+        // Importing a sample a second time merges everything into what is already there.
+        const key = `import:${a.path}`
+        const again = this.importedPreviews.has(key)
+        this.importedPreviews.add(key)
+        return r({
+          importedSnippets: raycast ? 4 : 6,
+          importedGroups: 1,
+          dedupeReport: { mergedSnippets: again ? (raycast ? 4 : 6) : 0 },
+          warnings: raycast ? [] : [{ file: "export.csv", message: "Script snippet isn’t supported and was skipped." }],
+        })
       }
       case "list_backups":
         return r([

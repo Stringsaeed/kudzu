@@ -103,7 +103,7 @@ export function CommandMenu({ onOpenGroupSettings, onDelete }: { onOpenGroupSett
       { id: "new", section: "Actions", icon: Plus, label: "New snippet", keywords: "create add", shortcut: "mod+n", run: () => st().newSnippet() },
       { id: "newg", section: "Actions", icon: FolderPlus, label: "New group", keywords: "folder create", shortcut: "mod+shift+n", run: () => st().createGroup("New group", null) },
       { id: "pause", section: "Actions", icon: status.paused ? Play : Pause, label: status.paused ? "Resume expanding" : "Pause expanding", keywords: "stop disable", shortcut: "mod+shift+p", run: () => st().setPaused(!status.paused) },
-      { id: "imp", section: "Actions", icon: Download, label: "Import snippets…", keywords: "espanso json yaml", run: () => runImport() },
+      { id: "imp", section: "Actions", icon: Download, label: "Import snippets…", keywords: "raycast textexpander espanso json yaml csv", run: () => runImport() },
       { id: "exp", section: "Actions", icon: Upload, label: "Export library…", keywords: "backup json espanso", run: () => runExport("json") },
       {
         id: "theme",

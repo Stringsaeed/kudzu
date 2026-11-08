@@ -185,7 +185,7 @@ pub fn run() {
             commands::app_icon,
             commands::detect_espanso,
             commands::import_espanso,
-            commands::import_json,
+            commands::import_file,
             commands::export_json,
             commands::export_espanso,
             commands::list_backups,

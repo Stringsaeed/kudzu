@@ -12,25 +12,51 @@ function reportImport(r: ImportSummary) {
   })
 }
 
-/** Asks for a Kudzu JSON file, an Espanso YAML file, or an Espanso folder, then imports it. */
-export async function runImport(kind?: "espanso-folder" | "file") {
+type ImportKind = "file" | "raycast" | "textexpander" | "espanso-folder"
+
+const IMPORT_DIALOGS: Record<Exclude<ImportKind, "espanso-folder">, { title: string; filters: { name: string; extensions: string[] }[] }> = {
+  file: { title: "Import snippets", filters: [{ name: "Snippet files", extensions: ["json", "yml", "yaml", "textexpander", "csv"] }] },
+  raycast: { title: "Choose your Raycast snippets export", filters: [{ name: "Raycast snippets", extensions: ["json"] }] },
+  textexpander: { title: "Choose your TextExpander export", filters: [{ name: "TextExpander", extensions: ["textexpander", "csv"] }] },
+}
+
+/** Short export instructions per source, shared by Settings and onboarding. */
+export const IMPORT_HINTS = {
+  raycast: "In Raycast, run Export Snippets, then choose the .json file.",
+  textexpander: "In TextExpander, export a group as .textexpander or CSV.",
+} as const
+
+/** Shows the folder dialog for an Espanso config folder; null if cancelled. */
+export async function pickEspansoFolder(): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog")
+  const dir = await open({ directory: true, title: "Choose your Espanso config folder" })
+  return typeof dir === "string" ? dir : null
+}
+
+/** Shows the file dialog for `kind` and returns the chosen path, or null if cancelled. */
+export async function pickImportFile(kind: Exclude<ImportKind, "espanso-folder">): Promise<string | null> {
+  const { open } = await import("@tauri-apps/plugin-dialog")
+  const file = await open(IMPORT_DIALOGS[kind])
+  return typeof file === "string" ? file : null
+}
+
+/**
+ * Asks for a snippet file and imports it. The desktop app works out whether it came from
+ * Kudzu, Raycast (.json), Espanso (.yml) or TextExpander (.textexpander, .csv).
+ */
+export async function runImport(kind: ImportKind = "file") {
   if (!isTauri()) {
     toast("Import works in the desktop app", { description: "This preview runs in a browser without file access." })
     return
   }
-  const { open } = await import("@tauri-apps/plugin-dialog")
   try {
     if (kind === "espanso-folder") {
-      const dir = await open({ directory: true, title: "Choose your Espanso config folder" })
-      if (typeof dir === "string") reportImport(await api.importEspanso(dir))
+      const dir = await pickEspansoFolder()
+      if (dir) reportImport(await api.importEspanso(dir))
       return
     }
-    const file = await open({
-      title: "Import snippets",
-      filters: [{ name: "Kudzu or Espanso", extensions: ["json", "yml", "yaml"] }],
-    })
-    if (typeof file !== "string") return
-    reportImport(file.endsWith(".json") ? await api.importJson(file) : await api.importEspanso(file))
+    const file = await pickImportFile(kind)
+    if (file) reportImport(await api.importFile(file))
   } catch (e) {
     toast.error("Import failed", { description: String(e) })
   }

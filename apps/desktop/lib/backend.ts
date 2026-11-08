@@ -118,7 +118,7 @@ export const api = {
   // Import / export / backups
   detectEspanso: () => call<EspansoDetection[]>("detect_espanso"),
   importEspanso: (path: string) => call<ImportSummary>("import_espanso", { path }),
-  importJson: (path: string) => call<ImportSummary>("import_json", { path }),
+  importFile: (path: string) => call<ImportSummary>("import_file", { path }),
   exportJson: (path: string) => call<void>("export_json", { path }),
   exportEspanso: (dir: string) => call<number>("export_espanso", { dir }),
   listBackups: () => call<BackupInfo[]>("list_backups"),

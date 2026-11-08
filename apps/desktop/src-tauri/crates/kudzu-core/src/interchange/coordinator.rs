@@ -12,6 +12,7 @@ use uuid::Uuid;
 use super::backup::{BackupInfo, BackupReason, BackupStore};
 use super::dedupe::{self, DedupeReport};
 use super::espanso::{self, EspansoImportResult, ImportWarning};
+use super::{raycast, textexpander, ImportResult};
 use super::stats::latest;
 use super::{kudzu_json, InterchangeError};
 use crate::types::{GroupRecord, KudzuLibrary, SnippetRecord, UsageRecord};
@@ -242,6 +243,17 @@ pub fn import_espanso(
     backups: &BackupStore,
     now: DateTime<Utc>,
 ) -> Result<(KudzuLibrary, ImportSummary), InterchangeError> {
+    import_result(existing, result, backups, now)
+}
+
+/// Merges any converted import (Espanso, Raycast, TextExpander, Kudzu JSON) into `existing`
+/// after a `preImport` backup.
+pub fn import_result(
+    existing: &KudzuLibrary,
+    result: &ImportResult,
+    backups: &BackupStore,
+    now: DateTime<Utc>,
+) -> Result<(KudzuLibrary, ImportSummary), InterchangeError> {
     import_library(
         existing,
         &result.library,
@@ -249,6 +261,70 @@ pub fn import_espanso(
         backups,
         now,
     )
+}
+
+/// Which app wrote an import file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportSource {
+    Kudzu,
+    Espanso,
+    Raycast,
+    TextExpander,
+}
+
+/// Works out what `path` is from its extension and, for JSON, its shape: a Raycast export is
+/// an array of snippets, a Kudzu library an object. Folders are Espanso config directories.
+pub fn detect_import_source(path: &Path) -> Result<ImportSource, InterchangeError> {
+    if path.is_dir() {
+        return Ok(ImportSource::Espanso);
+    }
+    let extension = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_lowercase)
+        .unwrap_or_default();
+    match extension.as_str() {
+        "yml" | "yaml" => Ok(ImportSource::Espanso),
+        "textexpander" | "csv" | "plist" | "xml" => Ok(ImportSource::TextExpander),
+        "json" => {
+            let json = fs::read_to_string(path).map_err(|e| {
+                InterchangeError::io(format!("Couldn't read {}", path.display()), e)
+            })?;
+            let first = json
+                .trim_start_matches('\u{feff}')
+                .trim_start()
+                .chars()
+                .next();
+            Ok(if first == Some('[') {
+                ImportSource::Raycast
+            } else {
+                ImportSource::Kudzu
+            })
+        }
+        _ => Err(InterchangeError::InvalidSource(
+            "Kudzu can import .json (Kudzu or Raycast), .yml (Espanso), and .textexpander or .csv (TextExpander) files."
+                .into(),
+        )),
+    }
+}
+
+/// Reads and converts the import file at `path`, whichever app wrote it. Nothing is merged yet.
+pub fn load_import(path: &Path) -> Result<ImportResult, InterchangeError> {
+    match detect_import_source(path)? {
+        ImportSource::Kudzu => {
+            let json = fs::read_to_string(path).map_err(|e| {
+                InterchangeError::io(format!("Couldn't read {}", path.display()), e)
+            })?;
+            Ok(ImportResult {
+                library: kudzu_json::decode(&json)?,
+                warnings: vec![],
+            })
+        }
+        ImportSource::Espanso if path.is_dir() => espanso::import_dir(path),
+        ImportSource::Espanso => espanso::import_files(&[path.to_path_buf()]),
+        ImportSource::Raycast => raycast::import_file(path),
+        ImportSource::TextExpander => textexpander::import_file(path),
+    }
 }
 
 /// Decodes Kudzu JSON and merges it into `existing` after a `preImport` backup.

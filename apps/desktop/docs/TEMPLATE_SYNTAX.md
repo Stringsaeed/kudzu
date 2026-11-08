@@ -87,6 +87,44 @@ kudzu_core::template::render(source: &str, context: &RenderContext) -> RenderRes
 | `propagate_case: true` | `caseMode: propagate` (otherwise `exact`) |
 | `replace` / `markdown` / `html` | Imported as plain text; importing rich formatting emits a warning |
 
+## Raycast mapping (import)
+
+Raycast's **Export Snippets** writes a JSON array of `{ "name", "text", "keyword" }`. Kudzu detects it by the leading `[`. All snippets land in one **Raycast** group with `caseMode: exact` and `fireMode: immediate`.
+
+| Raycast | Kudzu |
+|---|---|
+| `{clipboard}` | `{{clipboard}}`; `{clipboard \| trim}` adds `trim=true` |
+| `{clipboard offset=1}` (history) | Kept as text with a warning |
+| `{cursor}` | `{{cursor}}` |
+| `{date}`, `{time}`, `{datetime}`, `{day}` | `{{date format="…"}}`. Raycast's defaults follow the system's settings, so Kudzu uses fixed approximations: `d MMM yyyy`, `HH:mm`, `d MMM yyyy 'at' HH:mm`, `EEEE` |
+| `{date format="…" offset="…" locale="fr-FR"}` | `format` is already ICU; `locale` becomes `fr_FR`. Offset units: `m` (minutes) → `min`, `M` (months) → `m`; `h`, `d`, `w`, `y` are unchanged, and parts may be separated by spaces (`+2y +5M`). An offset Kudzu can't express, such as mixed signs, is dropped with a warning |
+| `{argument name="n" default="d"}` | `{{field name="n" default="d"}}`; unnamed arguments become `argument 1`, `argument 2`, … |
+| `{argument name="n" options="a, b"}` | `{{choice name="n" options="a\|b"}}` |
+| `{snippet name="Other"}` | `{{snippet id="…"}}` when a snippet with that name is in the export, otherwise kept as text with a warning |
+| `{selection}`, `{uuid}`, other modifiers | Kept as text with a warning |
+| `\{` before a placeholder | A literal `{`; anywhere else the backslash stays |
+| a snippet without a `keyword` | Imported turned off, with a warning |
+
+## TextExpander mapping (import)
+
+Kudzu reads TextExpander's XML property list (`.textexpander`, the `snippetsTE2` array) and CSV exports. Binary property lists and compressed files are rejected with a message to export CSV instead. A `.textexpander` file becomes one group named after its `groupName`; a CSV becomes one group per `Group` column value, or one group named after the file. CSV columns are matched by header (`Abbreviation`, `Snippet` or `Content`, `Label`, `Group`); without a header they are abbreviation, content, label. Line breaks are normalized to `\n`.
+
+| TextExpander | Kudzu |
+|---|---|
+| `abbreviationMode` `0` (case sensitive) | `caseMode: exact`; anything else `propagate` |
+| group expansion mode | Not read; every snippet gets `fireMode: immediate` |
+| rich text snippet | Imported as plain text, with a warning |
+| AppleScript, JavaScript and shell snippets | Skipped with a warning |
+| `%|` | `{{cursor}}` |
+| `%clipboard` | `{{clipboard}}` |
+| `%Y %y %m %d %e %H %I %M %S %p %A %a %B %b %j %Z %z`, `%1m %1d %1H %1I` | `{{date format="…"}}`; a run such as `%m/%d/%Y` becomes one tag |
+| `%filltext:` / `%fillarea:` | `{{field name="…" default="…"}}` (`fillarea` adds `multiline=true`) |
+| `%fillpart:…%text%fillpartend%` (optional section) | The text, always included, with a warning |
+| `%fillpopup:name=n:a:default=b%` | `{{choice name="n" options="b\|a" default="b"}}` |
+| `%snippet:abbreviation%` | `{{snippet id="…"}}` when the abbreviation is in the export, otherwise kept as text with a warning |
+| `%@+1D` before date macros | The `offset` of the date tag (`Y`/`M`/`W`/`D`/`h`/`m` → `y`/`m`/`w`/`d`/`h`/`min`) |
+| `%key:`, `%calc:`, `%mouse:` | Kept as text with a warning |
+
 ## Parsing, serialization, and recursion details
 
 - `resolveSnippet` returns **template source**, not rendered text. The renderer expands it with the same context. The root is depth 0; eight nested snippet levels are allowed. A reference at depth 8 is rejected. Missing references, cycles on the active reference path, and excess depth render empty with a diagnostic. Repeated references in separate branches are allowed.
