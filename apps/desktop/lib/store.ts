@@ -20,7 +20,7 @@ export type View =
   | { kind: "clipboard"; filter?: ClipFilter }
   | { kind: "settings"; section?: SettingsSection }
 
-export type SettingsSection = "general" | "expansion" | "clipboard" | "apps" | "data" | "shortcuts" | "about"
+export type SettingsSection = "general" | "expansion" | "clipboard" | "agents" | "apps" | "data" | "shortcuts" | "about"
 
 export type Focus = "sidebar" | "list" | "editor"
 
@@ -104,6 +104,10 @@ export const useStore = create<Store>((set, get) => ({
     clipboardHotkey: "Control+Alt+V",
     clipboardIgnoredApps: [],
     clipboardPastePlain: false,
+    clipboardShowSecrets: false,
+    agentAccess: false,
+    agentWrite: true,
+    agentClipboard: true,
   },
   status: defaultStatus,
   usage: new Map(),

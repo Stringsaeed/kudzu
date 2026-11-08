@@ -5,12 +5,13 @@ import { Pin } from "lucide-react"
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef } from "react"
 
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
-import { clipTime, describe, matchRanges, spokenLabel, type ClipRow } from "@/lib/clipboard"
+import { clipTime, describe, matchRanges, secretReason, spokenLabel, type ClipRow } from "@/lib/clipboard"
 import type { ClipEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { Shortcut } from "../shortcut"
 import { ClipTile } from "./clip-tile"
+import { dots, RowSecret, useConcealed } from "./secret"
 
 export type Density = "comfortable" | "compact"
 
@@ -65,12 +66,13 @@ const Row = memo(function Row({
 }) {
   const { title, subtitle } = describe(entry)
   const mono = entry.kind === "code" || entry.kind === "color"
+  const concealed = useConcealed(entry)
   return (
     <Item
       id={`clip-${entry.id}`}
       role="option"
       aria-selected={active || selected}
-      aria-label={spokenLabel(entry)}
+      aria-label={spokenLabel(entry, concealed)}
       onMouseDown={(e) => onPointer(e, entry.id)}
       onDoubleClick={() => onPick(entry.id)}
       className={cn(
@@ -85,10 +87,14 @@ const Row = memo(function Row({
       </ItemMedia>
       <ItemContent className="min-w-0 gap-0.5">
         <ItemTitle className={cn("block w-full truncate text-[13px] leading-[18px]", mono && "font-mono text-[12.5px]", !title && "text-muted-foreground italic")}>
-          <Marked text={title.slice(0, 200) || "Empty"} terms={terms} />
+          <RowSecret concealed={concealed} stand={dots(title.length)}>
+            <Marked text={title.slice(0, 200) || "Empty"} terms={terms} />
+          </RowSecret>
         </ItemTitle>
         <ItemDescription className={cn("truncate text-[11.5px] leading-4 text-muted-foreground/85", entry.kind === "link" && "font-mono text-[11px]")}>
-          <Marked text={subtitle.slice(0, 200)} terms={terms} />
+          <RowSecret concealed={concealed} stand={`${secretReason(entry)} · hover to show`}>
+            <Marked text={subtitle.slice(0, 200)} terms={terms} />
+          </RowSecret>
         </ItemDescription>
       </ItemContent>
       <ItemActions className="shrink-0 flex-col items-end gap-1 self-center">

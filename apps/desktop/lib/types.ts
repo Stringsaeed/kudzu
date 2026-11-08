@@ -93,7 +93,35 @@ export interface Settings {
   clipboardIgnoredApps: string[]
   /** Paste formatted text as plain text by default (⇧ flips it). */
   clipboardPastePlain: boolean
+  /** Show passwords, keys and tokens in history without hovering. */
+  clipboardShowSecrets: boolean
+  /** Answer AI agents over MCP (local socket). */
+  agentAccess: boolean
+  /** Agents may create and edit snippets. */
+  agentWrite: boolean
+  /** Agents may search clipboard history; secrets are always withheld. */
+  agentClipboard: boolean
 }
+
+/** How to connect an MCP client to this copy of Kudzu (mirrors Rust `AgentSetup`). */
+export interface AgentSetup {
+  running: boolean
+  /** Server name to register, e.g. "kudzu". */
+  name: string
+  command: string
+  args: string[]
+  /** Ready-to-paste `claude mcp add …`. */
+  claudeCommand: string
+  /** `mcpServers` JSON for other MCP clients. */
+  configJson: string
+  skillPath: string
+  skill: "missing" | "current" | "outdated"
+  /** The skill's folder inside the app bundle (release builds only). */
+  bundledSkillDir: string | null
+}
+
+/** Mirrors kudzu-core `secrets::SecretKind`. */
+export type SecretKind = "privateKey" | "apiKey" | "token" | "password" | "credential"
 
 // Mirrors kudzu-core `clipboard.rs`.
 export type ClipKind = "text" | "code" | "link" | "color" | "image" | "file" | "other"
@@ -127,6 +155,10 @@ export interface ClipEntry {
   lastUsedAt?: string
   useCount: number
   pinned: boolean
+  /** What the text looks like when it holds a password, key or token. */
+  secret?: SecretKind
+  /** The user's correction: false = "not a secret", true = "hide it". */
+  secretOverride?: boolean
 }
 
 export interface ClipboardInfo {

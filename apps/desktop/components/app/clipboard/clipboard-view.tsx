@@ -56,6 +56,7 @@ import {
   formatBytes,
   hasText,
   inFilter,
+  isSecret,
   loadFullText,
   parseQuery,
   RETENTION_OPTIONS,
@@ -73,6 +74,7 @@ import { Shortcut } from "../shortcut"
 import { Breadcrumbs } from "../breadcrumbs"
 import { ClipList, type ClipListHandle } from "./clip-list"
 import { ClipContent, ClipDetails, ClipHeading } from "./clip-preview"
+import { SecretToggleIcon, setSecretWithFeedback } from "./secret"
 
 export interface ClipboardViewHandle {
   focusSearch: () => void
@@ -207,7 +209,8 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
       if (!list.length) return
       setMulti(new Set())
       const removed = await removeEntries(list.map((e) => e.id))
-      const label = removed.length === 1 ? `Deleted “${describe(removed[0]).title.slice(0, 40)}”` : `Deleted ${removed.length} items`
+      const hidden = (e: ClipEntry) => isSecret(e) && !useStore.getState().settings.clipboardShowSecrets
+      const label = removed.length === 1 ? (hidden(removed[0]) ? "Deleted a secret" : `Deleted “${describe(removed[0]).title.slice(0, 40)}”`) : `Deleted ${removed.length} items`
       say(label)
       toast(label, { action: { label: "Undo", onClick: () => void restoreEntries(removed) }, duration: 6000 })
       requestAnimationFrame(() => listRef.current?.focus())
@@ -511,7 +514,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
         <header className="flex h-12 shrink-0 items-center gap-2 border-b border-hairline px-6">
           {active && <Breadcrumbs label="Clipboard item breadcrumb" items={[
             { label: filter === "all" ? "History" : FILTERS.find((f) => f.value === filter)?.label ?? "History", onSelect: () => listRef.current?.focus() },
-            { label: describe(active).title },
+            { label: isSecret(active) && !settings.clipboardShowSecrets ? "Secret" : describe(active).title },
           ]} />}
         </header>
         {active ? (
@@ -548,6 +551,11 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
                   <FolderOpen />
                 </Action>
               )}
+              {hasText(active) && (
+                <Action label={isSecret(active) ? "Not a secret — show it" : "Hide as a secret"} onClick={() => setSecretWithFeedback(active, !isSecret(active))}>
+                  <SecretToggleIcon entry={active} />
+                </Action>
+              )}
               <Action label={active.pinned ? "Unpin" : "Pin — keep forever"} combo="mod+p" active={active.pinned} onClick={() => togglePin([active])}>
                 {active.pinned ? <PinOff /> : <Pin />}
               </Action>
@@ -563,7 +571,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
 
       <Dialog open={quickLook && !!active} onOpenChange={setQuickLook}>
         <DialogContent className="max-h-[86vh] max-w-[min(920px,90vw)] gap-0 overflow-hidden rounded-2xl p-0 shadow-panel ring-0 sm:max-w-[min(920px,90vw)]">
-          <DialogTitle className="sr-only">{active ? describe(active).title : "Preview"}</DialogTitle>
+          <DialogTitle className="sr-only">{active ? (isSecret(active) && !settings.clipboardShowSecrets ? "Secret" : describe(active).title) : "Preview"}</DialogTitle>
           <DialogDescription className="sr-only">Large preview. Press Space or Escape to close.</DialogDescription>
           {active && (
             <div

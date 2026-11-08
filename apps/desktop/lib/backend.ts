@@ -9,6 +9,7 @@ import { formattedHtml } from "./formatting"
 import { renderLocal } from "./render-local"
 import { mockBackend } from "./mock"
 import type {
+  AgentSetup,
   AppInfo,
   AppState,
   BackupInfo,
@@ -148,6 +149,11 @@ export const api = {
   syncStatus: () => call<SyncStatus>("sync_status"),
   syncNow: () => call<void>("sync_now"),
 
+  // AI agents (MCP)
+  agentSetup: () => call<AgentSetup>("agent_setup"),
+  /** Writes the Claude Code skill; resolves to its path. */
+  installAgentSkill: () => call<string>("install_agent_skill"),
+
   // Clipboard history
   clipboardList: () => call<ClipboardInfo>("clipboard_list"),
   clipboardText: (id: string) => call<string | null>("clipboard_text", { id }),
@@ -157,6 +163,8 @@ export const api = {
   clipboardDelete: (ids: string[]) => call<ClipEntry[]>("clipboard_delete", { ids }),
   clipboardRestore: (entries: ClipEntry[]) => call<void>("clipboard_restore", { entries }),
   clipboardPin: (id: string, pinned: boolean) => call<ClipEntry | null>("clipboard_pin", { id, pinned }),
+  /** false = "not a secret", true = "hide it", null = back to detection. */
+  clipboardSetSecret: (id: string, secret: boolean | null) => call<ClipEntry | null>("clipboard_set_secret", { id, secret }),
   clipboardClear: (includePinned: boolean) => call<number>("clipboard_clear", { includePinned }),
   clipboardOpen: (id: string, index?: number) => call<void>("clipboard_open", { id, index: index ?? null }),
   clipboardReveal: (id: string, index?: number) => call<void>("clipboard_reveal", { id, index: index ?? null }),

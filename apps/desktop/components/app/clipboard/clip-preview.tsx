@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 import { AppIcon } from "../app-icon"
 import { ClipContent, useFullText } from "./clip-content"
+import { SecretBadge } from "./secret"
 
 const DAY = 86_400_000
 
@@ -143,6 +144,7 @@ export function ClipHeading({ entry }: { entry: ClipEntry }) {
     <div className="flex min-w-0 items-center gap-2 text-xs">
       <span className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">{KIND_LABEL[entry.kind]}</span>
       {entry.rich && <span className="rounded-md bg-foreground/[0.04] px-1.5 py-0.5 text-[11px] text-faint">Formatted</span>}
+      <SecretBadge entry={entry} />
       {entry.pinned && (
         <span className="flex items-center gap-1 rounded-md bg-iris-soft px-1.5 py-0.5 text-[11px] font-medium text-iris-foreground">
           <Pin className="size-3 -rotate-45 fill-current" /> Pinned

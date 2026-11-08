@@ -4189,3 +4189,187 @@
     }
   }
 }
+
+/* AI agents: the home page session and the docs copy blocks. */
+@layer components {
+  .agent-art {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 40px 32px;
+    background: light-dark(#ecebf3, #2b2a2e);
+    border-color: light-dark(#e1dfeb, #45434a);
+  }
+  .agent-window {
+    overflow: hidden;
+    border: 1px solid light-dark(#d4d1e0, #4a4850);
+    border-radius: var(--radius-md);
+    background: light-dark(#fbfbfd, #1f1e22);
+    box-shadow:
+      inset 0 1px 0 light-dark(#fff0, #ffffff12),
+      0 15px 30px -12px light-dark(#5a557a30, #00000070);
+    transform: rotate(0.6deg);
+  }
+  .agent-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid light-dark(#e4e2ec, #36343a);
+    color: light-dark(#8a87a0, #a19fab);
+    font-family: var(--font-paper), monospace;
+    font-size: 11px;
+  }
+  .agent-lights {
+    display: flex;
+    gap: 6px;
+  }
+  .agent-lights i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: light-dark(#d9d6e3, #45434b);
+  }
+  .agent-log {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 18px 20px 20px;
+    font-family: var(--font-paper), monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    color: light-dark(#3d3a4f, #d6d4dd);
+  }
+  .agent-log p {
+    margin: 0;
+  }
+  .agent-prompt {
+    color: light-dark(#1c1a28, #f3f2f6);
+    font-weight: 600;
+  }
+  .agent-prompt span {
+    color: light-dark(#2849d2, #a4b6ff);
+  }
+  .agent-call b {
+    margin-right: 6px;
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    background: light-dark(#e6ebff, #2a3352);
+    color: light-dark(#2849d2, #a4b6ff);
+    font-weight: 600;
+  }
+  .agent-call span,
+  .agent-result {
+    color: light-dark(#7b7891, #9d9aa8);
+  }
+  .agent-result {
+    padding-left: 14px;
+    border-left: 2px solid light-dark(#e4e2ec, #3a383f);
+  }
+  .agent-result code {
+    color: light-dark(#3d3a4f, #d6d4dd);
+  }
+  .agent-result mark {
+    padding: 0 4px;
+    border-radius: var(--radius-xs);
+    background: light-dark(#fdf0d8, #43361c);
+    color: light-dark(#8a5a00, #f2c66d);
+  }
+  .agent-text {
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    background: light-dark(#f1f0f6, #2a292e);
+    font-family: var(--font-figtree), system-ui, sans-serif;
+  }
+  .agent-reply {
+    margin-top: 4px;
+    color: light-dark(#1c1a28, #f3f2f6);
+    font-family: var(--font-figtree), system-ui, sans-serif;
+  }
+  .agent-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+  }
+  .agent-steps li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .agent-steps li > span {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .agent-link {
+    margin-top: 14px;
+  }
+
+  .copy-block {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    margin: 6px 0 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: light-dark(#f4f4ee, #232322);
+  }
+  .copy-block pre {
+    margin: 0;
+    padding: 14px 4px 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .prose .copy-block code {
+    padding: 0;
+    border: 0;
+    background: none;
+    font-size: inherit;
+    overflow-wrap: normal;
+    white-space: pre;
+    user-select: all;
+  }
+  .copy-block button {
+    margin: 2px 2px 0 0;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--muted);
+  }
+  .copy-block .icon {
+    width: 16px;
+    height: 16px;
+  }
+  .copy-block .copy-status {
+    grid-column: 1 / -1;
+    min-height: 0;
+    padding: 0 16px;
+    font-size: 12px;
+  }
+  .copy-block .copy-status:not(:empty) {
+    padding-bottom: 10px;
+  }
+
+  @media (max-width: 600px) {
+    .agent-art {
+      padding: 24px 14px;
+    }
+    .agent-log {
+      font-size: 11px;
+      padding: 14px;
+    }
+  }
+}

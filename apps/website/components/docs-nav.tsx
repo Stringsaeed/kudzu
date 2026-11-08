@@ -3,6 +3,7 @@ import Link from "next/link";
 const pages = [
   { href: "/docs", label: "Getting started" },
   { href: "/docs/templates", label: "Template guide" },
+  { href: "/docs/ai-agents", label: "AI agents" },
 ] as const;
 
 type Section = { id: string; label: string };

@@ -84,6 +84,10 @@ const defaultSettings: Settings = {
   clipboardHotkey: "Control+Alt+V",
   clipboardIgnoredApps: ["com.1password.1password", "com.apple.keychainaccess", "com.apple.Passwords"],
   clipboardPastePlain: false,
+  clipboardShowSecrets: false,
+  agentAccess: false,
+  agentWrite: true,
+  agentClipboard: true,
 }
 
 // MARK: Clipboard history seed
@@ -154,6 +158,8 @@ function seedClips(media: Map<string, string>): ClipEntry[] {
 }`,
       source: sources.code,
     }),
+    mk("text", 0.4, { text: "kezwy4-dyxbeR-mosmac", secret: "password", source: sources.safari }),
+    mk("code", 0.9, { text: "export OPENAI_API_KEY=sk-proj-" + "Abc123Def456Ghi789Jkl012Mno345\nexport REGION=eu-west-1", secret: "apiKey", source: sources.terminal }),
     mk("color", 1.1, { text: "#5B7CFA", color: "#5b7cfa", source: sources.figma }, [2, 30]),
     image(1.6, 2880, 1800, 230, true, sources.preview),
     mk("code", 2.3, { text: "pnpm tauri build --config src-tauri/tauri.dev.conf.json --bundles app", source: sources.terminal }, [3, 50, 51]),
@@ -238,6 +244,7 @@ class MockBackend {
   private importedPreviews = new Set<string>()
   private finishPreviewFailed = false
   private clips: ClipEntry[] = []
+  private skillInstalled = false
 
   constructor() {
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem("kudzu-mock") : null
@@ -534,6 +541,24 @@ class MockBackend {
         )
       case "sync_now":
         return r(undefined)
+      case "agent_setup": {
+        const command = "/Applications/Kudzu.app/Contents/MacOS/kudzu-desktop"
+        const mcpServers = { kudzu: { command, args: ["--mcp"] } }
+        return r({
+          running: this.state.settings.agentAccess,
+          name: "kudzu",
+          command,
+          args: ["--mcp"],
+          claudeCommand: `claude mcp add --scope user kudzu -- ${command} --mcp`,
+          configJson: JSON.stringify({ mcpServers }, null, 2),
+          skillPath: "~/.claude/skills/kudzu/SKILL.md",
+          skill: this.skillInstalled ? "current" : "missing",
+          bundledSkillDir: "/Applications/Kudzu.app/Contents/Resources/skills/kudzu",
+        })
+      }
+      case "install_agent_skill":
+        this.skillInstalled = true
+        return r("~/.claude/skills/kudzu/SKILL.md")
       case "clipboard_list":
         return r({ entries: this.clips, diskUsage: 38_400_000, canPaste: true })
       case "clipboard_text":
@@ -561,6 +586,12 @@ class MockBackend {
         this.clips = [...this.clips, ...(a.entries as ClipEntry[])].sort((x, y) => (x.copiedAt < y.copiedAt ? 1 : -1))
         this.emit("kudzu://clipboard", { type: "reset", entries: structuredClone(this.clips) })
         return r(undefined)
+      case "clipboard_set_secret": {
+        this.clips = this.clips.map((c) => (c.id === a.id ? { ...c, secretOverride: (a.secret as boolean | null) ?? undefined } : c))
+        const e = this.clips.find((c) => c.id === a.id)
+        if (e) this.emit("kudzu://clipboard", { type: "upsert", entry: structuredClone(e) })
+        return r(e ?? null)
+      }
       case "clipboard_pin": {
         this.clips = this.clips.map((c) => (c.id === a.id ? { ...c, pinned: a.pinned as boolean } : c))
         const e = this.clips.find((c) => c.id === a.id)

@@ -1,5 +1,6 @@
 //! Kudzu desktop: Tauri shell around kudzu-core (logic) and kudzu-engine (system integration).
 
+mod agent;
 mod clipboard;
 mod cloud;
 mod commands;
@@ -29,6 +30,12 @@ fn is_dev_identifier(identifier: &str) -> bool {
 
 fn is_dev(app: &tauri::AppHandle) -> bool {
     is_dev_identifier(&app.config().identifier)
+}
+
+/// `Kudzu --mcp [--dev]`: the stdio MCP server agents launch. It relays to the running app
+/// (see `agent`) and never starts the UI.
+pub fn mcp_bridge(dev: bool) -> i32 {
+    agent::bridge(dev)
 }
 
 pub fn run() {
@@ -113,6 +120,7 @@ pub fn run() {
             }
             clipboard::apply_enabled(app.handle());
             clipboard::start(app.handle());
+            agent::apply(app.handle());
             updater::start(app.handle());
             cloud::start(app.handle());
             windows::prewarm(app.handle());
@@ -215,6 +223,7 @@ pub fn run() {
             clipboard::clipboard_delete,
             clipboard::clipboard_restore,
             clipboard::clipboard_pin,
+            clipboard::clipboard_set_secret,
             clipboard::clipboard_clear,
             clipboard::clipboard_open,
             clipboard::clipboard_reveal,
@@ -222,6 +231,8 @@ pub fn run() {
             clipboard::clipboard_to_snippet,
             clipboard::hide_clipboard,
             clipboard::set_clipboard_hotkey,
+            agent::agent_setup,
+            agent::install_agent_skill,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Kudzu")
@@ -232,6 +243,7 @@ pub fn run() {
             }
             if let tauri::RunEvent::Exit = &event {
                 clipboard::flush(app);
+                agent::shut_down();
                 // Quitting with a downloaded update installs it, so the next launch is current.
                 updater::install_on_quit(app);
             }
