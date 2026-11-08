@@ -35,8 +35,13 @@ jobs:
       - id: rp
         uses: googleapis/release-please-action@v4
         with:
-          # A PAT lets CI run on the release PR (PRs opened with GITHUB_TOKEN don't trigger workflows).
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
+          # The Actions token is the GitHub Actions app. Release commits are then signed by
+          # GitHub (author github-actions[bot], committer web-flow). A user PAT authenticates
+          # as that user and the same Git Data API call is stored unsigned.
+          # The main ruleset has no bypass, so this token can update the release branch and
+          # open the PR, and it cannot push to main. CI on that PR waits for
+          # "Approve workflows to run" before the required desktop check goes green.
+          token: ${{ github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
