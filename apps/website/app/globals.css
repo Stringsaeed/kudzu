@@ -34,6 +34,35 @@
       radial-gradient(ellipse at 85% 120%, light-dark(#d9e0bf, #4b5738), transparent 70%),
       light-dark(#bdc8ae, #293829);
   }
+  /* The workspace is a fixed 960 × 600 layout scaled to the screen. These stepped defaults
+     put the server-rendered HTML at (nearly) the right scale on first paint; the playground
+     measures the exact value before its first paint. At max width the frame is 1160px, so
+     the screen is 74.7826% of it and the scale is 867/960. */
+  @media (min-width: 1241px) {
+    .device-workspace {
+      --device-scale: 0.9036;
+    }
+  }
+  @media (min-width: 1211px) and (max-width: 1240px) {
+    .device-workspace {
+      --device-scale: 0.8917;
+    }
+  }
+  @media (min-width: 1181px) and (max-width: 1210px) {
+    .device-workspace {
+      --device-scale: 0.8684;
+    }
+  }
+  @media (min-width: 1151px) and (max-width: 1180px) {
+    .device-workspace {
+      --device-scale: 0.845;
+    }
+  }
+  @media (min-width: 1101px) and (max-width: 1150px) {
+    .device-workspace {
+      --device-scale: 0.8141;
+    }
+  }
   .desktop-menubar {
     display: flex;
     align-items: center;

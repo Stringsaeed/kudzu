@@ -4,7 +4,7 @@ import Image from "next/image";
 import { AppleMark } from "./apple-mark";
 import { MacOSDock } from "./macos-dock";
 import { StageCallouts } from "./stage-callouts";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { snippets as demoSnippets } from "@/lib/examples";
 import { Icon } from "./icons";
@@ -171,12 +171,17 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
     if (!touched.current && !prefersReducedMotion()) play(selected, true);
   });
 
-  useEffect(() => {
+  // The browser paints the server-rendered HTML before any of this runs, so the CSS default in
+  // globals.css carries that first paint. This sets the exact scale synchronously on mount,
+  // before the hydrated DOM paints, so there is no 1 → value snap; the observer then handles
+  // resizes.
+  useLayoutEffect(() => {
     const screen = screenRef.current;
     if (!screen) return;
-    const observer = new ResizeObserver(([entry]) => {
-      screen.style.setProperty("--device-scale", String(entry.contentRect.width / 960));
-    });
+    const apply = () =>
+      screen.style.setProperty("--device-scale", String(screen.getBoundingClientRect().width / 960));
+    apply();
+    const observer = new ResizeObserver(apply);
     observer.observe(screen);
     return () => observer.disconnect();
   }, []);
