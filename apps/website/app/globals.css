@@ -23,16 +23,28 @@
     border-radius: var(--radius-sm);
     overflow: clip;
     background: light-dark(#bdc8ae, #293829);
+    container-type: inline-size;
   }
+  /* A fixed 960 × 600 layout scaled to fit the screen. tan(atan2(a, b)) is a / b as a plain
+     number, so the scale is exact in CSS from the very first paint — no measuring in JS. */
   .device-workspace {
     position: relative;
     width: 960px;
     height: 600px;
-    transform: scale(var(--device-scale, 1));
+    transform: scale(tan(atan2(100cqw, 960px)));
     transform-origin: top left;
     background:
       radial-gradient(ellipse at 85% 120%, light-dark(#d9e0bf, #4b5738), transparent 70%),
       light-dark(#bdc8ae, #293829);
+  }
+  /* The laptop lid starts tilted back; the scroll motion opens it toward you. Painting the start
+     state in CSS means the first paint already matches the tween's first frame, so the frame
+     never jumps from flat to tilted when GSAP loads. Same conditions as the tween's matchMedia. */
+  @media (min-width: 1101px) and (prefers-reduced-motion: no-preference) {
+    .device-frame {
+      transform: perspective(2600px) rotateX(16deg) scale(0.93);
+      transform-origin: 50% 100%;
+    }
   }
   .desktop-menubar {
     display: flex;

@@ -51,7 +51,6 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
   // Autoplay runs as the visitor scrolls, so its result isn't announced to screen readers.
   const [quiet, setQuiet] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const screenRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const timers = useRef<number[]>([]);
@@ -171,16 +170,6 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
     if (!touched.current && !prefersReducedMotion()) play(selected, true);
   });
 
-  useEffect(() => {
-    const screen = screenRef.current;
-    if (!screen) return;
-    const observer = new ResizeObserver(([entry]) => {
-      screen.style.setProperty("--device-scale", String(entry.contentRect.width / 960));
-    });
-    observer.observe(screen);
-    return () => observer.disconnect();
-  }, []);
-
   const stopOffscreen = useEffectEvent(() => {
     if (timers.current.length === 0) return;
     clearTimers();
@@ -229,7 +218,7 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
           preload
           fetchPriority="high"
         />
-        <div className="device-screen" ref={screenRef}>
+        <div className="device-screen">
           <div className="device-workspace">
             <div className="desktop-menubar" aria-hidden="true">
               <AppleMark />

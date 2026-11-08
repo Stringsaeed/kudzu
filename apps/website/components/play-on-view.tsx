@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 
 /**
  * Plays a CSS entrance when the element scrolls into view. Content stays visible without
@@ -16,12 +16,19 @@ export function PlayOnView({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
+  // Set `waiting` in a layout effect so the pre-hidden state lands before the browser paints
+  // the hydrated DOM; doing it in a passive effect flashed the finished art first.
+  useLayoutEffect(() => {
     const element = ref.current;
     if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const { top, bottom } = element.getBoundingClientRect();
     if (top < window.innerHeight * 0.85 && bottom > 0) return;
     element.dataset.play = "waiting";
+  }, []);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (element.dataset.play !== "waiting") return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
