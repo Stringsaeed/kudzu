@@ -46,6 +46,4 @@ set_secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD "$UPDATER_PASS"
 
 read -rsp "Homebrew tap token (fine-grained PAT, Contents: write on Stringsaeed/homebrew-tap; Enter to skip): " TAP; echo
 [[ -n $TAP ]] && set_secret HOMEBREW_TAP_TOKEN "$TAP"
-read -rsp "Release PR token (optional PAT so CI runs on release PRs; Enter to skip): " RP; echo
-[[ -n $RP ]] && set_secret RELEASE_PLEASE_TOKEN "$RP"
 echo "Done."

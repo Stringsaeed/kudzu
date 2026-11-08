@@ -67,7 +67,7 @@ Use betas for anything risky, sync-format changes above all: run them on your ow
 
    With merge commits (the repo's current style), every commit in the PR is read. With squash merges, the PR title is what counts, so title PRs the same way.
 
-2. When you're ready to ship, open the **"chore: release x.y.z"** PR. Read the changelog, edit it if you like, and merge.
+2. When you're ready to ship, open the **"chore: release x.y.z"** PR. Release opens it with the Actions token, so GitHub signs the release commit. On that PR, choose **Approve workflows to run**, wait for the **desktop** check, read the changelog, edit it if you like, and squash-merge. The main ruleset allows only squash, and the squash commit is the one that lands on main.
 3. Watch **Actions → Release**. A run takes about 20–30 minutes, most of it compiling two architectures and waiting on Apple's notary service. When it's green:
    - the release is public;
    - running copies find it within six hours, or straight away with **Settings → About → Check now**, or **Check for Updates…** in the menu-bar menu;
@@ -105,7 +105,6 @@ apps/desktop/scripts/release/set-github-secrets.sh \
 | `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | updater signing key | already generated: `~/.tauri/kudzu-updater.key`, with its password in the login keychain under "Kudzu updater signing key password". The script reads both. |
 | `HOMEBREW_TAP_TOKEN` | lets CI push to the tap | [Fine-grained PAT](https://github.com/settings/personal-access-tokens/new): repository **Stringsaeed/homebrew-tap**, permission **Contents: Read and write** |
 | `APPLE_PROVISIONING_PROFILE` | Developer ID provisioning profile for `sh.saeed.kudzu` with iCloud | see step 2; the script base64-encodes it |
-| `RELEASE_PLEASE_TOKEN` (optional) | lets CI run on the release PR | fine-grained PAT on **Stringsaeed/kudzu** with Contents and Pull requests set to Read and write. Without it the release PR has no CI checks, because GitHub doesn't run workflows on PRs opened by `GITHUB_TOKEN`. |
 
 > [!WARNING]
 > **Back up the updater key and its password** (for example in 1Password). Every installed copy trusts only this key. If it's lost, existing users can't be updated and have to reinstall by hand.
@@ -139,6 +138,7 @@ These are enforced in `kudzu_core::sync` and its tests. Keep them:
 ### 3. Repository settings
 
 - **Settings → Actions → General → Workflow permissions:** "Read and write", plus "Allow GitHub Actions to create and approve pull requests". release-please needs both.
+- Release uses the built-in `GITHUB_TOKEN`. The main ruleset has no bypass list, so that token can push the release branch and open the pull request, and it cannot update `main`. GitHub signs the release commit. A pull request opened this way queues **desktop** in an approval state: someone with write access uses **Approve workflows to run** on the PR, then the required check can pass. If an old `RELEASE_PLEASE_TOKEN` secret is still stored, delete it. The workflow does not read it, and a user token on this step produces an unsigned release commit.
 - The repo must be **public**: the updater and Homebrew download release assets without credentials.
 
 ## Design exports and release checks
