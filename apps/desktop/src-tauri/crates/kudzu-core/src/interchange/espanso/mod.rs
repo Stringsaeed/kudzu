@@ -5,7 +5,7 @@
 
 mod exporter;
 mod importer;
-mod tags;
+pub(crate) mod tags;
 mod yaml;
 
 use std::collections::BTreeMap;

@@ -243,6 +243,8 @@ export interface ImportWarning {
 export interface ImportSummary {
   importedSnippets: number
   importedGroups: number
+  /** What deduplication merged away; `importedSnippets - mergedSnippets` is roughly what was new. */
+  dedupeReport?: { mergedSnippets: number }
   warnings: ImportWarning[]
 }
 

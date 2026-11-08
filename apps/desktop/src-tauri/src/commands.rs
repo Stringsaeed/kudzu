@@ -462,12 +462,14 @@ pub fn import_espanso(core: Core, path: PathBuf) -> Res<coordinator::ImportSumma
     apply_import(&core, result)
 }
 
+/// Imports a file or folder from any supported app, detected from its extension and contents:
+/// Kudzu or Raycast `.json`, Espanso `.yml` or a folder, TextExpander `.textexpander` or `.csv`.
 #[tauri::command]
-pub fn import_json(core: Core, path: PathBuf) -> Res<coordinator::ImportSummary> {
-    let json = std::fs::read_to_string(&path).map_err(err)?;
+pub fn import_file(core: Core, path: PathBuf) -> Res<coordinator::ImportSummary> {
+    let parsed = coordinator::load_import(&path).map_err(err)?;
     let result = {
         let s = core.store.lock();
-        coordinator::import_kudzu_json(&s.library, &json, &s.backups(), Utc::now())
+        coordinator::import_result(&s.library, &parsed, &s.backups(), Utc::now())
     };
     apply_import(&core, result)
 }

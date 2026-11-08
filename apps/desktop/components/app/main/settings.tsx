@@ -37,7 +37,7 @@ import { AppPicker } from "../app-picker"
 import { Segmented } from "../segmented"
 import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
-import { runExport, runImport } from "./data-actions"
+import { IMPORT_HINTS, runExport, runImport } from "./data-actions"
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
@@ -504,11 +504,12 @@ function Data() {
 
   return (
     <>
-      <Group title="Import" description="Bring snippets from Espanso or another Kudzu library. A backup is saved first.">
+      <Group title="Import" description="Bring snippets from Raycast, TextExpander, Espanso or another Kudzu library. A backup is saved first.">
         {espanso.map((d) => (
           <Row key={d.path} title="Espanso found on this Mac" description={`${d.snippetCount} snippets in ${d.groupCount} files · ${d.path}`}>
             <Button
               size="sm"
+              aria-label={`Import Espanso snippets from ${d.path}`}
               onClick={() =>
                 api.importEspanso(d.path).then(
                   (r) => toast.success(`Imported ${r.importedSnippets} snippets`),
@@ -520,8 +521,18 @@ function Data() {
             </Button>
           </Row>
         ))}
-        <Row title="From a file" description="Kudzu .json, or Espanso .yml">
-          <Button size="sm" variant="secondary" onClick={() => runImport("file")}>
+        <Row title="Raycast" description={IMPORT_HINTS.raycast}>
+          <Button size="sm" variant="secondary" aria-label="Choose file… for Raycast" onClick={() => runImport("raycast")}>
+            Choose file…
+          </Button>
+        </Row>
+        <Row title="TextExpander" description={IMPORT_HINTS.textexpander}>
+          <Button size="sm" variant="secondary" aria-label="Choose file… for TextExpander" onClick={() => runImport("textexpander")}>
+            Choose file…
+          </Button>
+        </Row>
+        <Row title="Kudzu or Espanso" description="A Kudzu .json library, or Espanso .yml files and folders.">
+          <Button size="sm" variant="secondary" aria-label="Choose file… for Kudzu or Espanso" onClick={() => runImport("file")}>
             Choose file…
           </Button>
           <Button size="sm" variant="ghost" onClick={() => runImport("espanso-folder")}>
