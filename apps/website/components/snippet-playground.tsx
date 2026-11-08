@@ -4,7 +4,7 @@ import Image from "next/image";
 import { AppleMark } from "./apple-mark";
 import { MacOSDock } from "./macos-dock";
 import { StageCallouts } from "./stage-callouts";
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { snippets as demoSnippets } from "@/lib/examples";
 import { Icon } from "./icons";
@@ -51,7 +51,6 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
   // Autoplay runs as the visitor scrolls, so its result isn't announced to screen readers.
   const [quiet, setQuiet] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const screenRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const timers = useRef<number[]>([]);
@@ -171,21 +170,6 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
     if (!touched.current && !prefersReducedMotion()) play(selected, true);
   });
 
-  // The browser paints the server-rendered HTML before any of this runs, so the CSS default in
-  // globals.css carries that first paint. This sets the exact scale synchronously on mount,
-  // before the hydrated DOM paints, so there is no 1 → value snap; the observer then handles
-  // resizes.
-  useLayoutEffect(() => {
-    const screen = screenRef.current;
-    if (!screen) return;
-    const apply = () =>
-      screen.style.setProperty("--device-scale", String(screen.getBoundingClientRect().width / 960));
-    apply();
-    const observer = new ResizeObserver(apply);
-    observer.observe(screen);
-    return () => observer.disconnect();
-  }, []);
-
   const stopOffscreen = useEffectEvent(() => {
     if (timers.current.length === 0) return;
     clearTimers();
@@ -234,7 +218,7 @@ export function SnippetPlayground({ snippets = demoSnippets }: { snippets?: Snip
           preload
           fetchPriority="high"
         />
-        <div className="device-screen" ref={screenRef}>
+        <div className="device-screen">
           <div className="device-workspace">
             <div className="desktop-menubar" aria-hidden="true">
               <AppleMark />

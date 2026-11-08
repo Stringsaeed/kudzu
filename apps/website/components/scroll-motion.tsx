@@ -90,7 +90,6 @@ export function ScrollMotion() {
         transform: "scale(0.94)",
         translate: "0px 40px",
       });
-      preHide(query(".device-frame"), { opacity: "0" });
       preHide(query(".footer-wordmark"), { "clip-path": "inset(100% 0% 0% 0%)" });
       preHide(query(".footer-wordmark .wordmark-echo"), { opacity: "0" });
     }
@@ -206,13 +205,13 @@ export function ScrollMotion() {
           }
 
           if (wide) {
-            // The laptop lid opens toward you as you scroll into the demo. At either end it
-            // is flat, so drop the inline transform there: a leftover rotationX keeps the
-            // laptop's large scaled workspace on a 3D composited layer that re-rasterizes
-            // (and visibly shimmers) on every scroll frame.
-            const device = document.querySelector(".device-frame");
+            // The laptop lid opens toward you as you scroll into the demo. globals.css paints
+            // the tilted start state, and `clamp()` pins the start to the top of the page (the
+            // laptop is already in view on load), so the first frame equals what's on screen
+            // and nothing jumps when GSAP arrives. Once flat, drop the 3D transform entirely so
+            // the large scaled workspace isn't kept on a composited layer.
+            const device = document.querySelector<HTMLElement>(".device-frame");
             if (device) {
-              gsap.set(device, { clearProps: "opacity" });
               gsap.fromTo(
                 device,
                 { rotationX: 16, scale: 0.93, transformPerspective: 2600, transformOrigin: "50% 100%" },
@@ -220,12 +219,13 @@ export function ScrollMotion() {
                   rotationX: 0,
                   scale: 1,
                   ease: "none",
-                  onComplete: () => gsap.set(device, { clearProps: "transform" }),
-                  onReverseComplete: () => gsap.set(device, { clearProps: "transform" }),
+                  onComplete: () => {
+                    device.style.transform = "none";
+                  },
                   scrollTrigger: {
                     trigger: device,
-                    start: "top bottom",
-                    end: "bottom bottom",
+                    start: "clamp(top bottom)",
+                    end: "clamp(bottom bottom)",
                     scrub: true,
                   },
                 },
