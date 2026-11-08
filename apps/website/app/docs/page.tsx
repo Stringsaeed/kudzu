@@ -21,6 +21,7 @@ const sections = [
   { id: "first-shortcut", label: "Your first shortcut" },
   { id: "everyday", label: "Everyday shortcuts" },
   { id: "clipboard", label: "Clipboard history" },
+  { id: "ai-agents", label: "AI agents" },
   { id: "your-data", label: "Your data" },
   { id: "troubleshooting", label: "Troubleshooting" },
 ];
@@ -132,6 +133,20 @@ export default function DocsPage() {
             to 5,000 unpinned items, pinned items never expire, and nothing leaves your Mac. Copies an
             app marks concealed or transient are skipped, and so is anything from a password manager.
             Add more apps to skip in <strong>Settings → Clipboard</strong>.
+          </p>
+          <p>
+            Anything that looks like a password, API key, or token shows as dots until you hover
+            over it. If Kudzu gets one wrong, choose <strong>Not a secret?</strong> on the item, or{" "}
+            <strong>Hide as a secret</strong> in its toolbar. Turn on <strong>Show secrets</strong>{" "}
+            in <strong>Settings → Clipboard</strong> to stop hiding them.
+          </p>
+
+          <h2 id="ai-agents">AI agents</h2>
+          <p>
+            Claude Code and other AI assistants can find, expand, and write your snippets through
+            MCP. Turn it on in <strong>Settings → AI agents</strong>. Passwords and keys are
+            redacted before anything leaves Kudzu.{" "}
+            <Link href="/docs/ai-agents">Connect an assistant</Link>.
           </p>
 
           <h2 id="your-data">Your data</h2>

@@ -18,6 +18,12 @@ export const site = {
   // Resolves to the newest stable DMG. See app/download/route.ts.
   download: "/download",
   brew: "brew install --cask stringsaeed/tap/kudzu",
+  mcp: {
+    binary: "/Applications/Kudzu.app/Contents/MacOS/kudzu-desktop",
+    claudeCommand:
+      "claude mcp add --scope user kudzu -- /Applications/Kudzu.app/Contents/MacOS/kudzu-desktop --mcp",
+    skillDir: "/Applications/Kudzu.app/Contents/Resources/skills/kudzu",
+  },
 };
 
 export type NavItem = { href: string; label: string; section?: string };

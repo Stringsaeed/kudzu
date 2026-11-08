@@ -3,7 +3,7 @@ import { comparisons } from "@/lib/compare";
 import { site } from "@/lib/site";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const pages = ["/docs", "/docs/templates", "/changelog", "/compare", "/privacy"];
+  const pages = ["/docs", "/docs/templates", "/docs/ai-agents", "/changelog", "/compare", "/privacy"];
   return [
     { url: site.url, changeFrequency: "weekly", priority: 1 },
     ...pages.map((page) => ({ url: `${site.url}${page}`, changeFrequency: "monthly" as const })),

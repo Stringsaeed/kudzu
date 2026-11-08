@@ -9,6 +9,7 @@ import { getLatestRelease, releaseAnchor } from "@/lib/releases";
 import { site } from "@/lib/site";
 import { worstCase, worstClipboardItems, worstSnippets } from "@/lib/worst-case";
 import { SnippetPlayground } from "@/components/snippet-playground";
+import { AgentPreview } from "@/components/agent-preview";
 import { ClipboardPreview } from "@/components/clipboard-preview";
 import { TemplateExamples } from "@/components/template-examples";
 import { CopyCommand } from "@/components/copy-command";
@@ -210,6 +211,44 @@ export default async function Home() {
 
         <TemplateExamples />
 
+        <section className="feature-row wrap" id="agents" aria-labelledby="agents-title">
+          <div className="feature-copy">
+            <span className="feature-number">04 / AI AGENTS</span>
+            <h2 id="agents-title">
+              Your words,
+              <br />
+              in your AI’s hands.
+            </h2>
+            <p>
+              Connect Claude Code or another assistant, and it can use the replies, signatures, and
+              boilerplate you already keep in Kudzu. Ask it to save a new snippet, and it picks a
+              trigger that’s free.
+            </p>
+            <ol className="agent-steps">
+              <li>
+                <span>1</span> Turn on <strong>Settings → AI agents</strong>.
+              </li>
+              <li>
+                <span>2</span> Paste one command into Terminal.
+              </li>
+              <li>
+                <span>3</span> Ask for your snippets by name.
+              </li>
+            </ol>
+            <div className="feature-detail">
+              <svg className="icon">
+                <use href="#i-lock" />
+              </svg>
+              Passwords and keys are redacted before they leave Kudzu.
+            </div>
+            <Link className="inline-link agent-link" href="/docs/ai-agents">
+              Connect an assistant
+              <Icon name="arrow" />
+            </Link>
+          </div>
+          <AgentPreview />
+        </section>
+
         <section className="more-features wrap" aria-labelledby="more-title">
           <h2 className="visually-hidden" id="more-title">
             More in Kudzu
@@ -251,7 +290,8 @@ export default async function Home() {
                   <h3>Local feels right.</h3>
                   <p>
                     Your clipboard history stays on your Mac. Password managers are excluded by
-                    default, and copies an app marks private are skipped.
+                    default, copies an app marks private are skipped, and passwords you do copy
+                    stay hidden until you hover.
                   </p>
                 </div>
               </article>
@@ -433,6 +473,16 @@ export default async function Home() {
                 supported dates, clipboard variables, forms, and nested snippets. Unsupported script
                 and rich-text features are imported as plain text with warnings so you can review
                 them.
+              </p>
+            </details>
+            <details>
+              <summary>
+                Can AI assistants use my snippets?<Icon name="plus" />
+              </summary>
+              <p>
+                Yes, if you turn it on. Kudzu works with Claude Code and other MCP apps, which can
+                find, expand, and write your snippets. Passwords and keys are redacted before
+                anything leaves Kudzu. <Link href="/docs/ai-agents">Here’s how to connect one</Link>.
               </p>
             </details>
             <details>
