@@ -41,7 +41,7 @@ block2 = "0.6"
 
 [workspace]
 resolver = "2"
-members = ["crates/kudzu-core", "crates/kudzu-engine"]
+members = ["crates/kudzu-core", "crates/kudzu-engine", "crates/kudzu-app"]
 
 # Crate versions are internal. The app version lives in desktop/package.json (bumped by
 # release-please) and reaches the bundle through tauri.conf.json's `"version": "../package.json"`.
