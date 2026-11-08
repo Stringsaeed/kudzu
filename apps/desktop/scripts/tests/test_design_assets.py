@@ -15,7 +15,8 @@ class DesignAssetCheck(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "apps/desktop"
         manifest = json.loads((ROOT / "design/assets-manifest.json").read_text())
-        files = set(manifest["sources"]) | set(manifest["outputs"]) | {
+        # A source can name part of a file ("pnpm-lock.yaml#@tauri-apps/cli"); copy the whole file.
+        files = {name.split("#")[0] for name in manifest["sources"]} | set(manifest["outputs"]) | {
             "design/assets-manifest.json", "scripts/check-design-assets.py",
         }
         for name in files:
@@ -65,12 +66,20 @@ class DesignAssetCheck(unittest.TestCase):
         result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_changed_workspace_lock_requires_export(self):
+    def test_changed_tauri_cli_requires_export(self):
         lockfile = self.root / "../../pnpm-lock.yaml"
-        lockfile.write_text(lockfile.read_text() + "\n# toolchain changed\n")
+        text = lockfile.read_text()
+        self.assertIn("'@tauri-apps/cli@", text)
+        lockfile.write_text(text.replace("'@tauri-apps/cli@", "'@tauri-apps/cli@9", 1))
         result = self.check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("sources: ../../pnpm-lock.yaml", result.stderr)
+        self.assertIn("sources: ../../pnpm-lock.yaml#@tauri-apps/cli", result.stderr)
+
+    def test_unrelated_lock_change_needs_no_export(self):
+        lockfile = self.root / "../../pnpm-lock.yaml"
+        lockfile.write_text(lockfile.read_text() + "\n  gsap@3.15.0:\n    resolution: {integrity: sha512-x}\n")
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":
