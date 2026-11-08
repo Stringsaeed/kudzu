@@ -163,6 +163,8 @@ export const api = {
   clipboardDelete: (ids: string[]) => call<ClipEntry[]>("clipboard_delete", { ids }),
   clipboardRestore: (entries: ClipEntry[]) => call<void>("clipboard_restore", { entries }),
   clipboardPin: (id: string, pinned: boolean) => call<ClipEntry | null>("clipboard_pin", { id, pinned }),
+  /** false = "not a secret", true = "hide it", null = back to detection. */
+  clipboardSetSecret: (id: string, secret: boolean | null) => call<ClipEntry | null>("clipboard_set_secret", { id, secret }),
   clipboardClear: (includePinned: boolean) => call<number>("clipboard_clear", { includePinned }),
   clipboardOpen: (id: string, index?: number) => call<void>("clipboard_open", { id, index: index ?? null }),
   clipboardReveal: (id: string, index?: number) => call<void>("clipboard_reveal", { id, index: index ?? null }),

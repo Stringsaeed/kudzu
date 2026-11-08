@@ -223,6 +223,7 @@ pub fn run() {
             clipboard::clipboard_delete,
             clipboard::clipboard_restore,
             clipboard::clipboard_pin,
+            clipboard::clipboard_set_secret,
             clipboard::clipboard_clear,
             clipboard::clipboard_open,
             clipboard::clipboard_reveal,

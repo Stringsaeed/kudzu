@@ -49,6 +49,9 @@
       "dmg"
     ],
     "category": "Productivity",
+    "resources": {
+      "../skills/kudzu/SKILL.md": "skills/kudzu/SKILL.md"
+    },
     "shortDescription": "Clipboard history and text shortcuts for your Mac.",
     "icon": [
       "icons/32x32.png",

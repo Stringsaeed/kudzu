@@ -35,8 +35,7 @@ use crate::state::{core, AppCore};
 
 /// The socket's file name in the data folder.
 pub const SOCKET: &str = "agent.sock";
-/// The Claude Code skill that teaches agents when and how to use these tools.
-pub const SKILL: &str = include_str!("../../skills/kudzu/SKILL.md");
+pub use kudzu_core::agent::SKILL;
 
 const PROD_ID: &str = "sh.saeed.kudzu";
 const DEV_ID: &str = "sh.saeed.kudzu.dev";
@@ -286,6 +285,8 @@ pub struct AgentSetup {
     skill_path: String,
     /// "missing", "current" or "outdated".
     skill: &'static str,
+    /// The skill's folder inside the app bundle (release builds), for linking into other agents.
+    bundled_skill_dir: Option<String>,
 }
 
 #[tauri::command]
@@ -317,7 +318,14 @@ pub fn agent_setup(app: AppHandle) -> AgentSetup {
         config_json,
         skill_path: path.to_string_lossy().into_owned(),
         skill,
+        bundled_skill_dir: bundled_skill_dir(&app).map(|p| p.to_string_lossy().into_owned()),
     }
+}
+
+fn bundled_skill_dir(app: &AppHandle) -> Option<PathBuf> {
+    use tauri::Manager;
+    let dir = app.path().resource_dir().ok()?.join("skills/kudzu");
+    dir.join("SKILL.md").is_file().then_some(dir)
 }
 
 /// Writes the Kudzu skill to `~/.claude/skills/kudzu/SKILL.md` and returns its path.

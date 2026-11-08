@@ -22,6 +22,12 @@ use crate::KudzuLibrary;
 
 pub use tools::definitions;
 
+/// The agent skill (`apps/desktop/skills/kudzu/SKILL.md`): served as an MCP resource, installed
+/// by Settings ▸ AI agents, and bundled in `Kudzu.app/Contents/Resources/skills/kudzu/`.
+pub const SKILL: &str = include_str!("../../../../../skills/kudzu/SKILL.md");
+/// The skill's resource URI.
+pub const SKILL_URI: &str = "kudzu://skill/SKILL.md";
+
 /// Protocol revisions this server speaks, newest first.
 pub const PROTOCOL_VERSIONS: [&str; 4] = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -103,6 +109,7 @@ pub const INSTRUCTIONS: &str = r#"Kudzu is the user's text expander and clipboar
 - Create or edit snippets only when the user asks. Pick short, memorable triggers that start with the user's prefix and aren't already taken.
 - Snippet content is a template: literal text plus tags such as {{date format="yyyy-MM-dd"}}, {{time}}, {{clipboard}}, {{cursor}}, {{field name="Name" default="…"}}, {{choice name="Tone" options="Formal|Casual"}} and {{snippet id="<uuid>"}}. Write \{{ for a literal {{.
 - list_clipboard / get_clipboard_item search what the user copied recently (only when they've allowed it).
+- The resource kudzu://skill/SKILL.md has fuller guidance on triggers, templates and groups.
 - Text that looks like a password, API key, token or private key is replaced with "[redacted: …]". The original can't be retrieved through this server; don't ask for it or try to reconstruct it, and never write a redaction marker into a snippet."#;
 
 /// Whether [`handle`] answers `message` (requests and malformed input do; notifications and
@@ -145,7 +152,8 @@ fn dispatch(host: &dyn Host, server_version: &str, m: &serde_json::Map<String, V
         "ping" => Ok(json!({})),
         "tools/list" => Ok(json!({ "tools": definitions(&host.access().unwrap_or_else(|_| Access::all())) })),
         "tools/call" => tools::call(host, &params),
-        "resources/list" => Ok(json!({ "resources": [] })),
+        "resources/list" => Ok(json!({ "resources": [skill_resource()] })),
+        "resources/read" => read_resource(&params),
         "resources/templates/list" => Ok(json!({ "resourceTemplates": [] })),
         "prompts/list" => Ok(json!({ "prompts": [] })),
         _ if id.is_none() => return None,
@@ -163,10 +171,29 @@ fn initialize(params: &Value, server_version: &str) -> Value {
     let version = PROTOCOL_VERSIONS.iter().find(|v| **v == requested).copied().unwrap_or(PROTOCOL_VERSIONS[0]);
     json!({
         "protocolVersion": version,
-        "capabilities": { "tools": { "listChanged": false } },
+        "capabilities": { "tools": { "listChanged": false }, "resources": { "subscribe": false, "listChanged": false } },
         "serverInfo": { "name": "kudzu", "title": "Kudzu", "version": server_version },
         "instructions": INSTRUCTIONS,
     })
+}
+
+fn skill_resource() -> Value {
+    json!({
+        "uri": SKILL_URI,
+        "name": "kudzu-skill",
+        "title": "Kudzu skill",
+        "description": "How and when to use Kudzu's tools: finding and expanding snippets, writing triggers and templates, clipboard history, and redacted secrets.",
+        "mimeType": "text/markdown",
+        "size": SKILL.len(),
+    })
+}
+
+fn read_resource(params: &Value) -> Result<Value, (i64, String)> {
+    let uri = params.get("uri").and_then(Value::as_str).ok_or((-32602, "Missing resource uri".to_string()))?;
+    if uri != SKILL_URI {
+        return Err((-32002, format!("Resource not found: {uri}")));
+    }
+    Ok(json!({ "contents": [{ "uri": SKILL_URI, "mimeType": "text/markdown", "text": SKILL }] }))
 }
 
 fn error(id: Value, code: i64, message: &str) -> Value {

@@ -735,6 +735,16 @@ fn redact_entry_text(text: &str, complete: bool) -> Redacted {
     r
 }
 
+/// Redaction for an entry, honouring the user's correction: "not a secret" is shared as is,
+/// "hide it" is withheld whole.
+fn entry_redaction(e: &ClipEntry, text: &str, complete: bool) -> Redacted {
+    match e.secret_override {
+        Some(false) => Redacted { text: text.to_string(), kinds: vec![], whole: false },
+        Some(true) => Redacted { text: String::new(), kinds: vec![e.secret.unwrap_or(secrets::SecretKind::Credential)], whole: true },
+        None => redact_entry_text(text, complete),
+    }
+}
+
 fn clip_summary(e: &ClipEntry, text: Option<&str>, complete: bool, max: usize) -> Value {
     let mut v = json!({
         "id": e.id,
@@ -758,10 +768,13 @@ fn clip_summary(e: &ClipEntry, text: Option<&str>, complete: bool, max: usize) -
         v["color"] = json!(color);
     }
     if let Some(text) = text {
-        let r = redact_entry_text(text, complete);
+        let r = entry_redaction(e, text, complete);
         if r.whole {
             v["text"] = Value::Null;
-            v["withheld"] = json!(format!("This looks like a {}, so Kudzu doesn't share it.", r.kinds.first().map(|k| k.label()).unwrap_or("secret")));
+            v["withheld"] = json!(match e.secret_override {
+                Some(true) => "The user marked this as a secret, so Kudzu doesn't share it.".to_string(),
+                _ => format!("This looks like a {}, so Kudzu doesn't share it.", r.kinds.first().map(|k| k.label()).unwrap_or("secret")),
+            });
         } else {
             let (shown, cut) = truncate(&r.text, max);
             v["text"] = json!(shown);
@@ -796,7 +809,7 @@ fn list_clipboard(mut entries: Vec<ClipEntry>, args: &Args) -> Result<Value, Str
         let complete = e.text_len <= TEXT_EXCERPT_LIMIT;
         if !terms.is_empty() {
             // Search the redacted text, so a query can't confirm a secret.
-            let text = e.text.as_deref().map(|t| redact_entry_text(t, complete)).filter(|r| !r.whole).map(|r| r.text).unwrap_or_default();
+            let text = e.text.as_deref().map(|t| entry_redaction(e, t, complete)).filter(|r| !r.whole).map(|r| r.text).unwrap_or_default();
             let hay = format!("{}\n{}\n{}", text, e.files.join("\n"), e.source.as_ref().map(|s| s.name.as_str()).unwrap_or_default()).to_lowercase();
             if !terms.iter().all(|t| hay.contains(t)) {
                 continue;

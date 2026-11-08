@@ -313,6 +313,22 @@ pub fn clipboard_pin(core: Core, id: Uuid, pinned: bool) -> Option<ClipEntry> {
     entry
 }
 
+/// Corrects secret detection for an entry: `Some(false)` shows it (to agents too), `Some(true)`
+/// hides it, `None` goes back to what Kudzu detected.
+#[tauri::command]
+pub fn clipboard_set_secret(core: Core, id: Uuid, secret: Option<bool>) -> Option<ClipEntry> {
+    let entry = {
+        let mut clip = core.clip.lock();
+        let e = clip.history.set_secret(id, secret);
+        clip.mark_dirty();
+        e
+    };
+    if let Some(e) = &entry {
+        emit(&core.app, ClipEvent::Upsert { entry: Box::new(e.clone()) });
+    }
+    entry
+}
+
 /// Deletes the whole history (pinned items too when asked). Not undoable.
 #[tauri::command]
 pub fn clipboard_clear(core: Core, include_pinned: bool) -> usize {

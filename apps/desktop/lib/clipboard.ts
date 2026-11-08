@@ -6,7 +6,7 @@
 import { create } from "zustand"
 
 import { api, Events, on } from "./backend"
-import type { ClipEntry, ClipEvent, ClipKind } from "./types"
+import type { ClipEntry, ClipEvent, ClipKind, SecretKind } from "./types"
 
 // MARK: Store
 
@@ -21,6 +21,8 @@ interface ClipboardStore {
   remove: (ids: string[]) => Promise<ClipEntry[]>
   restore: (entries: ClipEntry[]) => Promise<void>
   setPinned: (id: string, pinned: boolean) => Promise<void>
+  /** false = "not a secret", true = "hide it", null = back to detection. */
+  setSecret: (id: string, secret: boolean | null) => Promise<void>
   clear: (includePinned: boolean) => Promise<number>
 }
 
@@ -73,6 +75,11 @@ export const useClipboard = create<ClipboardStore>((set, get) => ({
     await api.clipboardPin(id, pinned)
   },
 
+  setSecret: async (id, secret) => {
+    set((s) => ({ entries: s.entries.map((e) => (e.id === id ? { ...e, secretOverride: secret ?? undefined } : e)) }))
+    await api.clipboardSetSecret(id, secret)
+  },
+
   clear: async (includePinned) => {
     set((s) => ({ entries: includePinned ? [] : s.entries.filter((e) => e.pinned) }))
     const n = await api.clipboardClear(includePinned)
@@ -80,6 +87,25 @@ export const useClipboard = create<ClipboardStore>((set, get) => ({
     return n
   },
 }))
+
+// MARK: Secrets
+
+export const SECRET_LABEL: Record<SecretKind, string> = {
+  privateKey: "private key",
+  apiKey: "API key",
+  token: "access token",
+  password: "password",
+  credential: "secret",
+}
+
+/** Whether an entry counts as a secret: the user's correction, else Kudzu's detection. */
+export const isSecret = (e: ClipEntry): boolean => e.secretOverride ?? e.secret !== undefined
+
+/** "Looks like a password", or "Marked as secret" for one the user hid. */
+export function secretReason(e: ClipEntry): string {
+  if (e.secret) return `Looks like ${/^[aeiou]|^API/i.test(SECRET_LABEL[e.secret]) ? "an" : "a"} ${SECRET_LABEL[e.secret]}`
+  return "Marked as secret"
+}
 
 // MARK: Kinds and filters
 
@@ -403,9 +429,9 @@ export function imageFormat(e: ClipEntry): string {
 }
 
 /** Accessible name for a row: "Link, github.com, copied 2:04 PM from Safari, pinned". */
-export function spokenLabel(e: ClipEntry): string {
+export function spokenLabel(e: ClipEntry, concealed = false): string {
   const { title } = describe(e)
-  const parts = [KIND_LABEL[e.kind], title.slice(0, 120), `copied ${exactTime(e.copiedAt)}`]
+  const parts = concealed ? ["Hidden secret", secretReason(e).toLowerCase(), `copied ${exactTime(e.copiedAt)}`] : [KIND_LABEL[e.kind], title.slice(0, 120), `copied ${exactTime(e.copiedAt)}`]
   if (e.source) parts.push(`from ${e.source.name}`)
   if (e.copyCount > 1) parts.push(`${e.copyCount} times`)
   if (e.pinned) parts.push("pinned")

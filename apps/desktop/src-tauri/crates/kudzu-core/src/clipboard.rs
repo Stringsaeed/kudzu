@@ -8,6 +8,8 @@
 //! Entries hold metadata and a bounded text excerpt; full data lives in a blob next to the index.
 
 use chrono::{DateTime, Duration, Utc};
+
+use crate::secrets::{self, SecretKind};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -144,9 +146,21 @@ pub struct ClipEntry {
     /// Pinned entries never expire.
     #[serde(default)]
     pub pinned: bool,
+    /// What the text looks like when it contains a password, key or token (see
+    /// [`crate::secrets`]). Hidden in the UI and withheld from agents.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret: Option<SecretKind>,
+    /// The user's correction: `Some(false)` is "not a secret", `Some(true)` "hide it".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret_override: Option<bool>,
 }
 
 impl ClipEntry {
+    /// Whether to treat this entry as a secret: the user's choice, else detection.
+    pub fn is_secret(&self) -> bool {
+        self.secret_override.unwrap_or(self.secret.is_some())
+    }
+
     /// When retention removes this entry (`None` when pinned or kept forever).
     pub fn expires_at(&self, retention_days: u32) -> Option<DateTime<Utc>> {
         if self.pinned || retention_days == 0 {
@@ -438,10 +452,25 @@ impl Ingest {
 
 /// The clipboard history, newest copy first.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct History {
     #[serde(default = "History::format_version")]
     pub version: u32,
+    /// The [`SECRET_RULES`] that last scanned the history; older entries are rescanned.
+    #[serde(default)]
+    pub secret_rules: u32,
     pub entries: Vec<ClipEntry>,
+}
+
+/// Bump when [`crate::secrets`] detection changes, so existing history is rescanned on launch.
+pub const SECRET_RULES: u32 = 1;
+
+/// Secret detection for one copy. Only text can be a secret; colours, files and images can't.
+fn secret_of(kind: ClipKind, text: Option<&str>) -> Option<SecretKind> {
+    match kind {
+        ClipKind::Text | ClipKind::Code | ClipKind::Link | ClipKind::Other => text.and_then(secrets::detect),
+        ClipKind::Color | ClipKind::Image | ClipKind::File => None,
+    }
 }
 
 impl History {
@@ -450,7 +479,31 @@ impl History {
     }
 
     pub fn new() -> Self {
-        Self { version: Self::format_version(), entries: vec![] }
+        Self { version: Self::format_version(), secret_rules: SECRET_RULES, entries: vec![] }
+    }
+
+    /// Rescans entries recorded under older detection rules (from their excerpts; longer
+    /// copies were scanned in full when they were made). Returns whether anything changed.
+    pub fn rescan_secrets(&mut self) -> bool {
+        if self.secret_rules >= SECRET_RULES {
+            return false;
+        }
+        for e in &mut self.entries {
+            let found = secret_of(e.kind, e.text.as_deref());
+            // Keep a detection made from the full text that the excerpt no longer shows.
+            if found.is_some() || e.text_len <= TEXT_EXCERPT_LIMIT {
+                e.secret = found;
+            }
+        }
+        self.secret_rules = SECRET_RULES;
+        true
+    }
+
+    /// Records the user's correction (`None` goes back to detection).
+    pub fn set_secret(&mut self, id: Uuid, secret: Option<bool>) -> Option<ClipEntry> {
+        let e = self.entries.iter_mut().find(|e| e.id == id)?;
+        e.secret_override = secret;
+        Some(e.clone())
     }
 
     pub fn get(&self, id: Uuid) -> Option<&ClipEntry> {
@@ -474,6 +527,7 @@ impl History {
             if image.is_some() {
                 e.image = image;
             }
+            e.secret = secret_of(c.kind, c.text.as_deref());
         };
         if let Some(pos) = self.entries.iter().position(|e| e.hash == hash) {
             let mut e = self.entries.remove(pos);
@@ -512,6 +566,8 @@ impl History {
             last_used_at: None,
             use_count: 0,
             pinned: false,
+            secret: None,
+            secret_override: None,
         };
         fill(&mut e);
         self.entries.insert(0, e.clone());
@@ -790,6 +846,38 @@ mod tests {
         assert_eq!(e.timings.len(), MAX_TIMINGS);
         assert_eq!(e.copy_count as usize, MAX_TIMINGS + 10);
         assert_eq!(*e.timings.last().unwrap(), at(MAX_TIMINGS as i64 + 9));
+    }
+
+    #[test]
+    fn detects_secrets_and_keeps_corrections() {
+        let mut h = History::new();
+        let pw = h.ingest(&classify(&text("P@ssw0rd!"), None).unwrap(), None, None, at(0)).entry().clone();
+        assert_eq!(pw.secret, Some(SecretKind::Password));
+        assert!(pw.is_secret());
+        let note = h.ingest(&classify(&text("lunch at noon"), None).unwrap(), None, None, at(1)).entry().clone();
+        assert!(!note.is_secret());
+
+        // The user's choice wins, and survives copying the same text again.
+        assert!(!h.set_secret(pw.id, Some(false)).unwrap().is_secret());
+        let again = h.ingest(&classify(&text("P@ssw0rd!"), None).unwrap(), None, None, at(2)).entry().clone();
+        assert_eq!(again.id, pw.id);
+        assert!(!again.is_secret());
+        assert!(h.set_secret(note.id, Some(true)).unwrap().is_secret());
+        assert!(h.set_secret(pw.id, None).unwrap().is_secret());
+    }
+
+    #[test]
+    fn rescans_history_from_older_rules_once() {
+        let mut h = History::new();
+        h.ingest(&classify(&text("token: abcd1234efgh"), None).unwrap(), None, None, at(0));
+        h.entries[0].secret = None;
+        h.secret_rules = 0;
+        assert!(h.rescan_secrets());
+        assert_eq!(h.entries[0].secret, Some(SecretKind::Credential));
+        assert!(!h.rescan_secrets(), "already current");
+        // An index written before the field existed decodes as needing a scan.
+        let old: History = serde_json::from_str(r#"{"version":1,"entries":[]}"#).unwrap();
+        assert_eq!(old.secret_rules, 0);
     }
 
     #[test]

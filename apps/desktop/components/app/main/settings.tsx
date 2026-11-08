@@ -396,6 +396,13 @@ function ClipboardSettings() {
       </Group>
 
       <Group title="Privacy" description="Password managers are excluded. Kudzu also skips anything an app marks as private or temporary, like passwords and one-time codes.">
+        <Row
+          title="Show secrets"
+          htmlFor="clip-secrets"
+          description="Text that looks like a password, API key or token is hidden until you hover over it. Choose “Not a secret?” on an item to correct Kudzu."
+        >
+          <Switch id="clip-secrets" checked={settings.clipboardShowSecrets} onCheckedChange={(clipboardShowSecrets) => void update({ clipboardShowSecrets })} />
+        </Row>
         <div className="py-3">
           <AppPicker value={settings.clipboardIgnoredApps} onChange={(clipboardIgnoredApps) => void update({ clipboardIgnoredApps })} addLabel="Never record from an app" />
         </div>
@@ -442,9 +449,9 @@ function copyText(text: string, what: string) {
 /** A command or config block with a copy button. */
 function CopyBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="relative mt-2 rounded-lg bg-foreground/[0.025] shadow-well dark:bg-black/15">
-      <pre className="overflow-x-auto py-2.5 pr-11 pl-3 font-mono text-[11.5px] leading-relaxed whitespace-pre select-all">{value}</pre>
-      <Button variant="ghost" size="icon-xs" className="absolute top-1.5 right-1.5" aria-label={`Copy ${label}`} onClick={() => copyText(value, label)}>
+    <div className="mt-2 flex items-start gap-1 rounded-lg bg-foreground/[0.025] shadow-well dark:bg-black/15">
+      <pre className="min-w-0 flex-1 overflow-x-auto py-2.5 pl-3 font-mono text-[11.5px] leading-relaxed whitespace-pre select-all">{value}</pre>
+      <Button variant="ghost" size="icon-xs" className="mt-1.5 mr-1.5 shrink-0" aria-label={`Copy ${label}`} onClick={() => copyText(value, label)}>
         <Copy />
       </Button>
     </div>
@@ -506,7 +513,9 @@ function Agents() {
             <p>
               <span className="font-medium text-foreground">Secrets are withheld from agents.</span> Before anything reaches an agent, Kudzu replaces text that looks like a password, API key, access token or private key with <span className="font-mono">[redacted]</span>. Clipboard items that are only a secret aren&apos;t shared at all, and agents can&apos;t search for them.
             </p>
-            <p>Detection is a best guess. A short, plain password can look like an ordinary word, so keep passwords in a password manager. Kudzu never records copies from one.</p>
+            <p>
+              Detection is a best guess. A short, plain password can look like an ordinary word, so keep passwords in a password manager; Kudzu never records copies from one. In clipboard history, you can mark an item as a secret, or as not one, and agents follow your choice.
+            </p>
           </div>
         </div>
       </Group>
@@ -542,6 +551,11 @@ function Agents() {
           <div className="text-[13px] font-medium">Other apps</div>
           <div className="text-xs text-muted-foreground">Claude Desktop, Cursor and other MCP apps: add this to their MCP server settings.</div>
           {setup && <CopyBlock label="configuration" value={setup.configJson} />}
+          {setup?.bundledSkillDir && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              For other agents, the skill is also in <span className="font-mono text-foreground/85 select-all">{setup.bundledSkillDir}</span>, and connected agents can read it as <span className="font-mono">kudzu://skill/SKILL.md</span>.
+            </p>
+          )}
         </div>
       </Group>
     </>

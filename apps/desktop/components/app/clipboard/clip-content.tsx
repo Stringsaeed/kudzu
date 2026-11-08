@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils"
 
 import { Marked } from "./clip-list"
 import { checkerboard, ClipImage } from "./clip-tile"
+import { Concealed } from "./secret"
 
 /** Characters rendered before "…and N more" (keeps huge pastes from stalling layout). */
 const RENDER_LIMIT = 60_000
@@ -294,8 +295,16 @@ function OtherBody({ entry }: { entry: ClipEntry }) {
   )
 }
 
-/** The main preview of an entry, by kind. */
+/** The main preview of an entry, by kind. Secrets stay covered until hovered. */
 export function ClipContent({ entry, terms = [], large }: { entry: ClipEntry; terms?: string[]; large?: boolean }) {
+  return (
+    <Concealed entry={entry}>
+      <ClipBody entry={entry} terms={terms} large={large} />
+    </Concealed>
+  )
+}
+
+function ClipBody({ entry, terms, large }: { entry: ClipEntry; terms: string[]; large?: boolean }) {
   switch (entry.kind) {
     case "code":
       return <CodeBody entry={entry} terms={terms} large={large} />

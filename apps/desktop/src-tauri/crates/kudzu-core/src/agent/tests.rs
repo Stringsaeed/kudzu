@@ -105,6 +105,19 @@ fn initialize_negotiates_the_protocol() {
 }
 
 #[test]
+fn serves_the_skill_as_a_resource() {
+    for host in [&Fake::new() as &dyn Host, &Offline] {
+        let list = rpc(host, json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list" }));
+        assert_eq!(list["result"]["resources"][0]["uri"], SKILL_URI);
+        let read = rpc(host, json!({ "jsonrpc": "2.0", "id": 2, "method": "resources/read", "params": { "uri": SKILL_URI } }));
+        assert_eq!(read["result"]["contents"][0]["text"], SKILL);
+        assert!(SKILL.starts_with("---\nname: kudzu"));
+        let missing = rpc(host, json!({ "jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": { "uri": "kudzu://nope" } }));
+        assert_eq!(missing["error"]["code"], -32002);
+    }
+}
+
+#[test]
 fn notifications_and_responses_get_no_reply() {
     let host = Fake::new();
     for msg in [
@@ -328,4 +341,19 @@ fn clipboard_withholds_secrets() {
     let id = host.clips[0].id.to_string();
     let (r, _) = tool(&host, "get_clipboard_item", json!({ "id": id }));
     assert_eq!(r["text"], "meeting notes for monday");
+}
+
+#[test]
+fn clipboard_follows_the_users_corrections() {
+    let mut host = Fake::new();
+    host.clips[2].secret_override = Some(false); // "P@ssw0rd!" is fine to share
+    host.clips[0].secret_override = Some(true); // hide the meeting notes
+    let (r, _) = tool(&host, "list_clipboard", json!({}));
+    let items = r["items"].as_array().unwrap();
+    assert_eq!(items[0]["text"], "P@ssw0rd!");
+    assert!(items[0].get("redacted").is_none());
+    assert_eq!(items[2]["text"], Value::Null);
+    assert!(items[2]["withheld"].as_str().unwrap().contains("marked"));
+    let (r, _) = tool(&host, "list_clipboard", json!({ "query": "monday" }));
+    assert_eq!(r["total"], 0);
 }

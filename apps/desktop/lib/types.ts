@@ -93,6 +93,8 @@ export interface Settings {
   clipboardIgnoredApps: string[]
   /** Paste formatted text as plain text by default (⇧ flips it). */
   clipboardPastePlain: boolean
+  /** Show passwords, keys and tokens in history without hovering. */
+  clipboardShowSecrets: boolean
   /** Answer AI agents over MCP (local socket). */
   agentAccess: boolean
   /** Agents may create and edit snippets. */
@@ -114,7 +116,12 @@ export interface AgentSetup {
   configJson: string
   skillPath: string
   skill: "missing" | "current" | "outdated"
+  /** The skill's folder inside the app bundle (release builds only). */
+  bundledSkillDir: string | null
 }
+
+/** Mirrors kudzu-core `secrets::SecretKind`. */
+export type SecretKind = "privateKey" | "apiKey" | "token" | "password" | "credential"
 
 // Mirrors kudzu-core `clipboard.rs`.
 export type ClipKind = "text" | "code" | "link" | "color" | "image" | "file" | "other"
@@ -148,6 +155,10 @@ export interface ClipEntry {
   lastUsedAt?: string
   useCount: number
   pinned: boolean
+  /** What the text looks like when it holds a password, key or token. */
+  secret?: SecretKind
+  /** The user's correction: false = "not a secret", true = "hide it". */
+  secretOverride?: boolean
 }
 
 export interface ClipboardInfo {

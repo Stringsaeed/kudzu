@@ -1,9 +1,10 @@
 "use client"
 
-import { AlignLeft, Braces, File, Files, Globe, Image as ImageIcon, Package } from "lucide-react"
+import { AlignLeft, Braces, File, Files, Globe, Image as ImageIcon, KeyRound, Package } from "lucide-react"
 import { memo, useState } from "react"
 
 import { clipMediaUrl } from "@/lib/backend"
+import { isSecret } from "@/lib/clipboard"
 import type { ClipEntry, ClipKind } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -90,7 +91,7 @@ export const ClipTile = memo(function ClipTile({ entry, active, size = 36, badge
       </span>
     )
   } else {
-    body = icon(KIND_ICON[e.kind])
+    body = icon(isSecret(e) ? KeyRound : KIND_ICON[e.kind])
   }
 
   return (

@@ -7,7 +7,8 @@ import { ClipboardList, CornerDownLeft, Search } from "lucide-react"
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
 import { api, Events, on } from "@/lib/backend"
-import { buildRows, describe, hasText, parseQuery, searchClips, useClipboard, type ClipFilter } from "@/lib/clipboard"
+import { buildRows, describe, hasText, isSecret, parseQuery, searchClips, useClipboard, type ClipFilter } from "@/lib/clipboard"
+import { useStore } from "@/lib/store"
 import { isMac } from "@/lib/keys"
 import { applyTheme } from "@/lib/theme"
 import type { AppInfo, ClipEntry, Settings } from "@/lib/types"
@@ -42,12 +43,15 @@ export function ClipboardPicker() {
     const off = useClipboard.getState().init()
     api.getState().then((s) => {
       setSettings(s.settings)
+      // Shared components (secret masking) read settings from the store.
+      useStore.setState({ settings: s.settings })
       applyTheme(s.settings.theme)
     })
     const offs = [
       off,
       on<Settings>(Events.settings, (s) => {
         setSettings(s)
+        useStore.setState({ settings: s })
         applyTheme(s.theme)
       }),
       on<{ target?: AppInfo | null; canPaste?: boolean }>(Events.clipboardShow, (p) => {
@@ -330,7 +334,7 @@ export function ClipboardPicker() {
           <Shortcut combo="escape" className="shrink-0" />
         </footer>
         <span className="sr-only" aria-live="polite">
-          {active ? `${describe(active).title}` : ""}
+          {active ? (isSecret(active) && !useStore.getState().settings.clipboardShowSecrets ? "Hidden secret" : describe(active).title) : ""}
         </span>
       </div>
     </div>

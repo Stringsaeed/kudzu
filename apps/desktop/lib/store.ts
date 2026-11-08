@@ -104,6 +104,7 @@ export const useStore = create<Store>((set, get) => ({
     clipboardHotkey: "Control+Alt+V",
     clipboardIgnoredApps: [],
     clipboardPastePlain: false,
+    clipboardShowSecrets: false,
     agentAccess: false,
     agentWrite: true,
     agentClipboard: true,

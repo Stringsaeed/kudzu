@@ -40,7 +40,10 @@ impl ClipStore {
             }),
             Err(_) => History::new(),
         };
-        let store = Self { dir, history, dirty: false };
+        let mut history = history;
+        // Entries from before secret detection (or older rules) are scanned once.
+        let dirty = history.rescan_secrets();
+        let store = Self { dir, history, dirty };
         store.empty_trash();
         store.remove_orphans();
         store

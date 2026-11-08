@@ -17,10 +17,10 @@
 
 use std::ops::Range;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// What a finding looks like.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SecretKind {
     /// A PEM or OpenSSH private key block.
@@ -83,6 +83,18 @@ pub fn scan(text: &str) -> Vec<Finding> {
     labelled(text, &mut found);
     lone_word(text, &mut found);
     merge(found)
+}
+
+/// Text scanned by [`detect`]; a secret is almost always near the start of a copy.
+pub const DETECT_LIMIT: usize = 256 * 1024;
+
+/// The first kind of secret in `text` (its first [`DETECT_LIMIT`] bytes), if any.
+pub fn detect(text: &str) -> Option<SecretKind> {
+    let mut end = text.len().min(DETECT_LIMIT);
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    scan(&text[..end]).first().map(|f| f.kind)
 }
 
 /// Whether `text` contains anything that looks like a secret.
