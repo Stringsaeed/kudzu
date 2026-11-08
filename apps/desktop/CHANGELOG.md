@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/Stringsaeed/kudzu/compare/v0.5.0...v0.6.0) (2026-11-08)
+
+
+### Features
+
+* **desktop:** import snippets from Raycast and TextExpander ([b8b1f36](https://github.com/Stringsaeed/kudzu/commit/b8b1f36d850353edaed203f6039b7702358b5206))
+* **desktop:** let AI agents use snippets over MCP, with secrets kept on the Mac ([#38](https://github.com/Stringsaeed/kudzu/issues/38)) ([9bd33bb](https://github.com/Stringsaeed/kudzu/commit/9bd33bbdc482d57a710554ac4b3b8b9f525dcdbc))
+
 ## [0.5.0](https://github.com/Stringsaeed/kudzu/compare/v0.4.0...v0.5.0) (2026-11-05)
 
 
