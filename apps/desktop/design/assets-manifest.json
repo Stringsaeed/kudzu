@@ -8,7 +8,7 @@
     "macOS": "27.2"
   },
   "sources": {
-    "../../pnpm-lock.yaml": "70862c967a72f71b4d911fc162d24d5ce9b5e6fc7441c2f83229c0a5c10a9f20",
+    "../../pnpm-lock.yaml#@tauri-apps/cli": "922f1a618ff1cc808d0d0c5309d7974f42634de18a4675e8f762490f76019f54",
     "design/app-icon/Kudzu.icon/Assets/01-paper-keycap-realistic-1024.png": "6f28ab8fea71b338393875387fd7cee40d1ca52f4aa8d0b7da564deb76b1e22f",
     "design/app-icon/Kudzu.icon/Assets/02-echo-k-printed.svg": "142a32c1d4b0b7cfe33fd5e3319ab8245a436cbb660140ed52c2102c5f3c319e",
     "design/app-icon/Kudzu.icon/icon.json": "bfae4fc73d6b59ecac019f5c94497725823c748c328fca6f1134125b43ec0622",

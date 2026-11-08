@@ -11,8 +11,33 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "design/assets-manifest.json"
 
 
+# The exports are rendered by `pnpm exec tauri icon`, so the only part of the workspace lockfile
+# they depend on is the Tauri CLI it resolves. Hashing the whole lockfile would mark them stale
+# whenever any package in the workspace changed, such as a website dependency.
+LOCKFILE = "../../pnpm-lock.yaml"
+TAURI_CLI = f"{LOCKFILE}#@tauri-apps/cli"
+
+
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def tauri_cli_digest(lockfile):
+    """Hash every lockfile entry for @tauri-apps/cli and its platform binaries."""
+    entries, keep = [], False
+    for line in lockfile.read_text().splitlines():
+        indent = len(line) - len(line.lstrip(" "))
+        if line.strip() and indent <= 2:
+            keep = line.strip().startswith(("'@tauri-apps/cli", "@tauri-apps/cli"))
+        if keep:
+            entries.append(line)
+    if not entries:
+        raise ValueError(f"No @tauri-apps/cli entries in {LOCKFILE}")
+    return hashlib.sha256("\n".join(entries).encode()).hexdigest()
+
+
+def source_digest(name):
+    return tauri_cli_digest(ROOT / LOCKFILE) if name == TAURI_CLI else digest(ROOT / name)
 
 
 def native_icon():
@@ -31,7 +56,7 @@ def native_icon():
 def inventory(icon_sources):
     sources = icon_sources | {
         "design/brand.json", "design/wordmark/kudzu-wordmark-echo.svg",
-        "design/wordmark/kudzu-wordmark-echo-small.svg", "../../pnpm-lock.yaml",
+        "design/wordmark/kudzu-wordmark-echo-small.svg", TAURI_CLI,
         "scripts/brand-assets.py", "scripts/design-assets.swift", "scripts/update-design-assets.sh",
     }
     outputs = {
@@ -43,7 +68,7 @@ def inventory(icon_sources):
     for pattern in ("design/menu-bar/*.svg", "design/menu-bar/*.png", "src-tauri/icons/*.png", "src-tauri/icons/*.icns", "src-tauri/icons/*.ico"):
         outputs.update(str(path.relative_to(ROOT)) for path in ROOT.glob(pattern))
     return {
-        "sources": {name: digest(ROOT / name) for name in sorted(sources)},
+        "sources": {name: source_digest(name) for name in sorted(sources)},
         "outputs": {name: digest(ROOT / name) for name in sorted(outputs)},
     }
 
