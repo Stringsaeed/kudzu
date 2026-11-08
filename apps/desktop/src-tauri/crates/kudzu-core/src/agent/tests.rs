@@ -325,6 +325,7 @@ fn clipboard_withholds_secrets() {
     // Newest first.
     assert_eq!(items[0]["text"], Value::Null);
     assert!(items[0]["withheld"].as_str().unwrap().contains("password"));
+    assert!(items[0].get("length").is_none() && items[0].get("lines").is_none(), "withheld items don't reveal their length");
     assert_eq!(items[1]["text"], Value::Null);
     assert_eq!(items[1]["redacted"], json!(["API key"]));
     assert_eq!(items[2]["text"], "meeting notes for monday");
@@ -356,4 +357,21 @@ fn clipboard_follows_the_users_corrections() {
     assert!(items[2]["withheld"].as_str().unwrap().contains("marked"));
     let (r, _) = tool(&host, "list_clipboard", json!({ "query": "monday" }));
     assert_eq!(r["total"], 0);
+}
+
+#[test]
+fn field_defaults_and_options_are_redacted_too() {
+    let host = Fake::new();
+    let token = concat!("ghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx");
+    {
+        let mut lib = host.library.borrow_mut();
+        let content = format!(r#"Key: {{{{field name="key" default="{token}"}}}} via {{{{choice name="env" options="dev|{token}"}}}}"#);
+        lib.snippets.push(SnippetRecord::new("Deploy", vec![";dep".into()], content));
+    }
+    for tool_name in ["get_snippet", "expand_snippet", "list_snippets"] {
+        let args = if tool_name == "list_snippets" { json!({}) } else { json!({ "trigger": ";dep" }) };
+        let (r, err) = tool(&host, tool_name, args);
+        assert!(!err, "{r}");
+        assert!(!r.to_string().contains("wWPw5k4a"), "{tool_name} leaked a secret: {r}");
+    }
 }

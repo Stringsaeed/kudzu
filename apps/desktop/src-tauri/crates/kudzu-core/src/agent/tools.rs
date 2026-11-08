@@ -456,15 +456,16 @@ fn get_snippet(lib: &KudzuLibrary, args: &Args) -> Result<Value, String> {
     let s = find_snippet(lib, args)?;
     let usage = uses(lib);
     let r = secrets::redact(&s.content);
-    let by_id: HashMap<Uuid, &SnippetRecord> = lib.snippets.iter().map(|s| (s.id, s)).collect();
-    let resolve = |id: Uuid| by_id.get(&id).map(|s| s.content.clone());
+    // Fields come from the scrubbed template too, so a default or option can't carry a secret.
+    let by_id: HashMap<Uuid, String> = lib.snippets.iter().map(|s| (s.id, scrubbed(&s.content))).collect();
+    let resolve = |id: Uuid| by_id.get(&id).cloned();
     let mut v = summary(lib, s, &usage);
     v["content"] = json!(r.text);
     v["groupId"] = json!(s.group_id);
     v["fireMode"] = json!(s.fire_mode);
     v["caseMode"] = json!(s.case_mode);
     v["formatted"] = json!(s.formatting.is_some());
-    v["fields"] = json!(template::form_fields(&s.content, &resolve));
+    v["fields"] = json!(template::form_fields(&scrubbed(&s.content), &resolve));
     v["createdAt"] = json!(iso8601::format(&s.created_at));
     v["updatedAt"] = json!(iso8601::format(&s.updated_at));
     v["lastUsedAt"] = json!(usage.get(&s.id).and_then(|u| u.1).map(|d| iso8601::format(&d)));
@@ -771,6 +772,11 @@ fn clip_summary(e: &ClipEntry, text: Option<&str>, complete: bool, max: usize) -
         let r = entry_redaction(e, text, complete);
         if r.whole {
             v["text"] = Value::Null;
+            // The length of a password narrows it down; leave the shape out too.
+            if let Some(obj) = v.as_object_mut() {
+                obj.remove("length");
+                obj.remove("lines");
+            }
             v["withheld"] = json!(match e.secret_override {
                 Some(true) => "The user marked this as a secret, so Kudzu doesn't share it.".to_string(),
                 _ => format!("This looks like a {}, so Kudzu doesn't share it.", r.kinds.first().map(|k| k.label()).unwrap_or("secret")),
