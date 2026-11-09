@@ -1,0 +1,95 @@
+[
+  {
+    "entry": {
+      "copiedAt": "2026-11-08T09:29:15.123456Z",
+      "copyCount": 3,
+      "firstCopiedAt": "2026-11-08T07:30:15Z",
+      "hash": "9e3779b97f4a7c15",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000064",
+      "kind": "text",
+      "lineCount": 1,
+      "pinned": false,
+      "rich": true,
+      "size": 412,
+      "source": {
+        "bundleId": "com.tinyspeck.slackmacgap",
+        "name": "Slack",
+        "path": "/Applications/Slack.app"
+      },
+      "text": "Can we move the review to Thursday?",
+      "textLen": 35,
+      "timings": [
+        "2026-11-08T07:30:15Z",
+        "2026-11-08T08:30:15.123Z",
+        "2026-11-08T09:29:15.123456Z"
+      ],
+      "types": [
+        "public.utf8-plain-text",
+        "public.html"
+      ],
+      "useCount": 0
+    },
+    "type": "upsert"
+  },
+  {
+    "ids": [
+      "a1b2c3d4-e5f6-4a7b-8c9d-000000000064",
+      "a1b2c3d4-e5f6-4a7b-8c9d-000000000065"
+    ],
+    "type": "remove"
+  },
+  {
+    "entries": [
+      {
+        "copiedAt": "2026-11-08T09:29:15Z",
+        "copyCount": 1,
+        "firstCopiedAt": "2026-11-08T07:30:15Z",
+        "hash": "3c6ef372fe94f82a",
+        "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000065",
+        "kind": "code",
+        "lastUsedAt": "2026-11-08T09:29:45.500Z",
+        "lineCount": 3,
+        "pinned": false,
+        "rich": false,
+        "size": 34,
+        "source": {
+          "bundleId": "com.microsoft.VSCode",
+          "name": "Visual Studio Code"
+        },
+        "text": "export function x() {\n  return 1\n}",
+        "textLen": 34,
+        "timings": [
+          "2026-11-08T09:29:15Z"
+        ],
+        "types": [
+          "public.utf8-plain-text"
+        ],
+        "useCount": 7
+      },
+      {
+        "copiedAt": "2026-11-08T09:29:15Z",
+        "copyCount": 1,
+        "firstCopiedAt": "2026-11-08T07:30:15Z",
+        "hash": "daa66d2c7ddf743f",
+        "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000066",
+        "kind": "link",
+        "lineCount": 1,
+        "pinned": true,
+        "rich": false,
+        "size": 0,
+        "text": "https://kudzu.site/",
+        "textLen": 19,
+        "timings": [
+          "2026-11-08T09:29:15Z"
+        ],
+        "types": [],
+        "useCount": 0
+      }
+    ],
+    "type": "reset"
+  },
+  {
+    "entries": [],
+    "type": "reset"
+  }
+]

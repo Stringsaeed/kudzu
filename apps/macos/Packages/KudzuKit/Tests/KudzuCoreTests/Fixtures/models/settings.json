@@ -1,0 +1,64 @@
+[
+  {
+    "agentAccess": true,
+    "agentClipboard": false,
+    "agentWrite": false,
+    "appInsertions": {
+      "com.apple.Terminal": "paste",
+      "com.apple.mail": "type"
+    },
+    "autoCheckUpdates": false,
+    "clipboardEnabled": false,
+    "clipboardHotkey": "Control+Alt+Shift+V",
+    "clipboardIgnoredApps": [],
+    "clipboardPastePlain": true,
+    "clipboardRetentionDays": 0,
+    "clipboardShowSecrets": true,
+    "defaultInsertion": "paste",
+    "defaultTriggerPrefix": "//",
+    "deniedBundleIDs": [
+      "com.apple.loginwindow"
+    ],
+    "icloudSync": false,
+    "lastRunVersion": "0.6.0",
+    "launchAtLogin": true,
+    "onboardingCompleted": true,
+    "paletteHotkey": "Control+Alt+K",
+    "paused": true,
+    "showInDock": false,
+    "theme": "system",
+    "typingSpeedWPM": 55,
+    "updateChannel": "beta"
+  },
+  {
+    "agentAccess": true,
+    "agentClipboard": false,
+    "agentWrite": false,
+    "appInsertions": {
+      "com.apple.Terminal": "paste",
+      "com.apple.mail": "type"
+    },
+    "autoCheckUpdates": false,
+    "clipboardEnabled": false,
+    "clipboardHotkey": "Control+Alt+Shift+V",
+    "clipboardIgnoredApps": [],
+    "clipboardPastePlain": true,
+    "clipboardRetentionDays": 0,
+    "clipboardShowSecrets": true,
+    "defaultInsertion": "paste",
+    "defaultTriggerPrefix": "//",
+    "deniedBundleIDs": [
+      "com.apple.loginwindow"
+    ],
+    "icloudSync": false,
+    "lastRunVersion": null,
+    "launchAtLogin": true,
+    "onboardingCompleted": true,
+    "paletteHotkey": "Control+Alt+K",
+    "paused": true,
+    "showInDock": false,
+    "theme": "system",
+    "typingSpeedWPM": 55,
+    "updateChannel": "beta"
+  }
+]

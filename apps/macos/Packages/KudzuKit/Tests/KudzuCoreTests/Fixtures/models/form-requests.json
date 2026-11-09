@@ -1,0 +1,44 @@
+[
+  {
+    "caret": {
+      "height": 18.0,
+      "width": 1.0,
+      "x": 120.5,
+      "y": 300.0
+    },
+    "fields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "Name",
+        "options": []
+      },
+      {
+        "defaultValue": "M",
+        "kind": "choice",
+        "name": "Size",
+        "options": [
+          "S",
+          "M"
+        ]
+      }
+    ],
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a",
+    "snippetName": "Bug report",
+    "targetApp": {
+      "bundleId": "com.apple.mail",
+      "name": "Mail",
+      "path": "/System/Applications/Mail.app",
+      "pid": 812
+    },
+    "token": 7
+  },
+  {
+    "caret": null,
+    "fields": [],
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000b",
+    "snippetName": "",
+    "targetApp": null,
+    "token": 18446744073709551615
+  }
+]

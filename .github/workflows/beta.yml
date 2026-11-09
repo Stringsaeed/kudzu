@@ -1,6 +1,7 @@
 # Cuts a beta: tags the chosen commit vX.Y.Z-beta.N, builds it like a stable release, publishes it
 # as a pre-release and points the beta feed at it. Stable users never see it.
-# Run from Actions → Beta → Run workflow.
+# build-app.sh stamps MARKETING_VERSION from the tag for that build only. Kudzu/Version.xcconfig
+# stays on the stable version. Run from Actions → Beta → Run workflow.
 name: Beta
 
 on:

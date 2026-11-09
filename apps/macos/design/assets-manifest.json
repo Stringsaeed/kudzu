@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 2,
+  "exportedWith": {
+    "iconComposer": {
+      "bundle-version": "129",
+      "short-bundle-version": "27.1"
+    },
+    "macOS": "27.2"
+  },
+  "sources": {
+    "Kudzu/Kudzu.icon/Assets/01-paper-keycap-realistic-1024.png": "6f28ab8fea71b338393875387fd7cee40d1ca52f4aa8d0b7da564deb76b1e22f",
+    "Kudzu/Kudzu.icon/Assets/02-echo-k-printed.svg": "142a32c1d4b0b7cfe33fd5e3319ab8245a436cbb660140ed52c2102c5f3c319e",
+    "Kudzu/Kudzu.icon/icon.json": "bfae4fc73d6b59ecac019f5c94497725823c748c328fca6f1134125b43ec0622",
+    "design/brand.json": "ada26459c1eda70d2043d9d81a83a91fbba6b1f9387fd9cf3f2384f159ce9231",
+    "design/wordmark/kudzu-wordmark-echo-small.svg": "40668934e411d6bc28ef8404896fd54d7fe6fdff9d1e756456ef098033d3b351",
+    "design/wordmark/kudzu-wordmark-echo.svg": "55425aa4a64c2fceaffbea4c23dec350b79574f1110e0af9a2367eaf1fe90296",
+    "scripts/design/brand-assets.py": "05a7c364db88fb2af8171f9826df4fa66f2710d5d43dd9d037300302e1199b0b",
+    "scripts/design/design-assets.swift": "30552e9eae57c40a7df9f6992296b7c360c496b9b1fe52e7bce810708d79290a",
+    "scripts/design/update-design-assets.sh": "cce0562abf944c19f386a04b0e33207922e8e8b7202edcb6cd0813fec3dca8fb"
+  },
+  "outputs": {
+    "Kudzu/Assets.xcassets/MenuBar.imageset/kudzu-menubar.png": "8f87c57f41f2011cc984069debfa6fe7de9e5504798b7c2f880214dd9946b99a",
+    "Kudzu/Assets.xcassets/MenuBar.imageset/kudzu-menubar@2x.png": "3a62d8ff466113d6ce10a6bbd8c8c4d62a33bcbf5e120127bc2f4237fa52dee7",
+    "Kudzu/Assets.xcassets/MenuBar.imageset/kudzu-menubar@3x.png": "dc89dde9cc91b59a13c3044de840e872bc58e4ef2cbf9e0f1821a9d5da8eb529",
+    "Kudzu/Assets.xcassets/MenuBarPaused.imageset/kudzu-menubar-paused.png": "613eede7a8b8a39ca826d06e08bec31dbe42d62a1b46e6ba3042dc30b313afdd",
+    "Kudzu/Assets.xcassets/MenuBarPaused.imageset/kudzu-menubar-paused@2x.png": "bbcb35ed764a90b1d5d4c55baaa2729b54d76c8245e355b097535f1b9fad3d5f",
+    "Kudzu/Assets.xcassets/MenuBarPaused.imageset/kudzu-menubar-paused@3x.png": "beef8027c20fc0d7e13d28de0c5dfe5d4fccf9a74c785108396c3d0e729f3be3",
+    "Kudzu/Assets.xcassets/MenuBarPermissions.imageset/kudzu-menubar-permissions.png": "488ba70b9a427874c24258e4eda019abbc876dd9ed189f9074a491513df10c47",
+    "Kudzu/Assets.xcassets/MenuBarPermissions.imageset/kudzu-menubar-permissions@2x.png": "745bbb5d9fc572684364d5825b2a320a6b721e086197ca2522f985e71d939534",
+    "Kudzu/Assets.xcassets/MenuBarPermissions.imageset/kudzu-menubar-permissions@3x.png": "552500a7943dcb2ee2a709dd9ea52dc88ecb80c77dc1ecebfd0aa06999bcc81d",
+    "Kudzu/Assets.xcassets/MenuBarSecureInput.imageset/kudzu-menubar-secure-input.png": "ecc81a3de90d5091cbe8bf336a19fc8a00d8e78029903824fa58c4591acd7171",
+    "Kudzu/Assets.xcassets/MenuBarSecureInput.imageset/kudzu-menubar-secure-input@2x.png": "b7095198ad4b513d9f7e0ec06b3bb622bce7b00fe3a85e1459094eaea7cb2735",
+    "Kudzu/Assets.xcassets/MenuBarSecureInput.imageset/kudzu-menubar-secure-input@3x.png": "098b29dbcbd035054fbb20665b6b3cafba57c9e77e5726e862098a41fed6941d",
+    "design/app-icon/Kudzu-1024.png": "68d0e2a441a82b47d5f90fc7d8f02f86a304ed8d73e614cf05573e6933b23ce3",
+    "design/app-icon/layers/02-echo-k-printed.svg": "142a32c1d4b0b7cfe33fd5e3319ab8245a436cbb660140ed52c2102c5f3c319e",
+    "design/dmg/background.png": "02c9dda0f05e192a07e6614326d40c03d7eb2508f6dbdbb62e913a36f51e3f85",
+    "design/icon.png": "25f8d0b997529b2382ff4f4efaf2d3543dba3bec6202165efa3a877c1e8d1af2",
+    "design/menu-bar/kudzu-menubar-paused.svg": "823cdbf98f9a1c50d3797971c2d6b20d6144562af287d95ba4f12715d210ed68",
+    "design/menu-bar/kudzu-menubar-permissions.svg": "bf2a53776790c25c005f66adf9f51fb8c5d84365f527be570907c34bbfd28c10",
+    "design/menu-bar/kudzu-menubar-secure-input.svg": "1546d6a9ff4560865899c2b567e609e56a608441c34ade382d7d627e43d5ee25",
+    "design/menu-bar/kudzu-menubar.svg": "d3575078b3f26f48e68316f12fd843216e644877db211e769ebea197f210de84",
+    "design/wordmark/kudzu-wordmark-echo-small.png": "41d5085c8afd7e65197ce2334942f8d7e942ed02eff36d04f88303e50a8a51ad"
+  }
+}

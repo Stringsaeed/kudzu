@@ -21,11 +21,18 @@
     { "type": "style", "section": "Style", "hidden": true }
   ],
   "packages": {
-    "apps/desktop": {
-      "release-type": "node",
+    "apps/macos": {
+      "release-type": "simple",
+      "version-file": "version.txt",
       "package-name": "kudzu",
       "component": "kudzu",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "generic",
+          "path": "Kudzu/Version.xcconfig"
+        }
+      ]
     }
   }
 }

@@ -1,0 +1,520 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * Kudzu desktop — design tokens.
+ *
+ * Dark first. Graphite neutrals with a faint cool cast, one accent ("iris") used only for
+ * focus, selection and tokens. Depth comes from 1px hairlines + very soft shadows, never
+ * from heavy borders. Light theme mirrors the same structure.
+ */
+
+@font-face {
+  font-family: "Paper Mono";
+  src: url("./fonts/PaperMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@custom-variant dark (&:is(.dark *));
+/* macOS Tauri windows: native NSVisualEffectView provides blur, radius and shadow. */
+@custom-variant vibrant (&:is(.vibrant *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Indirected through --app-* so the typeface is defined in one place per theme root. */
+  --font-sans: var(--app-sans);
+  --font-mono: var(--app-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Kudzu extras */
+  --color-iris: var(--iris);
+  --color-iris-soft: var(--iris-soft);
+  --color-iris-foreground: var(--iris-foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-hairline: var(--hairline);
+  --color-faint: var(--faint);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-favorite: var(--favorite);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /*
+   * Depth scale. Surfaces sit on the page (card), actions sit on surfaces (raised), fields
+   * sink into them (well); overlays float above everything. Tailwind's stock scale is
+   * remapped onto the same tokens so shadcn primitives (shadow-xs/sm/md/lg) match.
+   */
+  --shadow-hairline: 0 0 0 1px var(--hairline);
+  --shadow-card: var(--elev-card);
+  --shadow-raised: var(--elev-raised);
+  --shadow-raised-hover: var(--elev-raised-hover);
+  --shadow-pressed: var(--elev-pressed);
+  --shadow-well: var(--elev-well);
+  --shadow-knob: var(--elev-knob);
+  --shadow-key: var(--elev-key);
+  --shadow-accent: var(--elev-accent);
+  --shadow-selected: var(--elev-selected);
+  --shadow-soft: var(--elev-soft);
+  --shadow-float: var(--elev-float);
+  --shadow-panel: var(--elev-panel);
+  --shadow-2xs: var(--elev-raised);
+  --shadow-xs: var(--elev-raised);
+  --shadow-sm: var(--elev-soft);
+  --shadow: var(--elev-soft);
+  --shadow-md: var(--elev-float);
+  --shadow-lg: var(--elev-float);
+  --shadow-xl: var(--elev-panel);
+  --shadow-2xl: var(--elev-panel);
+  --inset-shadow-2xs: var(--elev-well);
+  --inset-shadow-xs: var(--elev-well);
+  --inset-shadow-sm: var(--elev-well);
+  --color-iris-contrast: var(--iris-contrast);
+
+  --ease-spring: var(--spring-soft);
+  --ease-pop: var(--spring-pop);
+
+  --animate-rise: rise var(--motion-slow) var(--spring-soft);
+  --animate-pop: pop var(--motion-slow) var(--spring-pop);
+  --animate-check: check-in var(--motion-slow) var(--spring-pop);
+  --animate-tick: tick var(--motion-slow) var(--spring-soft);
+  --animate-star: star-burst 420ms ease-out;
+  --animate-bar: bar-grow 480ms var(--spring-soft) backwards;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+/* These use the individual `scale`/`rotate` properties so they compose with Tailwind's translate. */
+@keyframes check-in {
+  from { opacity: 0; scale: 0.4; }
+  to { opacity: 1; scale: 1; }
+}
+@keyframes tick {
+  from { scale: 1.3; color: var(--iris-foreground); }
+  to { scale: 1; }
+}
+@keyframes star-burst {
+  0% { scale: 0.5; rotate: -24deg; }
+  55% { scale: 1.25; rotate: 6deg; }
+  100% { scale: 1; rotate: 0deg; }
+}
+@keyframes bar-grow {
+  from { scale: 0 1; }
+  to { scale: 1 1; }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+
+:root {
+  --radius: 0.625rem;
+
+  /*
+   * Motion. Three speeds: the bigger the thing that moves, the slower it goes. Two damped-spring
+   * curves: soft (1.5% overshoot) for things that travel, pop (10%) for things that land.
+   * Reduced motion is handled once, in the base layer below.
+   */
+  --motion-fast: 80ms;
+  --motion-moderate: 160ms;
+  --motion-slow: 240ms;
+  --spring-soft: linear(0, 0.053, 0.175, 0.324, 0.473, 0.609, 0.723, 0.814, 0.883, 0.934, 0.968, 0.991, 1.005, 1.012, 1.015, 1.015, 1);
+  --spring-pop: linear(0, 0.067, 0.225, 0.422, 0.618, 0.789, 0.923, 1.018, 1.075, 1.102, 1.106, 1.096, 1.077, 1.056, 1.035, 1.018, 1.005, 0.996, 0.991, 0.989, 1);
+
+  /*
+   * SF Pro on macOS (-apple-system / BlinkMacSystemFont), Figtree everywhere else. `system-ui` is
+   * deliberately absent: on Windows/Linux it would resolve to Segoe/Cantarell before Figtree.
+   */
+  --app-sans: -apple-system, BlinkMacSystemFont, "Figtree Variable", sans-serif;
+  --app-mono: "Paper Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --app-features: normal;
+
+  /* Palette: shadcn theme (stone neutrals, blue primary). Kudzu-only tokens are derived below it. */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.147 0.004 49.25);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.147 0.004 49.25);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.147 0.004 49.25);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.97 0.001 106.424);
+  --muted-foreground: oklch(0.553 0.013 58.071);
+  --accent: oklch(0.97 0.001 106.424);
+  --accent-foreground: oklch(0.216 0.006 56.043);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.923 0.003 48.717);
+  --input: oklch(0.923 0.003 48.717);
+  --ring: oklch(0.709 0.01 56.259);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.985 0.001 106.423);
+  --sidebar-foreground: oklch(0.147 0.004 49.25);
+  --sidebar-primary: oklch(0.546 0.245 262.881);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.97 0.001 106.424);
+  --sidebar-accent-foreground: oklch(0.216 0.006 56.043);
+  --sidebar-border: oklch(0.923 0.003 48.717);
+  --sidebar-ring: oklch(0.709 0.01 56.259);
+
+  /* Kudzu extensions, derived from the palette above. */
+  --surface: var(--card);
+  --surface-raised: oklch(1 0 0);
+  --hairline: oklch(0.147 0.004 49.25 / 0.08);
+  --faint: oklch(0.65 0.01 56);
+  /* "iris" is the app's single accent (focus, selection, tokens); it follows primary. */
+  --iris: var(--primary);
+  --iris-soft: oklch(0.488 0.243 264.376 / 0.1);
+  --iris-foreground: oklch(0.488 0.243 264.376);
+  --iris-contrast: var(--primary-foreground);
+  /* Elevation: light surfaces need far less shadow than dark ones to read as raised. */
+  --elev-card: 0 0 0 1px oklch(0.147 0.004 49.25 / 0.07), 0 1px 2px oklch(0.147 0.01 50 / 0.05), 0 6px 16px -10px oklch(0.147 0.02 50 / 0.12);
+  --elev-raised: inset 0 1px 0 oklch(1 0 0 / 0.7), 0 0 0 1px oklch(0.147 0.004 49.25 / 0.1), 0 1px 2px oklch(0.147 0.01 50 / 0.08);
+  --elev-raised-hover: inset 0 1px 0 oklch(1 0 0 / 0.7), 0 0 0 1px oklch(0.147 0.004 49.25 / 0.13), 0 2px 5px -1px oklch(0.147 0.01 50 / 0.12);
+  --elev-pressed: inset 0 1px 2px oklch(0.147 0.01 50 / 0.12), 0 0 0 1px oklch(0.147 0.004 49.25 / 0.1);
+  --elev-well: inset 0 1px 2px oklch(0.147 0.01 50 / 0.06), inset 0 0 0 1px oklch(0.147 0.004 49.25 / 0.09);
+  --elev-knob: 0 0 0 0.5px oklch(0.147 0.01 50 / 0.12), 0 1px 3px oklch(0.147 0.01 50 / 0.2);
+  --elev-key: inset 0 -1px 0 oklch(0.147 0.004 49.25 / 0.16), 0 0 0 0.5px oklch(0.147 0.004 49.25 / 0.08);
+  --elev-selected: 0 0 0 1px oklch(0.147 0.004 49.25 / 0.05), 0 1px 2px oklch(0.147 0.01 50 / 0.06);
+  --elev-accent: inset 0 1px 0 oklch(1 0 0 / 0.22), 0 0 0 1px oklch(0.424 0.199 265.638 / 0.6), 0 1px 2px oklch(0.424 0.199 265.638 / 0.25), 0 4px 12px -4px oklch(0.488 0.243 264.376 / 0.45);
+  --elev-soft: inset 0 1px 0 oklch(1 0 0 / 0.7), 0 0 0 1px oklch(0.147 0.004 49.25 / 0.06), 0 1px 2px oklch(0.147 0.01 50 / 0.07), 0 2px 8px -3px oklch(0.147 0.01 50 / 0.1);
+  --elev-float: 0 0 0 1px var(--hairline), 0 12px 32px -10px oklch(0.147 0.02 50 / 0.18), 0 2px 6px oklch(0.147 0.01 50 / 0.06);
+  --elev-panel: 0 0 0 1px var(--hairline), 0 24px 60px -14px oklch(0.147 0.02 50 / 0.28), 0 4px 14px oklch(0.147 0.01 50 / 0.08);
+  /* Template chips */
+  --chip-time: oklch(0.47 0.13 235);
+  --chip-clipboard: oklch(0.47 0.12 158);
+  --chip-cursor: var(--iris-foreground);
+  --chip-form: oklch(0.52 0.13 62);
+  --chip-error: oklch(0.52 0.19 24);
+  --chip-neutral: var(--foreground);
+  --success: oklch(0.6 0.15 155);
+  --warning: oklch(0.68 0.15 70);
+  --favorite: oklch(0.72 0.16 65);
+}
+
+/* macOS: let NSVisualEffectView show through the sidebar (same colours, translucent). */
+.vibrant {
+  --sidebar: oklch(0.985 0.001 106.423 / 0.72);
+}
+.vibrant.dark {
+  --sidebar: oklch(0.216 0.006 56.043 / 0.55);
+}
+
+.dark {
+  --background: oklch(0.147 0.004 49.25);
+  --foreground: oklch(0.985 0.001 106.423);
+  --card: oklch(0.216 0.006 56.043);
+  --card-foreground: oklch(0.985 0.001 106.423);
+  --popover: oklch(0.216 0.006 56.043);
+  --popover-foreground: oklch(0.985 0.001 106.423);
+  --primary: oklch(0.424 0.199 265.638);
+  --primary-foreground: oklch(0.97 0.014 254.604);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.268 0.007 34.298);
+  --muted-foreground: oklch(0.709 0.01 56.259);
+  --accent: oklch(0.268 0.007 34.298);
+  --accent-foreground: oklch(0.985 0.001 106.423);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.553 0.013 58.071);
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+  --sidebar: oklch(0.216 0.006 56.043);
+  --sidebar-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-primary: oklch(0.623 0.214 259.815);
+  --sidebar-primary-foreground: oklch(0.97 0.014 254.604);
+  --sidebar-accent: oklch(0.268 0.007 34.298);
+  --sidebar-accent-foreground: oklch(0.985 0.001 106.423);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.553 0.013 58.071);
+
+  --surface: var(--card);
+  --surface-raised: oklch(0.245 0.006 56);
+  --hairline: oklch(1 0 0 / 0.08);
+  --faint: oklch(0.58 0.012 56);
+  /* Dark primary is deep (buttons), so the accent used for icons, switches and selection is
+     shadcn's brighter sidebar-primary from the same blue ramp. */
+  --iris: var(--sidebar-primary);
+  --iris-soft: oklch(0.623 0.214 259.815 / 0.18);
+  --iris-foreground: oklch(0.809 0.105 251.813);
+  --iris-contrast: var(--primary-foreground);
+  /* Dark: light comes from above, so raised things get a faint top edge and a dark contact shadow. */
+  --elev-card: inset 0 1px 0 oklch(1 0 0 / 0.045), 0 0 0 1px oklch(1 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.25), 0 8px 24px -12px oklch(0 0 0 / 0.45);
+  --elev-raised: inset 0 1px 0 oklch(1 0 0 / 0.08), 0 0 0 1px oklch(1 0 0 / 0.07), 0 1px 2px oklch(0 0 0 / 0.35), 0 2px 6px -2px oklch(0 0 0 / 0.3);
+  --elev-raised-hover: inset 0 1px 0 oklch(1 0 0 / 0.1), 0 0 0 1px oklch(1 0 0 / 0.1), 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 10px -3px oklch(0 0 0 / 0.4);
+  --elev-pressed: inset 0 1px 3px oklch(0 0 0 / 0.35), 0 0 0 1px oklch(1 0 0 / 0.06);
+  --elev-well: inset 0 1px 2px oklch(0 0 0 / 0.3), inset 0 0 0 1px oklch(1 0 0 / 0.07), 0 1px 0 oklch(1 0 0 / 0.03);
+  --elev-knob: 0 0 0 0.5px oklch(0 0 0 / 0.3), 0 1px 3px oklch(0 0 0 / 0.45);
+  --elev-key: inset 0 1px 0 oklch(1 0 0 / 0.06), inset 0 -1px 0 oklch(0 0 0 / 0.45), 0 0 0 0.5px oklch(0 0 0 / 0.3);
+  --elev-selected: inset 0 1px 0 oklch(1 0 0 / 0.05), 0 1px 2px oklch(0 0 0 / 0.2);
+  --elev-accent: inset 0 1px 0 oklch(1 0 0 / 0.35), 0 0 0 1px oklch(0.623 0.214 259.815 / 0.5), 0 1px 2px oklch(0 0 0 / 0.4), 0 4px 14px -4px oklch(0.623 0.214 259.815 / 0.45);
+  --elev-soft: inset 0 1px 0 oklch(1 0 0 / 0.07), 0 0 0 1px oklch(1 0 0 / 0.05), 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px -4px oklch(0 0 0 / 0.3);
+  --elev-float: 0 0 0 1px var(--hairline), 0 12px 32px -8px oklch(0 0 0 / 0.45), 0 2px 6px oklch(0 0 0 / 0.2);
+  --elev-panel: 0 0 0 1px var(--hairline), 0 24px 64px -12px oklch(0 0 0 / 0.55), 0 4px 16px oklch(0 0 0 / 0.25);
+  --chip-time: oklch(0.8 0.1 220);
+  --chip-clipboard: oklch(0.8 0.12 158);
+  --chip-cursor: var(--iris-foreground);
+  --chip-form: oklch(0.84 0.11 75);
+  --chip-error: oklch(0.75 0.16 24);
+  --chip-neutral: var(--foreground);
+  --success: oklch(0.76 0.14 158);
+  --warning: oklch(0.8 0.13 75);
+  --favorite: oklch(0.82 0.14 75);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-feature-settings: var(--app-features);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  body {
+    @apply bg-background text-foreground text-[13px] leading-5;
+    /* Desktop app: no rubber-band text selection on chrome, explicit opt-in below. */
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: default;
+  }
+  input,
+  textarea,
+  [contenteditable="true"],
+  .cm-content,
+  .selectable {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  /* Transparent windows (palette, form, vibrancy sidebar) */
+  html.transparent,
+  html.transparent body,
+  html.vibrant,
+  html.vibrant body {
+    background: transparent;
+  }
+  ::selection {
+    background: var(--iris-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
+  }
+  /* Slim, unobtrusive scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.5 0 0 / 0.25) transparent;
+  }
+  /* SelectionPill is exempt: it only transitions position and size, so the Appearance control can still slide. */
+  html.theme-switching *:not([data-slide]),
+  html.theme-switching *::before,
+  html.theme-switching *::after {
+    transition: none !important;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      animation-delay: 0s !important;
+      transition-duration: 1ms !important;
+      transition-delay: 0s !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Top-lit sheen for raised actions; layered over the background colour, so hover tints still work. */
+@utility sheen {
+  background-image: linear-gradient(to bottom, oklch(1 0 0 / 0.1), oklch(1 0 0 / 0) 60%);
+}
+@utility sheen-strong {
+  background-image: linear-gradient(to bottom, oklch(1 0 0 / 0.2), oklch(1 0 0 / 0) 70%);
+}
+
+/*
+ * Press feedback for anything clickable: quick to sink, springy on release. Also carries the hover
+ * transition, so use it instead of transition-colors/all. Menu triggers stay still, because the
+ * menu is anchored to them. Tune the depth per element with [--press-scale:…].
+ */
+@utility press {
+  transition:
+    color var(--motion-fast),
+    background-color var(--motion-fast),
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast),
+    opacity var(--motion-fast),
+    filter var(--motion-fast),
+    scale var(--press-duration, var(--motion-slow)) var(--press-ease, var(--spring-pop));
+  &:active:not(:disabled, [aria-haspopup]) {
+    scale: var(--press-scale, 0.97);
+    --press-duration: var(--motion-fast);
+    --press-ease: ease-out;
+  }
+}
+
+@layer utilities {
+  /* Children rise one after another, for a whole page arriving. Fill is `backwards` so nothing keeps a stacking context afterwards. */
+  .stagger > * {
+    animation: rise var(--motion-slow) var(--spring-soft) backwards;
+  }
+  .stagger > :nth-child(2) { animation-delay: 30ms; }
+  .stagger > :nth-child(3) { animation-delay: 60ms; }
+  .stagger > :nth-child(4) { animation-delay: 90ms; }
+  .stagger > :nth-child(5) { animation-delay: 120ms; }
+  .stagger > :nth-child(n + 6) { animation-delay: 150ms; }
+  .drag {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  /* Kept for older call sites; prefer shadow-card. */
+  .lit {
+    box-shadow: var(--elev-card);
+  }
+  .noise {
+    background-image: radial-gradient(oklch(1 0 0 / 0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+  }
+}
+
+/* CodeMirror template editor */
+.kz-editor .cm-editor {
+  background: transparent;
+  font-family: var(--app-mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.kz-editor.kz-editor-formatted .cm-scroller {
+  font-family: var(--app-sans);
+}
+.kz-editor .cm-editor.cm-focused {
+  outline: none;
+}
+.kz-editor .cm-scroller {
+  font-family: var(--app-mono);
+  overflow: auto;
+}
+.kz-editor .cm-content {
+  padding: 12px 0;
+  caret-color: var(--iris);
+}
+.kz-editor .cm-line {
+  padding: 0 14px;
+}
+.kz-editor .cm-cursor {
+  border-left: 2px solid var(--iris);
+}
+.kz-editor .cm-selectionBackground,
+.kz-editor .cm-focused .cm-selectionBackground {
+  background: var(--iris-soft) !important;
+}
+.kz-editor .kz-chip-time { --kz-chip-fg: var(--chip-time); }
+.kz-editor .kz-chip-clipboard { --kz-chip-fg: var(--chip-clipboard); }
+.kz-editor .kz-chip-cursor { --kz-chip-fg: var(--chip-cursor); }
+.kz-editor .kz-chip-form { --kz-chip-fg: var(--chip-form); }
+.kz-editor .kz-chip-snippet { --kz-chip-fg: var(--chip-neutral); }
+.kz-editor .kz-chip-error { --kz-chip-fg: var(--chip-error); font-family: var(--app-mono); }
+.kz-editor .kz-chip {
+  /* Tint and ring derive from the tone colour, so every chip works in both themes. */
+  background: color-mix(in oklch, var(--kz-chip-fg) 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--kz-chip-fg) 24%, transparent);
+  color: var(--kz-chip-fg);
+}
+.kz-editor .kz-chip:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--kz-chip-fg) 70%, transparent);
+}
+.kz-editor .cm-placeholder {
+  color: var(--faint);
+  font-family: var(--app-sans);
+}
+
+/* Permission handoff: celebrate once; never make the system prompt compete for attention. */
+@keyframes permission-confirm {
+  from { opacity: 0; transform: translateY(4px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.permission-success { animation: permission-confirm 240ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .permission-success { animation: none; }
+  .permission-app-icon { transition: none; }
+  .permission-app-icon:hover { transform: none; }
+}
+
+.onboarding-atmosphere {
+  background: radial-gradient(ellipse at 50% 30%, color-mix(in oklch, var(--iris) 7%, transparent), transparent 60%);
+}
+@media (prefers-reduced-motion: reduce) {
+  [aria-label^="Setup:"] .animate-rise { animation: none; }
+}

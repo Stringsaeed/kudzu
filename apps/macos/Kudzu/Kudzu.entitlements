@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for every build. The hardened runtime is a signing option (ENABLE_HARDENED_RUNTIME),
+  so nothing is claimed here. iCloud is restricted and lives in Kudzu.icloud.entitlements, which
+  only the release script applies, with the matching provisioning profile.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

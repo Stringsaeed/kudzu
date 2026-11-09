@@ -1,0 +1,609 @@
+{
+  "apply": [
+    {
+      "result": "hello world",
+      "style": "asIs",
+      "text": "hello world"
+    },
+    {
+      "result": "Hello world",
+      "style": "capitalized",
+      "text": "hello world"
+    },
+    {
+      "result": "HELLO WORLD",
+      "style": "upper",
+      "text": "hello world"
+    },
+    {
+      "result": " 'quoted' text",
+      "style": "asIs",
+      "text": " 'quoted' text"
+    },
+    {
+      "result": " 'Quoted' text",
+      "style": "capitalized",
+      "text": " 'quoted' text"
+    },
+    {
+      "result": " 'QUOTED' TEXT",
+      "style": "upper",
+      "text": " 'quoted' text"
+    },
+    {
+      "result": "123 abc",
+      "style": "asIs",
+      "text": "123 abc"
+    },
+    {
+      "result": "123 abc",
+      "style": "capitalized",
+      "text": "123 abc"
+    },
+    {
+      "result": "123 ABC",
+      "style": "upper",
+      "text": "123 abc"
+    },
+    {
+      "result": "١٢ abc",
+      "style": "asIs",
+      "text": "١٢ abc"
+    },
+    {
+      "result": "١٢ abc",
+      "style": "capitalized",
+      "text": "١٢ abc"
+    },
+    {
+      "result": "١٢ ABC",
+      "style": "upper",
+      "text": "١٢ abc"
+    },
+    {
+      "result": "ß straße",
+      "style": "asIs",
+      "text": "ß straße"
+    },
+    {
+      "result": "SS straße",
+      "style": "capitalized",
+      "text": "ß straße"
+    },
+    {
+      "result": "SS STRASSE",
+      "style": "upper",
+      "text": "ß straße"
+    },
+    {
+      "result": "ǆungla",
+      "style": "asIs",
+      "text": "ǆungla"
+    },
+    {
+      "result": "Ǆungla",
+      "style": "capitalized",
+      "text": "ǆungla"
+    },
+    {
+      "result": "ǄUNGLA",
+      "style": "upper",
+      "text": "ǆungla"
+    },
+    {
+      "result": "ǉ",
+      "style": "asIs",
+      "text": "ǉ"
+    },
+    {
+      "result": "Ǉ",
+      "style": "capitalized",
+      "text": "ǉ"
+    },
+    {
+      "result": "Ǉ",
+      "style": "upper",
+      "text": "ǉ"
+    },
+    {
+      "result": "ﬀ ligature",
+      "style": "asIs",
+      "text": "ﬀ ligature"
+    },
+    {
+      "result": "FF ligature",
+      "style": "capitalized",
+      "text": "ﬀ ligature"
+    },
+    {
+      "result": "FF LIGATURE",
+      "style": "upper",
+      "text": "ﬀ ligature"
+    },
+    {
+      "result": "ŉ",
+      "style": "asIs",
+      "text": "ŉ"
+    },
+    {
+      "result": "ʼN",
+      "style": "capitalized",
+      "text": "ŉ"
+    },
+    {
+      "result": "ʼN",
+      "style": "upper",
+      "text": "ŉ"
+    },
+    {
+      "result": "ǰ",
+      "style": "asIs",
+      "text": "ǰ"
+    },
+    {
+      "result": "J̌",
+      "style": "capitalized",
+      "text": "ǰ"
+    },
+    {
+      "result": "J̌",
+      "style": "upper",
+      "text": "ǰ"
+    },
+    {
+      "result": "ᾳ ᾼ",
+      "style": "asIs",
+      "text": "ᾳ ᾼ"
+    },
+    {
+      "result": "ΑΙ ᾼ",
+      "style": "capitalized",
+      "text": "ᾳ ᾼ"
+    },
+    {
+      "result": "ΑΙ ΑΙ",
+      "style": "upper",
+      "text": "ᾳ ᾼ"
+    },
+    {
+      "result": "ΌΣΟΣ όσος",
+      "style": "asIs",
+      "text": "ΌΣΟΣ όσος"
+    },
+    {
+      "result": "ΌΣΟΣ όσος",
+      "style": "capitalized",
+      "text": "ΌΣΟΣ όσος"
+    },
+    {
+      "result": "ΌΣΟΣ ΌΣΟΣ",
+      "style": "upper",
+      "text": "ΌΣΟΣ όσος"
+    },
+    {
+      "result": "i̇stanbul",
+      "style": "asIs",
+      "text": "i̇stanbul"
+    },
+    {
+      "result": "İstanbul",
+      "style": "capitalized",
+      "text": "i̇stanbul"
+    },
+    {
+      "result": "İSTANBUL",
+      "style": "upper",
+      "text": "i̇stanbul"
+    },
+    {
+      "result": "ı",
+      "style": "asIs",
+      "text": "ı"
+    },
+    {
+      "result": "I",
+      "style": "capitalized",
+      "text": "ı"
+    },
+    {
+      "result": "I",
+      "style": "upper",
+      "text": "ı"
+    },
+    {
+      "result": "日本 abc",
+      "style": "asIs",
+      "text": "日本 abc"
+    },
+    {
+      "result": "日本 abc",
+      "style": "capitalized",
+      "text": "日本 abc"
+    },
+    {
+      "result": "日本 ABC",
+      "style": "upper",
+      "text": "日本 abc"
+    },
+    {
+      "result": "́é",
+      "style": "asIs",
+      "text": "́é"
+    },
+    {
+      "result": "́É",
+      "style": "capitalized",
+      "text": "́é"
+    },
+    {
+      "result": "́É",
+      "style": "upper",
+      "text": "́é"
+    },
+    {
+      "result": "école",
+      "style": "asIs",
+      "text": "école"
+    },
+    {
+      "result": "École",
+      "style": "capitalized",
+      "text": "école"
+    },
+    {
+      "result": "ÉCOLE",
+      "style": "upper",
+      "text": "école"
+    },
+    {
+      "result": "ⓐbc",
+      "style": "asIs",
+      "text": "ⓐbc"
+    },
+    {
+      "result": "Ⓐbc",
+      "style": "capitalized",
+      "text": "ⓐbc"
+    },
+    {
+      "result": "ⒶBC",
+      "style": "upper",
+      "text": "ⓐbc"
+    },
+    {
+      "result": "ⅻ",
+      "style": "asIs",
+      "text": "ⅻ"
+    },
+    {
+      "result": "Ⅻ",
+      "style": "capitalized",
+      "text": "ⅻ"
+    },
+    {
+      "result": "Ⅻ",
+      "style": "upper",
+      "text": "ⅻ"
+    },
+    {
+      "result": "…ok",
+      "style": "asIs",
+      "text": "…ok"
+    },
+    {
+      "result": "…Ok",
+      "style": "capitalized",
+      "text": "…ok"
+    },
+    {
+      "result": "…OK",
+      "style": "upper",
+      "text": "…ok"
+    },
+    {
+      "result": "👍🏽 ok",
+      "style": "asIs",
+      "text": "👍🏽 ok"
+    },
+    {
+      "result": "👍🏽 Ok",
+      "style": "capitalized",
+      "text": "👍🏽 ok"
+    },
+    {
+      "result": "👍🏽 OK",
+      "style": "upper",
+      "text": "👍🏽 ok"
+    },
+    {
+      "result": "",
+      "style": "asIs",
+      "text": ""
+    },
+    {
+      "result": "",
+      "style": "capitalized",
+      "text": ""
+    },
+    {
+      "result": "",
+      "style": "upper",
+      "text": ""
+    },
+    {
+      "result": "   ",
+      "style": "asIs",
+      "text": "   "
+    },
+    {
+      "result": "   ",
+      "style": "capitalized",
+      "text": "   "
+    },
+    {
+      "result": "   ",
+      "style": "upper",
+      "text": "   "
+    },
+    {
+      "result": "\nnew",
+      "style": "asIs",
+      "text": "\nnew"
+    },
+    {
+      "result": "\nNew",
+      "style": "capitalized",
+      "text": "\nnew"
+    },
+    {
+      "result": "\nNEW",
+      "style": "upper",
+      "text": "\nnew"
+    },
+    {
+      "result": "ꭰ",
+      "style": "asIs",
+      "text": "ꭰ"
+    },
+    {
+      "result": "Ꭰ",
+      "style": "capitalized",
+      "text": "ꭰ"
+    },
+    {
+      "result": "Ꭰ",
+      "style": "upper",
+      "text": "ꭰ"
+    },
+    {
+      "result": "ⴀ",
+      "style": "asIs",
+      "text": "ⴀ"
+    },
+    {
+      "result": "Ⴀ",
+      "style": "capitalized",
+      "text": "ⴀ"
+    },
+    {
+      "result": "Ⴀ",
+      "style": "upper",
+      "text": "ⴀ"
+    },
+    {
+      "result": "ა",
+      "style": "asIs",
+      "text": "ა"
+    },
+    {
+      "result": "Ა",
+      "style": "capitalized",
+      "text": "ა"
+    },
+    {
+      "result": "Ა",
+      "style": "upper",
+      "text": "ა"
+    },
+    {
+      "result": "ﬅ",
+      "style": "asIs",
+      "text": "ﬅ"
+    },
+    {
+      "result": "ST",
+      "style": "capitalized",
+      "text": "ﬅ"
+    },
+    {
+      "result": "ST",
+      "style": "upper",
+      "text": "ﬅ"
+    },
+    {
+      "result": "Ꭰ",
+      "style": "asIs",
+      "text": "Ꭰ"
+    },
+    {
+      "result": "Ꭰ",
+      "style": "capitalized",
+      "text": "Ꭰ"
+    },
+    {
+      "result": "Ꭰ",
+      "style": "upper",
+      "text": "Ꭰ"
+    }
+  ],
+  "detect": [
+    {
+      "style": "asIs",
+      "typed": "sig"
+    },
+    {
+      "style": "capitalized",
+      "typed": "Sig"
+    },
+    {
+      "style": "upper",
+      "typed": "SIG"
+    },
+    {
+      "style": "asIs",
+      "typed": "sIG"
+    },
+    {
+      "style": "capitalized",
+      "typed": "S"
+    },
+    {
+      "style": "upper",
+      "typed": "SI"
+    },
+    {
+      "style": "capitalized",
+      "typed": "Ab1"
+    },
+    {
+      "style": "upper",
+      "typed": "1AB"
+    },
+    {
+      "style": "capitalized",
+      "typed": ";A"
+    },
+    {
+      "style": "upper",
+      "typed": ";AB"
+    },
+    {
+      "style": "upper",
+      "typed": "ÀB"
+    },
+    {
+      "style": "upper",
+      "typed": "ÀB"
+    },
+    {
+      "style": "asIs",
+      "typed": "ß"
+    },
+    {
+      "style": "capitalized",
+      "typed": "SSß"
+    },
+    {
+      "style": "asIs",
+      "typed": "ǅx"
+    },
+    {
+      "style": "upper",
+      "typed": "ǄX"
+    },
+    {
+      "style": "asIs",
+      "typed": "ǈ"
+    },
+    {
+      "style": "upper",
+      "typed": "İX"
+    },
+    {
+      "style": "upper",
+      "typed": "ΣΑ"
+    },
+    {
+      "style": "upper",
+      "typed": "ⅫX"
+    },
+    {
+      "style": "asIs",
+      "typed": "ⅻ"
+    },
+    {
+      "style": "asIs",
+      "typed": "日本"
+    },
+    {
+      "style": "capitalized",
+      "typed": "日A"
+    },
+    {
+      "style": "upper",
+      "typed": "AB日"
+    },
+    {
+      "style": "asIs",
+      "typed": "ꭰ"
+    },
+    {
+      "style": "upper",
+      "typed": "ᎠᎡ"
+    },
+    {
+      "style": "capitalized",
+      "typed": "Ⴀ"
+    },
+    {
+      "style": "upper",
+      "typed": "ᲐᲑ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ǰ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ŉ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ﬀ"
+    },
+    {
+      "style": "capitalized",
+      "typed": "Ａｂ"
+    },
+    {
+      "style": "upper",
+      "typed": "ＡＢ"
+    },
+    {
+      "style": "capitalized",
+      "typed": "١A"
+    },
+    {
+      "style": "capitalized",
+      "typed": "Ⓐⓑ"
+    },
+    {
+      "style": "upper",
+      "typed": "ⒶⒷ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ᾼ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ᾳ"
+    },
+    {
+      "style": "asIs",
+      "typed": "ﬅ"
+    },
+    {
+      "style": "capitalized",
+      "typed": "🇺🇸A"
+    },
+    {
+      "style": "upper",
+      "typed": "A‍B"
+    },
+    {
+      "style": "asIs",
+      "typed": ""
+    }
+  ]
+}

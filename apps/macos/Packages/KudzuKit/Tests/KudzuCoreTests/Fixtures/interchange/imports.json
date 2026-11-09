@@ -1,0 +1,908 @@
+[
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000001",
+            "isEnabled": true,
+            "name": "Raycast",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "Best,\n{{cursor}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000002",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Email sign-off",
+            "triggers": [
+              "!bye"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{date format=\"d MMM yyyy\"}} / {{date format=\"HH:mm\"}} / {{date format=\"d MMM yyyy 'at' HH:mm\"}} / {{date format=\"EEEE\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000003",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Today",
+            "triggers": [
+              "!now"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{date format=\"yyyy-MM-dd\" offset=\"+1d\"}} {{date format=\"d MMM yyyy\" offset=\"-2m\"}} {{date format=\"HH:mm\" offset=\"+30min\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000004",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Custom date",
+            "triggers": [
+              "!d"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{clipboard}} {{clipboard trim=true}} {clipboard offset=1}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000005",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Paste",
+            "triggers": [
+              "!p"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Hi {{field name=\"Name\" default=\"there\"}},\n{{choice name=\"Tone\" options=\"formal|casual\" default=\"casual\"}}\n{{snippet id=\"1A7E0000-0000-4000-8000-000000000002\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000006",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Reply",
+            "triggers": [
+              "!reply"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{selection} {uuid} {snippet name=\"Nope\"} {argument name=\"x\" bogus}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000007",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Unsupported",
+            "triggers": [
+              "!u"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{date format=\"yyyy-MM\" offset=\"+2y5m\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000008",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Spaced offset",
+            "triggers": [
+              "!so"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "fn main() { println!(\"{}\", 1); } {clipboard} \\{{literal}} C:\\\\path",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-000000000009",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Code",
+            "triggers": [
+              "!code"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Only searchable",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000001",
+            "id": "1a7e0000-0000-4000-8000-00000000000a",
+            "isEnabled": false,
+            "isFavorite": false,
+            "name": "No keyword",
+            "triggers": [],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": [
+        {
+          "file": "snippets.json",
+          "matchIndex": 9,
+          "message": "Snippet has no text and was skipped.",
+          "trigger": "!empty"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 10,
+          "message": "Entry 10 isn't a snippet and was skipped."
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 3,
+          "message": "{clipboard} with offset=1 reads clipboard history, which isn't supported; kept as text.",
+          "trigger": "!p"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 5,
+          "message": "{selection} has no Kudzu equivalent; kept as text.",
+          "trigger": "!u"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 5,
+          "message": "{uuid} has no Kudzu equivalent; kept as text.",
+          "trigger": "!u"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 5,
+          "message": "{snippet} refers to \"Nope\", which isn't in this export; kept as text.",
+          "trigger": "!u"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 5,
+          "message": "Couldn't read the placeholder {argument name=\"x\" bogus}; kept as text.",
+          "trigger": "!u"
+        },
+        {
+          "file": "snippets.json",
+          "matchIndex": 8,
+          "message": "'No keyword' has no keyword, so it was imported turned off. Add a trigger to use it."
+        }
+      ]
+    },
+    "file": "snippets.json",
+    "source": "raycast",
+    "text": "[\n      { \"name\": \"Email sign-off\", \"text\": \"Best,\\n{cursor}\", \"keyword\": \"!bye\" },\n      { \"name\": \"Today\", \"text\": \"{date} / {time} / {datetime} / {day}\", \"keyword\": \"!now\" },\n      { \"name\": \"Custom date\", \"text\": \"{date format=\\\"yyyy-MM-dd\\\" offset=\\\"+1d\\\"} {date offset=\\\"-2M\\\"} {time offset=\\\"30m\\\"}\", \"keyword\": \"!d\" },\n      { \"name\": \"Paste\", \"text\": \"{clipboard} {clipboard | trim} {clipboard offset=1}\", \"keyword\": \"!p\" },\n      { \"name\": \"Reply\", \"text\": \"Hi {argument name=\\\"Name\\\" default=\\\"there\\\"},\\n{argument name=\\\"Tone\\\" options=\\\"formal, casual\\\" default=\\\"casual\\\"}\\n{snippet name=\\\"Email sign-off\\\"}\", \"keyword\": \"!reply\" },\n      { \"name\": \"Unsupported\", \"text\": \"{selection} {uuid} {snippet name=\\\"Nope\\\"} {argument name=\\\"x\\\" bogus}\", \"keyword\": \"!u\" },\n      { \"name\": \"Spaced offset\", \"text\": \"{date offset=\\\"+2y +5M\\\" format=\\\"yyyy-MM\\\"}\", \"keyword\": \"!so\" },\n      { \"name\": \"Code\", \"text\": \"fn main() { println!(\\\"{}\\\", 1); } \\\\{clipboard} {{literal}} C:\\\\path\", \"keyword\": \"!code\" },\n      { \"name\": \"No keyword\", \"text\": \"Only searchable\" },\n      { \"name\": \"Empty\", \"text\": \"\", \"keyword\": \"!empty\" },\n      \"junk\"\n    ]"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "1a7e0000-0000-4000-8000-00000000000b",
+            "isEnabled": true,
+            "name": "Work & Co",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "Best regards,\n{{field name=\"Sender\" default=\"Me\"}}{{cursor}}",
+            "createdAt": "2020-05-06T07:08:09Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000000b",
+            "id": "1a7e0000-0000-4000-8000-00000000000c",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Signature",
+            "triggers": [
+              "sig"
+            ],
+            "updatedAt": "2021-05-06T07:08:09Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "{{date format=\"EEEE, MMMM d, yyyy\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000000b",
+            "id": "1a7e0000-0000-4000-8000-00000000000d",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "ddate",
+            "triggers": [
+              "ddate"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "{{snippet id=\"1A7E0000-0000-4000-8000-00000000000C\"}} + %snippet:missing% + {{clipboard}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000000b",
+            "id": "1a7e0000-0000-4000-8000-00000000000e",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "both",
+            "triggers": [
+              "both"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "Bold & 50% done",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000000b",
+            "id": "1a7e0000-0000-4000-8000-00000000000f",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "rich",
+            "triggers": [
+              "rich"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "No trigger",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000000b",
+            "id": "1a7e0000-0000-4000-8000-000000000010",
+            "isEnabled": false,
+            "isFavorite": false,
+            "name": "Loose",
+            "triggers": [],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": [
+        {
+          "file": "Work.textexpander",
+          "matchIndex": 6,
+          "message": "Snippet is missing its abbreviation or text and was skipped.",
+          "trigger": "broken"
+        },
+        {
+          "file": "Work.textexpander",
+          "matchIndex": 2,
+          "message": "%snippet:missing% refers to a snippet that isn't in this export; kept as text.",
+          "trigger": "both"
+        },
+        {
+          "file": "Work.textexpander",
+          "matchIndex": 3,
+          "message": "Rich text formatting was dropped; the snippet was imported as plain text.",
+          "trigger": "rich"
+        },
+        {
+          "file": "Work.textexpander",
+          "matchIndex": 4,
+          "message": "Script snippet (AppleScript, JavaScript or shell) isn't supported and was skipped.",
+          "trigger": "script"
+        },
+        {
+          "file": "Work.textexpander",
+          "matchIndex": 5,
+          "message": "'Loose' has no abbreviation, so it was imported turned off. Add a trigger to use it."
+        }
+      ]
+    },
+    "file": "Work.textexpander",
+    "source": "textexpander",
+    "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>groupInfo</key>\n  <dict>\n    <key>groupName</key><string>Work &amp; Co</string>\n    <key>expandAfterMode</key><integer>2</integer>\n  </dict>\n  <key>snippetsTE2</key>\n  <array>\n    <dict>\n      <key>abbreviation</key><string>sig</string>\n      <key>abbreviationMode</key><integer>0</integer>\n      <key>creationDate</key><date>2020-05-06T07:08:09Z</date>\n      <key>modificationDate</key><date>2021-05-06T07:08:09Z</date>\n      <key>label</key><string>Signature</string>\n      <key>plainText</key><string>Best regards,\n%filltext:name=Sender:default=Me%%|</string>\n      <key>snippetType</key><integer>0</integer>\n      <key>uuidString</key><string>6E4FE1E9-0000-4000-8000-000000000001</string>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string>ddate</string>\n      <key>abbreviationMode</key><integer>1</integer>\n      <key>plainText</key><string>%A, %B %e, %Y</string>\n      <key>snippetType</key><integer>0</integer>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string>both</string>\n      <key>plainText</key><string>%snippet:sig% + %snippet:missing% + %clipboard</string>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string>rich</string>\n      <key>plainText</key><string>Bold &amp; 50% done</string>\n      <key>snippetType</key><integer>1</integer>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string>script</string>\n      <key>plainText</key><string>do shell script \"ls\"</string>\n      <key>snippetType</key><integer>2</integer>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string></string>\n      <key>label</key><string>Loose</string>\n      <key>plainText</key><string>No trigger</string>\n    </dict>\n    <dict>\n      <key>abbreviation</key><string>broken</string>\n    </dict>\n  </array>\n</dict>\n</plist>"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000011",
+            "isEnabled": true,
+            "name": "Chat",
+            "sortIndex": 0
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000012",
+            "isEnabled": true,
+            "name": "Other",
+            "sortIndex": 1
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "propagate",
+            "content": "Hello,\nworld {{date format=\"yyyy\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000011",
+            "id": "1a7e0000-0000-4000-8000-000000000013",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Greeting",
+            "triggers": [
+              ";hi"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "Bye",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000011",
+            "id": "1a7e0000-0000-4000-8000-000000000014",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ";bye",
+            "triggers": [
+              ";bye"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "X",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000012",
+            "id": "1a7e0000-0000-4000-8000-000000000015",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ";x",
+            "triggers": [
+              ";x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": [
+        {
+          "file": "export.csv",
+          "matchIndex": 3,
+          "message": "Row has no content and was skipped.",
+          "trigger": ";no"
+        }
+      ]
+    },
+    "file": "export.csv",
+    "source": "textexpander",
+    "text": "﻿Abbreviation,Content,Label,Group\r\n;hi,\"Hello,\r\nworld %Y\",Greeting,Chat\r\n;bye,Bye,,Chat\r\n;x,X,,Other\r\n;no,,,\r\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000016",
+            "isEnabled": true,
+            "name": "base",
+            "sortIndex": 0
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000017",
+            "isEnabled": true,
+            "name": "_private",
+            "sortIndex": 1
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000018",
+            "isEnabled": true,
+            "name": "dynamic",
+            "sortIndex": 2
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-000000000019",
+            "isEnabled": true,
+            "name": "forms",
+            "sortIndex": 3
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-00000000001a",
+            "isEnabled": true,
+            "name": "unsupported",
+            "sortIndex": 4
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-00000000001b",
+            "isEnabled": true,
+            "name": "work",
+            "sortIndex": 5
+          },
+          {
+            "id": "1a7e0000-0000-4000-8000-00000000001c",
+            "isEnabled": true,
+            "name": "meetings",
+            "parentID": "1a7e0000-0000-4000-8000-00000000001b",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "Best regards,\nJane Doe\n",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000016",
+            "id": "1a7e0000-0000-4000-8000-00000000001d",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Email Signature",
+            "triggers": [
+              ":sig"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "Hello there!",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "wholeWord",
+            "groupID": "1a7e0000-0000-4000-8000-000000000016",
+            "id": "1a7e0000-0000-4000-8000-00000000001e",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":hello",
+            "triggers": [
+              ":hello",
+              ":hi"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "there",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "wholeWord",
+            "groupID": "1a7e0000-0000-4000-8000-000000000016",
+            "id": "1a7e0000-0000-4000-8000-00000000001f",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "ther",
+            "triggers": [
+              "ther"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "<div>{{cursor}}</div>",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000016",
+            "id": "1a7e0000-0000-4000-8000-000000000020",
+            "insertion": "type",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "HTML Div",
+            "triggers": [
+              ":div"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Literal braces \\{{not_a_var}} here",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000016",
+            "id": "1a7e0000-0000-4000-8000-000000000021",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":escaped",
+            "triggers": [
+              ":escaped"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Loaded from _private.yml on {{date format=\"yyyy-MM-dd\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000017",
+            "id": "1a7e0000-0000-4000-8000-000000000022",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Imported Secret",
+            "triggers": [
+              ":secret"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "It's {{date format=\"HH:mm\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000018",
+            "id": "1a7e0000-0000-4000-8000-000000000023",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Current Time",
+            "triggers": [
+              ":now"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Tomorrow is {{date format=\"yyyy-MM-dd\" offset=\"+1d\" locale=\"en_US\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000018",
+            "id": "1a7e0000-0000-4000-8000-000000000024",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Tomorrow Date",
+            "triggers": [
+              ":tomorrow"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{date format=\"EEEE, MMMM d, yyyy hh:mm:ss a (EEE MMM dd ''yy 'day' DDD zzz xx) 100%\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000018",
+            "id": "1a7e0000-0000-4000-8000-000000000025",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":full_date",
+            "triggers": [
+              ":full_date"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "<a href=\"{{clipboard}}\">{{cursor}}</a>",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000018",
+            "id": "1a7e0000-0000-4000-8000-000000000026",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "HTML Link from Clipboard",
+            "triggers": [
+              ":paste_link"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Thanks!\n{{snippet id=\"1A7E0000-0000-4000-8000-00000000001D\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000018",
+            "id": "1a7e0000-0000-4000-8000-000000000027",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Nested Signature",
+            "triggers": [
+              ":nested_sig"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Hey {{field name=\"name\" default=\"Friend\"}}, {{field name=\"note\" default=\"Happy Birthday\" multiline=true}}!",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000019",
+            "id": "1a7e0000-0000-4000-8000-000000000028",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Birthday Greeting",
+            "triggers": [
+              ":greet"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Order: {{choice name=\"drink\" options=\"Coffee|Tea\\\\|Green|Juice\" default=\"Coffee\"}} ({{choice name=\"size\" options=\"Small|Medium|Large\"}})",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000019",
+            "id": "1a7e0000-0000-4000-8000-000000000029",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Order Drink",
+            "triggers": [
+              ":order"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Hi {{field name=\"user\" default=\"Admin\"}}, role: {{choice name=\"role\" options=\"Developer|Designer\" default=\"Developer\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-000000000019",
+            "id": "1a7e0000-0000-4000-8000-00000000002a",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Verbose Form",
+            "triggers": [
+              ":verbose_form"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "This *text* is **bold**",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-00000000002b",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":rich_md",
+            "triggers": [
+              ":rich_md"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "<p>Hello <b>world</b></p>",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-00000000002c",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":rich_html",
+            "triggers": [
+              ":rich_html"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "IP: \\{{output}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-00000000002d",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":ip",
+            "triggers": [
+              ":ip"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Out: \\{{script_out}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-00000000002e",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":py",
+            "triggers": [
+              ":py"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Quote: \\{{r}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-00000000002f",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":rand",
+            "triggers": [
+              ":rand"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Echo: \\{{e}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-000000000030",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":echo_test",
+            "triggers": [
+              ":echo_test"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Missing: \\{{missing_match}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-000000000031",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":broken_nest",
+            "triggers": [
+              ":broken_nest"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "{{date format=\"yyyy-%'V'-%'u'\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001a",
+            "id": "1a7e0000-0000-4000-8000-000000000032",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":weird_date",
+            "triggers": [
+              ":weird_date"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "propagate",
+            "content": "Let's meet at {{cursor}} tomorrow.",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001c",
+            "id": "1a7e0000-0000-4000-8000-000000000033",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": "Meeting Invite",
+            "triggers": [
+              ":meeting"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          },
+          {
+            "caseMode": "exact",
+            "content": "Yesterday: {{field name=\"yesterday\"}}\nToday: {{field name=\"today\"}}",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "1a7e0000-0000-4000-8000-00000000001c",
+            "id": "1a7e0000-0000-4000-8000-000000000034",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":standup",
+            "triggers": [
+              ":standup"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": [
+        {
+          "file": "unsupported.yml",
+          "line": 3,
+          "matchIndex": 0,
+          "message": "Regex trigger ':greet\\((?P<person>.*)\\)' is not supported in v1 and was skipped.",
+          "trigger": ":greet\\((?P<person>.*)\\)"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 6,
+          "matchIndex": 1,
+          "message": "Image match ('image_path') is not supported in v1 and was skipped.",
+          "trigger": ":cat"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 9,
+          "matchIndex": 2,
+          "message": "Markdown match imported as plain text; importing rich text formatting is not supported.",
+          "trigger": ":rich_md"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 12,
+          "matchIndex": 3,
+          "message": "HTML match imported as plain text; importing rich text formatting is not supported.",
+          "trigger": ":rich_html"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 18,
+          "matchIndex": 4,
+          "message": "Unsupported variable type 'shell' for variable 'output'; kept as literal text.",
+          "trigger": ":ip"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 26,
+          "matchIndex": 5,
+          "message": "Unsupported variable type 'script' for variable 'script_out'; kept as literal text.",
+          "trigger": ":py"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 34,
+          "matchIndex": 6,
+          "message": "Unsupported variable type 'random' for variable 'r'; kept as literal text.",
+          "trigger": ":rand"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 42,
+          "matchIndex": 7,
+          "message": "Unsupported variable type 'echo' for variable 'e'; kept as literal text.",
+          "trigger": ":echo_test"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 50,
+          "matchIndex": 8,
+          "message": "Unresolved nested match trigger ':nonexistent_trigger' for variable 'missing_match'; kept as literal text.",
+          "trigger": ":broken_nest"
+        },
+        {
+          "file": "unsupported.yml",
+          "line": 58,
+          "matchIndex": 9,
+          "message": "Unsupported strftime specifier(s) %V, %u in date variable 'wd' kept as literal.",
+          "trigger": ":weird_date"
+        }
+      ]
+    },
+    "files": {
+      "match/_private.yml": "# Imported underscore-prefixed file (only loaded via imports:)\nmatches:\n  - trigger: \":secret\"\n    label: \"Imported Secret\"\n    replace: \"Loaded from _private.yml on {{company_date}}\"\n",
+      "match/_unimported.yml": "# Underscore file not referenced by any imports: - must NOT be auto-loaded\nmatches:\n  - trigger: \":unimported\"\n    replace: \"Should never be loaded in directory import\"\n",
+      "match/base.yml": "# Realistic Espanso base match file\nimports:\n  - \"./_private.yml\"\n\nglobal_vars:\n  - name: company_date\n    type: date\n    params:\n      format: \"%Y-%m-%d\"\n\nmatches:\n  - trigger: \":sig\"\n    label: \"Email Signature\"\n    replace: |\n      Best regards,\n      Jane Doe\n\n  - triggers: [\":hello\", \":hi\"]\n    replace: \"Hello there!\"\n    word: true\n    propagate_case: true\n\n  - trigger: \"ther\"\n    replace: \"there\"\n    word: true\n    propagate_case: true\n\n  - trigger: \":div\"\n    label: \"HTML Div\"\n    replace: \"<div>$|$</div>\"\n    force_mode: keys\n\n  - trigger: \":escaped\"\n    replace: \"Literal braces \\\\{\\\\{not_a_var}} here\"\n",
+      "match/dynamic.yml": "# Dates, clipboard, nested matches, and global_vars\nmatches:\n  - trigger: \":now\"\n    label: \"Current Time\"\n    replace: \"It's {{mytime}}\"\n    vars:\n      - name: mytime\n        type: date\n        params:\n          format: \"%H:%M\"\n\n  - trigger: \":tomorrow\"\n    label: \"Tomorrow Date\"\n    replace: \"Tomorrow is {{tom}}\"\n    vars:\n      - name: tom\n        type: date\n        params:\n          format: \"%Y-%m-%d\"\n          offset: 86400\n          locale: \"en_US\"\n\n  - trigger: \":full_date\"\n    replace: \"{{dt}}\"\n    vars:\n      - name: dt\n        type: date\n        params:\n          format: \"%A, %B %e, %Y %I:%M:%S %p (%a %b %d '%y day %j %Z %z) 100%%\"\n\n  - trigger: \":paste_link\"\n    label: \"HTML Link from Clipboard\"\n    replace: \"<a href=\\\"{{clip}}\\\">$|$</a>\"\n    vars:\n      - name: clip\n        type: clipboard\n\n  - trigger: \":nested_sig\"\n    label: \"Nested Signature\"\n    replace: \"Thanks!\\n{{sig_var}}\"\n    vars:\n      - name: sig_var\n        type: match\n        params:\n          trigger: \":sig\"\n",
+      "match/forms.yml": "# Espanso forms fixture (both shorthand form: and verbose type: form)\nmatches:\n  - trigger: \":greet\"\n    label: \"Birthday Greeting\"\n    form: \"Hey [[name]], [[note]]!\"\n    form_fields:\n      name:\n        default: \"Friend\"\n      note:\n        multiline: true\n        default: \"Happy Birthday\"\n\n  - trigger: \":order\"\n    label: \"Order Drink\"\n    form: \"Order: [[drink]] ([[size]])\"\n    form_fields:\n      drink:\n        type: choice\n        values:\n          - \"Coffee\"\n          - \"Tea|Green\"\n          - \"Juice\"\n        default: \"Coffee\"\n      size:\n        type: list\n        values: |\n          Small\n          Medium\n          Large\n\n  - trigger: \":verbose_form\"\n    label: \"Verbose Form\"\n    replace: \"Hi {{form1.user}}, role: {{form1.role}}\"\n    vars:\n      - name: form1\n        type: form\n        params:\n          layout: \"User: [[user]]\\nRole: [[role]]\"\n          fields:\n            user:\n              default: \"Admin\"\n            role:\n              type: choice\n              values:\n                - \"Developer\"\n                - \"Designer\"\n              default: \"Developer\"\n",
+      "match/unsupported.yml": "# Unsupported or partially degraded Espanso features\nmatches:\n  - regex: \":greet\\\\((?P<person>.*)\\\\)\"\n    replace: \"Hi {{person}}!\"\n\n  - trigger: \":cat\"\n    image_path: \"$CONFIG/images/cat.png\"\n\n  - trigger: \":rich_md\"\n    markdown: \"This *text* is **bold**\"\n\n  - trigger: \":rich_html\"\n    html: \"<p>Hello <b>world</b></p>\"\n\n  - trigger: \":ip\"\n    replace: \"IP: {{output}}\"\n    vars:\n      - name: output\n        type: shell\n        params:\n          cmd: \"curl https://api.ipify.org\"\n\n  - trigger: \":py\"\n    replace: \"Out: {{script_out}}\"\n    vars:\n      - name: script_out\n        type: script\n        params:\n          args: [\"python\", \"script.py\"]\n\n  - trigger: \":rand\"\n    replace: \"Quote: {{r}}\"\n    vars:\n      - name: r\n        type: random\n        params:\n          choices: [\"One\", \"Two\"]\n\n  - trigger: \":echo_test\"\n    replace: \"Echo: {{e}}\"\n    vars:\n      - name: e\n        type: echo\n        params:\n          echo: \"Fixed\"\n\n  - trigger: \":broken_nest\"\n    replace: \"Missing: {{missing_match}}\"\n    vars:\n      - name: missing_match\n        type: match\n        params:\n          trigger: \":nonexistent_trigger\"\n\n  - trigger: \":weird_date\"\n    replace: \"{{wd}}\"\n    vars:\n      - name: wd\n        type: date\n        params:\n          format: \"%Y-%V-%u\"\n",
+      "match/work/meetings.yml": "# Subdirectory match file\nmatches:\n  - trigger: \":meeting\"\n    label: \"Meeting Invite\"\n    replace: \"Let's meet at $|$ tomorrow.\"\n    propagate_case: true\n\n  - trigger: \":standup\"\n    form: \"Yesterday: [[yesterday]]\\nToday: [[today]]\"\n"
+    },
+    "source": "espanso"
+  }
+]

@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Name",
+    "kind": "text",
+    "options": [],
+    "defaultValue": null
+  },
+  {
+    "name": "Notes",
+    "kind": "multiline",
+    "options": [],
+    "defaultValue": "none"
+  },
+  {
+    "name": "Size",
+    "kind": "choice",
+    "options": [
+      "S",
+      "M",
+      "L"
+    ],
+    "defaultValue": "M"
+  }
+]

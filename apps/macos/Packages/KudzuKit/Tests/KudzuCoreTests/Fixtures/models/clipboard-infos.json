@@ -1,0 +1,28 @@
+[
+  {
+    "canPaste": false,
+    "diskUsage": 38400000,
+    "entries": [
+      {
+        "color": "#5b7cfa",
+        "copiedAt": "2026-11-08T09:29:15Z",
+        "copyCount": 1,
+        "firstCopiedAt": "2026-11-08T07:30:15Z",
+        "hash": "78dde6e5fd29f054",
+        "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000067",
+        "kind": "color",
+        "lineCount": 1,
+        "pinned": false,
+        "rich": false,
+        "size": 0,
+        "text": "#5B7CFA",
+        "textLen": 7,
+        "timings": [
+          "2026-11-08T09:29:15Z"
+        ],
+        "types": [],
+        "useCount": 0
+      }
+    ]
+  }
+]

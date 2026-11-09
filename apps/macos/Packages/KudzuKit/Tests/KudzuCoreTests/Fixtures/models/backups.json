@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+    "filename": "kudzu-2026-11-08-preImport.json",
+    "createdAt": "2026-11-08T09:30:15Z",
+    "reason": "preImport"
+  },
+  {
+    "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+    "filename": "kudzu-2026-11-08-daily.json",
+    "createdAt": "2026-11-08T09:30:15Z",
+    "reason": "daily"
+  },
+  {
+    "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+    "filename": "kudzu-2026-11-08-preImport.json",
+    "createdAt": "2026-11-08T09:30:15Z",
+    "reason": "preRestore"
+  },
+  {
+    "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+    "filename": "kudzu-2026-11-08-preImport.json",
+    "createdAt": "2026-11-08T09:30:15Z",
+    "reason": "manual"
+  },
+  {
+    "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+    "filename": "kudzu-2026-11-08-preImport.json",
+    "createdAt": "2026-11-08T09:30:15Z",
+    "reason": "preUpdate"
+  }
+]

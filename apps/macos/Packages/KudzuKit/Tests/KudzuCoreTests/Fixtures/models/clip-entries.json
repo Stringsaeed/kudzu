@@ -1,0 +1,225 @@
+[
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000064",
+    "kind": "text",
+    "text": "Can we move the review to Thursday?",
+    "textLen": 35,
+    "lineCount": 1,
+    "rich": true,
+    "types": [
+      "public.utf8-plain-text",
+      "public.html"
+    ],
+    "size": 412,
+    "source": {
+      "bundleId": "com.tinyspeck.slackmacgap",
+      "name": "Slack",
+      "path": "/Applications/Slack.app"
+    },
+    "hash": "9e3779b97f4a7c15",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15.123456Z",
+    "copyCount": 3,
+    "timings": [
+      "2026-11-08T07:30:15Z",
+      "2026-11-08T08:30:15.123Z",
+      "2026-11-08T09:29:15.123456Z"
+    ],
+    "useCount": 0,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000065",
+    "kind": "code",
+    "text": "export function x() {\n  return 1\n}",
+    "textLen": 34,
+    "lineCount": 3,
+    "rich": false,
+    "types": [
+      "public.utf8-plain-text"
+    ],
+    "size": 34,
+    "source": {
+      "bundleId": "com.microsoft.VSCode",
+      "name": "Visual Studio Code"
+    },
+    "hash": "3c6ef372fe94f82a",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "lastUsedAt": "2026-11-08T09:29:45.500Z",
+    "useCount": 7,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000066",
+    "kind": "link",
+    "text": "https://kudzu.site/",
+    "textLen": 19,
+    "lineCount": 1,
+    "rich": false,
+    "types": [],
+    "size": 0,
+    "hash": "daa66d2c7ddf743f",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": true
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000067",
+    "kind": "color",
+    "text": "#5B7CFA",
+    "textLen": 7,
+    "lineCount": 1,
+    "color": "#5b7cfa",
+    "rich": false,
+    "types": [],
+    "size": 0,
+    "hash": "78dde6e5fd29f054",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000068",
+    "kind": "image",
+    "textLen": 0,
+    "lineCount": 0,
+    "image": {
+      "width": 2880,
+      "height": 1800
+    },
+    "rich": false,
+    "types": [
+      "public.png",
+      "public.tiff"
+    ],
+    "size": 4665600,
+    "hash": "1715609f7c746c69",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000069",
+    "kind": "file",
+    "text": "hero@2x.png\nMy File.txt",
+    "textLen": 23,
+    "lineCount": 2,
+    "files": [
+      "/Users/me/Desktop/hero@2x.png",
+      "/Users/me/My File.txt"
+    ],
+    "rich": false,
+    "types": [
+      "public.file-url"
+    ],
+    "size": 220,
+    "hash": "b54cda58fbbee87e",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000006a",
+    "kind": "other",
+    "textLen": 0,
+    "lineCount": 0,
+    "rich": false,
+    "types": [
+      "com.figma.clipboard"
+    ],
+    "size": 182311,
+    "hash": "538454127b096493",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 4000000000,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000006b",
+    "kind": "text",
+    "text": "kezwy4-dyxbeR-mosmac",
+    "textLen": 20,
+    "lineCount": 1,
+    "rich": false,
+    "types": [],
+    "size": 0,
+    "hash": "f1bbcdcbfa53e0a8",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false,
+    "secret": "password",
+    "secretOverride": false
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000006c",
+    "kind": "text",
+    "text": "hide me",
+    "textLen": 7,
+    "lineCount": 1,
+    "rich": false,
+    "types": [],
+    "size": 0,
+    "hash": "8ff34785799e5cbd",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [],
+    "useCount": 0,
+    "pinned": false,
+    "secretOverride": true
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000006d",
+    "kind": "code",
+    "text": "-----BEGIN OPENSSH PRIVATE KEY-----",
+    "textLen": 35,
+    "lineCount": 1,
+    "rich": false,
+    "types": [],
+    "size": 0,
+    "hash": "2e2ac13ef8e8d8d2",
+    "firstCopiedAt": "2026-11-08T07:30:15Z",
+    "copiedAt": "2026-11-08T09:29:15Z",
+    "copyCount": 1,
+    "timings": [
+      "2026-11-08T09:29:15Z"
+    ],
+    "useCount": 0,
+    "pinned": false,
+    "secret": "privateKey"
+  }
+]

@@ -1,0 +1,278 @@
+{
+  "states": [
+    {
+      "entries": [
+        {
+          "copiedAt": "2026-11-01T00:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T00:00:00Z",
+          "hash": "af84a3b0b8b81d35",
+          "id": "c11b0000-0000-4000-8000-000000000001",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 5,
+          "text": "alpha",
+          "textLen": 5,
+          "timings": [
+            "2026-11-01T00:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        }
+      ],
+      "secretRules": 1,
+      "version": 1
+    },
+    {
+      "entries": [
+        {
+          "copiedAt": "2026-11-01T01:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T01:00:00Z",
+          "hash": "2a6678de9f69e95b",
+          "id": "c11b0000-0000-4000-8000-000000000002",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 4,
+          "text": "beta",
+          "textLen": 4,
+          "timings": [
+            "2026-11-01T01:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T00:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T00:00:00Z",
+          "hash": "af84a3b0b8b81d35",
+          "id": "c11b0000-0000-4000-8000-000000000001",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 5,
+          "text": "alpha",
+          "textLen": 5,
+          "timings": [
+            "2026-11-01T00:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        }
+      ],
+      "secretRules": 1,
+      "version": 1
+    },
+    {
+      "entries": [
+        {
+          "copiedAt": "2026-11-01T02:00:00Z",
+          "copyCount": 2,
+          "firstCopiedAt": "2026-11-01T00:00:00Z",
+          "hash": "af84a3b0b8b81d35",
+          "id": "c11b0000-0000-4000-8000-000000000001",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 5,
+          "text": "alpha",
+          "textLen": 5,
+          "timings": [
+            "2026-11-01T00:00:00Z",
+            "2026-11-01T02:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T01:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T01:00:00Z",
+          "hash": "2a6678de9f69e95b",
+          "id": "c11b0000-0000-4000-8000-000000000002",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 4,
+          "text": "beta",
+          "textLen": 4,
+          "timings": [
+            "2026-11-01T01:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        }
+      ],
+      "secretRules": 1,
+      "version": 1
+    },
+    {
+      "entries": [
+        {
+          "copiedAt": "2026-11-01T03:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T03:00:00Z",
+          "hash": "e82fd6875275bf83",
+          "id": "c11b0000-0000-4000-8000-000000000003",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "secret": "password",
+          "size": 9,
+          "text": "P@ssw0rd!",
+          "textLen": 9,
+          "timings": [
+            "2026-11-01T03:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T02:00:00Z",
+          "copyCount": 2,
+          "firstCopiedAt": "2026-11-01T00:00:00Z",
+          "hash": "af84a3b0b8b81d35",
+          "id": "c11b0000-0000-4000-8000-000000000001",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 5,
+          "text": "alpha",
+          "textLen": 5,
+          "timings": [
+            "2026-11-01T00:00:00Z",
+            "2026-11-01T02:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T01:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T01:00:00Z",
+          "hash": "2a6678de9f69e95b",
+          "id": "c11b0000-0000-4000-8000-000000000002",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 4,
+          "text": "beta",
+          "textLen": 4,
+          "timings": [
+            "2026-11-01T01:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        }
+      ],
+      "secretRules": 1,
+      "version": 1
+    },
+    {
+      "entries": [
+        {
+          "copiedAt": "2026-11-01T04:00:00Z",
+          "copyCount": 3,
+          "firstCopiedAt": "2026-11-01T00:00:00Z",
+          "hash": "af84a3b0b8b81d35",
+          "id": "c11b0000-0000-4000-8000-000000000001",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 5,
+          "text": "alpha",
+          "textLen": 5,
+          "timings": [
+            "2026-11-01T00:00:00Z",
+            "2026-11-01T02:00:00Z",
+            "2026-11-01T04:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T03:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T03:00:00Z",
+          "hash": "e82fd6875275bf83",
+          "id": "c11b0000-0000-4000-8000-000000000003",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "secret": "password",
+          "size": 9,
+          "text": "P@ssw0rd!",
+          "textLen": 9,
+          "timings": [
+            "2026-11-01T03:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        },
+        {
+          "copiedAt": "2026-11-01T01:00:00Z",
+          "copyCount": 1,
+          "firstCopiedAt": "2026-11-01T01:00:00Z",
+          "hash": "2a6678de9f69e95b",
+          "id": "c11b0000-0000-4000-8000-000000000002",
+          "kind": "text",
+          "lineCount": 1,
+          "pinned": false,
+          "rich": false,
+          "size": 4,
+          "text": "beta",
+          "textLen": 4,
+          "timings": [
+            "2026-11-01T01:00:00Z"
+          ],
+          "types": [
+            "public.utf8-plain-text"
+          ],
+          "useCount": 0
+        }
+      ],
+      "secretRules": 1,
+      "version": 1
+    }
+  ],
+  "texts": [
+    "alpha",
+    "beta",
+    "alpha",
+    "P@ssw0rd!",
+    "alpha"
+  ]
+}

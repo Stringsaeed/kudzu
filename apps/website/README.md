@@ -9,7 +9,7 @@ Run from the repository root:
 ```sh
 pnpm install
 pnpm dev:website          # http://localhost:3001
-pnpm check                # types and lint for both apps
+pnpm check                # types and lint for the website
 pnpm build:website        # production build through Turbo
 pnpm --filter kudzu-website start
 ```
@@ -28,8 +28,8 @@ The site uses server components for its pages and small client components for th
 - `lib/releases.ts`, `lib/release-notes.ts`: cached GitHub release lookups and release note parsing. New releases appear without a redeploy.
 - `lib/compare.ts`: comparison page content. Competitor details come from each vendor's own pages, so update the `checked` date whenever you confirm them again.
 - `app/opengraph-image.tsx`, `robots.ts`, `sitemap.ts`: Next.js metadata routes.
-- `public/assets/`: copies of Kudzu’s brand assets and locally hosted fonts, with their licenses. Brand sources remain in `apps/desktop/design/`.
-- `public/assets/app/`: app screens for the gallery, one `-light` and one `-dark` PNG per screen; the gallery shows the one that matches the page theme. They're captured from the desktop UI preview (`pnpm dev` in `apps/desktop`, sample data, `?light` for the light theme) at 1280 × 800, 2x. The floating windows use their real sizes from `windows.rs`: Quick search (`/palette`) at 760 × 480 and the clipboard panel (`/clipboard`) at 800 × 520. The preview reports itself as `web`, so for each capture the window toolbar gets the 88px macOS traffic-light inset from `toolbar.tsx`. Each capture is then framed as a macOS window (16px corners, traffic lights at the `tauri.conf.json` position, window shadow) on a transparent 1440 × 900 canvas. Quick search and the clipboard panel float over a dimmed library window at the same scale. Recapture them when the UI changes noticeably.
+- `public/assets/`: copies of Kudzu’s brand assets and locally hosted fonts, with their licenses. Brand sources remain in `apps/macos/design/`.
+- `public/assets/app/`: existing gallery screenshots, one `-light` and one `-dark` PNG per screen; the gallery shows the one that matches the page theme. They were captured at 1280 × 800, 2x, and framed as macOS windows (16px corners, traffic lights, window shadow) on a transparent 1440 × 900 canvas. Quick search is 760 × 480 and the clipboard panel is 800 × 520; both float over a dimmed library window. Leave these files in place until the native UI is recaptured on purpose.
 
 ## Vercel
 
@@ -40,7 +40,7 @@ The Vercel project `kudzu-site` is connected to `Stringsaeed/kudzu` on GitHub. I
 - Output directory: Next.js default (`.next`)
 - Domain: `kudzu.site`
 
-The desktop package keeps its own Next.js static-export configuration. Website builds use the standard Next.js output, including the `/download` redirect and generated social image. No environment variables are required.
+Website builds use the standard Next.js output, including the `/download` redirect and generated social image. No environment variables are required.
 
 The commands above are tracked in `vercel.json`. Git pushes to feature branches create preview deployments; merging into `main` deploys to `kudzu.site`. The Vercel build runs website lint and type checks before building. No Vercel API token is stored in GitHub Actions.
 

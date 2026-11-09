@@ -1,0 +1,8784 @@
+[
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "text": "hello"
+        }
+      ]
+    },
+    "serialized": "hello",
+    "source": "hello",
+    "splitOptions": [
+      "hello"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Only the first top-level cursor counts",
+          "range": {
+            "end": 23,
+            "start": 13
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "😀"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 12,
+            "start": 2
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 13,
+            "start": 12
+          },
+          "text": "x"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 23,
+            "start": 13
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "😀{{cursor}}x{{cursor}}",
+    "source": "😀{{cursor}}x{{cursor}}",
+    "splitOptions": [
+      "😀{{cursor}}x{{cursor}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      },
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": true
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "clipboard",
+          "range": {
+            "end": 13,
+            "start": 0
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 14,
+            "start": 13
+          },
+          "text": "/"
+        },
+        {
+          "attributes": [
+            {
+              "name": "trim",
+              "value": {
+                "type": "bool",
+                "value": true
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "clipboard",
+          "range": {
+            "end": 37,
+            "start": 14
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{clipboard}}/{{clipboard trim=true}}",
+    "source": "{{clipboard}}/{{clipboard trim=true}}",
+    "splitOptions": [
+      "{{clipboard}}/{{clipboard trim=true}}"
+    ],
+    "typed": [
+      {
+        "kind": "clipboard",
+        "trim": false
+      },
+      {
+        "kind": "clipboard",
+        "trim": true
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "who",
+        "options": []
+      },
+      {
+        "defaultValue": "fallback",
+        "kind": "text",
+        "name": "empty",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "text",
+          "name": "who",
+          "options": []
+        },
+        {
+          "defaultValue": "fallback",
+          "kind": "text",
+          "name": "empty",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "who"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 18,
+            "start": 0
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 19,
+            "start": 18
+          },
+          "text": "/"
+        },
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "empty"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "fallback"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 56,
+            "start": 19
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"who\"}}/{{field name=\"empty\" default=\"fallback\"}}",
+    "source": "{{field name=who}}/{{field name=empty default=fallback}}",
+    "splitOptions": [
+      "{{field name=who}}/{{field name=empty default=fallback}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "field",
+        "multiline": false,
+        "name": "who"
+      },
+      {
+        "default": "fallback",
+        "kind": "field",
+        "multiline": false,
+        "name": "empty"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "c",
+        "kind": "choice",
+        "name": "pick",
+        "options": [
+          "a|b",
+          "c",
+          ""
+        ]
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "c",
+          "kind": "choice",
+          "name": "pick",
+          "options": [
+            "a|b",
+            "c",
+            ""
+          ]
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "pick"
+              }
+            },
+            {
+              "name": "options",
+              "value": {
+                "type": "string",
+                "value": "a\\|b|c|"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "c"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "choice",
+          "range": {
+            "end": 48,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{choice name=\"pick\" options=\"a\\\\|b|c|\" default=\"c\"}}",
+    "source": "{{choice name=pick options=\"a\\|b|c|\" default=c}}",
+    "splitOptions": [
+      "{{choice name=pick options=\"a|b",
+      "c",
+      "\" default=c}}"
+    ],
+    "typed": [
+      {
+        "default": "c",
+        "kind": "choice",
+        "name": "pick",
+        "options": [
+          "a|b",
+          "c",
+          ""
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "007",
+        "kind": "multiline",
+        "name": "qty",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "007",
+          "kind": "multiline",
+          "name": "qty",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "qty"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "007"
+              }
+            },
+            {
+              "name": "multiline",
+              "value": {
+                "type": "bool",
+                "value": true
+              }
+            },
+            {
+              "name": "custom",
+              "value": {
+                "type": "number",
+                "value": 3.5
+              }
+            },
+            {
+              "name": "flag",
+              "value": {
+                "type": "bool",
+                "value": false
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 68,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"qty\" default=\"007\" multiline=true custom=3.5 flag=false}}",
+    "source": "{{field name=qty default=007 multiline=true custom=3.50 flag=false}}",
+    "splitOptions": [
+      "{{field name=qty default=007 multiline=true custom=3.50 flag=false}}"
+    ],
+    "typed": [
+      {
+        "default": "007",
+        "kind": "field",
+        "multiline": true,
+        "name": "qty"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 8
+          },
+          "text": " "
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "time",
+          "range": {
+            "end": 17,
+            "start": 9
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date}} {{time}}",
+    "source": "{{date}} {{time}}",
+    "splitOptions": [
+      "{{date}} {{time}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      },
+      {
+        "format": "HH:mm",
+        "kind": "time",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1m\"}}",
+    "source": "{{date offset=+1m}}",
+    "splitOptions": [
+      "{{date offset=+1m}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-1y2m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-1y2m\"}}",
+    "source": "{{date offset=-1y2m}}",
+    "splitOptions": [
+      "{{date offset=-1y2m}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -1
+          ],
+          [
+            "m",
+            -2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1w2d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1w2d\"}}",
+    "source": "{{date offset=+1w2d}}",
+    "splitOptions": [
+      "{{date offset=+1w2d}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "w",
+            1
+          ],
+          [
+            "d",
+            2
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+30min"
+              }
+            },
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "HH:mm"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 37,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+30min\" format=\"HH:mm\"}}",
+    "source": "{{date offset=+30min format=\"HH:mm\"}}",
+    "splitOptions": [
+      "{{date offset=+30min format=\"HH:mm\"}}"
+    ],
+    "typed": [
+      {
+        "format": "HH:mm",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "min",
+            30
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "oops"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"oops\"}}",
+    "source": "{{date offset=oops}}",
+    "splitOptions": [
+      "{{date offset=oops}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+9223372036854775807y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 37,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+9223372036854775807y\"}}",
+    "source": "{{date offset=+9223372036854775807y}}",
+    "splitOptions": [
+      "{{date offset=+9223372036854775807y}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            9223372036854775807
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 39,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+999999999999999999999d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 39,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+999999999999999999999d\"}}",
+    "source": "{{date offset=+999999999999999999999d}}",
+    "splitOptions": [
+      "{{date offset=+999999999999999999999d}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 52,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX\"}}",
+    "source": "{{date format=\"yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX\"}}",
+    "splitOptions": [
+      "{{date format=\"yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "EEEE, MMMM d GGGG"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 35,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"EEEE, MMMM d GGGG\"}}",
+    "source": "{{date format=\"EEEE, MMMM d GGGG\"}}",
+    "splitOptions": [
+      "{{date format=\"EEEE, MMMM d GGGG\"}}"
+    ],
+    "typed": [
+      {
+        "format": "EEEE, MMMM d GGGG",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "a}}b",
+        "kind": "text",
+        "name": "x",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "a}}b",
+          "kind": "text",
+          "name": "x",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "a}}b"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"x\" default=\"a}}b\"}}",
+    "source": "{{field name=x default=\"a}}b\"}}",
+    "splitOptions": [
+      "{{field name=x default=\"a}}b\"}}"
+    ],
+    "typed": [
+      {
+        "default": "a}}b",
+        "kind": "field",
+        "multiline": false,
+        "name": "x"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "y",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "text",
+          "name": "y",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'name'; last value wins",
+          "range": {
+            "end": 23,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 23,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"y\"}}",
+    "source": "{{field name=x name=y}}",
+    "splitOptions": [
+      "{{field name=x name=y}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "field",
+        "multiline": false,
+        "name": "y"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "field requires name",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "verbatim": "{{field}}"
+        }
+      ]
+    },
+    "serialized": "{{field}}",
+    "source": "{{field}}",
+    "splitOptions": [
+      "{{field}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "choice requires name",
+          "range": {
+            "end": 10,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 10,
+            "start": 0
+          },
+          "verbatim": "{{choice}}"
+        }
+      ]
+    },
+    "serialized": "{{choice}}",
+    "source": "{{choice}}",
+    "splitOptions": [
+      "{{choice}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": "{{DATE}}"
+        }
+      ]
+    },
+    "serialized": "{{DATE}}",
+    "source": "{{DATE}}",
+    "splitOptions": [
+      "{{DATE}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unknown tag 'future'",
+          "range": {
+            "end": 14,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 14,
+            "start": 0
+          },
+          "verbatim": "{{future n=5}}"
+        }
+      ]
+    },
+    "serialized": "{{future n=5}}",
+    "source": "{{future n=5}}",
+    "splitOptions": [
+      "{{future n=5}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid type for 'trim'",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": "{{clipboard trim=1}}"
+        }
+      ]
+    },
+    "serialized": "{{clipboard trim=1}}",
+    "source": "{{clipboard trim=1}}",
+    "splitOptions": [
+      "{{clipboard trim=1}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid type for 'multiline'",
+          "range": {
+            "end": 32,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 32,
+            "start": 0
+          },
+          "verbatim": "{{field name=x multiline=\"yes\"}}"
+        }
+      ]
+    },
+    "serialized": "{{field name=x multiline=\"yes\"}}",
+    "source": "{{field name=x multiline=\"yes\"}}",
+    "splitOptions": [
+      "{{field name=x multiline=\"yes\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=nope}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=nope}}",
+    "source": "{{snippet id=nope}}",
+    "splitOptions": [
+      "{{snippet id=nope}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 16,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 16,
+            "start": 0
+          },
+          "verbatim": "{{date format=}}"
+        }
+      ]
+    },
+    "serialized": "{{date format=}}",
+    "source": "{{date format=}}",
+    "splitOptions": [
+      "{{date format=}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "text": "{{field name=\"oops}}"
+        }
+      ]
+    },
+    "serialized": "\\{{field name=\"oops}}",
+    "source": "{{field name=\"oops}}",
+    "splitOptions": [
+      "{{field name=\"oops}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 7,
+            "start": 1
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 7,
+            "start": 0
+          },
+          "text": "a{{date"
+        }
+      ]
+    },
+    "serialized": "a\\{{date",
+    "source": "a{{date",
+    "splitOptions": [
+      "a{{date"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "verbatim": "{{ }}"
+        }
+      ]
+    },
+    "serialized": "{{ }}",
+    "source": "{{ }}",
+    "splitOptions": [
+      "{{ }}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "verbatim": "{{}}"
+        }
+      ]
+    },
+    "serialized": "{{}}",
+    "source": "{{}}",
+    "splitOptions": [
+      "{{}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "verbatim": "{{9}}"
+        }
+      ]
+    },
+    "serialized": "{{9}}",
+    "source": "{{9}}",
+    "splitOptions": [
+      "{{9}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 7,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 7,
+            "start": 0
+          },
+          "verbatim": "{{a-b}}"
+        }
+      ]
+    },
+    "serialized": "{{a-b}}",
+    "source": "{{a-b}}",
+    "splitOptions": [
+      "{{a-b}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "text": "{{DATE}}"
+        }
+      ]
+    },
+    "serialized": "\\{{DATE}}",
+    "source": "\\{{DATE}}",
+    "splitOptions": [
+      "\\{{DATE}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "\\"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 12,
+            "start": 2
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "\\\\{{cursor}}",
+    "source": "\\\\{{cursor}}",
+    "splitOptions": [
+      "\\\\{{cursor}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 13,
+            "start": 0
+          },
+          "text": "\\{{cursor}}"
+        }
+      ]
+    },
+    "serialized": "\\\\\\{{cursor}}",
+    "source": "\\\\\\{{cursor}}",
+    "splitOptions": [
+      "\\\\\\{{cursor}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 1,
+            "start": 0
+          },
+          "text": "{"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 9,
+            "start": 1
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{{date}}",
+    "source": "{{{date}}",
+    "splitOptions": [
+      "{{{date}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "{{"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 10,
+            "start": 2
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "\\{{{{date}}",
+    "source": "{{{{date}}",
+    "splitOptions": [
+      "{{{{date}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 3,
+            "start": 0
+          },
+          "text": "{{"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 11,
+            "start": 3
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "\\{{{{date}}",
+    "source": "\\{{{{date}}",
+    "splitOptions": [
+      "\\{{{{date}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "text": "\\{x\\}"
+        }
+      ]
+    },
+    "serialized": "\\\\{x\\\\}",
+    "source": "\\{x\\}",
+    "splitOptions": [
+      "\\{x\\}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 1,
+            "start": 0
+          },
+          "text": "é"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 11,
+            "start": 1
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "é{{cursor}}",
+    "source": "é{{cursor}}",
+    "splitOptions": [
+      "é{{cursor}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "who",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "text",
+          "name": "who",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "é"
+        },
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "who"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 20,
+            "start": 2
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "é{{field name=\"who\"}}",
+    "source": "é{{field name=who}}",
+    "splitOptions": [
+      "é{{field name=who}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "field",
+        "multiline": false,
+        "name": "who"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 11,
+            "start": 0
+          },
+          "text": "{́{cursor}}"
+        }
+      ]
+    },
+    "serialized": "{́{cursor}}",
+    "source": "{́{cursor}}",
+    "splitOptions": [
+      "{́{cursor}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "n",
+              "value": {
+                "type": "string",
+                "value": "1e5"
+              }
+            },
+            {
+              "name": "a",
+              "value": {
+                "type": "string",
+                "value": ".5"
+              }
+            },
+            {
+              "name": "b",
+              "value": {
+                "type": "string",
+                "value": "5."
+              }
+            },
+            {
+              "name": "c",
+              "value": {
+                "type": "number",
+                "value": 2.5
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 34,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{cursor n=\"1e5\" a=\".5\" b=\"5.\" c=2.5}}",
+    "source": "{{cursor n=1e5 a=.5 b=5. c=+2.50}}",
+    "splitOptions": [
+      "{{cursor n=1e5 a=.5 b=5. c=+2.50}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "who",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 7,
+            "start": 0
+          },
+          "text": "before "
+        },
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-000000000001"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 60,
+            "start": 7
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 61,
+            "start": 60
+          },
+          "text": " "
+        },
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-000000000001"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 114,
+            "start": 61
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 120,
+            "start": 114
+          },
+          "text": " after"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 130,
+            "start": 120
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "before {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} after{{cursor}}",
+    "source": "before {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} after{{cursor}}",
+    "splitOptions": [
+      "before {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} {{snippet id=\"00000000-0000-0000-0000-000000000001\"}} after{{cursor}}"
+    ],
+    "typed": [
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "kind": "snippet"
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "kind": "snippet"
+      },
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [
+        "00000000-0000-0000-0000-000000000002"
+      ],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-000000000002"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-000000000002\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-000000000002\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-000000000002\"}}"
+    ],
+    "typed": [
+      {
+        "id": "00000000-0000-0000-0000-000000000002",
+        "kind": "snippet"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [
+        "00000000-0000-0000-0000-000000000003"
+      ],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-000000000003"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-000000000003\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-000000000003\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-000000000003\"}}"
+    ],
+    "typed": [
+      {
+        "id": "00000000-0000-0000-0000-000000000003",
+        "kind": "snippet"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{date\tformat=\"x\"}}",
+    "splitOptions": [
+      "{{date\tformat=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{date　format=\"x\"}}",
+    "splitOptions": [
+      "{{date　format=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": "{{date﻿format=\"x\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date﻿format=\"x\"}}",
+    "source": "{{date﻿format=\"x\"}}",
+    "splitOptions": [
+      "{{date﻿format=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{dateformat=\"x\"}}",
+    "splitOptions": [
+      "{{dateformat=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{date format=\"x\"}}",
+    "splitOptions": [
+      "{{date format=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": "{{date​format=\"x\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date​format=\"x\"}}",
+    "source": "{{date​format=\"x\"}}",
+    "splitOptions": [
+      "{{date​format=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 12,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date}}",
+    "source": "{{\n date \n}}",
+    "splitOptions": [
+      "{{\n date \n}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{date\r\nformat=\"x\"}}",
+    "splitOptions": [
+      "{{date\r\nformat=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 29,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 29,
+            "start": 0
+          },
+          "verbatim": "{{date format=\"x\"format=\"y\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"format=\"y\"}}",
+    "source": "{{date format=\"x\"format=\"y\"}}",
+    "splitOptions": [
+      "{{date format=\"x\"format=\"y\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"x\"}}",
+    "source": "{{date format = \"x\" }}",
+    "splitOptions": [
+      "{{date format = \"x\" }}"
+    ],
+    "typed": [
+      {
+        "format": "x",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 11,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{cursor}}",
+    "source": "{{cursor }}",
+    "splitOptions": [
+      "{{cursor }}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 11,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{cursor}}",
+    "source": "{{ cursor}}",
+    "splitOptions": [
+      "{{ cursor}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": "{{date Format=\"x\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date Format=\"x\"}}",
+    "source": "{{date Format=\"x\"}}",
+    "splitOptions": [
+      "{{date Format=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": "{{date fórmat=\"x\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date fórmat=\"x\"}}",
+    "source": "{{date fórmat=\"x\"}}",
+    "splitOptions": [
+      "{{date fórmat=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": "{{dáte}}"
+        }
+      ]
+    },
+    "serialized": "{{dáte}}",
+    "source": "{{dáte}}",
+    "splitOptions": [
+      "{{dáte}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "-0",
+        "kind": "multiline",
+        "name": "a_b-c.d+e",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "-0",
+          "kind": "multiline",
+          "name": "a_b-c.d+e",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "a_b-c.d+e"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "-0"
+              }
+            },
+            {
+              "name": "multiline",
+              "value": {
+                "type": "bool",
+                "value": true
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 50,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"a_b-c.d+e\" default=\"-0\" multiline=true}}",
+    "source": "{{field name=a_b-c.d+e default=-0 multiline=true}}",
+    "splitOptions": [
+      "{{field name=a_b-c.d+e default=-0 multiline=true}}"
+    ],
+    "typed": [
+      {
+        "default": "-0",
+        "kind": "field",
+        "multiline": true,
+        "name": "a_b-c.d+e"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "n",
+              "value": {
+                "type": "number",
+                "value": -0.0
+              }
+            },
+            {
+              "name": "m",
+              "value": {
+                "type": "number",
+                "value": 0.1
+              }
+            },
+            {
+              "name": "o",
+              "value": {
+                "type": "string",
+                "value": "1."
+              }
+            },
+            {
+              "name": "p",
+              "value": {
+                "type": "string",
+                "value": "+"
+              }
+            },
+            {
+              "name": "q",
+              "value": {
+                "type": "number",
+                "value": 1e+23
+              }
+            },
+            {
+              "name": "r",
+              "value": {
+                "type": "string",
+                "value": "1e5"
+              }
+            },
+            {
+              "name": "s",
+              "value": {
+                "type": "number",
+                "value": 0.1
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 68,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date n=-0 m=0.1 o=\"1.\" p=\"+\" q=100000000000000000000000 r=\"1e5\" s=0.1}}",
+    "source": "{{date n=-0 m=00.10 o=1. p=+ q=99999999999999999999999 r=1e5 s=0.1}}",
+    "splitOptions": [
+      "{{date n=-0 m=00.10 o=1. p=+ q=99999999999999999999999 r=1e5 s=0.1}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "n",
+              "value": {
+                "type": "number",
+                "value": 1.2345678901234568e+29
+              }
+            },
+            {
+              "name": "m",
+              "value": {
+                "type": "number",
+                "value": 1e-9
+              }
+            },
+            {
+              "name": "o",
+              "value": {
+                "type": "number",
+                "value": -1.0
+              }
+            },
+            {
+              "name": "p",
+              "value": {
+                "type": "number",
+                "value": 0.0
+              }
+            },
+            {
+              "name": "q",
+              "value": {
+                "type": "string",
+                "value": "1_000"
+              }
+            },
+            {
+              "name": "r",
+              "value": {
+                "type": "string",
+                "value": "0x10"
+              }
+            },
+            {
+              "name": "s",
+              "value": {
+                "type": "string",
+                "value": "."
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 88,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date n=123456789012345680000000000000 m=0.000000001 o=-1 p=0 q=\"1_000\" r=\"0x10\" s=\".\"}}",
+    "source": "{{date n=123456789012345678901234567890.5 m=0.000000001 o=-1.0 p=+0 q=1_000 r=0x10 s=.}}",
+    "splitOptions": [
+      "{{date n=123456789012345678901234567890.5 m=0.000000001 o=-1.0 p=+0 q=1_000 r=0x10 s=.}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "n",
+              "value": {
+                "type": "string",
+                "value": "TRUE"
+              }
+            },
+            {
+              "name": "m",
+              "value": {
+                "type": "string",
+                "value": "True"
+              }
+            },
+            {
+              "name": "o",
+              "value": {
+                "type": "bool",
+                "value": false
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 30,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date n=\"TRUE\" m=\"True\" o=false}}",
+    "source": "{{date n=TRUE m=True o=false}}",
+    "splitOptions": [
+      "{{date n=TRUE m=True o=false}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid type for 'multiline'",
+          "range": {
+            "end": 28,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 28,
+            "start": 0
+          },
+          "verbatim": "{{field name=x multiline=1}}"
+        }
+      ]
+    },
+    "serialized": "{{field name=x multiline=1}}",
+    "source": "{{field name=x multiline=1}}",
+    "splitOptions": [
+      "{{field name=x multiline=1}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid type for 'multiline'",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": "{{field name=x multiline=TRUE}}"
+        }
+      ]
+    },
+    "serialized": "{{field name=x multiline=TRUE}}",
+    "source": "{{field name=x multiline=TRUE}}",
+    "splitOptions": [
+      "{{field name=x multiline=TRUE}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid type for 'trim'",
+          "range": {
+            "end": 25,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 25,
+            "start": 0
+          },
+          "verbatim": "{{clipboard trim=\"true\"}}"
+        }
+      ]
+    },
+    "serialized": "{{clipboard trim=\"true\"}}",
+    "source": "{{clipboard trim=\"true\"}}",
+    "splitOptions": [
+      "{{clipboard trim=\"true\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": true
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'trim'; last value wins",
+          "range": {
+            "end": 34,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "trim",
+              "value": {
+                "type": "bool",
+                "value": true
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "clipboard",
+          "range": {
+            "end": 34,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{clipboard trim=true}}",
+    "source": "{{clipboard trim=false trim=true}}",
+    "splitOptions": [
+      "{{clipboard trim=false trim=true}}"
+    ],
+    "typed": [
+      {
+        "kind": "clipboard",
+        "trim": true
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "7",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "text",
+          "name": "7",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "7"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 16,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"7\"}}",
+    "source": "{{field name=7}}",
+    "splitOptions": [
+      "{{field name=7}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "field",
+        "multiline": false,
+        "name": "7"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "1e5",
+        "kind": "text",
+        "name": "-1.5",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "1e5",
+          "kind": "text",
+          "name": "-1.5",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "-1.5"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "1e5"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"-1.5\" default=\"1e5\"}}",
+    "source": "{{field name=-1.5 default=1e5}}",
+    "splitOptions": [
+      "{{field name=-1.5 default=1e5}}"
+    ],
+    "typed": [
+      {
+        "default": "1e5",
+        "kind": "field",
+        "multiline": false,
+        "name": "-1.5"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 29,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 29,
+            "start": 0
+          },
+          "verbatim": "{{choice name=c options=a|b}}"
+        }
+      ]
+    },
+    "serialized": "{{choice name=c options=a|b}}",
+    "source": "{{choice name=c options=a|b}}",
+    "splitOptions": [
+      "{{choice name=c options=a",
+      "b}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "choice",
+        "name": "c",
+        "options": [
+          "a|b",
+          "|c"
+        ]
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "choice",
+          "name": "c",
+          "options": [
+            "a|b",
+            "|c"
+          ]
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "c"
+              }
+            },
+            {
+              "name": "options",
+              "value": {
+                "type": "string",
+                "value": "a\\|b|\\|c"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "choice",
+          "range": {
+            "end": 37,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{choice name=\"c\" options=\"a\\\\|b|\\\\|c\"}}",
+    "source": "{{choice name=c options=\"a\\\\|b|\\|c\"}}",
+    "splitOptions": [
+      "{{choice name=c options=\"a\\|b",
+      "|c\"}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "choice",
+        "name": "c",
+        "options": [
+          "a|b",
+          "|c"
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": "{{date format=\"a\\nb\"}}"
+        }
+      ]
+    },
+    "serialized": "{{date format=\"a\\nb\"}}",
+    "source": "{{date format=\"a\\nb\"}}",
+    "splitOptions": [
+      "{{date format=\"a\\nb\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "a\\"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"a\\\\\"}}",
+    "source": "{{date format=\"a\\\\\"}}",
+    "splitOptions": [
+      "{{date format=\"a\\\\\"}}"
+    ],
+    "typed": [
+      {
+        "format": "a\\",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "\"}}\""
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 24,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"\\\"}}\\\"\"}}",
+    "source": "{{date format=\"\\\"}}\\\"\"}}",
+    "splitOptions": [
+      "{{date format=\"\\\"}}\\\"\"}}"
+    ],
+    "typed": [
+      {
+        "format": "\"}}\"",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 17,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 17,
+            "start": 0
+          },
+          "text": "{{date format=\"}}"
+        }
+      ]
+    },
+    "serialized": "\\{{date format=\"}}",
+    "source": "{{date format=\"}}",
+    "splitOptions": [
+      "{{date format=\"}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": "{{\"}}\"}}"
+        }
+      ]
+    },
+    "serialized": "{{\"}}\"}}",
+    "source": "{{\"}}\"}}",
+    "splitOptions": [
+      "{{\"}}\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 8
+          },
+          "text": "}"
+        }
+      ]
+    },
+    "serialized": "{{date}}}",
+    "source": "{{date}}}",
+    "splitOptions": [
+      "{{date}}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 10,
+            "start": 8
+          },
+          "text": "}}"
+        }
+      ]
+    },
+    "serialized": "{{date}}}}",
+    "source": "{{date}}}}",
+    "splitOptions": [
+      "{{date}}}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 4,
+            "start": 2
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "text": "}}{{"
+        }
+      ]
+    },
+    "serialized": "}}\\{{",
+    "source": "}}{{",
+    "splitOptions": [
+      "}}{{"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "verbatim": "{{}}"
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 6,
+            "start": 4
+          },
+          "text": "}}"
+        }
+      ]
+    },
+    "serialized": "{{}}}}",
+    "source": "{{}}}}",
+    "splitOptions": [
+      "{{}}}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 6,
+            "start": 2
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "{{"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 6,
+            "start": 2
+          },
+          "verbatim": "{{}}"
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 8,
+            "start": 6
+          },
+          "text": "}}"
+        }
+      ]
+    },
+    "serialized": "\\{{{{}}}}",
+    "source": "{{{{}}}}",
+    "splitOptions": [
+      "{{{{}}}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 3,
+            "start": 0
+          },
+          "text": "{{"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 11,
+            "start": 3
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "\\{{{{date}}",
+    "source": "\\{{{{date}}",
+    "splitOptions": [
+      "\\{{{{date}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 8,
+            "start": 2
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 8,
+            "start": 0
+          },
+          "text": "\\{{date"
+        }
+      ]
+    },
+    "serialized": "\\\\\\{{date",
+    "source": "\\\\{{date",
+    "splitOptions": [
+      "\\\\{{date"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 1,
+            "start": 0
+          },
+          "text": "\\"
+        }
+      ]
+    },
+    "serialized": "\\\\",
+    "source": "\\",
+    "splitOptions": [
+      "\\"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 3,
+            "start": 0
+          },
+          "text": "\\\\"
+        }
+      ]
+    },
+    "serialized": "\\\\\\\\",
+    "source": "\\\\\\",
+    "splitOptions": [
+      "\\\\\\"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 1,
+            "start": 0
+          },
+          "text": "{"
+        }
+      ]
+    },
+    "serialized": "{",
+    "source": "{",
+    "splitOptions": [
+      "{"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "{{"
+        }
+      ]
+    },
+    "serialized": "\\{{",
+    "source": "{{",
+    "splitOptions": [
+      "{{"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "}}"
+        }
+      ]
+    },
+    "serialized": "}}",
+    "source": "}}",
+    "splitOptions": [
+      "}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "text": "{́{date}}"
+        }
+      ]
+    },
+    "serialized": "{́{date}}",
+    "source": "{́{date}}",
+    "splitOptions": [
+      "{́{date}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "text": "{{́date}}"
+        }
+      ]
+    },
+    "serialized": "{{́date}}",
+    "source": "{{́date}}",
+    "splitOptions": [
+      "{{́date}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 9,
+            "start": 0
+          },
+          "text": "{{date}́}"
+        }
+      ]
+    },
+    "serialized": "\\{{date}́}",
+    "source": "{{date}́}",
+    "splitOptions": [
+      "{{date}́}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "text": "{{date format=\"x\"́}}"
+        }
+      ]
+    },
+    "serialized": "\\{{date format=\"x\"́}}",
+    "source": "{{date format=\"x\"́}}",
+    "splitOptions": [
+      "{{date format=\"x\"́}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Unterminated tag",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "text": "{{date format=\"́\"}}"
+        }
+      ]
+    },
+    "serialized": "\\{{date format=\"́\"}}",
+    "source": "{{date format=\"́\"}}",
+    "splitOptions": [
+      "{{date format=\"́\"}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "á"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"á\"}}",
+    "source": "{{date format=\"á\"}}",
+    "splitOptions": [
+      "{{date format=\"á\"}}"
+    ],
+    "typed": [
+      {
+        "format": "á",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "\\́"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 10,
+            "start": 2
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "\\́{{date}}",
+    "source": "\\́{{date}}",
+    "splitOptions": [
+      "\\́{{date}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 10,
+            "start": 0
+          },
+          "text": "\\{́{date}}"
+        }
+      ]
+    },
+    "serialized": "\\\\{́{date}}",
+    "source": "\\{́{date}}",
+    "splitOptions": [
+      "\\{́{date}}"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 5,
+            "start": 0
+          },
+          "text": "á\\b"
+        }
+      ]
+    },
+    "serialized": "á\\\\b",
+    "source": "á\\\\b",
+    "splitOptions": [
+      "á\\\\b"
+    ],
+    "typed": []
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 4,
+            "start": 0
+          },
+          "text": "🇺🇸"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 14,
+            "start": 4
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 22,
+            "start": 14
+          },
+          "text": "👨‍👩‍👧"
+        }
+      ]
+    },
+    "serialized": "🇺🇸{{cursor}}👨‍👩‍👧",
+    "source": "🇺🇸{{cursor}}👨‍👩‍👧",
+    "splitOptions": [
+      "🇺🇸{{cursor}}👨‍👩‍👧"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "kind": "text",
+          "range": {
+            "end": 2,
+            "start": 0
+          },
+          "text": "\r\n"
+        },
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 12,
+            "start": 2
+          },
+          "verbatim": null
+        },
+        {
+          "kind": "text",
+          "range": {
+            "end": 14,
+            "start": 12
+          },
+          "text": "\r\n"
+        }
+      ]
+    },
+    "serialized": "\r\n{{cursor}}\r\n",
+    "source": "\r\n{{cursor}}\r\n",
+    "splitOptions": [
+      "\r\n{{cursor}}\r\n"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [
+        "00000000-0000-0000-0000-00000000000a"
+      ],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-00000000000A"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-00000000000A\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-00000000000A\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-00000000000A\"}}"
+    ],
+    "typed": [
+      {
+        "id": "00000000-0000-0000-0000-00000000000a",
+        "kind": "snippet"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 55,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 55,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=\"{00000000-0000-0000-0000-000000000001}\"}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"{00000000-0000-0000-0000-000000000001}\"}}",
+    "source": "{{snippet id=\"{00000000-0000-0000-0000-000000000001}\"}}",
+    "splitOptions": [
+      "{{snippet id=\"{00000000-0000-0000-0000-000000000001}\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 47,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 47,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=00000000000000000000000000000001}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=00000000000000000000000000000001}}",
+    "source": "{{snippet id=00000000000000000000000000000001}}",
+    "splitOptions": [
+      "{{snippet id=00000000000000000000000000000001}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 54,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 54,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=\"00000000-0000-0000-0000-0000000000011\"}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-0000000000011\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-0000000000011\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-0000000000011\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=\"0000000-00000-0000-0000-000000000001\"}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"0000000-00000-0000-0000-000000000001\"}}",
+    "source": "{{snippet id=\"0000000-00000-0000-0000-000000000001\"}}",
+    "splitOptions": [
+      "{{snippet id=\"0000000-00000-0000-0000-000000000001\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 53,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=\"00000000-0000-0000-0000-00000000000g\"}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-00000000000g\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-00000000000g\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-00000000000g\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'id'; last value wins",
+          "range": {
+            "end": 60,
+            "start": 0
+          },
+          "severity": "warning"
+        },
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 60,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 60,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=\"00000000-0000-0000-0000-000000000001\" id=\"x\"}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-000000000001\" id=\"x\"}}",
+    "source": "{{snippet id=\"00000000-0000-0000-0000-000000000001\" id=\"x\"}}",
+    "splitOptions": [
+      "{{snippet id=\"00000000-0000-0000-0000-000000000001\" id=\"x\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "who",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [
+        "00000000-0000-0000-0000-000000000001"
+      ],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'id'; last value wins",
+          "range": {
+            "end": 60,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "id",
+              "value": {
+                "type": "string",
+                "value": "00000000-0000-0000-0000-000000000001"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "snippet",
+          "range": {
+            "end": 60,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{snippet id=\"00000000-0000-0000-0000-000000000001\"}}",
+    "source": "{{snippet id=\"x\" id=\"00000000-0000-0000-0000-000000000001\"}}",
+    "splitOptions": [
+      "{{snippet id=\"x\" id=\"00000000-0000-0000-0000-000000000001\"}}"
+    ],
+    "typed": [
+      {
+        "id": "00000000-0000-0000-0000-000000000001",
+        "kind": "snippet"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 11,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 11,
+            "start": 0
+          },
+          "verbatim": "{{snippet}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet}}",
+    "source": "{{snippet}}",
+    "splitOptions": [
+      "{{snippet}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "snippet requires a UUID id",
+          "range": {
+            "end": 16,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 16,
+            "start": 0
+          },
+          "verbatim": "{{snippet id=5}}"
+        }
+      ]
+    },
+    "serialized": "{{snippet id=5}}",
+    "source": "{{snippet id=5}}",
+    "splitOptions": [
+      "{{snippet id=5}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": true,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "x",
+              "value": {
+                "type": "number",
+                "value": 1.0
+              }
+            },
+            {
+              "name": "y",
+              "value": {
+                "type": "string",
+                "value": "2"
+              }
+            },
+            {
+              "name": "z",
+              "value": {
+                "type": "bool",
+                "value": true
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "cursor",
+          "range": {
+            "end": 27,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{cursor x=1 y=\"2\" z=true}}",
+    "source": "{{cursor x=1 y=\"2\" z=true}}",
+    "splitOptions": [
+      "{{cursor x=1 y=\"2\" z=true}}"
+    ],
+    "typed": [
+      {
+        "kind": "cursor"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'offset'; last value wins",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "severity": "warning"
+        },
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "nope"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "time",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{time offset=\"nope\"}}",
+    "source": "{{time offset=+1d offset=nope}}",
+    "splitOptions": [
+      "{{time offset=+1d offset=nope}}"
+    ],
+    "typed": [
+      {
+        "format": "HH:mm",
+        "kind": "time",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'offset'; last value wins",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "time",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{time offset=\"+1d\"}}",
+    "source": "{{time offset=nope offset=+1d}}",
+    "splitOptions": [
+      "{{time offset=nope offset=+1d}}"
+    ],
+    "typed": [
+      {
+        "format": "HH:mm",
+        "kind": "time",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "b",
+        "kind": "text",
+        "name": "y",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "b",
+          "kind": "text",
+          "name": "y",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Duplicate attribute 'name'; last value wins",
+          "range": {
+            "end": 45,
+            "start": 0
+          },
+          "severity": "warning"
+        },
+        {
+          "message": "Duplicate attribute 'default'; last value wins",
+          "range": {
+            "end": 45,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "y"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "b"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 45,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"y\" default=\"b\"}}",
+    "source": "{{field name=x name=y default=a default=\"b\"}}",
+    "splitOptions": [
+      "{{field name=x name=y default=a default=\"b\"}}"
+    ],
+    "typed": [
+      {
+        "default": "b",
+        "kind": "field",
+        "multiline": false,
+        "name": "y"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "choice",
+        "name": "x",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "choice",
+          "name": "x",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            },
+            {
+              "name": "options",
+              "value": {
+                "type": "string",
+                "value": ""
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "choice",
+          "range": {
+            "end": 28,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{choice name=\"x\" options=\"\"}}",
+    "source": "{{choice name=x options=\"\"}}",
+    "splitOptions": [
+      "{{choice name=x options=\"\"}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "choice",
+        "name": "x",
+        "options": []
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": null,
+        "kind": "choice",
+        "name": "x",
+        "options": [
+          "",
+          ""
+        ]
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": null,
+          "kind": "choice",
+          "name": "x",
+          "options": [
+            "",
+            ""
+          ]
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            },
+            {
+              "name": "options",
+              "value": {
+                "type": "string",
+                "value": "|"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "choice",
+          "range": {
+            "end": 29,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{choice name=\"x\" options=\"|\"}}",
+    "source": "{{choice name=x options=\"|\"}}",
+    "splitOptions": [
+      "{{choice name=x options=\"",
+      "\"}}"
+    ],
+    "typed": [
+      {
+        "default": null,
+        "kind": "choice",
+        "name": "x",
+        "options": [
+          "",
+          ""
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "\\́"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"\\\\́\"}}",
+    "source": "{{date format=\"\\́\"}}",
+    "splitOptions": [
+      "{{date format=\"\\́\"}}"
+    ],
+    "typed": [
+      {
+        "format": "\\́",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "format",
+              "value": {
+                "type": "string",
+                "value": "a\"́b"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date format=\"a\\\"́b\"}}",
+    "source": "{{date format=\"a\"́b\"}}",
+    "splitOptions": [
+      "{{date format=\"a\"́b\"}}"
+    ],
+    "typed": [
+      {
+        "format": "a\"́b",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Malformed tag",
+          "range": {
+            "end": 36,
+            "start": 0
+          },
+          "severity": "error"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [],
+          "kind": "tag",
+          "name": "",
+          "range": {
+            "end": 36,
+            "start": 0
+          },
+          "verbatim": "{{choice name=c options=\"a|́b\\|́c\"}}"
+        }
+      ]
+    },
+    "serialized": "{{choice name=c options=\"a|́b\\|́c\"}}",
+    "source": "{{choice name=c options=\"a|́b\\|́c\"}}",
+    "splitOptions": [
+      "{{choice name=c options=\"a",
+      "́b|́c\"}}"
+    ],
+    "typed": [
+      {
+        "kind": "unknown"
+      }
+    ]
+  },
+  {
+    "formFields": [
+      {
+        "defaultValue": "<́&́'́",
+        "kind": "text",
+        "name": "x",
+        "options": []
+      }
+    ],
+    "info": {
+      "formFields": [
+        {
+          "defaultValue": "<́&́'́",
+          "kind": "text",
+          "name": "x",
+          "options": []
+        }
+      ],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "name",
+              "value": {
+                "type": "string",
+                "value": "x"
+              }
+            },
+            {
+              "name": "default",
+              "value": {
+                "type": "string",
+                "value": "<́&́'́"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "field",
+          "range": {
+            "end": 33,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{field name=\"x\" default=\"<́&́'́\"}}",
+    "source": "{{field name=x default=\"<́&́'́\"}}",
+    "splitOptions": [
+      "{{field name=x default=\"<́&́'́\"}}"
+    ],
+    "typed": [
+      {
+        "default": "<́&́'́",
+        "kind": "field",
+        "multiline": false,
+        "name": "x"
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1m\"}}",
+    "source": "{{date offset=\"+1m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-1m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-1m\"}}",
+    "source": "{{date offset=\"-1m\"}}",
+    "splitOptions": [
+      "{{date offset=\"-1m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            -1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+12m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+12m\"}}",
+    "source": "{{date offset=\"+12m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+12m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            12
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1y\"}}",
+    "source": "{{date offset=\"+1y\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-1y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-1y\"}}",
+    "source": "{{date offset=\"-1y\"}}",
+    "splitOptions": [
+      "{{date offset=\"-1y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1m1d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 23,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1m1d\"}}",
+    "source": "{{date offset=\"+1m1d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1m1d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            1
+          ],
+          [
+            "d",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1d1m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 23,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1d1m\"}}",
+    "source": "{{date offset=\"+1d1m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1d1m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            1
+          ],
+          [
+            "m",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1y1m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 23,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1y1m\"}}",
+    "source": "{{date offset=\"+1y1m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1y1m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            1
+          ],
+          [
+            "m",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-1y2m3w4d5h6min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 33,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-1y2m3w4d5h6min\"}}",
+    "source": "{{date offset=\"-1y2m3w4d5h6min\"}}",
+    "splitOptions": [
+      "{{date offset=\"-1y2m3w4d5h6min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -1
+          ],
+          [
+            "m",
+            -2
+          ],
+          [
+            "w",
+            -3
+          ],
+          [
+            "d",
+            -4
+          ],
+          [
+            "h",
+            -5
+          ],
+          [
+            "min",
+            -6
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+0d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+0d\"}}",
+    "source": "{{date offset=\"+0d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+0d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-0d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-0d\"}}",
+    "source": "{{date offset=\"-0d\"}}",
+    "splitOptions": [
+      "{{date offset=\"-0d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            0
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+01d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+01d\"}}",
+    "source": "{{date offset=\"+01d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+01d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+90min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 24,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+90min\"}}",
+    "source": "{{date offset=\"+90min\"}}",
+    "splitOptions": [
+      "{{date offset=\"+90min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "min",
+            90
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1h30min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1h30min\"}}",
+    "source": "{{date offset=\"+1h30min\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1h30min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "h",
+            1
+          ],
+          [
+            "min",
+            30
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1w"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1w\"}}",
+    "source": "{{date offset=\"+1w\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1w\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "w",
+            1
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+25h"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+25h\"}}",
+    "source": "{{date offset=\"+25h\"}}",
+    "splitOptions": [
+      "{{date offset=\"+25h\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "h",
+            25
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 24,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1d-1d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 24,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1d-1d\"}}",
+    "source": "{{date offset=\"+1d-1d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1d-1d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1D"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1D\"}}",
+    "source": "{{date offset=\"+1D\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1D\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1 d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1 d\"}}",
+    "source": "{{date offset=\"+1 d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1 d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1\"}}",
+    "source": "{{date offset=\"+1\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+d\"}}",
+    "source": "{{date offset=\"+d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+\"}}",
+    "source": "{{date offset=\"+\"}}",
+    "splitOptions": [
+      "{{date offset=\"+\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 19,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-\"}}",
+    "source": "{{date offset=\"-\"}}",
+    "splitOptions": [
+      "{{date offset=\"-\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 18,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": ""
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 18,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"\"}}",
+    "source": "{{date offset=\"\"}}",
+    "splitOptions": [
+      "{{date offset=\"\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "1d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 20,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"1d\"}}",
+    "source": "{{date offset=\"1d\"}}",
+    "splitOptions": [
+      "{{date offset=\"1d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 25,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1min30"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 25,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1min30\"}}",
+    "source": "{{date offset=\"+1min30\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1min30\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1mi"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1mi\"}}",
+    "source": "{{date offset=\"+1mi\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1mi\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1minute"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1minute\"}}",
+    "source": "{{date offset=\"+1minute\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1minute\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1dd"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1dd\"}}",
+    "source": "{{date offset=\"+1dd\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1dd\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+١d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+١d\"}}",
+    "source": "{{date offset=\"+١d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+١d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1d́"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 22,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1d́\"}}",
+    "source": "{{date offset=\"+1d́\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1d́\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+1é"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 21,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+1é\"}}",
+    "source": "{{date offset=\"+1é\"}}",
+    "splitOptions": [
+      "{{date offset=\"+1é\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+260117y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+260117y\"}}",
+    "source": "{{date offset=\"+260117y\"}}",
+    "splitOptions": [
+      "{{date offset=\"+260117y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            260117
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+260118y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+260118y\"}}",
+    "source": "{{date offset=\"+260118y\"}}",
+    "splitOptions": [
+      "{{date offset=\"+260118y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            260118
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+260119y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+260119y\"}}",
+    "source": "{{date offset=\"+260119y\"}}",
+    "splitOptions": [
+      "{{date offset=\"+260119y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            260119
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-264166y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-264166y\"}}",
+    "source": "{{date offset=\"-264166y\"}}",
+    "splitOptions": [
+      "{{date offset=\"-264166y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -264166
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-264167y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-264167y\"}}",
+    "source": "{{date offset=\"-264167y\"}}",
+    "splitOptions": [
+      "{{date offset=\"-264167y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -264167
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-264168y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 26,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-264168y\"}}",
+    "source": "{{date offset=\"-264168y\"}}",
+    "splitOptions": [
+      "{{date offset=\"-264168y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            -264168
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+3121403m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 27,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+3121403m\"}}",
+    "source": "{{date offset=\"+3121403m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+3121403m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            3121403
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-3170016m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 27,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-3170016m\"}}",
+    "source": "{{date offset=\"-3170016m\"}}",
+    "splitOptions": [
+      "{{date offset=\"-3170016m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            -3170016
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+3000000y"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 27,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+3000000y\"}}",
+    "source": "{{date offset=\"+3000000y\"}}",
+    "splitOptions": [
+      "{{date offset=\"+3000000y\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "y",
+            3000000
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+99999999999m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+99999999999m\"}}",
+    "source": "{{date offset=\"+99999999999m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+99999999999m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            99999999999
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+4294967296m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 30,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+4294967296m\"}}",
+    "source": "{{date offset=\"+4294967296m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+4294967296m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            4294967296
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+2147483648m"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 30,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+2147483648m\"}}",
+    "source": "{{date offset=\"+2147483648m\"}}",
+    "splitOptions": [
+      "{{date offset=\"+2147483648m\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "m",
+            2147483648
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+106751991167d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 32,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+106751991167d\"}}",
+    "source": "{{date offset=\"+106751991167d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+106751991167d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            106751991167
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+106751991168d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 32,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+106751991168d\"}}",
+    "source": "{{date offset=\"+106751991168d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+106751991168d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            106751991168
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+15250284452w"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+15250284452w\"}}",
+    "source": "{{date offset=\"+15250284452w\"}}",
+    "splitOptions": [
+      "{{date offset=\"+15250284452w\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "w",
+            15250284452
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+15250284453w"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 31,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+15250284453w\"}}",
+    "source": "{{date offset=\"+15250284453w\"}}",
+    "splitOptions": [
+      "{{date offset=\"+15250284453w\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "w",
+            15250284453
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+2562047788015h"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 33,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+2562047788015h\"}}",
+    "source": "{{date offset=\"+2562047788015h\"}}",
+    "splitOptions": [
+      "{{date offset=\"+2562047788015h\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "h",
+            2562047788015
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+2562047788016h"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 33,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+2562047788016h\"}}",
+    "source": "{{date offset=\"+2562047788016h\"}}",
+    "splitOptions": [
+      "{{date offset=\"+2562047788016h\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "h",
+            2562047788016
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+153722867280912min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 37,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+153722867280912min\"}}",
+    "source": "{{date offset=\"+153722867280912min\"}}",
+    "splitOptions": [
+      "{{date offset=\"+153722867280912min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "min",
+            153722867280912
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+153722867280913min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 37,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+153722867280913min\"}}",
+    "source": "{{date offset=\"+153722867280913min\"}}",
+    "splitOptions": [
+      "{{date offset=\"+153722867280913min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "min",
+            153722867280913
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+9223372036854775807min"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 41,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+9223372036854775807min\"}}",
+    "source": "{{date offset=\"+9223372036854775807min\"}}",
+    "splitOptions": [
+      "{{date offset=\"+9223372036854775807min\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "min",
+            9223372036854775807
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [
+        {
+          "message": "Invalid date offset; ignored",
+          "range": {
+            "end": 39,
+            "start": 0
+          },
+          "severity": "warning"
+        }
+      ],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+9223372036854775808d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 39,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+9223372036854775808d\"}}",
+    "source": "{{date offset=\"+9223372036854775808d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+9223372036854775808d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": null
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "+95000000d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 28,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"+95000000d\"}}",
+    "source": "{{date offset=\"+95000000d\"}}",
+    "splitOptions": [
+      "{{date offset=\"+95000000d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            95000000
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "formFields": [],
+    "info": {
+      "formFields": [],
+      "hasCursor": false,
+      "referencedSnippetIds": [],
+      "usesClipboard": false
+    },
+    "parsed": {
+      "diagnostics": [],
+      "nodes": [
+        {
+          "attributes": [
+            {
+              "name": "offset",
+              "value": {
+                "type": "string",
+                "value": "-95000000d"
+              }
+            }
+          ],
+          "kind": "tag",
+          "name": "date",
+          "range": {
+            "end": 28,
+            "start": 0
+          },
+          "verbatim": null
+        }
+      ]
+    },
+    "serialized": "{{date offset=\"-95000000d\"}}",
+    "source": "{{date offset=\"-95000000d\"}}",
+    "splitOptions": [
+      "{{date offset=\"-95000000d\"}}"
+    ],
+    "typed": [
+      {
+        "format": "yyyy-MM-dd",
+        "kind": "date",
+        "locale": null,
+        "offset": [
+          [
+            "d",
+            -95000000
+          ]
+        ]
+      }
+    ]
+  }
+]

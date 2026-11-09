@@ -1,0 +1,929 @@
+[
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": ";a",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";a"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": ";A",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";a"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": ";A",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";a"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": ";A",
+        "snippetId": "00000000-0000-0000-0000-000000000003",
+        "trigger": ";A"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          ";a",
+          "x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          ";a"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          ";A"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          ";A"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": "café",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "café"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": "CAFÉ",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "café"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": "CAFÉ",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": "café"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": "i̇x",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": "İx"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          "café"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          "café"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          "CAFÉ"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          "İx"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S5",
+        "triggers": [
+          "i̇x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": "ǆ",
+        "snippetId": "00000000-0000-0000-0000-000000000003",
+        "trigger": "ǅ"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": "Ǆ",
+        "snippetId": "00000000-0000-0000-0000-000000000003",
+        "trigger": "ǅ"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          "ß"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          "SS",
+          "ss"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          "ǅ"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          "ǆ",
+          "Ǆ"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": ";A",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";a"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";1",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";1"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": ";ab",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": ";A"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": ";Ab",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": ";A"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": ";a1",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": ";A"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";abc",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";a"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";abc",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";ab"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";abc",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";Ab"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";abc",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": ";A"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";1x",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";1"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";1x",
+        "snippetId": "00000000-0000-0000-0000-000000000005",
+        "trigger": ";1"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          ";a"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          ";ab",
+          ";Ab",
+          ";1",
+          ";a1"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          ";abc",
+          ";1x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          ";A"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S5",
+        "triggers": [
+          ";1"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": "é",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "é"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000002",
+        "otherTrigger": "éx",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "é"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": "👨x",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": "👨"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          "é"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          "éx",
+          "ÉX"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          "é"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          "👨"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S5",
+        "triggers": [
+          "👨‍👩‍👧x",
+          "👨x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";r",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";r"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": ";r",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";r"
+      },
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";rx",
+        "snippetId": "00000000-0000-0000-0000-000000000004",
+        "trigger": ";rx"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";rx",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";r"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";rx",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";r"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";rx",
+        "snippetId": "00000000-0000-0000-0000-000000000003",
+        "trigger": ";r"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000007",
+        "otherTrigger": ";ry",
+        "snippetId": "00000000-0000-0000-0000-000000000002",
+        "trigger": ";r"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000007",
+        "otherTrigger": ";ry",
+        "snippetId": "00000000-0000-0000-0000-000000000003",
+        "trigger": ";r"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "rule": {
+          "bundleIDs": [
+            "a"
+          ],
+          "mode": "allow"
+        },
+        "triggers": [
+          ";r"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "rule": {
+          "bundleIDs": [
+            "b"
+          ],
+          "mode": "allow"
+        },
+        "triggers": [
+          ";r"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "rule": {
+          "bundleIDs": [
+            "a",
+            "b"
+          ],
+          "mode": "allow"
+        },
+        "triggers": [
+          ";r"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "rule": {
+          "bundleIDs": [
+            "a",
+            "b"
+          ],
+          "mode": "deny"
+        },
+        "triggers": [
+          ";rx"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S5",
+        "rule": {
+          "bundleIDs": [],
+          "mode": "deny"
+        },
+        "triggers": [
+          ";rx"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000006",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S6",
+        "rule": {
+          "bundleIDs": [],
+          "mode": "allow"
+        },
+        "triggers": [
+          ";r"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000007",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S7",
+        "rule": {
+          "bundleIDs": [
+            "a"
+          ],
+          "mode": "deny"
+        },
+        "triggers": [
+          ";ry"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000004",
+        "otherTrigger": ";gy",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";g"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000005",
+        "otherTrigger": ";gz",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": ";g"
+      }
+    ],
+    "groups": [
+      {
+        "id": "00000000-0000-0000-0000-000000000101",
+        "isEnabled": true,
+        "name": "G101",
+        "rule": {
+          "bundleIDs": [
+            "a"
+          ],
+          "mode": "allow"
+        },
+        "sortIndex": 0
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000102",
+        "isEnabled": true,
+        "name": "G102",
+        "parentID": "00000000-0000-0000-0000-000000000101",
+        "sortIndex": 0
+      },
+      {
+        "id": "00000000-0000-0000-0000-000000000103",
+        "isEnabled": false,
+        "name": "G103",
+        "sortIndex": 0
+      }
+    ],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "groupID": "00000000-0000-0000-0000-000000000102",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          ";g"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "groupID": "00000000-0000-0000-0000-000000000103",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          ";g",
+          ";gx"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": false,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          ";g"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "groupID": "00000000-0000-0000-0000-000000000101",
+        "id": "00000000-0000-0000-0000-000000000004",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S4",
+        "triggers": [
+          ";gy"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "groupID": "00000000-0000-0000-0000-000000000102",
+        "id": "00000000-0000-0000-0000-000000000005",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S5",
+        "rule": {
+          "bundleIDs": [],
+          "mode": "deny"
+        },
+        "triggers": [
+          ";gz"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  {
+    "expected": [
+      {
+        "kind": "duplicate",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": "x",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "x"
+      },
+      {
+        "kind": "shadowing",
+        "otherSnippetId": "00000000-0000-0000-0000-000000000003",
+        "otherTrigger": "xy",
+        "snippetId": "00000000-0000-0000-0000-000000000001",
+        "trigger": "x"
+      }
+    ],
+    "groups": [],
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S1",
+        "triggers": [
+          "",
+          "x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000002",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S2",
+        "triggers": [
+          "",
+          ""
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      },
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000003",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S3",
+        "triggers": [
+          "xy",
+          "x"
+        ],
+        "updatedAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  }
+]

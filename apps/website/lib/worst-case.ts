@@ -189,7 +189,7 @@ export const worstClipboardItems: ClipItem[] = [
     symbol: "",
     icon: "link",
     content:
-      "https://github.com/Stringsaeed/kudzu/blob/main/apps/desktop/src-tauri/crates/kudzu-core/src/matching/key_buffer.rs#L1284",
+      "https://github.com/Stringsaeed/kudzu/blob/main/apps/macos/Packages/KudzuKit/Sources/KudzuCore/Matching/KeyBuffer.swift",
     time: "a moment ago",
     search: "link github",
   },

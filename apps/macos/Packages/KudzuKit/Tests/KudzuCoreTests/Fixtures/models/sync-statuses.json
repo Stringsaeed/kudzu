@@ -1,0 +1,30 @@
+[
+  {
+    "state": "off"
+  },
+  {
+    "reason": "iCloud sync is unavailable in Kudzu Dev. Data stays on this Mac.",
+    "state": "unavailable"
+  },
+  {
+    "reason": "Sign in to iCloud in System Settings.",
+    "state": "noAccount"
+  },
+  {
+    "state": "starting"
+  },
+  {
+    "state": "syncing"
+  },
+  {
+    "lastSync": "2026-11-08T09:30:15.123+00:00",
+    "state": "upToDate"
+  },
+  {
+    "state": "needsUpdate"
+  },
+  {
+    "message": "CloudKit said no",
+    "state": "error"
+  }
+]

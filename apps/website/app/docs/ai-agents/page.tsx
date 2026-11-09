@@ -115,7 +115,8 @@ export default function AiAgentsPage() {
             Start a new Claude Code session and run <code>/mcp</code>. You should see{" "}
             <code>kudzu</code> connected. If Kudzu isn’t in your Applications folder, copy the
             command from <strong>Settings → AI agents</strong> instead, because it has the right
-            path for your Mac.
+            path for your Mac. A client that still starts <code>kudzu-desktop --mcp</code> keeps
+            working: the app ships that name as a symlink to <code>Kudzu</code>.
           </p>
 
           <h2 id="skill">3. Add the skill</h2>

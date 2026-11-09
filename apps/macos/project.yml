@@ -1,0 +1,112 @@
+# XcodeGen spec for Kudzu.xcodeproj (the generated project is checked in, so Xcode works without
+# XcodeGen). After editing: `cd apps/macos && xcodegen generate`. All code lives in the local
+# package Packages/KudzuKit; this target only adds the entry point, Info.plist, entitlements and
+# assets. See docs/MIGRATION.md.
+name: Kudzu
+options:
+  bundleIdPrefix: sh.saeed
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  defaultConfig: Debug
+configs:
+  Debug: debug
+  Release: release
+# MARKETING_VERSION and CURRENT_PROJECT_VERSION live in Kudzu/Version.xcconfig (release-please
+# bumps it). Don't set them here: project settings override the xcconfig.
+configFiles:
+  Debug: Kudzu/Version.xcconfig
+  Release: Kudzu/Version.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+packages:
+  KudzuKit:
+    path: Packages/KudzuKit
+targets:
+  Kudzu:
+    type: application
+    platform: macOS
+    sources:
+      - path: Kudzu/KudzuMain.swift
+      - path: Kudzu/Assets.xcassets
+      - path: Kudzu/Kudzu.icon
+      # Copied as a folder so ATSApplicationFontsPath = Fonts finds Paper Mono.
+      - path: Kudzu/Fonts
+        type: folder
+        buildPhase: resources
+      - path: Kudzu/Info.plist
+        buildPhase: none
+      - path: Kudzu/Kudzu.entitlements
+        buildPhase: none
+      # Applied only by the release script with a provisioning profile; never by a build setting.
+      - path: Kudzu/Kudzu.icloud.entitlements
+        buildPhase: none
+      - path: Kudzu/Version.xcconfig
+        buildPhase: none
+      # The Claude Code skill, at Contents/Resources/skills/kudzu/SKILL.md
+      # (AgentSetupInfo.bundledSkillDir). Same file the MCP server serves, so the copies can't drift.
+      - path: Packages/KudzuKit/Sources/KudzuCore/Resources/SKILL.md
+        group: Kudzu
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: skills/kudzu
+    postBuildScripts:
+      # The Tauri app's executable was Contents/MacOS/kudzu-desktop, and users registered
+      # `…/kudzu-desktop --mcp` with their agents. The native executable is Kudzu; this relative
+      # symlink keeps those registrations working (argv[0] doesn't matter, `--mcp` does). It is
+      # created before Xcode signs the bundle, so the signature seals it.
+      - name: Link kudzu-desktop to the executable (MCP continuity)
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/kudzu-desktop
+        script: |
+          ln -sfh "$EXECUTABLE_NAME" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/kudzu-desktop"
+    dependencies:
+      - package: KudzuKit
+        product: KudzuApp
+    settings:
+      base:
+        INFOPLIST_FILE: Kudzu/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: Kudzu/Kudzu.entitlements
+        # Applied whenever a real identity signs (Developer ID in scripts/build-app.sh). Xcode leaves
+        # it off for the local ad-hoc signature: with it, dyld rejects the ad-hoc debug dylib.
+        ENABLE_HARDENED_RUNTIME: YES
+        # Signed to run locally; scripts/build-app.sh re-signs releases with Developer ID.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: Kudzu
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: NO
+        PRODUCT_MODULE_NAME: Kudzu
+        COMBINE_HIDPI_IMAGES: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../Frameworks"
+      configs:
+        Debug:
+          PRODUCT_NAME: Kudzu Dev
+          PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu.dev
+        Release:
+          PRODUCT_NAME: Kudzu
+          PRODUCT_BUNDLE_IDENTIFIER: sh.saeed.kudzu
+schemes:
+  Kudzu:
+    build:
+      targets:
+        Kudzu: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

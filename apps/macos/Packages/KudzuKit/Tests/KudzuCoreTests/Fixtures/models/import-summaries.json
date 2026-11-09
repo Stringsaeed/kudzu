@@ -1,0 +1,54 @@
+[
+  {
+    "importedSnippets": 6,
+    "importedGroups": 1,
+    "backup": {
+      "path": "/Users/me/Library/Application Support/sh.saeed.kudzu/backups/kudzu-2026-11-08-preImport.json",
+      "filename": "kudzu-2026-11-08-preImport.json",
+      "createdAt": "2026-11-08T09:30:15Z",
+      "reason": "preImport"
+    },
+    "dedupeReport": {
+      "mergedGroups": 1,
+      "mergedSnippets": 2,
+      "mergedUsageRows": 3,
+      "conflicts": [
+        {
+          "trigger": ";sig",
+          "snippetIds": [
+            "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a",
+            "a1b2c3d4-e5f6-4a7b-8c9d-00000000000b"
+          ]
+        }
+      ]
+    },
+    "warnings": [
+      {
+        "file": "match/base.yml",
+        "line": 12,
+        "matchIndex": 3,
+        "trigger": ":sig",
+        "message": "Script extensions aren't supported"
+      },
+      {
+        "file": "export.csv",
+        "message": "Script snippet isn’t supported and was skipped."
+      }
+    ],
+    "groupedWarnings": [
+      {
+        "message": "Script extensions aren't supported",
+        "count": 1,
+        "warnings": [
+          {
+            "file": "match/base.yml",
+            "line": 12,
+            "matchIndex": 3,
+            "trigger": ":sig",
+            "message": "Script extensions aren't supported"
+          }
+        ]
+      }
+    ]
+  }
+]

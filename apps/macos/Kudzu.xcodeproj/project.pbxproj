@@ -1,0 +1,413 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07BFEF8AA9ED84C45ABD369D /* Fonts in Resources */ = {isa = PBXBuildFile; fileRef = 620AC6B51A607A318B99FC91 /* Fonts */; };
+		4BFCAB618A303D223DB6A6AC /* KudzuMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9607E1020AA8C493918E177 /* KudzuMain.swift */; };
+		55D79A04BC4E0E11D914E57A /* KudzuApp in Frameworks */ = {isa = PBXBuildFile; productRef = 2E67FA0F9A42B9279E99E06F /* KudzuApp */; };
+		75F723F269406667F9D7B886 /* Kudzu.icon in Resources */ = {isa = PBXBuildFile; fileRef = A726CF28AF2D80F18D376AB8 /* Kudzu.icon */; };
+		C1A6B7F4DEB4EAC09BADE464 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7664055E11143AB81F34595A /* Assets.xcassets */; };
+		E0D7757BDB38BE70251B5365 /* SKILL.md in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1AAED847510B7E1B5437DBD2 /* SKILL.md */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7E3EC53165A1F477C7A5C806 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = skills/kudzu;
+			dstSubfolderSpec = 7;
+			files = (
+				E0D7757BDB38BE70251B5365 /* SKILL.md in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1AAED847510B7E1B5437DBD2 /* SKILL.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = SKILL.md; path = ../Packages/KudzuKit/Sources/KudzuCore/Resources/SKILL.md; sourceTree = "<group>"; };
+		5B6A4160FC9A30AD35355372 /* Kudzu.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Kudzu.entitlements; sourceTree = "<group>"; };
+		620AC6B51A607A318B99FC91 /* Fonts */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fonts; path = Kudzu/Fonts; sourceTree = SOURCE_ROOT; };
+		7664055E11143AB81F34595A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		78CEDFFA0FB2B23F713AA469 /* KudzuKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = KudzuKit; path = Packages/KudzuKit; sourceTree = SOURCE_ROOT; };
+		919A2E5CAB23E94B5E3CD27A /* Version.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Version.xcconfig; sourceTree = "<group>"; };
+		A726CF28AF2D80F18D376AB8 /* Kudzu.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = Kudzu.icon; sourceTree = "<group>"; };
+		BA554D717E13EE86DA87DF0F /* Kudzu.icloud.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Kudzu.icloud.entitlements; sourceTree = "<group>"; };
+		C40B6696C63E48F79800A184 /* Kudzu.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kudzu.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E9607E1020AA8C493918E177 /* KudzuMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KudzuMain.swift; sourceTree = "<group>"; };
+		EB04EA25764BD3C87A687E13 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		71277B89199227D9A0E43831 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				55D79A04BC4E0E11D914E57A /* KudzuApp in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		35218003B6D3737A08F660A2 /* Kudzu */ = {
+			isa = PBXGroup;
+			children = (
+				7664055E11143AB81F34595A /* Assets.xcassets */,
+				620AC6B51A607A318B99FC91 /* Fonts */,
+				EB04EA25764BD3C87A687E13 /* Info.plist */,
+				5B6A4160FC9A30AD35355372 /* Kudzu.entitlements */,
+				BA554D717E13EE86DA87DF0F /* Kudzu.icloud.entitlements */,
+				A726CF28AF2D80F18D376AB8 /* Kudzu.icon */,
+				E9607E1020AA8C493918E177 /* KudzuMain.swift */,
+				1AAED847510B7E1B5437DBD2 /* SKILL.md */,
+				919A2E5CAB23E94B5E3CD27A /* Version.xcconfig */,
+			);
+			path = Kudzu;
+			sourceTree = "<group>";
+		};
+		433AEEC969C0DDD736ACD630 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C40B6696C63E48F79800A184 /* Kudzu.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		558C3BD1A8DC6299E97F8138 = {
+			isa = PBXGroup;
+			children = (
+				35218003B6D3737A08F660A2 /* Kudzu */,
+				E17522CBD3839429254B47E9 /* Packages */,
+				433AEEC969C0DDD736ACD630 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E17522CBD3839429254B47E9 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				78CEDFFA0FB2B23F713AA469 /* KudzuKit */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		93321E3D74F6D754AB471FFB /* Kudzu */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 67C2428A06EBEFFED1C04609 /* Build configuration list for PBXNativeTarget "Kudzu" */;
+			buildPhases = (
+				616FF1EFE0262A68A7003243 /* Sources */,
+				F14357CBFDBB03846A36B795 /* Resources */,
+				7E3EC53165A1F477C7A5C806 /* CopyFiles */,
+				71277B89199227D9A0E43831 /* Frameworks */,
+				045C9086247C46069D1E5845 /* Link kudzu-desktop to the executable (MCP continuity) */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Kudzu;
+			packageProductDependencies = (
+				2E67FA0F9A42B9279E99E06F /* KudzuApp */,
+			);
+			productName = Kudzu;
+			productReference = C40B6696C63E48F79800A184 /* Kudzu.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F89E70D8FBC2F7FBE6B40BE7 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					93321E3D74F6D754AB471FFB = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Manual;
+					};
+				};
+			};
+			buildConfigurationList = BF8D6E2ED17402EAAB25FD7F /* Build configuration list for PBXProject "Kudzu" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 558C3BD1A8DC6299E97F8138;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				30C3687B800CFFB299076989 /* XCLocalSwiftPackageReference "Packages/KudzuKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 433AEEC969C0DDD736ACD630 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				93321E3D74F6D754AB471FFB /* Kudzu */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F14357CBFDBB03846A36B795 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C1A6B7F4DEB4EAC09BADE464 /* Assets.xcassets in Resources */,
+				07BFEF8AA9ED84C45ABD369D /* Fonts in Resources */,
+				75F723F269406667F9D7B886 /* Kudzu.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		045C9086247C46069D1E5845 /* Link kudzu-desktop to the executable (MCP continuity) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Link kudzu-desktop to the executable (MCP continuity)";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/kudzu-desktop",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "ln -sfh \"$EXECUTABLE_NAME\" \"$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/kudzu-desktop\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		616FF1EFE0262A68A7003243 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4BFCAB618A303D223DB6A6AC /* KudzuMain.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		9E17B27944715EFACA262CF7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = Kudzu;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = Kudzu/Kudzu.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Kudzu/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = sh.saeed.kudzu.dev;
+				PRODUCT_MODULE_NAME = Kudzu;
+				PRODUCT_NAME = "Kudzu Dev";
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		A2FF640F44E9CD1E2F116B9E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = Kudzu;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = Kudzu/Kudzu.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Kudzu/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = sh.saeed.kudzu;
+				PRODUCT_MODULE_NAME = Kudzu;
+				PRODUCT_NAME = Kudzu;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		B11968A16B9CA8A7757056E6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 919A2E5CAB23E94B5E3CD27A /* Version.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		CF6505D79E2841A6E0C0E1CF /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 919A2E5CAB23E94B5E3CD27A /* Version.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		67C2428A06EBEFFED1C04609 /* Build configuration list for PBXNativeTarget "Kudzu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9E17B27944715EFACA262CF7 /* Debug */,
+				A2FF640F44E9CD1E2F116B9E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BF8D6E2ED17402EAAB25FD7F /* Build configuration list for PBXProject "Kudzu" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CF6505D79E2841A6E0C0E1CF /* Debug */,
+				B11968A16B9CA8A7757056E6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		30C3687B800CFFB299076989 /* XCLocalSwiftPackageReference "Packages/KudzuKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages/KudzuKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		2E67FA0F9A42B9279E99E06F /* KudzuApp */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = KudzuApp;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = F89E70D8FBC2F7FBE6B40BE7 /* Project object */;
+}

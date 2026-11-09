@@ -1,0 +1,33 @@
+{
+  "formatVersion": 1,
+  "groups": [
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000fe",
+      "isEnabled": true,
+      "name": "",
+      "sortIndex": 0
+    }
+  ],
+  "snippets": [
+    {
+      "caseMode": "propagate",
+      "content": "",
+      "createdAt": "2026-11-08T07:30:15Z",
+      "fireMode": "immediate",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000ff",
+      "isEnabled": true,
+      "isFavorite": false,
+      "name": "",
+      "triggers": [],
+      "updatedAt": "2026-11-08T09:30:15Z"
+    }
+  ],
+  "usage": [
+    {
+      "charsSaved": 0,
+      "count": 0,
+      "deviceID": "",
+      "snippetID": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000ff"
+    }
+  ]
+}

@@ -1,0 +1,4087 @@
+[
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "capitalized",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";Sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";Sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";Sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "upper",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";SIG"
+        },
+        "key": "G"
+      },
+      {
+        "buffer": ";SIG",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";SIG"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sIg"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sIg",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sIg"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "hi ;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": " ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "\n",
+        "event": null,
+        "key": "\n"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "\r\n",
+        "event": null,
+        "key": "\r\n"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ".",
+        "event": null,
+        "key": "."
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "x",
+        "event": null,
+        "key": "x"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ",",
+        "event": null,
+        "key": ","
+      },
+      {
+        "buffer": ",;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ",;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ",;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": " ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 1,
+          "deleteCountIncludingSeparator": 1,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": "👍🏽",
+          "typedTrigger": "👍🏽"
+        },
+        "key": "👍🏽"
+      },
+      {
+        "buffer": "👍🏽",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": "👍🏽"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "c",
+        "event": null,
+        "key": "c"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "a"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "f"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": "café",
+          "typedTrigger": "café"
+        },
+        "key": "é"
+      },
+      {
+        "buffer": "café",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": "café"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";Sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";SIG",
+        "event": null,
+        "key": "G"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";sIg",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "hi ;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ";sig",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": ";sig"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": " ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "\n",
+        "event": null,
+        "key": "\n"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "\r\n",
+        "event": null,
+        "key": "\r\n"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ".",
+        "event": null,
+        "key": "."
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": "x",
+        "event": null,
+        "key": "x"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": ",",
+        "event": null,
+        "key": ","
+      },
+      {
+        "buffer": ",;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ",;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ",;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "g"
+      },
+      {
+        "buffer": " ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 1,
+          "deleteCountIncludingSeparator": 1,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": "👍🏽",
+          "typedTrigger": "👍🏽"
+        },
+        "key": "👍🏽"
+      },
+      {
+        "buffer": "👍🏽",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": "👍🏽"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "immediate",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "c",
+        "event": null,
+        "key": "c"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "a"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "f"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 4,
+          "fireMode": "immediate",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": null,
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": "café",
+          "typedTrigger": "café"
+        },
+        "key": "é"
+      },
+      {
+        "buffer": "café",
+        "event": {
+          "deleteCount": 8,
+          "kind": "undo",
+          "retype": "café"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";Sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";SIG",
+        "event": null,
+        "key": "G"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";sIg",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "hi ;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ;sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": " ",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": " "
+      },
+      {
+        "buffer": ";sig ",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig "
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": "\n",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "\n"
+      },
+      {
+        "buffer": ";sig\n",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig\n"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": "\r\n",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "\r\n"
+      },
+      {
+        "buffer": ";sig\r\n",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig\r\n"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": ".",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "."
+      },
+      {
+        "buffer": ";sig.",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig."
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";sigx",
+        "event": null,
+        "key": "x"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": ",",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": ","
+      },
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": " ",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": " "
+      },
+      {
+        "buffer": ";sig ",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig "
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "👍🏽",
+        "event": null,
+        "key": "👍🏽"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "propagate",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "c",
+        "event": null,
+        "key": "c"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "a"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "f"
+      },
+      {
+        "buffer": "café",
+        "event": null,
+        "key": "é"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";Sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";Si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "S"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";SIG",
+        "event": null,
+        "key": "G"
+      },
+      {
+        "buffer": ";SI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";S",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "I"
+      },
+      {
+        "buffer": ";sIg",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";sI",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi;sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "hi;si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "hi;s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "h",
+        "event": null,
+        "key": "h"
+      },
+      {
+        "buffer": "hi",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ",
+        "event": null,
+        "key": " "
+      },
+      {
+        "buffer": "hi ;",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": "hi ;sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "hi ;si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "hi ;s",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": " ",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": " "
+      },
+      {
+        "buffer": ";sig ",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig "
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": "\n",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "\n"
+      },
+      {
+        "buffer": ";sig\n",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig\n"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": "\r\n",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "\r\n"
+      },
+      {
+        "buffer": ";sig\r\n",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig\r\n"
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": ".",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": "."
+      },
+      {
+        "buffer": ";sig.",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig."
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": ";sigx",
+        "event": null,
+        "key": "x"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": ",",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": ","
+      },
+      {
+        "buffer": ";",
+        "event": null,
+        "key": ";"
+      },
+      {
+        "buffer": ";s",
+        "event": null,
+        "key": "s"
+      },
+      {
+        "buffer": ";si",
+        "event": null,
+        "key": "i"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "g"
+      },
+      {
+        "buffer": "",
+        "event": {
+          "caseStyle": "asIs",
+          "deleteCount": 4,
+          "deleteCountIncludingSeparator": 5,
+          "fireMode": "wholeWord",
+          "insertion": "automatic",
+          "kind": "expand",
+          "separator": " ",
+          "snippetID": "00000000-0000-0000-0000-000000000001",
+          "trigger": ";sig",
+          "typedTrigger": ";sig"
+        },
+        "key": " "
+      },
+      {
+        "buffer": ";sig ",
+        "event": {
+          "deleteCount": 9,
+          "kind": "undo",
+          "retype": ";sig "
+        },
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": ";sig",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "👍🏽",
+        "event": null,
+        "key": "👍🏽"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  },
+  {
+    "bundleID": "com.apple.Notes",
+    "insertedCount": 8,
+    "snippets": [
+      {
+        "caseMode": "exact",
+        "content": "expanded",
+        "createdAt": "2026-11-08T09:19:40Z",
+        "fireMode": "wholeWord",
+        "id": "00000000-0000-0000-0000-000000000001",
+        "isEnabled": true,
+        "isFavorite": false,
+        "name": "S",
+        "triggers": [
+          ";sig",
+          "👍🏽",
+          "café"
+        ],
+        "updatedAt": "2026-11-08T09:19:40Z"
+      }
+    ],
+    "steps": [
+      {
+        "buffer": "c",
+        "event": null,
+        "key": "c"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "a"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "f"
+      },
+      {
+        "buffer": "café",
+        "event": null,
+        "key": "é"
+      },
+      {
+        "buffer": "caf",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "ca",
+        "event": null,
+        "key": "BACKSPACE"
+      },
+      {
+        "buffer": "",
+        "event": null,
+        "key": "RESET"
+      }
+    ]
+  }
+]

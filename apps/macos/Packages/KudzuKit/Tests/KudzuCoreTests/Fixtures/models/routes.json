@@ -1,0 +1,39 @@
+[
+  {
+    "kind": "all"
+  },
+  {
+    "kind": "favorites"
+  },
+  {
+    "kind": "recent"
+  },
+  {
+    "kind": "disabled"
+  },
+  {
+    "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000002",
+    "kind": "group"
+  },
+  {
+    "kind": "insights"
+  },
+  {
+    "kind": "clipboard"
+  },
+  {
+    "filter": "pinned",
+    "kind": "clipboard"
+  },
+  {
+    "filter": "image",
+    "kind": "clipboard"
+  },
+  {
+    "kind": "settings"
+  },
+  {
+    "kind": "settings",
+    "section": "about"
+  }
+]

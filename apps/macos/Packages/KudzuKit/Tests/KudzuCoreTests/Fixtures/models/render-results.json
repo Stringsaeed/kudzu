@@ -1,0 +1,57 @@
+[
+  {
+    "text": "Hello world",
+    "cursorOffset": 6,
+    "diagnostics": []
+  },
+  {
+    "text": "Broken {{date",
+    "cursorOffset": null,
+    "diagnostics": [
+      {
+        "severity": "error",
+        "message": "Unterminated tag",
+        "range": {
+          "start": 7,
+          "end": 13
+        }
+      }
+    ]
+  },
+  {
+    "text": " 2026",
+    "cursorOffset": 0,
+    "diagnostics": [
+      {
+        "severity": "warning",
+        "message": "Only the first top-level cursor counts",
+        "range": {
+          "start": 10,
+          "end": 20
+        }
+      },
+      {
+        "severity": "warning",
+        "message": "Invalid date offset; ignored",
+        "range": {
+          "start": 21,
+          "end": 58
+        }
+      }
+    ]
+  },
+  {
+    "text": "Hi Ada!",
+    "formatting": [
+      {
+        "start": 0,
+        "end": 2,
+        "style": {
+          "kind": "bold"
+        }
+      }
+    ],
+    "cursorOffset": null,
+    "diagnostics": []
+  }
+]

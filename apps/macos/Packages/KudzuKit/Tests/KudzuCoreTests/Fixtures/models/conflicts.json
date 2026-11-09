@@ -1,0 +1,23 @@
+[
+  {
+    "kind": "duplicate",
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000c9",
+    "trigger": ";a",
+    "otherSnippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000ca",
+    "otherTrigger": ";a"
+  },
+  {
+    "kind": "shadowing",
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000c9",
+    "trigger": ";a",
+    "otherSnippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000cb",
+    "otherTrigger": ";ab"
+  },
+  {
+    "kind": "shadowing",
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000ca",
+    "trigger": ";a",
+    "otherSnippetId": "a1b2c3d4-e5f6-4a7b-8c9d-0000000000cb",
+    "otherTrigger": ";ab"
+  }
+]

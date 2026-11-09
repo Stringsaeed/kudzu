@@ -1,51 +1,35 @@
 # Kudzu — agent guide
 
-Kudzu is a macOS text expander. The app lives in `apps/desktop/`: a Tauri 2 shell, a Rust engine, and a Next.js + shadcn/ui interface. Read `apps/desktop/README.md` (layout and features), `apps/desktop/docs/TEMPLATE_SYNTAX.md` (the snippet format) and `apps/desktop/RELEASING.md` (releases, updates, iCloud sync) before changing behaviour.
+Kudzu is a native macOS text expander. The app lives in `apps/macos`. The marketing site lives in `apps/website`. Read `apps/macos/README.md`, `apps/macos/docs/TEMPLATE_SYNTAX.md`, and `apps/macos/RELEASING.md` before changing behaviour.
 
 ## Layout
 
-- The root is a pnpm workspace with Turborepo. `apps/desktop/` and `apps/website/` keep separate app configs; dependencies resolve through the root lockfile. Run installs at the root.
-- `packages/oxlint-config` and `packages/typescript-config`: shared frontend checks. Use Oxlint for linting and TypeScript for type checks.
-- `apps/website/`: the Next.js App Router marketing site for kudzu.site. See `apps/website/README.md` for its components and Vercel settings.
-- `apps/desktop/src-tauri/crates/kudzu-core`: pure Rust, with no OS APIs. Types, the template parser and renderer, the trigger matcher, Espanso and JSON interchange, backups, dedupe, and the iCloud sync model (`sync.rs`). Anything that can be unit-tested goes here.
-- `apps/desktop/src-tauri/crates/kudzu-engine`: system integration. The CGEventTap, insertion, permissions and the caret position.
-- `apps/desktop/src-tauri/src`: the Tauri shell:
-  - store and IPC commands
-  - windows and tray
-  - updater (`updater.rs`)
-  - CloudKit layer (`cloud/`)
-- `apps/desktop/app`, `components`, `lib`: the UI.
-  - `components/ui` holds shadcn primitives, `components/app` holds Kudzu's own components.
-  - `lib/mock.ts` is an in-memory backend for the browser preview (`pnpm dev`).
+- The root is a pnpm workspace with Turborepo. `apps/website` is a Next.js package. `apps/macos` is the Swift app and is not a pnpm package. Run `pnpm install` at the root.
+- `packages/oxlint-config` and `packages/typescript-config`: shared website checks. Use Oxlint for linting and TypeScript for type checks.
+- `apps/macos/Packages/KudzuKit`: the Swift package. `KudzuCore` holds types, the template parser, matching, interchange, and sync (`Sources/KudzuCore/Sync/Sync.swift`). `KudzuEngine` is keyboard input and insertion.
+- `apps/macos/Kudzu`: the app target. The version is `Kudzu/Version.xcconfig`. `Kudzu.xcodeproj` is generated from `project.yml`.
+- `apps/website`: the Next.js site for kudzu.site. See `apps/website/README.md`.
 
 ## Commands
 
 ```sh
-pnpm install                # root workspace install
-pnpm dev                    # desktop browser preview + website
-pnpm dev:app                # full Tauri development app
-pnpm check                  # type-check and lint both frontends
-pnpm build                  # both frontend builds, cached by Turbo
+pnpm install
+pnpm dev:website            # http://localhost:3001
+pnpm dev:app                # apps/macos/scripts/dev.sh (Kudzu Dev)
+pnpm check                  # website lint and types
+pnpm build:website
 
-cd apps/desktop
-pnpm dev                    # UI in a browser, mock backend (?view=settings:about, ?light, ?update, …)
-pnpm tauri dev              # full app
-pnpm typecheck && pnpm lint
-cd src-tauri && cargo test --workspace && cargo clippy --workspace --all-targets -- -D warnings
+cd apps/macos/Packages/KudzuKit && swift test
 ```
 
-CI (`.github/workflows/ci.yml`) installs at the root, checks and builds both frontends through Turbo, then runs the design checks and Rust checks. Native Tauri builds and signing stay outside Turbo caching.
+CI (`.github/workflows/ci.yml`) checks the website, runs `swift test`, and compiles the Release app. Signing and notarization stay in `apps/macos/scripts/build-app.sh`.
 
 ## Conventions
 
-- **Commit messages** follow Conventional Commits (`feat:`, `fix:`, `perf:`, …). release-please reads them to version releases and write the changelog. Only commits touching `apps/desktop/` count.
+- **Commit messages** follow Conventional Commits (`feat:`, `fix:`, `perf:`, …). release-please reads commits that touch `apps/macos/` and writes `apps/macos/CHANGELOG.md`. The manifest is `0.6.0`; put `Release-As: 0.7.0` in the migration commit body before release-please runs.
 - **Library JSON is a contract.** Make additive changes only: new fields are optional or defaulted, so old files and other Macs still decode them.
-- **Sync.** Follow the rules in `kudzu_core::sync` and RELEASING.md:
-  - new fields are free (they're JSON keys inside `payload`);
-  - bump `SYNC_VERSION` only for changes older builds would misread;
-  - CloudKit's Production schema is add-only.
-- **Restricted entitlements.** Never add iCloud (or other restricted) entitlements to `tauri.conf.json`; they live in `tauri.icloud.conf.json` and only apply with a provisioning profile.
-- **Never edit generated files:** `src-tauri/gen/` and the `AGENTS.md` block that `next dev` writes.
-- **Tests:** Rust tests sit next to the code (`#[cfg(test)]`) or in `crates/*/tests`. Write them first for core logic.
-- **UI:** shadcn components plus the depth tokens in `app/globals.css` (`shadow-card`, `shadow-raised`, `shadow-well`, …). Shortcuts render with `Shortcut`, which is built on shadcn `Kbd`.
-- **Dependencies:** don't add third-party dependencies without asking.
+- **Sync.** Follow `KudzuCore/Sync/Sync.swift` and `apps/macos/RELEASING.md`. New fields are free. Bump `SYNC_VERSION` only when an older build would misread the change. CloudKit Production is add-only.
+- **Restricted entitlements.** They live only in `apps/macos/Kudzu/Kudzu.icloud.entitlements`. `scripts/build-app.sh` applies that file when `Kudzu.provisionprofile` matches this app. Do not set them as `CODE_SIGN_ENTITLEMENTS` in `project.yml`.
+- **Generated project.** Do not hand-edit `Kudzu.xcodeproj`. After `project.yml` changes, run `xcodegen generate` in `apps/macos`.
+- **Tests.** Swift Testing tests sit next to the modules. Golden fixtures under `Tests/KudzuCoreTests/Fixtures` stay frozen.
+- **Dependencies.** Do not add third-party dependencies without asking.

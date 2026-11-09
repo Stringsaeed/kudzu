@@ -1,0 +1,8 @@
+// The app's version: the single source of truth. release-please bumps the line marked
+// x-release-please-version (release-please-config.json), scripts/build-app.sh reads it, and
+// Xcode builds read it through project.yml's configFiles. Betas don't edit it: CI passes
+// MARKETING_VERSION=X.Y.Z-beta.N to xcodebuild for that build only.
+MARKETING_VERSION = 0.6.0 // x-release-please-version
+
+// Build number (CFBundleVersion). CI sets it to the workflow run number.
+CURRENT_PROJECT_VERSION = 1

@@ -1,0 +1,163 @@
+{
+  "formatVersion": 1,
+  "groups": [
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000001",
+      "isEnabled": true,
+      "name": "Work",
+      "sortIndex": 0
+    },
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000002",
+      "insertion": "paste",
+      "isEnabled": true,
+      "name": "Email",
+      "parentID": "a1b2c3d4-e5f6-4a7b-8c9d-000000000001",
+      "rule": {
+        "bundleIDs": [
+          "com.apple.mail"
+        ],
+        "mode": "allow"
+      },
+      "sortIndex": 0
+    },
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-000000000003",
+      "isEnabled": false,
+      "name": "Archive — old",
+      "parentID": "a1b2c3d4-e5f6-4a7b-8c9d-000000000002",
+      "rule": {
+        "bundleIDs": [],
+        "insertion": "type",
+        "mode": "deny"
+      },
+      "sortIndex": 2
+    }
+  ],
+  "snippets": [
+    {
+      "caseMode": "exact",
+      "content": "Hello **world**, see docs and {{cursor}} ￼",
+      "createdAt": "2026-09-29T09:30:15Z",
+      "fireMode": "wholeWord",
+      "formatting": {
+        "source": "Hello **world**, see docs and {{cursor}} ￼",
+        "spans": [
+          {
+            "end": 5,
+            "start": 0,
+            "style": {
+              "kind": "bold"
+            }
+          },
+          {
+            "end": 15,
+            "start": 6,
+            "style": {
+              "kind": "italic"
+            }
+          },
+          {
+            "end": 15,
+            "start": 6,
+            "style": {
+              "kind": "underline"
+            }
+          },
+          {
+            "end": 25,
+            "start": 21,
+            "style": {
+              "kind": "link",
+              "url": "https://kudzu.site/docs?a=1&b=2"
+            }
+          },
+          {
+            "end": 42,
+            "start": 41,
+            "style": {
+              "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+              "kind": "image",
+              "width": 240
+            }
+          }
+        ]
+      },
+      "groupID": "a1b2c3d4-e5f6-4a7b-8c9d-000000000002",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a",
+      "insertion": "type",
+      "isEnabled": false,
+      "isFavorite": true,
+      "name": "Everything set",
+      "rule": {
+        "bundleIDs": [
+          "com.tinyspeck.slackmacgap",
+          "com.apple.Terminal"
+        ],
+        "insertion": "paste",
+        "mode": "deny"
+      },
+      "triggers": [
+        ";all",
+        ";ALL2"
+      ],
+      "updatedAt": "2026-11-08T09:30:15Z"
+    },
+    {
+      "caseMode": "propagate",
+      "content": "Unicode: café 🚀 \"quotes\" \\ / \n\ttab",
+      "createdAt": "2026-11-08T09:29:15Z",
+      "fireMode": "immediate",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000b",
+      "isEnabled": true,
+      "isFavorite": false,
+      "name": "Defaults only",
+      "triggers": [
+        ";d"
+      ],
+      "updatedAt": "2026-11-08T09:29:45Z"
+    },
+    {
+      "caseMode": "propagate",
+      "content": "",
+      "createdAt": "2026-11-08T09:30:15Z",
+      "fireMode": "immediate",
+      "groupID": "a1b2c3d4-e5f6-4a7b-8c9d-000000000003",
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000c",
+      "insertion": "automatic",
+      "isEnabled": true,
+      "isFavorite": false,
+      "name": "",
+      "rule": {
+        "bundleIDs": [
+          "com.apple.Notes"
+        ],
+        "mode": "allow"
+      },
+      "triggers": [],
+      "updatedAt": "2026-11-08T09:30:15Z"
+    }
+  ],
+  "usage": [
+    {
+      "charsSaved": 4096,
+      "count": 128,
+      "deviceID": "mac-studio",
+      "lastUsedAt": "2026-11-08T08:30:15Z",
+      "snippetID": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a"
+    },
+    {
+      "charsSaved": -2,
+      "count": 3,
+      "deviceID": "macbook",
+      "snippetID": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a"
+    },
+    {
+      "charsSaved": 0,
+      "count": 0,
+      "deviceID": "",
+      "lastUsedAt": "2026-11-08T09:30:14Z",
+      "snippetID": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000b"
+    }
+  ]
+}

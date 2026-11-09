@@ -1,0 +1,44 @@
+[
+  {
+    "content": "Hi {{field name=\"Name\"}}",
+    "fields": [
+      {
+        "defaultValue": null,
+        "kind": "text",
+        "name": "Name",
+        "options": []
+      },
+      {
+        "defaultValue": "M",
+        "kind": "choice",
+        "name": "Size",
+        "options": [
+          "S",
+          "M"
+        ]
+      }
+    ],
+    "initialValues": {
+      "Name": "Ada",
+      "Size": "M"
+    },
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000a",
+    "snippetName": "Bug report",
+    "targetApp": {
+      "bundleId": "com.apple.Notes",
+      "name": "Notes",
+      "path": null,
+      "pid": null
+    },
+    "token": 1
+  },
+  {
+    "content": "",
+    "fields": [],
+    "initialValues": {},
+    "snippetId": "a1b2c3d4-e5f6-4a7b-8c9d-00000000000b",
+    "snippetName": "x",
+    "targetApp": null,
+    "token": 2
+  }
+]

@@ -1,0 +1,298 @@
+[
+  {
+    "name": "list_snippets",
+    "title": "List snippets",
+    "description": "Lists the user's snippets, or searches them by name, trigger and content. Returns ids, triggers, a short preview and how often each was used.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Words to search for in names, triggers and content."
+        },
+        "group": {
+          "type": "string",
+          "description": "Only snippets in this group (id, name or path like \"Work/Email\"), including its subgroups."
+        },
+        "favoritesOnly": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 50
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotations": {
+      "title": "List snippets",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_snippet",
+    "title": "Read a snippet",
+    "description": "Returns one snippet's full template, triggers, settings and fill-in fields. Pass its id or one of its triggers.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Snippet id from list_snippets."
+        },
+        "trigger": {
+          "type": "string",
+          "description": "One of the snippet's triggers, such as \";sig\"."
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotations": {
+      "title": "Read a snippet",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "expand_snippet",
+    "title": "Expand a snippet",
+    "description": "Renders a snippet as if the user typed its trigger now: dates, nested snippets and the clipboard are filled in. Fill-in fields take `values`; missing ones use their defaults.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "trigger": {
+          "type": "string"
+        },
+        "values": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Fill-in field values by field name."
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotations": {
+      "title": "Expand a snippet",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "list_groups",
+    "title": "List groups",
+    "description": "Lists the folders snippets are organized in, with their paths and snippet counts.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "annotations": {
+      "title": "List groups",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "create_snippet",
+    "title": "Create a snippet",
+    "description": "Adds a snippet to the user's library. It works in every app right away. Triggers conventionally start with \"{prefix}\" (for example \"{prefix}addr\") and must not already be in use. Only create snippets the user asked for.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "A short descriptive name."
+        },
+        "content": {
+          "type": "string",
+          "description": "The template: text plus optional {{tags}} (see the server instructions)."
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "What the user types to expand it."
+        },
+        "group": {
+          "type": "string",
+          "description": "Group id, name or path (\"Work/Email\"). Missing groups are created."
+        },
+        "fireMode": {
+          "type": "string",
+          "enum": [
+            "immediate",
+            "wholeWord"
+          ],
+          "description": "immediate (default) expands as soon as the trigger is typed; wholeWord waits for a space or punctuation."
+        },
+        "caseMode": {
+          "type": "string",
+          "enum": [
+            "propagate",
+            "exact"
+          ],
+          "description": "propagate (default) matches ;Sig and ;SIG and adapts the output's case; exact matches only as written."
+        },
+        "favorite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "content",
+        "triggers"
+      ]
+    },
+    "annotations": {
+      "title": "Create a snippet",
+      "readOnlyHint": false,
+      "openWorldHint": false,
+      "destructiveHint": false,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "update_snippet",
+    "title": "Edit a snippet",
+    "description": "Changes an existing snippet. Pass its id and only the fields to change. Content of formatted snippets, and of snippets that hold a password or key, can only be edited in Kudzu.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "description": "Replaces all triggers."
+        },
+        "group": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Group id, name or path; null or \"\" moves it out of any group."
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "favorite": {
+          "type": "boolean"
+        },
+        "fireMode": {
+          "type": "string",
+          "enum": [
+            "immediate",
+            "wholeWord"
+          ]
+        },
+        "caseMode": {
+          "type": "string",
+          "enum": [
+            "propagate",
+            "exact"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "annotations": {
+      "title": "Edit a snippet",
+      "readOnlyHint": false,
+      "openWorldHint": false,
+      "destructiveHint": true,
+      "idempotentHint": false
+    }
+  },
+  {
+    "name": "list_clipboard",
+    "title": "Search clipboard history",
+    "description": "Lists what the user copied recently, newest first, with the app it came from. Passwords, keys and tokens are withheld.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "Words to search for in the copied text, file paths and app names."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "text",
+            "code",
+            "link",
+            "color",
+            "image",
+            "file",
+            "other"
+          ]
+        },
+        "pinnedOnly": {
+          "type": "boolean"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        }
+      },
+      "additionalProperties": false
+    },
+    "annotations": {
+      "title": "Search clipboard history",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  },
+  {
+    "name": "get_clipboard_item",
+    "title": "Read a clipboard item",
+    "description": "Returns the full text of one clipboard history item (list results are shortened).",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "annotations": {
+      "title": "Read a clipboard item",
+      "readOnlyHint": true,
+      "openWorldHint": false
+    }
+  }
+]

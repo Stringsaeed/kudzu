@@ -3,17 +3,14 @@
   "private": true,
   "scripts": {
     "dev": "turbo run dev",
-    "dev:desktop": "turbo run dev --filter=kudzu-desktop",
     "dev:website": "turbo run dev --filter=kudzu-website",
-    "dev:app": "pnpm --filter kudzu-desktop tauri dev",
+    "dev:app": "bash apps/macos/scripts/dev.sh",
     "build": "turbo run build",
-    "build:desktop": "turbo run build --filter=kudzu-desktop",
     "build:website": "turbo run build --filter=kudzu-website",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "check": "turbo run lint typecheck",
-    "test:rust": "pnpm --filter kudzu-desktop test:rust",
-    "lint:rust": "pnpm --filter kudzu-desktop lint:rust"
+    "test:macos": "cd apps/macos/Packages/KudzuKit && swift test"
   },
   "devDependencies": {
     "oxlint": "1.91.0",

@@ -1,0 +1,764 @@
+[
+  {
+    "changes": {
+      "deletes": [],
+      "saves": []
+    },
+    "deleted": [],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"S1\",\"triggers\":[\";a\"],\"content\":\"theirs\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"fireMode\":\"immediate\",\"caseMode\":\"propagate\",\"isFavorite\":false,\"isEnabled\":true,\"createdAt\":\"2026-11-01T00:00:00Z\",\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "theirs",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:05:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": true,
+    "name": 0,
+    "needsUpdate": false,
+    "records": [
+      {
+        "kind": "Snippet",
+        "name": "snippet-00000000-0000-0000-0000-000000000001",
+        "payload": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"S1\",\"triggers\":[\";a\"],\"content\":\"theirs\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"fireMode\":\"immediate\",\"caseMode\":\"propagate\",\"isFavorite\":false,\"isEnabled\":true,\"createdAt\":\"2026-11-01T00:00:00Z\",\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+      }
+    ]
+  },
+  {
+    "changes": {
+      "deletes": [],
+      "saves": [
+        "snippet-00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    "deleted": [],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"S1\",\"triggers\":[\";a\"],\"content\":\"theirs\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"fireMode\":\"immediate\",\"caseMode\":\"propagate\",\"isFavorite\":false,\"isEnabled\":true,\"createdAt\":\"2026-11-01T00:00:00Z\",\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "mine",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:10:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "mine",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:10:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": false,
+    "name": 1,
+    "needsUpdate": false,
+    "records": [
+      {
+        "kind": "Snippet",
+        "name": "snippet-00000000-0000-0000-0000-000000000001",
+        "payload": "{\"id\":\"00000000-0000-0000-0000-000000000001\",\"name\":\"S1\",\"triggers\":[\";a\"],\"content\":\"theirs\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"fireMode\":\"immediate\",\"caseMode\":\"propagate\",\"isFavorite\":false,\"isEnabled\":true,\"createdAt\":\"2026-11-01T00:00:00Z\",\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+      }
+    ]
+  },
+  {
+    "changes": {
+      "deletes": [],
+      "saves": [
+        "snippet-00000000-0000-0000-0000-000000000001"
+      ]
+    },
+    "deleted": [
+      "group-00000000-0000-0000-0000-000000000002"
+    ],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": true,
+    "name": 2,
+    "needsUpdate": false,
+    "records": []
+  },
+  {
+    "changes": {
+      "deletes": [],
+      "saves": []
+    },
+    "deleted": [
+      "snippet-00000000-0000-0000-0000-000000000001"
+    ],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": true,
+    "name": 3,
+    "needsUpdate": false,
+    "records": []
+  },
+  {
+    "changes": {
+      "deletes": [],
+      "saves": []
+    },
+    "deleted": [],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":2}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 2
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": false,
+    "name": 4,
+    "needsUpdate": true,
+    "records": [
+      {
+        "kind": "Meta",
+        "name": "meta",
+        "payload": "{\"syncVersion\":2}"
+      }
+    ]
+  },
+  {
+    "changes": {
+      "deletes": [],
+      "saves": []
+    },
+    "deleted": [],
+    "expectedIndex": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"color\":\"green\",\"content\":\"theirs\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "expectedLibrary": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "theirs",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:05:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "index": {
+      "initialMergeDone": false,
+      "records": {
+        "group-00000000-0000-0000-0000-000000000002": {
+          "kind": "Group",
+          "payload": "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"isEnabled\":true,\"name\":\"Work\",\"sortIndex\":0}"
+        },
+        "meta": {
+          "kind": "Meta",
+          "payload": "{\"syncVersion\":1}"
+        },
+        "snippet-00000000-0000-0000-0000-000000000001": {
+          "kind": "Snippet",
+          "payload": "{\"caseMode\":\"propagate\",\"content\":\"content 1\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:00:00Z\"}"
+        },
+        "usage-mac-a": {
+          "kind": "Usage",
+          "payload": "{\"deviceID\":\"mac-a\",\"rows\":[{\"charsSaved\":30,\"count\":3,\"deviceID\":\"mac-a\",\"snippetID\":\"00000000-0000-0000-0000-000000000001\"}]}"
+        }
+      },
+      "serverSyncVersion": 1
+    },
+    "library": {
+      "formatVersion": 1,
+      "groups": [
+        {
+          "id": "00000000-0000-0000-0000-000000000002",
+          "isEnabled": true,
+          "name": "Work",
+          "sortIndex": 0
+        }
+      ],
+      "snippets": [
+        {
+          "caseMode": "propagate",
+          "content": "content 1",
+          "createdAt": "2026-11-01T00:00:00Z",
+          "fireMode": "immediate",
+          "groupID": "00000000-0000-0000-0000-000000000002",
+          "id": "00000000-0000-0000-0000-000000000001",
+          "isEnabled": true,
+          "isFavorite": false,
+          "name": "S1",
+          "triggers": [
+            ";a"
+          ],
+          "updatedAt": "2026-11-01T00:00:00Z"
+        }
+      ],
+      "usage": [
+        {
+          "charsSaved": 30,
+          "count": 3,
+          "deviceID": "mac-a",
+          "snippetID": "00000000-0000-0000-0000-000000000001"
+        }
+      ]
+    },
+    "libraryChanged": true,
+    "name": 5,
+    "needsUpdate": false,
+    "records": [
+      {
+        "kind": "Snippet",
+        "name": "snippet-00000000-0000-0000-0000-000000000001",
+        "payload": "{\"caseMode\":\"propagate\",\"color\":\"green\",\"content\":\"theirs\",\"createdAt\":\"2026-11-01T00:00:00Z\",\"fireMode\":\"immediate\",\"groupID\":\"00000000-0000-0000-0000-000000000002\",\"id\":\"00000000-0000-0000-0000-000000000001\",\"isEnabled\":true,\"isFavorite\":false,\"name\":\"S1\",\"triggers\":[\";a\"],\"updatedAt\":\"2026-11-01T00:05:00Z\"}"
+      }
+    ]
+  }
+]

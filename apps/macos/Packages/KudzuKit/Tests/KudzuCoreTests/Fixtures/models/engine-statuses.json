@@ -1,0 +1,41 @@
+[
+  {
+    "canExpand": false,
+    "canPostEvents": true,
+    "paused": false,
+    "permissions": {
+      "accessibility": true,
+      "inputMonitoring": false
+    },
+    "secureInput": true,
+    "secureInputOwner": "loginwindow",
+    "summary": "Secure Input on — expansion blocked",
+    "tap": "listenOnly"
+  },
+  {
+    "canExpand": false,
+    "canPostEvents": false,
+    "paused": true,
+    "permissions": {
+      "accessibility": false,
+      "inputMonitoring": false
+    },
+    "secureInput": false,
+    "secureInputOwner": null,
+    "summary": "Paused",
+    "tap": "off"
+  },
+  {
+    "canExpand": true,
+    "canPostEvents": true,
+    "paused": false,
+    "permissions": {
+      "accessibility": true,
+      "inputMonitoring": true
+    },
+    "secureInput": false,
+    "secureInputOwner": null,
+    "summary": "Ready",
+    "tap": "active"
+  }
+]

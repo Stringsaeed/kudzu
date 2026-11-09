@@ -1,5 +1,7 @@
 # Cutting a release:
 #   1. Merge work into main with Conventional Commit messages (feat:, fix:, perf: …).
+#      Only commits that touch apps/macos count. The manifest is still 0.6.0, so the first
+#      migration commit body must include a Release-As: 0.7.0 footer before release-please runs.
 #   2. release-please keeps a "chore: release x.y.z" PR open with the version bump + CHANGELOG.
 #   3. Merge that PR → it tags vX.Y.Z and opens a *draft* GitHub release; this workflow then
 #      builds, signs, notarizes, uploads the DMG + updater feed, publishes the release and
@@ -13,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to build and publish (e.g. v0.2.0)
+        description: Existing tag to build and publish (e.g. v0.7.0)
         required: true
 
 permissions:
@@ -29,8 +31,8 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
-      created: ${{ steps.rp.outputs['apps/desktop--release_created'] }}
-      tag: ${{ steps.rp.outputs['apps/desktop--tag_name'] }}
+      created: ${{ steps.rp.outputs['apps/macos--release_created'] }}
+      tag: ${{ steps.rp.outputs['apps/macos--tag_name'] }}
     steps:
       - id: rp
         uses: googleapis/release-please-action@v4
@@ -40,7 +42,8 @@ jobs:
           # as that user and the same Git Data API call is stored unsigned.
           # The main ruleset has no bypass, so this token can update the release branch and
           # open the PR, and it cannot push to main. CI on that PR waits for
-          # "Approve workflows to run" before the required desktop check goes green.
+          # "Approve workflows to run" before the required macos check goes green.
+          # Rename the branch-protection required check from desktop to macos when this lands.
           token: ${{ github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json

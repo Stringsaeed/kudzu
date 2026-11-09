@@ -8,20 +8,22 @@ export const site = {
   issues: "https://github.com/Stringsaeed/kudzu/issues",
   license: "https://github.com/Stringsaeed/kudzu/blob/main/LICENSE",
   engineSource:
-    "https://github.com/Stringsaeed/kudzu/tree/main/apps/desktop/src-tauri/crates/kudzu-engine",
+    "https://github.com/Stringsaeed/kudzu/tree/main/apps/macos/Packages/KudzuKit/Sources/KudzuEngine",
   keyBufferSource:
-    "https://github.com/Stringsaeed/kudzu/blob/main/apps/desktop/src-tauri/crates/kudzu-core/src/matching/key_buffer.rs",
+    "https://github.com/Stringsaeed/kudzu/blob/main/apps/macos/Packages/KudzuKit/Sources/KudzuCore/Matching/KeyBuffer.swift",
   templateSyntax:
-    "https://github.com/Stringsaeed/kudzu/blob/main/apps/desktop/docs/TEMPLATE_SYNTAX.md",
+    "https://github.com/Stringsaeed/kudzu/blob/main/apps/macos/docs/TEMPLATE_SYNTAX.md",
   releases: "https://github.com/Stringsaeed/kudzu/releases/latest",
   allReleases: "https://github.com/Stringsaeed/kudzu/releases",
   // Resolves to the newest stable DMG. See app/download/route.ts.
   download: "/download",
   brew: "brew install --cask stringsaeed/tap/kudzu",
   mcp: {
-    binary: "/Applications/Kudzu.app/Contents/MacOS/kudzu-desktop",
+    // Settings shows the real executable. The app also ships Contents/MacOS/kudzu-desktop
+    // as a symlink to Kudzu, so a client registered before the native app still starts.
+    binary: "/Applications/Kudzu.app/Contents/MacOS/Kudzu",
     claudeCommand:
-      "claude mcp add --scope user kudzu -- /Applications/Kudzu.app/Contents/MacOS/kudzu-desktop --mcp",
+      "claude mcp add --scope user kudzu -- /Applications/Kudzu.app/Contents/MacOS/Kudzu --mcp",
     skillDir: "/Applications/Kudzu.app/Contents/Resources/skills/kudzu",
   },
 };

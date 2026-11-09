@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/desktop/design/app-icon/Kudzu-1024.png" width="112" height="112" alt="Kudzu app icon">
+  <img src="apps/macos/design/app-icon/Kudzu-1024.png" width="112" height="112" alt="Kudzu app icon">
 </p>
 
 <h1 align="center">Kudzu</h1>
@@ -50,7 +50,7 @@ Or download the universal DMG from [GitHub Releases](https://github.com/Stringsa
 
 Use **Control + Option + Space** to find a snippet without remembering its trigger. Use **Control + Option + V** to search clipboard history.
 
-Kudzu checks for updates automatically. You can check manually or join the beta channel in **Settings → About**. For help with access, see [permission setup](apps/desktop/docs/PERMISSIONS.md).
+Kudzu checks for updates automatically. You can check manually or join the beta channel in **Settings → About**. For help with access, see [permission setup](apps/macos/docs/PERMISSIONS.md).
 
 ## Text shortcuts that do more
 
@@ -88,7 +88,7 @@ When you type `;followup`, Kudzu asks for the name and topic, calculates the dat
 | Cursor inside a function call | `console.log({{cursor}});` |
 | A dropdown | `{{choice name="Priority" options="Low\|Normal\|High" default="Normal"}}` |
 
-See the [template reference](apps/desktop/docs/TEMPLATE_SYNTAX.md) for formats, offsets, nested snippets, and import compatibility.
+See the [template reference](apps/macos/docs/TEMPLATE_SYNTAX.md) for formats, offsets, nested snippets, and import compatibility.
 
 ## Find what you copied
 
@@ -111,7 +111,7 @@ Kudzu skips clipboard items marked concealed or transient and excludes known pas
 
 Daily local library backups and backups before imports or restores provide a recovery path. Export your snippets to Kudzu JSON or Espanso YAML at any time.
 
-Coming from Espanso? Kudzu imports triggers, dates, clipboard variables, nested matches, and forms. Shell and script variables are imported as literal text with warnings. See the [compatibility table](apps/desktop/docs/TEMPLATE_SYNTAX.md#espanso-mapping-import) for the full mapping.
+Coming from Espanso? Kudzu imports triggers, dates, clipboard variables, nested matches, and forms. Shell and script variables are imported as literal text with warnings. See the [compatibility table](apps/macos/docs/TEMPLATE_SYNTAX.md#espanso-mapping-import) for the full mapping.
 
 ## Keyboard essentials
 
@@ -128,9 +128,9 @@ These are the default shortcuts in the installed app. The global shortcuts are c
 
 ## Development
 
-Kudzu uses a Rust expansion engine inside a Tauri 2 app, with a Next.js and shadcn/ui interface. The marketing website lives in the same pnpm workspace. Turborepo runs and caches the frontend tasks.
+Kudzu is a native Swift app. The marketing website lives in the same pnpm workspace. Turborepo runs and caches the website tasks.
 
-You need Node.js 22.12 or later and the pnpm version pinned in [`package.json`](package.json). Native app development also requires macOS, stable Rust, and Xcode Command Line Tools.
+You need Node.js 22.12 or later and the pnpm version pinned in [`package.json`](package.json) for the website. The app needs macOS and the full Xcode.
 
 ```sh
 git clone https://github.com/Stringsaeed/kudzu.git
@@ -138,21 +138,19 @@ cd kudzu
 pnpm install
 ```
 
-Start the desktop UI in a browser:
+Run the website:
 
 ```sh
-pnpm dev:desktop
+pnpm dev:website
 ```
 
-The browser preview uses an in-memory backend. It lets you explore the interface without native permissions; system-wide expansion and real clipboard capture require the native app.
-
-Run the native app on macOS:
+Run the app on macOS:
 
 ```sh
 pnpm dev:app
 ```
 
-This launches **Kudzu Dev**, with separate data and permissions from the installed app. It starts paused and uses **Control + Option + Shift + Space** for snippet search. Pause the installed app before resuming the dev engine to test expansion. See [development variants](apps/desktop/README.md#macos-development-variant) for details.
+This launches **Kudzu Dev**, with separate data and permissions from the installed app. It starts paused and uses **Control + Option + Shift + Space** for snippet search. Pause the installed app before resuming the dev engine to test expansion. See [apps/macos/README.md](apps/macos/README.md) for the data paths.
 
 ### Commands
 
@@ -160,24 +158,24 @@ Run these from the repository root:
 
 | Command | Purpose |
 | --- | --- |
-| `pnpm dev` | Desktop browser preview on port 3000 and website on port 3001 |
-| `pnpm dev:website` | Website only |
-| `pnpm check` | TypeScript and Oxlint checks for both frontends |
-| `pnpm build` | Desktop static export and website production build |
-| `pnpm test:rust` | Rust workspace tests on macOS |
-| `pnpm lint:rust` | Rust Clippy checks on macOS |
+| `pnpm dev:website` | Website on port 3001 |
+| `pnpm dev:app` | Build and open Kudzu Dev |
+| `pnpm check` | TypeScript and Oxlint checks for the website |
+| `pnpm build:website` | Website production build |
+| `pnpm test:macos` | Swift package tests |
+
+`pnpm dev` and `pnpm build` still run every workspace package that defines those tasks.
 
 ### Repository map
 
 | Directory | What lives here |
 | --- | --- |
-| [`apps/desktop/`](apps/desktop) | Desktop UI and Tauri shell |
-| [`kudzu-core/`](apps/desktop/src-tauri/crates/kudzu-core) | Pure Rust types, templates, trigger matching, interchange, and sync model |
-| [`kudzu-engine/`](apps/desktop/src-tauri/crates/kudzu-engine) | macOS keyboard events, insertion, permissions, and caret position |
+| [`apps/macos/`](apps/macos) | Native macOS app, design sources, and release scripts |
+| [`KudzuKit/`](apps/macos/Packages/KudzuKit) | Swift types, templates, matching, sync, keyboard, and the app shell |
 | [`apps/website/`](apps/website) | The [kudzu.site](https://kudzu.site) marketing website |
 | [`packages/`](packages) | Shared TypeScript and Oxlint configuration |
 
-For more detail, read the [desktop guide](apps/desktop/README.md), [website guide](apps/website/README.md), or [release and iCloud guide](apps/desktop/RELEASING.md).
+For more detail, read the [macOS guide](apps/macos/README.md), [website guide](apps/website/README.md), or [release and iCloud guide](apps/macos/RELEASING.md).
 
 ## Contributing
 

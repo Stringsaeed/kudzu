@@ -1,0 +1,14 @@
+[
+  {
+    "bundleId": "com.apple.mail",
+    "name": "Mail",
+    "path": "/System/Applications/Mail.app",
+    "pid": 812
+  },
+  {
+    "bundleId": "com.apple.Notes",
+    "name": "Notes",
+    "path": null,
+    "pid": null
+  }
+]

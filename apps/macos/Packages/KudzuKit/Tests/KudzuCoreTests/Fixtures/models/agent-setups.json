@@ -1,0 +1,29 @@
+[
+  {
+    "args": [
+      "--mcp",
+      "--dev"
+    ],
+    "bundledSkillDir": null,
+    "claudeCommand": "claude mcp add --scope user kudzu-dev -- '/Applications/Kudzu Dev.app/Contents/MacOS/Kudzu Dev' --mcp --dev",
+    "command": "/Applications/Kudzu Dev.app/Contents/MacOS/Kudzu Dev",
+    "configJson": "{\n  \"mcpServers\": {}\n}",
+    "name": "kudzu-dev",
+    "running": true,
+    "skill": "outdated",
+    "skillPath": "~/.claude/skills/kudzu/SKILL.md"
+  },
+  {
+    "args": [
+      "--mcp"
+    ],
+    "bundledSkillDir": "/Applications/Kudzu.app/Contents/Resources/skills/kudzu",
+    "claudeCommand": "claude mcp add --scope user kudzu -- /Applications/Kudzu.app/Contents/MacOS/Kudzu --mcp",
+    "command": "/Applications/Kudzu.app/Contents/MacOS/Kudzu",
+    "configJson": "{}",
+    "name": "kudzu",
+    "running": false,
+    "skill": "missing",
+    "skillPath": "~/.claude/skills/kudzu/SKILL.md"
+  }
+]

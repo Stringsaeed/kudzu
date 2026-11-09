@@ -1,0 +1,45 @@
+[
+  {
+    "phase": "idle"
+  },
+  {
+    "phase": "checking"
+  },
+  {
+    "checkedAt": "2026-11-08T09:30:15.123456+00:00",
+    "phase": "upToDate"
+  },
+  {
+    "downloaded": 1024,
+    "phase": "downloading",
+    "total": 4194304,
+    "version": "0.7.0"
+  },
+  {
+    "downloaded": 0,
+    "phase": "downloading",
+    "total": null,
+    "version": "0.7.0"
+  },
+  {
+    "date": "2026-11-08T09:30:15Z",
+    "notes": "## 0.7.0\n\n* faster",
+    "phase": "ready",
+    "version": "0.7.0"
+  },
+  {
+    "date": null,
+    "notes": null,
+    "phase": "ready",
+    "version": "0.7.0"
+  },
+  {
+    "phase": "restarting",
+    "version": "0.7.0"
+  },
+  {
+    "message": "Move Kudzu to Applications to update it.",
+    "needsMove": true,
+    "phase": "error"
+  }
+]

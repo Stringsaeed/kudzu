@@ -1,0 +1,247 @@
+[
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-000000000001",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "a b\nc\n",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-000000000001",
+            "id": "7a310000-0000-4000-8000-000000000002",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: >\n      a\n      b\n\n      c\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-000000000003",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "a\n\n",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-000000000003",
+            "id": "7a310000-0000-4000-8000-000000000004",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: |+\n      a\n\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-000000000005",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "a b\nc",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-000000000005",
+            "id": "7a310000-0000-4000-8000-000000000006",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: a\n      b\n\n      c\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-000000000007",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "a b\nc",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-000000000007",
+            "id": "7a310000-0000-4000-8000-000000000008",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: \"a\n      b\n\n      c\"\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-000000000009",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "a b\nc",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-000000000009",
+            "id": "7a310000-0000-4000-8000-00000000000a",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: 'a\n      b\n\n      c'\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-00000000000b",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "ab",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-00000000000b",
+            "id": "7a310000-0000-4000-8000-00000000000c",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches:\n  - trigger: ':x'\n    replace: \"a\\\n      b\"\n"
+  },
+  {
+    "expected": {
+      "library": {
+        "formatVersion": 1,
+        "groups": [
+          {
+            "id": "7a310000-0000-4000-8000-00000000000d",
+            "isEnabled": true,
+            "name": "case",
+            "sortIndex": 0
+          }
+        ],
+        "snippets": [
+          {
+            "caseMode": "exact",
+            "content": "abc",
+            "createdAt": "2026-11-01T00:00:00Z",
+            "fireMode": "immediate",
+            "groupID": "7a310000-0000-4000-8000-00000000000d",
+            "id": "7a310000-0000-4000-8000-00000000000e",
+            "isEnabled": true,
+            "isFavorite": false,
+            "name": ":x",
+            "triggers": [
+              ":x"
+            ],
+            "updatedAt": "2026-11-01T00:00:00Z"
+          }
+        ],
+        "usage": []
+      },
+      "warnings": []
+    },
+    "text": "matches: [\n  {trigger: ':x',\n   replace: 'abc'}\n]\n"
+  }
+]
