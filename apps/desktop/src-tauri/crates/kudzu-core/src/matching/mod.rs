@@ -47,9 +47,13 @@ pub struct MatchingConfig {
 }
 
 impl MatchingConfig {
-    /// `. , ! ? ; : ) ] } ' "`
+    /// `. , ! ? ; : ) ] } ' "`, plus the common punctuation of other scripts (Spanish, French,
+    /// typographic quotes and dashes, CJK, Arabic, Hebrew, Devanagari). Symbols that join words
+    /// (`-`, `_`, `@`, `/`) and the ASCII opening brackets are not separators.
     pub fn default_separators() -> HashSet<char> {
-        ['.', ',', '!', '?', ';', ':', ')', ']', '}', '\'', '"'].into_iter().collect()
+        const ASCII: &str = ".,!?;:)]}'\"";
+        const OTHER: &str = "¿¡«»‹›“”‘’„‚…–—。、，．！？；：（）［］｛｝「」『』【】〈〉《》،؛؟۔׃־।॥";
+        ASCII.chars().chain(OTHER.chars()).collect()
     }
 
     /// Password managers and the login window.
@@ -210,6 +214,26 @@ impl TriggerMatch {
     }
 }
 
+/// Why a fully typed trigger did not fire.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SkipCause {
+    /// The snippet itself is turned off.
+    SnippetOff,
+    /// The nearest group in its ancestry that is turned off.
+    GroupOff { group_id: Uuid },
+    /// An app rule or exclusion. `group_id` is set at [`RuleLevel::Group`](crate::activity::RuleLevel::Group).
+    Rule { level: crate::activity::RuleLevel, group_id: Option<Uuid> },
+}
+
+/// A trigger that was typed in full but may not fire here. Never holds the text as typed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SkippedMatch {
+    pub snippet_id: Uuid,
+    /// The trigger as stored.
+    pub trigger: String,
+    pub cause: SkipCause,
+}
+
 /// What the app must do to revert the last expansion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UndoAction {
@@ -234,7 +258,8 @@ pub struct TriggerIndex {
 }
 
 impl TriggerIndex {
-    /// Builds the index (skips effectively disabled snippets and empty triggers).
+    /// Builds the index. Effectively disabled snippets never fire; they are kept only so
+    /// [`find_skipped`](Self::find_skipped) can say why. Empty triggers are skipped.
     pub fn new(snippets: &[SnippetRecord], groups: &[GroupRecord], config: MatchingConfig) -> Self {
         TriggerIndex { data: Arc::new(index::IndexData::new(snippets, groups, config)) }
     }
@@ -260,6 +285,15 @@ impl TriggerIndex {
     pub fn find_match(&self, buffer: &KeyBuffer, last_input: &KeyInput, bundle_id: Option<&str>) -> Option<TriggerMatch> {
         self.data.find_match(buffer, last_input, bundle_id)
     }
+
+    /// Why the trigger completed by `last_input` did not fire. Call only after
+    /// [`find_match`](Self::find_match) returned `None` for the same keystroke.
+    ///
+    /// Reports full matches only (the same firing conditions as `find_match`), so a near-miss
+    /// or ordinary typing yields `None`.
+    pub fn find_skipped(&self, buffer: &KeyBuffer, last_input: &KeyInput, bundle_id: Option<&str>) -> Option<SkippedMatch> {
+        self.data.find_skipped(buffer, last_input, bundle_id)
+    }
 }
 
 /// Buffer + index + undo tracker: the single entry point for the event tap.
@@ -269,6 +303,8 @@ pub struct ExpansionMatcher {
     buffer: KeyBuffer,
     index: TriggerIndex,
     undo: UndoTracker,
+    /// The last handled keystroke was typed text that fired nothing.
+    missed: bool,
 }
 
 impl ExpansionMatcher {
@@ -279,7 +315,7 @@ impl ExpansionMatcher {
 
     /// A matcher over `index`.
     pub fn with_index(index: TriggerIndex) -> Self {
-        ExpansionMatcher { buffer: KeyBuffer::new(), index, undo: UndoTracker::new() }
+        ExpansionMatcher { buffer: KeyBuffer::new(), index, undo: UndoTracker::new(), missed: false }
     }
 
     /// The rolling key buffer.
@@ -292,6 +328,7 @@ impl ExpansionMatcher {
     /// A backspace right after `did_expand` returns `Undo` and is not applied to the buffer (the app
     /// swallows it). Otherwise the buffer is updated and a completed trigger returns `Expand`.
     pub fn handle(&mut self, input: KeyInput, bundle_id: Option<&str>) -> Option<MatcherEvent> {
+        self.missed = false;
         if let Some(undo) = self.undo.consume(&input) {
             // Mirror the document after the app retypes the trigger; no matching is attempted.
             self.buffer.reset();
@@ -299,7 +336,18 @@ impl ExpansionMatcher {
             return Some(MatcherEvent::Undo(undo));
         }
         self.buffer.apply(&input);
-        self.index.find_match(&self.buffer, &input, bundle_id).map(MatcherEvent::Expand)
+        let found = self.index.find_match(&self.buffer, &input, bundle_id);
+        self.missed = found.is_none() && matches!(input, KeyInput::Character(_));
+        found.map(MatcherEvent::Expand)
+    }
+
+    /// Why the keystroke just passed to [`handle`](Self::handle) fired nothing, when it completed
+    /// a trigger that is turned off or not allowed in `bundle_id`. `None` for ordinary typing.
+    pub fn skipped(&self, bundle_id: Option<&str>) -> Option<SkippedMatch> {
+        if !self.missed {
+            return None;
+        }
+        self.index.find_skipped(&self.buffer, &KeyInput::Character(String::new()), bundle_id)
     }
 
     /// Call after inserting the expansion for `m`; `inserted_count` in grapheme clusters, excluding a re-emitted separator.
@@ -311,12 +359,14 @@ impl ExpansionMatcher {
 
     /// Swaps in a freshly built index. Pending undo is dropped.
     pub fn replace_index(&mut self, index: TriggerIndex) {
+        self.missed = false;
         self.index = index;
         self.undo.clear();
     }
 
     /// Clears the key buffer and pending undo (click, app switch, pause…).
     pub fn reset(&mut self) {
+        self.missed = false;
         self.buffer.reset();
         self.undo.clear();
     }

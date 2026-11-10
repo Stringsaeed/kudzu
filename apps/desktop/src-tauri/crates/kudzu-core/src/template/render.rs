@@ -7,7 +7,8 @@ use crate::formatting::{FormatSpan, Formatting};
 
 use super::parser::{self, utf16_len};
 use super::{
-    icu, DateOffset, Diagnostic, Node, RenderContext, RenderResult, Severity, Tag, TemplateTag,
+    icu, ActionKind, DateOffset, Diagnostic, Node, RenderAction, RenderContext, RenderResult, Severity, Tag,
+    TemplateTag, MAX_TOTAL_DELAY_MS,
 };
 
 /// Maximum nesting depth: the root is depth 0 and a reference at depth 8 is rejected.
@@ -19,8 +20,11 @@ pub(crate) fn render(source: &str, formatting: Option<&Formatting>, context: &Re
         text: String::new(),
         utf16: 0,
         cursor: None,
+        cursor_seen: false,
         diagnostics: Vec::new(),
         spans: formatting.map(|_| Vec::new()),
+        actions: Vec::new(),
+        paused_ms: 0,
     };
     let mut path: Vec<Uuid> = context.root_snippet_id.into_iter().collect();
     renderer.render(source, &mut path, 0, formatting);
@@ -29,6 +33,7 @@ pub(crate) fn render(source: &str, formatting: Option<&Formatting>, context: &Re
         formatting: renderer.spans,
         cursor_offset: renderer.cursor,
         diagnostics: renderer.diagnostics,
+        actions: renderer.actions,
     }
 }
 
@@ -37,8 +42,13 @@ struct Renderer<'c, 'a> {
     text: String,
     utf16: usize,
     cursor: Option<usize>,
+    /// A root cursor tag was rendered; only the first counts, even if a key press cancels it.
+    cursor_seen: bool,
     diagnostics: Vec<Diagnostic>,
     spans: Option<Vec<FormatSpan>>,
+    actions: Vec<RenderAction>,
+    /// Total pause so far, capped at [`MAX_TOTAL_DELAY_MS`].
+    paused_ms: u32,
 }
 
 impl Renderer<'_, '_> {
@@ -76,13 +86,54 @@ impl Renderer<'_, '_> {
             if let Some(positions) = &mut positions { positions[tag.range.start] = Some(self.utf16); }
             match super::typed(tag) {
                 TemplateTag::Cursor => {
-                    if depth == 0 && self.cursor.is_none() {
+                    if depth == 0 && !self.cursor_seen {
+                        self.cursor_seen = true;
                         self.cursor = Some(self.utf16);
                     }
                 }
-                TemplateTag::Clipboard { trim } => {
-                    let clipboard = self.context.clipboard.as_deref().unwrap_or("");
+                TemplateTag::Clipboard { trim, history } => {
+                    let context = self.context;
+                    let older;
+                    let clipboard = if history == 0 {
+                        context.clipboard.as_deref().unwrap_or("")
+                    } else {
+                        older = context.clipboard_history.and_then(|resolve| resolve(history as usize)).unwrap_or_default();
+                        &older
+                    };
                     self.append(if trim { clipboard.trim() } else { clipboard });
+                }
+                TemplateTag::Selection { trim } => {
+                    let context = self.context;
+                    let selection = context.selection.as_deref().unwrap_or("");
+                    self.append(if trim { selection.trim() } else { selection });
+                }
+                TemplateTag::Uuid { upper } => {
+                    let id = self.context.new_uuid.map_or(Uuid::nil(), |new| new()).hyphenated().to_string();
+                    self.append(&if upper { id.to_uppercase() } else { id });
+                }
+                TemplateTag::Random { options } => {
+                    if !options.is_empty() {
+                        let index = self.context.pick.map_or(0, |pick| pick(options.len())) % options.len();
+                        self.append(&options[index]);
+                    }
+                }
+                TemplateTag::Key { key, count } => {
+                    // The caret is placed with arrow keys after everything is inserted, which only
+                    // works while it is still in the text that follows the last key press.
+                    if self.cursor.take().is_some() && depth > 0 {
+                        self.diagnose("A key press after the cursor cancels the cursor position".into(), tag);
+                    }
+                    self.actions.push(RenderAction { offset: self.utf16, action: ActionKind::Key { key, count } });
+                }
+                TemplateTag::Delay { ms } => {
+                    let allowed = ms.min(MAX_TOTAL_DELAY_MS - self.paused_ms);
+                    if allowed < ms {
+                        self.diagnose(format!("Pauses are limited to {} seconds in total; this one is cut short", MAX_TOTAL_DELAY_MS / 1000), tag);
+                    }
+                    if allowed > 0 {
+                        self.paused_ms += allowed;
+                        self.actions.push(RenderAction { offset: self.utf16, action: ActionKind::Pause { ms: allowed } });
+                    }
                 }
                 TemplateTag::Field { name, default, .. }
                 | TemplateTag::Choice { name, default, .. } => {

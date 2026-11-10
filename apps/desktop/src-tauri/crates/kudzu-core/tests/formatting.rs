@@ -42,6 +42,7 @@ fn formatting_tracks_templates_escapes_unicode_and_the_cursor() {
         resolve_snippet: &|_| None,
         resolve_formatting: None,
         root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
     };
     let result = template::render_formatted(source, Some(&formatting), &ctx);
     assert_eq!(result.text, "😀 {{literal}} <Sam & سلمى>!");
@@ -61,6 +62,7 @@ fn stale_formatting_does_not_style_edits_from_an_older_mac() {
         resolve_snippet: &|_| None,
         resolve_formatting: None,
         root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
     };
     let formatting = Formatting {
         source: "before".into(),
@@ -134,6 +136,7 @@ fn a_formatted_reply_preserves_its_nested_signature_but_a_plain_reply_does_not()
         resolve_snippet: &resolve,
         resolve_formatting: Some(&resolve_formatting),
         root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
     };
     let rich = template::render_formatted(
         &source,

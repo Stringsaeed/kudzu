@@ -5,6 +5,7 @@ mod ax;
 pub(crate) mod clipboard;
 mod engine;
 mod ffi;
+mod input_source;
 mod keys;
 mod pasteboard;
 mod tap;
@@ -67,6 +68,13 @@ pub(crate) mod system {
 
     pub fn copy_selection() -> Option<String> {
         ax::selected_text().or_else(|| pasteboard::copy_selection(Duration::from_millis(300)))
+    }
+
+    pub fn selection_for_insert() -> Option<String> {
+        match ax::reported_selection() {
+            Some(text) => Some(text).filter(|s| !s.is_empty()),
+            None => pasteboard::copy_selection(Duration::from_millis(300)),
+        }
     }
 
     pub fn read_clipboard() -> Option<String> {

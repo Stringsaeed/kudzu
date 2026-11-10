@@ -1,6 +1,7 @@
 //! Kudzu core: pure, platform-independent logic shared by the Tauri app and the engine.
 //!
 //! - [`types`]: the library contract (snippets, groups, usage, app rules).
+//! - [`activity`]: the in-memory log of expansion attempts and the explanation of each outcome.
 //! - [`template`]: template parser, serializer, renderer and static analysis.
 //! - [`matching`]: keystroke buffer, trigger index, case propagation, undo, conflicts.
 //! - [`interchange`]: Kudzu JSON, Espanso import/export, backups, dedupe.
@@ -8,6 +9,7 @@
 //! - [`secrets`]: password, key and token detection, so secrets are withheld from AI agents.
 //! - [`agent`]: the MCP server that lets AI agents read and write snippets.
 
+pub mod activity;
 pub mod agent;
 pub mod clipboard;
 pub mod formatting;

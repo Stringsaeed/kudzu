@@ -132,9 +132,15 @@ pub(crate) fn caret_rect() -> Option<Rect> {
 
 /// Selected text of the focused element, when the app exposes it.
 pub(crate) fn selected_text() -> Option<String> {
+    reported_selection().filter(|s| !s.is_empty())
+}
+
+/// What the focused element says is selected: `Some("")` when it reports an empty selection,
+/// `None` when it doesn't report one at all (so only a copy can tell).
+pub(crate) fn reported_selection() -> Option<String> {
     let element = focused_element()?;
     let value = attribute(&element, "AXSelectedText")?;
-    value.downcast::<CFString>().map(|s| s.to_string()).filter(|s| !s.is_empty())
+    value.downcast::<CFString>().map(|s| s.to_string())
 }
 
 pub(crate) struct CaretSnapshot {

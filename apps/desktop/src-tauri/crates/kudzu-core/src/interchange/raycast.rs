@@ -365,15 +365,28 @@ fn placeholder_tag(
             tags::cursor_tag()
         }
         "clipboard" => {
-            if let Some(offset) = p.attr("offset").filter(|o| o.trim() != "0") {
-                problems.push(format!(
-                    "{label} with offset={offset} reads clipboard history, which isn't supported; kept as text."
-                ));
-                return None;
-            }
             let trim = p.modifiers.iter().any(|m| m == "trim");
             modifiers_used = p.modifiers.iter().any(|m| m != "trim");
-            tags::clipboard_tag(trim)
+            match p.attr("offset").map(str::trim).filter(|o| *o != "0") {
+                None => tags::clipboard_tag(trim),
+                // Raycast's offset counts copies back from the current clipboard, as `history` does.
+                Some(offset) => match offset.parse::<u32>().ok().filter(|n| (1..=crate::template::MAX_CLIPBOARD_HISTORY).contains(n)) {
+                    Some(history) => tags::clipboard_history_tag(history, trim),
+                    None => {
+                        problems.push(format!("{label} has offset={offset}, which isn't a clipboard history position Kudzu can read; kept as text."));
+                        return None;
+                    }
+                },
+            }
+        }
+        "selection" => {
+            modifiers_used = !p.modifiers.is_empty();
+            tags::selection_tag()
+        }
+        "uuid" => {
+            modifiers_used = !p.modifiers.is_empty();
+            // Raycast writes UUIDs in capitals.
+            tags::uuid_tag(true)
         }
         "date" | "time" | "datetime" | "day" => {
             modifiers_used = !p.modifiers.is_empty();

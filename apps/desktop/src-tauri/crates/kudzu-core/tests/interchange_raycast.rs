@@ -9,7 +9,7 @@ mod interchange {
       { "name": "Email sign-off", "text": "Best,\n{cursor}", "keyword": "!bye" },
       { "name": "Today", "text": "{date} / {time} / {datetime} / {day}", "keyword": "!now" },
       { "name": "Custom date", "text": "{date format=\"yyyy-MM-dd\" offset=\"+1d\"} {date offset=\"-2M\"} {time offset=\"30m\"}", "keyword": "!d" },
-      { "name": "Paste", "text": "{clipboard} {clipboard | trim} {clipboard offset=1}", "keyword": "!p" },
+      { "name": "Paste", "text": "{clipboard} {clipboard | trim} {clipboard offset=1} {clipboard offset=2 | trim} {clipboard offset=x}", "keyword": "!p" },
       { "name": "Reply", "text": "Hi {argument name=\"Name\" default=\"there\"},\n{argument name=\"Tone\" options=\"formal, casual\" default=\"casual\"}\n{snippet name=\"Email sign-off\"}", "keyword": "!reply" },
       { "name": "Unsupported", "text": "{selection} {uuid} {snippet name=\"Nope\"} {argument name=\"x\" bogus}", "keyword": "!u" },
       { "name": "Spaced offset", "text": "{date offset=\"+2y +5M\" format=\"yyyy-MM\"}", "keyword": "!so" },
@@ -29,6 +29,7 @@ mod interchange {
             resolve_snippet: &resolve,
             resolve_formatting: None,
             root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
         };
         template::render(source, &context).text
     }
@@ -112,11 +113,12 @@ mod interchange {
         let result = imported();
         assert_eq!(
             snippet(&result, "Paste").content,
-            "{{clipboard}} {{clipboard trim=true}} {clipboard offset=1}"
+            "{{clipboard}} {{clipboard trim=true}} {{clipboard history=1}} {{clipboard history=2 trim=true}} {clipboard offset=x}"
         );
+        // Only the offset that isn't a number is left alone.
         let warnings = warnings_for(&result, "!p");
         assert_eq!(warnings.len(), 1);
-        assert!(warnings[0].contains("clipboard history"));
+        assert!(warnings[0].contains("offset=x"));
     }
 
     #[test]
@@ -139,9 +141,9 @@ mod interchange {
         let result = imported();
         assert_eq!(
             snippet(&result, "Unsupported").content,
-            "{selection} {uuid} {snippet name=\"Nope\"} {argument name=\"x\" bogus}"
+            "{{selection}} {{uuid upper=true}} {snippet name=\"Nope\"} {argument name=\"x\" bogus}"
         );
-        assert_eq!(warnings_for(&result, "!u").len(), 4);
+        assert_eq!(warnings_for(&result, "!u").len(), 2);
     }
 
     #[test]

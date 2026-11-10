@@ -36,7 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDebounced } from "@/hooks/use-debounced"
-import { copyPreview, renderPreview } from "@/lib/backend"
+import { copyPreview, renderPreview, SAMPLE_SELECTION } from "@/lib/backend"
 import { buildTree, flatten, groupPath, isGroupEnabled } from "@/lib/groups"
 import { keyLabels } from "@/lib/keys"
 import { relativeTime } from "@/lib/stats"
@@ -172,7 +172,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
   const [preview, setPreview] = useState<RenderResult | null>(null)
   useEffect(() => {
     let live = true
-    renderPreview(debouncedDraft.content, snippet.id, {}, resolve, debouncedDraft.formatting, resolveFormatting).then((r) => live && setPreview(r))
+    renderPreview(debouncedDraft.content, snippet.id, {}, resolve, debouncedDraft.formatting, resolveFormatting, SAMPLE_SELECTION).then((r) => live && setPreview(r))
     return () => {
       live = false
     }
@@ -445,9 +445,12 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
               <span className="font-medium text-muted-foreground">Preview</span>
               {facts.isForm && <span className="rounded bg-warning/12 px-1.5 py-px text-[10.5px] font-medium text-warning">Asks for {facts.fieldNames.join(", ")}</span>}
               {facts.usesClipboard && <span className="rounded bg-success/12 px-1.5 py-px text-[10.5px] font-medium text-success">Uses clipboard</span>}
+              {facts.usesSelection && <span className="rounded bg-success/12 px-1.5 py-px text-[10.5px] font-medium text-success" title="Typing a trigger replaces the selection, so the selected text is empty there.">Selection: Quick Search only</span>}
+              {facts.pressesKeys && <span className="rounded bg-foreground/[0.06] px-1.5 py-px text-[10.5px] font-medium text-muted-foreground" title="Key presses are sent in order with the text. This snippet can't be undone with Backspace.">Presses keys</span>}
+              {facts.cursorCancelled && <span className="rounded bg-warning/12 px-1.5 py-px text-[10.5px] font-medium text-warning" title="The caret can only be placed in the text after the last key press.">Cursor before a key press is ignored</span>}
             </div>
             <div className="selectable relative min-h-12 rounded-xl bg-foreground/[0.025] px-4 py-3 text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-well">
-              {preview && preview.text ? (
+              {preview && (preview.text || preview.actions?.length) ? (
                 <FormattedText result={preview} />
               ) : (
                 <span className="text-faint">Nothing to show yet.</span>

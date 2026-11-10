@@ -55,7 +55,7 @@ pub fn definitions(access: &Access) -> Vec<Value> {
         tool(
             "expand_snippet",
             "Expand a snippet",
-            "Renders a snippet as if the user typed its trigger now: dates, nested snippets and the clipboard are filled in. Fill-in fields take `values`; missing ones use their defaults.",
+            "Renders a snippet as if the user typed its trigger now: dates, nested snippets and the clipboard are filled in. Fill-in fields take `values`; missing ones use their defaults. Key presses and pauses ({{key}}, {{delay}}) are left out of the text and listed in `skippedActions`; {{selection}} is empty.",
             json!({
                 "id": { "type": "string" },
                 "trigger": { "type": "string" },
@@ -187,7 +187,7 @@ fn run(host: &dyn Host, name: &str, args: &Args) -> Result<Value, String> {
     match name {
         "list_snippets" => list_snippets(&host.library()?, args, &access),
         "get_snippet" => get_snippet(&host.library()?, args),
-        "expand_snippet" => expand_snippet(&host.library()?, args, host.render_env()),
+        "expand_snippet" => expand_snippet(&host.library()?, args, host.render_env(), &|n, current| older_copy(host, &access, n, current)),
         "list_groups" => Ok(list_groups(&host.library()?)),
         "create_snippet" => host.edit_library(&mut |lib| create_snippet(lib, args, now)),
         "update_snippet" => host.edit_library(&mut |lib| update_snippet(lib, args, now)),
@@ -489,7 +489,29 @@ fn scrubbed(text: &str) -> String {
     }
 }
 
-fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv) -> Result<Value, String> {
+/// Text of the copy `n` before the current clipboard, for `{{clipboard history=N}}`. Agents only
+/// get it when the user shares clipboard history, and never an entry marked as a secret.
+fn older_copy(host: &dyn Host, access: &Access, n: usize, current: Option<&str>) -> Option<String> {
+    if !access.clipboard {
+        return None;
+    }
+    let mut entries = host.clipboard().ok()?;
+    entries.sort_by_key(|e| std::cmp::Reverse(e.copied_at));
+    let history = crate::clipboard::History { entries, ..Default::default() };
+    let entry = history.before_current(n, current).filter(|e| !e.is_secret())?;
+    host.clipboard_text(entry.id).ok().flatten().or_else(|| entry.text.clone())
+}
+
+/// What a `{{key}}` or `{{delay}}` tag does, in words an agent can relay ("Tab ×2").
+fn describe_action(action: &template::ActionKind) -> String {
+    match action {
+        template::ActionKind::Key { key, count: 1 } => format!("press {}", key.name()),
+        template::ActionKind::Key { key, count } => format!("press {} ×{count}", key.name()),
+        template::ActionKind::Pause { ms } => format!("wait {ms} ms"),
+    }
+}
+
+fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv, older: &dyn Fn(usize, Option<&str>) -> Option<String>) -> Result<Value, String> {
     let s = find_snippet(lib, args)?;
     let mut given = Values::new();
     match args.get("values") {
@@ -524,6 +546,7 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv) -> Result<Val
             None => {}
         }
     }
+    let history = |n: usize| older(n, env.clipboard.as_deref()).as_deref().map(scrubbed);
     let ctx = RenderContext {
         now: env.now,
         locale: env.locale,
@@ -532,6 +555,11 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv) -> Result<Val
         resolve_snippet: &resolve,
         resolve_formatting: None,
         root_snippet_id: Some(s.id),
+        // There is no target app, so nothing is selected.
+        selection: None,
+        clipboard_history: Some(&history),
+        new_uuid: Some(&template::random_uuid),
+        pick: Some(&template::random_index),
     };
     let rendered = template::render(&source, &ctx);
     let r = secrets::redact(&rendered.text);
@@ -541,6 +569,17 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv) -> Result<Val
         "text": r.text,
         "fields": fields,
     });
+    // Key presses and pauses only mean something while Kudzu types into an app. They are left out
+    // of the text and listed, so the agent knows the text isn't everything the snippet does.
+    if !rendered.actions.is_empty() {
+        let steps: Vec<Value> = rendered
+            .actions
+            .iter()
+            .map(|a| json!({ "afterCharacters": template_prefix_chars(&rendered.text, a.offset), "action": describe_action(&a.action) }))
+            .collect();
+        v["skippedActions"] = json!(steps);
+        v["actionsNote"] = json!("When the user expands this snippet, Kudzu also presses keys or pauses at the listed positions (for example Tab between form fields). Those steps aren't part of `text`.");
+    }
     if !missing.is_empty() {
         v["emptyFields"] = json!(missing);
     }
@@ -554,6 +593,12 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv) -> Result<Val
         v["note"] = json!("Parts that look like a password or key were withheld.");
     }
     Ok(v)
+}
+
+/// Characters in the first `offset` UTF-16 units of `text` (offsets agents see count characters).
+fn template_prefix_chars(text: &str, offset: usize) -> usize {
+    let mut units = 0;
+    text.chars().take_while(|c| { units += c.len_utf16(); units <= offset }).count()
 }
 
 fn list_groups(lib: &KudzuLibrary) -> Value {

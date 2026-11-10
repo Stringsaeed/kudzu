@@ -219,6 +219,50 @@ export interface AppInfo {
   path?: string | null
 }
 
+// Mirrors kudzu-core `activity.rs`: recent expansion attempts ("Why didn't this expand?").
+// Held in memory by the backend only. An entry never contains typed or expanded text.
+export type ActivitySource = "typed" | "quickSearch" | "form"
+export type RuleLevel = "snippet" | "group" | "appSetting" | "default"
+export type ActivityPermission = "accessibility" | "inputMonitoring"
+export type InsertFailure = "notAllowed" | "eventCreation" | "pasteUnavailable" | "targetGone"
+
+export type ActivityOutcome =
+  | { kind: "expanded" | "undone" | "paused" | "snippetOff" | "formCancelled" | "interrupted" | "listenerLost" | "engineStopped" }
+  | { kind: "groupOff"; groupId: string }
+  | { kind: "appRule"; level: RuleLevel; groupId?: string | null }
+  | { kind: "secureInput"; owner?: string | null }
+  | { kind: "missingPermission"; permission: ActivityPermission }
+  | { kind: "insertionFailed"; error: InsertFailure }
+  | { kind: "tapDisabled"; cause: "timeout" | "userInput"; reenabled: boolean }
+
+export type ActivityFix =
+  | { kind: "resume" | "turnOnSnippet" | "openSnippet" | "openAppSettings" | "explainSecureInput" }
+  | { kind: "openGroup"; groupId: string }
+  | { kind: "openPermissions"; permission: ActivityPermission }
+
+export interface ActivityExplanation {
+  /** Badge text. */
+  label: string
+  tone: "ok" | "info" | "skipped" | "blocked" | "failed"
+  /** One plain sentence; absent when it simply expanded. */
+  sentence?: string | null
+  fix?: ActivityFix | null
+}
+
+export interface ActivityEntry {
+  id: number
+  /** ISO-8601 time of the attempt. */
+  at: string
+  /** Absent for engine health entries. */
+  source?: ActivitySource | null
+  snippetId?: string | null
+  /** The snippet's stored trigger, never the text as typed. */
+  trigger?: string | null
+  app?: { bundleId: string; name: string; path?: string | null } | null
+  outcome: ActivityOutcome
+  explanation: ActivityExplanation
+}
+
 export type FormFieldKind = "text" | "multiline" | "choice"
 
 export interface FormFieldSpec {
@@ -236,6 +280,8 @@ export interface FormRequest {
   initialValues: Record<string, string>
   content: string
   targetApp?: AppInfo | null
+  /** Text selected in the target app, when the snippet was picked in Quick Search. */
+  selection?: string | null
 }
 
 export interface Diagnostic {
@@ -244,11 +290,18 @@ export interface Diagnostic {
   range: { start: number; end: number }
 }
 
+/** A key press or pause from `{{key}}` / `{{delay}}`, after the first `offset` UTF-16 units of the text. */
+export type RenderAction =
+  | { offset: number; kind: "key"; key: string; count: number }
+  | { offset: number; kind: "pause"; ms: number }
+
 export interface RenderResult {
   text: string
   formatting?: FormatSpan[] | null
   cursorOffset?: number | null
   diagnostics: Diagnostic[]
+  /** In insertion order; never part of `text`. */
+  actions?: RenderAction[]
 }
 
 export interface TriggerConflict {

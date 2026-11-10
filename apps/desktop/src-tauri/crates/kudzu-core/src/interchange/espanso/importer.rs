@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use super::yaml::{self, Node};
 use super::{tags, EspansoImportResult, ImportWarning};
-use crate::interchange::{strftime, InterchangeError};
+use crate::interchange::{rich, strftime, InterchangeError};
 use crate::types::{CaseMode, FireMode, GroupRecord, InsertionMethod, KudzuLibrary, SnippetRecord};
 
 #[derive(Debug, Clone, Default)]
@@ -296,6 +296,8 @@ pub(super) fn perform_import(
         file: &'a MatchFile,
         m: &'a Match,
         content: &'a str,
+        /// Formatting read from a `markdown:` or `html:` match.
+        rich: Option<rich::RichText>,
     }
     let mut pending: Vec<Pending> = Vec::new();
     let mut trigger_ids: HashMap<String, Uuid> = HashMap::new();
@@ -351,22 +353,26 @@ pub(super) fn perform_import(
                 ));
                 continue;
             }
+            let mut rich = None;
             let content = if let Some(r) = &m.replace {
                 r
             } else if let Some(f) = &m.form {
                 f
-            } else if let Some(md) = &m.markdown {
-                warnings.push(origin.warn(
-                    None,
-                    "Markdown match imported as plain text; importing rich text formatting is not supported.".into(),
-                ));
-                md
-            } else if let Some(html) = &m.html {
-                warnings.push(origin.warn(
-                    None,
-                    "HTML match imported as plain text; importing rich text formatting is not supported.".into(),
-                ));
-                html
+            } else if let Some((source, kind)) = m
+                .markdown
+                .as_ref()
+                .map(|md| (md, "Markdown"))
+                .or_else(|| m.html.as_ref().map(|html| (html, "HTML")))
+            {
+                let read = if kind == "HTML" { rich::read_html(source) } else { rich::read_markdown(source) };
+                match read {
+                    Ok(text) => rich = Some(text),
+                    Err(reason) => warnings.push(origin.warn(
+                        None,
+                        format!("{kind} match imported as plain text: {reason}."),
+                    )),
+                }
+                source
             } else {
                 warnings.push(origin.warn(
                     None,
@@ -391,6 +397,7 @@ pub(super) fn perform_import(
                 file,
                 m,
                 content,
+                rich,
             });
         }
     }
@@ -418,7 +425,16 @@ pub(super) fn perform_import(
                 trigger: m.triggers.first().map(String::as_str),
             },
         };
-        let content = if m.form.is_some() && m.replace.is_none() {
+        let mut formatting = None;
+        let content = if let Some(text) = &p.rich {
+            let atoms = rich::espanso_atoms(&text.text);
+            let converted = rich::to_template(text, &atoms, |segment| ctx.convert_replace(segment, &mut warnings));
+            if let Some(message) = text.warning() {
+                warnings.push(ctx.origin.warn(None, message));
+            }
+            formatting = Some(converted.formatting);
+            converted.content
+        } else if m.form.is_some() && m.replace.is_none() {
             ctx.convert_form(p.content, &m.form_fields, &mut warnings)
         } else {
             ctx.convert_replace(p.content, &mut warnings)
@@ -449,6 +465,7 @@ pub(super) fn perform_import(
                 CaseMode::Exact
             },
             insertion,
+            formatting,
             created_at: timestamp,
             updated_at: timestamp,
             ..SnippetRecord::new(name, m.triggers.clone(), content)
@@ -839,6 +856,26 @@ impl Converter<'_> {
                 )
             }
             "clipboard" => tags::clipboard_tag(false),
+            "random" => {
+                let choices: Vec<String> = var
+                    .param("choices")
+                    .and_then(Node::as_seq)
+                    .map(|items| items.iter().filter_map(|n| n.as_str().map(str::to_string)).collect())
+                    .unwrap_or_default();
+                if choices.is_empty() {
+                    warnings.push(self.origin.warn(
+                        line,
+                        format!("Random variable '{}' has no 'params.choices'; kept as literal text.", var.name),
+                    ));
+                    return literal;
+                }
+                tags::random_tag(&choices)
+            }
+            "echo" => {
+                // A fixed value: written out as literal text.
+                let text = var.param_str("echo").unwrap_or_default().to_string();
+                crate::template::serialize(&[crate::template::Node::Text { text, range: 0..0 }])
+            }
             "match" => {
                 let Some(trigger) = var.param_str("trigger").filter(|t| !t.is_empty()) else {
                     warnings.push(self.origin.warn(

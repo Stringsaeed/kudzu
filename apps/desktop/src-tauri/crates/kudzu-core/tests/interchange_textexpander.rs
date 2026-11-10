@@ -82,6 +82,7 @@ mod interchange {
             resolve_snippet: &resolve,
             resolve_formatting: None,
             root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
         };
         template::render(source, &context).text
     }

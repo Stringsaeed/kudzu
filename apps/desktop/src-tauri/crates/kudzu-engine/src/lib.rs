@@ -11,7 +11,9 @@
 // The planning/hold helpers only have callers in the macOS engine.
 #![cfg_attr(not(target_os = "macos"), allow(dead_code))]
 
+mod activity;
 mod hold;
+mod input;
 mod library;
 mod plan;
 mod status;
@@ -112,6 +114,9 @@ pub struct FormRequest {
     pub caret: Option<Rect>,
     /// The app the text will go into.
     pub target_app: Option<AppInfo>,
+    /// The selection captured for a Quick Search insert, so the form can preview `{{selection}}`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection: Option<String>,
 }
 
 /// One successful expansion (for usage stats). Never contains typed or inserted text.
@@ -132,6 +137,16 @@ pub trait EngineHost: Send + Sync + 'static {
     /// A form snippet fired (typed trigger or palette): show the form, then call
     /// `Engine::submit_form` or `Engine::cancel_form` with the same token.
     fn form_requested(&self, request: FormRequest);
+    /// Plain text of the copy `index` before the current clipboard (1 = the previous copy), for
+    /// `{{clipboard history=N}}`. `current` is the clipboard's plain text now. A host without a
+    /// clipboard history keeps the default, and those tags render empty.
+    fn clipboard_history(&self, _index: usize, _current: Option<&str>) -> Option<String> {
+        None
+    }
+
+    /// A trigger fully matched, or engine health changed: what happened and why, for the
+    /// "Why didn't this expand?" log. Never contains typed or inserted text. Keep it in memory.
+    fn activity(&self, _event: kudzu_core::activity::ActivityEvent) {}
 }
 
 /// Everything the engine matches and renders against.
@@ -198,7 +213,13 @@ impl Engine {
     /// Palette insert: reactivates `target` (the app frontmost before the palette opened), renders the
     /// snippet (requesting a form if needed) and inserts it. Counts as an expansion.
     pub fn insert_snippet(&self, snippet_id: Uuid, target: Option<AppInfo>) {
-        self.imp.insert_snippet(snippet_id, target);
+        self.imp.insert_snippet(snippet_id, target, None);
+    }
+
+    /// [`Engine::insert_snippet`] with the text that was selected in `target` before the palette took
+    /// focus (see [`system::selection_for_insert`]); `{{selection}}` renders it.
+    pub fn insert_snippet_with_selection(&self, snippet_id: Uuid, target: Option<AppInfo>, selection: Option<String>) {
+        self.imp.insert_snippet(snippet_id, target, selection);
     }
 
     /// Renders a snippet to plain text (no cursor tag, no form → defaults) for "copy" actions.
@@ -206,13 +227,26 @@ impl Engine {
         self.render_snippet_formatted(snippet_id, form_values).map(|r| r.text)
     }
 
-    /// Renders both clipboard flavors for explicit copy actions.
+    /// Renders both clipboard flavors for explicit copy actions. Key presses and pauses are in
+    /// the result's `actions`, never in its text.
     pub fn render_snippet_formatted(&self, snippet_id: Uuid, form_values: HashMap<String, String>) -> Option<kudzu_core::template::RenderResult> {
+        self.render_snippet_with_selection(snippet_id, form_values, None)
+    }
+
+    /// [`Engine::render_snippet_formatted`] with a captured selection for `{{selection}}`.
+    pub fn render_snippet_with_selection(
+        &self,
+        snippet_id: Uuid,
+        form_values: HashMap<String, String>,
+        selection: Option<String>,
+    ) -> Option<kudzu_core::template::RenderResult> {
         let library = self.imp.library();
         let snippet = library.snippets.get(&snippet_id)?;
         let values = library::with_defaults(&library.form_fields(snippet), form_values);
         let clipboard = if library.uses_clipboard(snippet) { system::read_clipboard() } else { None };
-        Some(library.render(snippet, library::now(), clipboard, values))
+        let host = self.imp.host();
+        let history = |index: usize, current: Option<&str>| host.clipboard_history(index, current);
+        Some(library.render(snippet, library::RenderInputs { now: library::now(), clipboard, selection, form_values: values, history: &history }))
     }
 }
 
@@ -340,6 +374,14 @@ pub mod system {
     /// Blocks up to ~300 ms: call off the UI thread.
     pub fn copy_selection() -> Option<String> {
         platform::system::copy_selection()
+    }
+
+    /// The selection in the frontmost app, for `{{selection}}`: asked through Accessibility, and
+    /// copied with ⌘C only when the app doesn't report a selection at all. An app that reports an
+    /// empty selection is believed, so opening Quick Search doesn't press ⌘C (and beep) there.
+    /// Blocks up to ~300 ms: call off the UI thread.
+    pub fn selection_for_insert() -> Option<String> {
+        platform::system::selection_for_insert()
     }
 
     /// Plain-text clipboard.

@@ -66,7 +66,11 @@ impl Imp {
 
     pub fn cancel_form(&self, _token: u64) {}
 
-    pub fn insert_snippet(&self, _snippet_id: Uuid, _target: Option<AppInfo>) {}
+    pub fn insert_snippet(&self, _snippet_id: Uuid, _target: Option<AppInfo>, _selection: Option<String>) {}
+
+    pub fn host(&self) -> &dyn EngineHost {
+        self.host.as_ref()
+    }
 
     fn publish_status(&self) {
         let status = self.status();
@@ -107,6 +111,9 @@ pub(crate) mod system {
         None
     }
     pub fn copy_selection() -> Option<String> {
+        None
+    }
+    pub fn selection_for_insert() -> Option<String> {
         None
     }
     pub fn read_clipboard() -> Option<String> {

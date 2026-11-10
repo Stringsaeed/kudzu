@@ -94,11 +94,13 @@ pub fn run() {
                 store: Mutex::new(store),
                 engine: Mutex::new(None),
                 palette_target: Mutex::new(None),
+                palette_selection: Mutex::new(None),
                 pending_form: Mutex::new(None),
                 registered_hotkey: Mutex::new(None),
                 clip: Mutex::new(clip),
                 clip_target: Mutex::new(None),
                 registered_clip_hotkey: Mutex::new(None),
+                activity: Mutex::new(kudzu_core::activity::ActivityLog::new()),
             });
             app.manage(core.clone());
 
@@ -184,6 +186,8 @@ pub fn run() {
             commands::update_settings,
             commands::set_paused,
             commands::engine_status,
+            commands::activity_list,
+            commands::activity_clear,
             commands::request_permission,
             commands::open_system_settings,
             commands::set_palette_hotkey,

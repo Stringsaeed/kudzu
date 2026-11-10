@@ -373,3 +373,252 @@ fn nested_diagnostics_use_nested_ranges() {
     assert_eq!(result.text, "0123456789ab{{DATE}}");
     assert_eq!(result.diagnostics[0].range, 2..10);
 }
+
+// Selection, UUID, random, clipboard history
+
+#[test]
+fn selection_renders_the_captured_text_or_nothing() {
+    let mut fixture = Fixture::new();
+    assert_eq!(fixture.render("[{{selection}}]").text, "[]");
+    fixture.selection = Some("  picked\n".into());
+    assert_eq!(fixture.render("[{{selection}}]").text, "[  picked\n]");
+    assert_eq!(fixture.render("[{{selection trim=true}}]").text, "[picked]");
+    assert_eq!(fixture.render("{{selection trim=1}}").text, "{{selection trim=1}}");
+}
+
+#[test]
+fn uuid_comes_from_the_context() {
+    let fixture = Fixture::new();
+    let first = fixture.render("{{uuid}}").text;
+    assert_eq!(first, fixture.render("{{uuid}}").text, "same seed, same value");
+    assert_eq!(first.len(), 36);
+    assert_eq!(first, first.to_lowercase());
+    assert_eq!(fixture.render("{{uuid upper=true}}").text, first.to_uppercase());
+    // Each tag asks for its own value.
+    let two = fixture.render("{{uuid}} {{uuid}}").text;
+    let (a, b) = two.split_once(' ').unwrap();
+    assert_eq!(a, first);
+    assert_ne!(a, b);
+    // Without a source the nil UUID keeps rendering deterministic.
+    let resolve = |_| None;
+    let context = template::RenderContext {
+        now: now(),
+        locale: "en_US_POSIX".into(),
+        clipboard: None,
+        form_values: HashMap::new(),
+        resolve_snippet: &resolve,
+        resolve_formatting: None,
+        root_snippet_id: None,
+        selection: None,
+        clipboard_history: None,
+        new_uuid: None,
+        pick: None,
+    };
+    let bare = template::render(r#"{{uuid}} {{random options="a|b"}} [{{clipboard history=1}}]"#, &context);
+    assert_eq!(bare.text, "00000000-0000-0000-0000-000000000000 a []");
+}
+
+#[test]
+fn random_picks_one_option_with_choice_escaping() {
+    let mut fixture = Fixture::new();
+    let mut seen = std::collections::HashSet::new();
+    for seed in 0..64 {
+        fixture.seed = seed;
+        let text = fixture.render(r#"{{random options="red|a\|b|"}}"#).text;
+        assert_eq!(text, fixture.render(r#"{{random options="red|a\|b|"}}"#).text);
+        seen.insert(text);
+    }
+    assert_eq!(seen, ["red", "a|b", ""].map(String::from).into());
+    assert_eq!(fixture.render("[{{random}}]").text, "[]");
+    assert_eq!(fixture.render(r#"[{{random options=""}}]"#).text, "[]");
+    assert_eq!(fixture.render("{{random options=only}}").text, "only");
+    // An index the source gets wrong is wrapped rather than trusted.
+    let resolve = |_| None;
+    let pick = |n: usize| n + 1;
+    let context = template::RenderContext {
+        now: now(),
+        locale: "en_US_POSIX".into(),
+        clipboard: None,
+        form_values: HashMap::new(),
+        resolve_snippet: &resolve,
+        resolve_formatting: None,
+        root_snippet_id: None,
+        selection: None,
+        clipboard_history: None,
+        new_uuid: None,
+        pick: Some(&pick),
+    };
+    assert_eq!(template::render(r#"{{random options="a|b|c"}}"#, &context).text, "b");
+}
+
+#[test]
+fn clipboard_history_reads_older_items() {
+    let mut fixture = Fixture::new();
+    fixture.clipboard = Some("now".into());
+    fixture.history = vec![" one ".into(), "two".into()];
+    assert_eq!(fixture.render("{{clipboard}}").text, "now");
+    assert_eq!(fixture.render("{{clipboard history=0}}").text, "now");
+    assert_eq!(fixture.render("{{clipboard history=1}}").text, " one ");
+    assert_eq!(fixture.render("{{clipboard history=1 trim=true}}").text, "one");
+    assert_eq!(fixture.render("{{clipboard history=2}}").text, "two");
+    assert_eq!(fixture.render("[{{clipboard history=3}}]").text, "[]");
+    // Out-of-range and fractional numbers are adjusted with a warning; other types are malformed.
+    let clamped = fixture.render("{{clipboard history=-1}}");
+    assert_eq!(clamped.text, "now");
+    assert_eq!(clamped.diagnostics.len(), 1);
+    assert_eq!(fixture.render("{{clipboard history=1.9}}").text, " one ");
+    assert_eq!(fixture.render("{{clipboard history=\"1\"}}").text, "{{clipboard history=\"1\"}}");
+    assert_eq!(
+        template::typed(&match &template::parse("{{clipboard history=500}}").nodes[0] {
+            Node::Tag(tag) => tag.clone(),
+            _ => unreachable!(),
+        }),
+        TemplateTag::Clipboard { trim: false, history: template::MAX_CLIPBOARD_HISTORY }
+    );
+}
+
+// Key presses and pauses
+
+use kudzu_core::template::{ActionKind, Key, RenderAction};
+
+fn key(offset: usize, key: Key, count: u32) -> RenderAction {
+    RenderAction { offset, action: ActionKind::Key { key, count } }
+}
+
+fn pause(offset: usize, ms: u32) -> RenderAction {
+    RenderAction { offset, action: ActionKind::Pause { ms } }
+}
+
+#[test]
+fn keys_and_delays_become_ordered_actions_outside_the_text() {
+    let result = Fixture::new().render("😀a{{key name=tab}}b{{delay ms=250}}{{key name=return count=2}}{{key name=enter}}");
+    assert_eq!(result.text, "😀ab");
+    assert_eq!(result.actions, [key(3, Key::Tab, 1), pause(4, 250), key(4, Key::Return, 2), key(4, Key::Return, 1)]);
+    assert!(result.diagnostics.is_empty());
+    assert!(result.has_key_presses());
+    let pause_only = Fixture::new().render("a{{delay ms=10}}b");
+    assert!(!pause_only.has_key_presses());
+    assert!(Fixture::new().render("plain").actions.is_empty());
+}
+
+#[test]
+fn every_key_name_parses_and_round_trips() {
+    for key in Key::ALL {
+        let source = format!("{{{{key name=\"{}\"}}}}", key.name());
+        assert_eq!(Key::parse(key.name()), Some(key));
+        assert_eq!(canonical(&source), source);
+        assert_eq!(Fixture::new().render(&source).actions, [crate::key(0, key, 1)]);
+    }
+    assert_eq!(Key::parse("enter"), Some(Key::Return));
+    assert_eq!(Key::parse("esc"), Some(Key::Escape));
+    assert_eq!(Key::parse("Tab"), None);
+    // The alias is kept as written: saving never rewrites a tag's attributes.
+    assert_eq!(canonical("{{key name=esc count=3}}"), r#"{{key name="esc" count=3}}"#);
+}
+
+#[test]
+fn malformed_keys_and_delays_stay_verbatim() {
+    for source in [
+        "{{key}}",
+        "{{key name=f5}}",
+        "{{key name=tab count=two}}",
+        "{{key name=tab count=\"2\"}}",
+        "{{key name=tab count=true}}",
+        "{{delay}}",
+        "{{delay ms=soon}}",
+        "{{delay ms=\"100\"}}",
+    ] {
+        let result = Fixture::new().render(source);
+        assert_eq!(result.text, source);
+        assert!(result.actions.is_empty(), "{source}");
+        assert!(result.diagnostics.iter().any(|d| d.severity == template::Severity::Error), "{source}");
+    }
+}
+
+#[test]
+fn counts_and_delays_are_clamped_with_a_warning() {
+    let cases = [
+        ("{{key name=tab count=0}}", key(0, Key::Tab, 1)),
+        ("{{key name=tab count=-4}}", key(0, Key::Tab, 1)),
+        ("{{key name=tab count=2.7}}", key(0, Key::Tab, 2)),
+        ("{{key name=tab count=999}}", key(0, Key::Tab, template::MAX_KEY_COUNT)),
+        ("{{delay ms=0}}", pause(0, 1)),
+        ("{{delay ms=60000}}", pause(0, template::MAX_DELAY_MS)),
+    ];
+    for (source, expected) in cases {
+        let result = Fixture::new().render(source);
+        assert_eq!(result.actions, [expected], "{source}");
+        assert_eq!(result.diagnostics.len(), 1, "{source}");
+        assert_eq!(result.diagnostics[0].severity, template::Severity::Warning);
+    }
+    assert!(Fixture::new().render("{{key name=tab count=50}}{{delay ms=5000}}").diagnostics.is_empty());
+}
+
+#[test]
+fn total_pause_is_capped() {
+    let result = Fixture::new().render("{{delay ms=5000}}a{{delay ms=4000}}b{{delay ms=4000}}c{{delay ms=10}}d");
+    assert_eq!(result.text, "abcd");
+    assert_eq!(result.actions, [pause(0, 5000), pause(1, 4000), pause(2, 1000)]);
+    assert_eq!(result.diagnostics.len(), 2);
+}
+
+#[test]
+fn cursor_counts_only_after_the_last_key_press() {
+    let after = Fixture::new().render("a{{key name=tab}}b{{cursor}}c");
+    assert_eq!(after.cursor_offset, Some(2));
+    assert!(after.diagnostics.is_empty());
+
+    let before = Fixture::new().render("a{{cursor}}b{{key name=tab}}c{{key name=tab}}");
+    assert_eq!(before.cursor_offset, None);
+    assert_eq!(before.diagnostics.len(), 1, "one warning, on the first key after the cursor");
+    assert_eq!(before.diagnostics[0].range, 12..28);
+
+    // The first cursor is still the only one that counts; a later one doesn't take over.
+    let second = Fixture::new().render("{{cursor}}{{key name=tab}}b{{cursor}}");
+    assert_eq!(second.cursor_offset, None);
+
+    // A pause doesn't move focus, so the cursor survives it.
+    assert_eq!(Fixture::new().render("a{{cursor}}b{{delay ms=5}}c").cursor_offset, Some(1));
+}
+
+#[test]
+fn nested_snippets_contribute_actions_in_place() {
+    let id = Uuid::new_v4();
+    let fixture = Fixture::with_snippets([(id, "n{{key name=tab}}{{cursor}}m".to_string())].into());
+    let result = fixture.render(&format!("a{{{{snippet id=\"{id}\"}}}}b{{{{key name=return}}}}"));
+    assert_eq!(result.text, "anmb");
+    assert_eq!(result.actions, [key(2, Key::Tab, 1), key(4, Key::Return, 1)]);
+    assert_eq!(result.cursor_offset, None);
+    assert!(result.diagnostics.is_empty());
+
+    // A key inside a nested snippet cancels a root cursor before it, and says so.
+    let result = fixture.render(&format!("{{{{cursor}}}}a{{{{snippet id=\"{id}\"}}}}"));
+    assert_eq!(result.cursor_offset, None);
+    assert_eq!(result.diagnostics.len(), 1);
+    assert_eq!(result.diagnostics[0].range, 1..17, "the range is in the nested source");
+}
+
+#[test]
+fn analysis_reports_selection_and_key_presses() {
+    let info = template::analyze(&template::parse("{{selection}}{{key name=tab}}"));
+    assert!(info.uses_selection && info.has_key_presses && !info.uses_clipboard);
+    let info = template::analyze(&template::parse("{{clipboard history=2}}{{delay ms=5}}{{key name=f5}}"));
+    assert!(info.uses_clipboard && !info.uses_selection && !info.has_key_presses);
+}
+
+#[test]
+fn actions_serialize_flat_and_are_omitted_when_empty() {
+    let json = serde_json::to_value(Fixture::new().render("a{{key name=tab count=2}}{{delay ms=5}}")).unwrap();
+    assert_eq!(
+        json["actions"],
+        serde_json::json!([
+            { "offset": 1, "kind": "key", "key": "tab", "count": 2 },
+            { "offset": 1, "kind": "pause", "ms": 5 },
+        ])
+    );
+    let plain = serde_json::to_value(Fixture::new().render("a")).unwrap();
+    assert!(plain.get("actions").is_none());
+    // A result written by an older build still decodes.
+    let old: template::RenderResult = serde_json::from_str(r#"{"text":"a","cursorOffset":null,"diagnostics":[]}"#).unwrap();
+    assert!(old.actions.is_empty());
+}

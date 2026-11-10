@@ -25,8 +25,42 @@ export interface TextToken {
 
 export type Token = TagToken | TextToken
 
-export const KNOWN_TAGS = ["date", "time", "clipboard", "cursor", "snippet", "field", "choice"] as const
+export const KNOWN_TAGS = ["date", "time", "clipboard", "cursor", "snippet", "field", "choice", "selection", "uuid", "random", "key", "delay"] as const
 export type KnownTag = (typeof KNOWN_TAGS)[number]
+
+/** Limits shared with kudzu-core (`template/mod.rs`). */
+export const MAX_KEY_COUNT = 50
+export const MAX_DELAY_MS = 5000
+export const MAX_TOTAL_DELAY_MS = 10000
+export const MAX_CLIPBOARD_HISTORY = 99
+
+/** Keys `{{key}}` can press, in menu order. `cap` is what the keycap shows. */
+export const KEYS = [
+  { name: "tab", label: "Tab", cap: "⇥" },
+  { name: "return", label: "Return", cap: "↵" },
+  { name: "escape", label: "Escape", cap: "esc" },
+  { name: "space", label: "Space", cap: "Space" },
+  { name: "backspace", label: "Backspace", cap: "⌫" },
+  { name: "delete", label: "Forward delete", cap: "⌦" },
+  { name: "left", label: "Left", cap: "←" },
+  { name: "right", label: "Right", cap: "→" },
+  { name: "up", label: "Up", cap: "↑" },
+  { name: "down", label: "Down", cap: "↓" },
+] as const
+
+const KEY_ALIASES: Record<string, string> = { enter: "return", esc: "escape" }
+
+/** The key a `name` attribute means (`enter` and `esc` are accepted spellings), if any. */
+export function keyInfo(name: unknown): (typeof KEYS)[number] | undefined {
+  if (typeof name !== "string") return undefined
+  return KEYS.find((k) => k.name === (KEY_ALIASES[name] ?? name))
+}
+
+/** A whole number in `min..=max`, the way kudzu-core reads `count`, `ms` and `history`. */
+export function clampInt(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback
+  return Math.min(max, Math.max(min, Math.floor(value)))
+}
 
 const NAME_START = /[a-z]/
 const NAME_CHAR = /[a-z0-9_]/
@@ -116,12 +150,23 @@ function parseInner(inner: string): { name: string; attrs: Record<string, AttrVa
 function isValidKnown(name: string, attrs: Record<string, AttrValue>): boolean {
   const str = (k: string) => attrs[k] === undefined || typeof attrs[k] === "string"
   const bool = (k: string) => attrs[k] === undefined || typeof attrs[k] === "boolean"
+  const num = (k: string) => attrs[k] === undefined || typeof attrs[k] === "number"
   switch (name) {
+    case "selection":
+      return bool("trim")
+    case "uuid":
+      return bool("upper")
+    case "random":
+      return str("options")
+    case "key":
+      return keyInfo(attrs.name) !== undefined && num("count")
+    case "delay":
+      return typeof attrs.ms === "number"
     case "date":
     case "time":
       return str("format") && str("locale")
     case "clipboard":
-      return bool("trim")
+      return bool("trim") && num("history")
     case "cursor":
       return true
     case "snippet":
@@ -256,8 +301,28 @@ export function chipLabel(tag: TagToken, snippetName?: (id: string) => string | 
       const off = a.offset ? ` ${a.offset}` : ""
       return `${tag.name === "date" ? "Date" : "Time"} · ${base}${off}`
     }
-    case "clipboard":
-      return a.trim ? "Clipboard (trimmed)" : "Clipboard"
+    case "clipboard": {
+      const back = clampInt(a.history, 0, MAX_CLIPBOARD_HISTORY, 0)
+      const base = back === 0 ? "Clipboard" : back === 1 ? "Previous copy" : `Clipboard · ${back} back`
+      return a.trim ? `${base} (trimmed)` : base
+    }
+    case "selection":
+      return a.trim ? "Selection (trimmed)" : "Selection"
+    case "uuid":
+      return a.upper ? "UUID (capitals)" : "UUID"
+    case "random": {
+      const n = splitOptions((a.options as string) ?? "").length
+      return `Random · ${n} ${n === 1 ? "option" : "options"}`
+    }
+    case "key": {
+      const key = keyInfo(a.name)!
+      const count = clampInt(a.count, 1, MAX_KEY_COUNT, 1)
+      // The cap alone for symbols; word caps (esc, Space) already say what they are.
+      const cap = key.cap === key.label || key.cap.length > 1 ? key.label : `${key.cap} ${key.label}`
+      return count > 1 ? `${cap} ×${count}` : cap
+    }
+    case "delay":
+      return `Pause ${formatDelay(clampInt(a.ms, 1, MAX_DELAY_MS, 1))}`
     case "cursor":
       return "Cursor"
     case "snippet":
@@ -271,7 +336,12 @@ export function chipLabel(tag: TagToken, snippetName?: (id: string) => string | 
   }
 }
 
-export type ChipTone = "time" | "clipboard" | "cursor" | "snippet" | "form" | "error"
+/** "300 ms", "1.5 s". */
+export function formatDelay(ms: number): string {
+  return ms < 1000 ? `${ms} ms` : `${Number((ms / 1000).toFixed(2))} s`
+}
+
+export type ChipTone = "time" | "clipboard" | "cursor" | "snippet" | "form" | "error" | "key"
 
 export function chipTone(tag: TagToken): ChipTone {
   if (tag.verbatim) return "error"
@@ -280,7 +350,15 @@ export function chipTone(tag: TagToken): ChipTone {
     case "time":
       return "time"
     case "clipboard":
+    case "selection":
       return "clipboard"
+    // Generated values sit with dates: text Kudzu makes up at expansion time.
+    case "uuid":
+    case "random":
+      return "time"
+    case "key":
+    case "delay":
+      return "key"
     case "cursor":
       return "cursor"
     case "snippet":
@@ -297,6 +375,12 @@ export interface TemplateFacts {
   hasCursor: boolean
   snippetIds: string[]
   hasErrors: boolean
+  /** Has `{{selection}}`, which only has a value when inserted from Quick Search. */
+  usesSelection: boolean
+  /** Has `{{key}}`: the expansion presses keys, so it can't be undone with Backspace. */
+  pressesKeys: boolean
+  /** A `{{key}}` comes after `{{cursor}}`, which cancels the cursor position. */
+  cursorCancelled: boolean
 }
 
 export function analyze(source: string): TemplateFacts {
@@ -307,6 +391,9 @@ export function analyze(source: string): TemplateFacts {
     hasCursor: false,
     snippetIds: [],
     hasErrors: false,
+    usesSelection: false,
+    pressesKeys: false,
+    cursorCancelled: false,
   }
   for (const t of tokenize(source)) {
     if (t.kind !== "tag") continue
@@ -316,7 +403,11 @@ export function analyze(source: string): TemplateFacts {
       const n = t.attrs.name as string
       if (!facts.fieldNames.includes(n)) facts.fieldNames.push(n)
     } else if (t.name === "clipboard") facts.usesClipboard = true
-    else if (t.name === "cursor") facts.hasCursor = true
+    else if (t.name === "selection") facts.usesSelection = true
+    else if (t.name === "key") {
+      facts.pressesKeys = true
+      if (facts.hasCursor) facts.cursorCancelled = true
+    } else if (t.name === "cursor") facts.hasCursor = true
     else if (t.name === "snippet") facts.snippetIds.push(t.attrs.id as string)
   }
   return facts
