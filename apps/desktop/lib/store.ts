@@ -20,7 +20,7 @@ export type View =
   | { kind: "clipboard"; filter?: ClipFilter }
   | { kind: "settings"; section?: SettingsSection }
 
-export type SettingsSection = "general" | "expansion" | "clipboard" | "agents" | "apps" | "data" | "shortcuts" | "about"
+export type SettingsSection = "general" | "expansion" | "activity" | "clipboard" | "agents" | "apps" | "data" | "shortcuts" | "about"
 
 export type Focus = "sidebar" | "list" | "editor"
 

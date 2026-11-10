@@ -31,6 +31,7 @@ pub(crate) fn parse(source: &str) -> ParsedTemplate {
         text_start: 0,
     };
     let mut has_cursor = false;
+    let mut cursor_voided = false;
     let mut i = 0;
     while i < n {
         if chars[i] == "\\" && i + 1 < n {
@@ -114,6 +115,23 @@ pub(crate) fn parse(source: &str) -> ParsedTemplate {
                                 });
                             }
                             has_cursor = true;
+                        }
+                        if tag.name == "key" && has_cursor && !cursor_voided {
+                            cursor_voided = true;
+                            out.diagnostics.push(Diagnostic {
+                                severity: Severity::Warning,
+                                message: "A key press after the cursor cancels the cursor position".into(),
+                                range: range.clone(),
+                            });
+                        }
+                        for (key, min, max) in integer_attributes(&tag.name) {
+                            if let (value, true) = tag_integer(&tag, key, *min, *max, *min) {
+                                out.diagnostics.push(Diagnostic {
+                                    severity: Severity::Warning,
+                                    message: format!("'{key}' must be a whole number from {min} to {max}; using {value}"),
+                                    range: range.clone(),
+                                });
+                            }
                         }
                         if (tag.name == "date" || tag.name == "time")
                             && tag.attributes.iter().any(|a| a.name == "offset")
@@ -209,6 +227,29 @@ pub(crate) fn tag_bool(tag: &Tag, key: &str) -> bool {
     )
 }
 
+/// The last numeric value of attribute `key` as a whole number in `min..=max`, and whether the
+/// written value had to be adjusted (a fraction dropped, or clamped into range). An absent or
+/// non-numeric attribute is `default`.
+pub(crate) fn tag_integer(tag: &Tag, key: &str, min: u32, max: u32, default: u32) -> (u32, bool) {
+    match tag.attributes.iter().rev().find(|a| a.name == key).map(|a| &a.value) {
+        Some(AttributeValue::Number(n)) => {
+            let whole = n.floor().clamp(f64::from(min), f64::from(max));
+            (whole as u32, whole != *n)
+        }
+        _ => (default, false),
+    }
+}
+
+/// The whole-number attributes of a known tag, with their inclusive ranges.
+fn integer_attributes(name: &str) -> &'static [(&'static str, u32, u32)] {
+    match name {
+        "clipboard" => &[("history", 0, super::MAX_CLIPBOARD_HISTORY)],
+        "key" => &[("count", 1, super::MAX_KEY_COUNT)],
+        "delay" => &[("ms", 1, super::MAX_DELAY_MS)],
+        _ => &[],
+    }
+}
+
 /// Swift `UUID(uuidString:)` only accepts the hyphenated 36-character form.
 pub(crate) fn parse_uuid(s: &str) -> Option<Uuid> {
     if s.len() != 36 {
@@ -221,7 +262,11 @@ pub(crate) fn parse_uuid(s: &str) -> Option<Uuid> {
 fn schema(name: &str) -> Option<(&'static [&'static str], &'static [&'static str])> {
     Some(match name {
         "date" | "time" => (&["format", "offset", "locale"], &[]),
-        "clipboard" => (&[], &["trim"]),
+        "clipboard" | "selection" => (&[], &["trim"]),
+        "uuid" => (&[], &["upper"]),
+        "random" => (&["options"], &[]),
+        "key" => (&["name"], &[]),
+        "delay" => (&[], &[]),
         "cursor" => (&[], &[]),
         "snippet" => (&["id"], &[]),
         "field" => (&["name", "default"], &["multiline"]),
@@ -252,12 +297,20 @@ fn validate(tag: &Tag) -> Option<String> {
         let name = attribute.name.as_str();
         let is_string = strings.contains(&name);
         let is_bool = bools.contains(&name);
+        let is_number = integer_attributes(&tag.name).iter().any(|(key, ..)| *key == name);
         match attribute.value {
             AttributeValue::String(_) if is_string => {}
             AttributeValue::Bool(_) if is_bool => {}
-            _ if is_string || is_bool => return Some(format!("Invalid type for '{name}'")),
+            AttributeValue::Number(_) if is_number => {}
+            _ if is_string || is_bool || is_number => return Some(format!("Invalid type for '{name}'")),
             _ => {}
         }
+    }
+    if tag.name == "key" && tag_string(tag, "name").and_then(super::Key::parse).is_none() {
+        return Some("key requires a known key name".into());
+    }
+    if tag.name == "delay" && !tag.attributes.iter().any(|a| a.name == "ms") {
+        return Some("delay requires ms".into());
     }
     if tag.name == "snippet" && tag_string(tag, "id").and_then(parse_uuid).is_none() {
         return Some("snippet requires a UUID id".into());

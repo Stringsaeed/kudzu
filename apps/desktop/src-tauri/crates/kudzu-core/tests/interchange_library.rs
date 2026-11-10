@@ -302,7 +302,7 @@ mod interchange {
         std::fs::create_dir_all(&espanso_dir).unwrap();
         std::fs::write(
             espanso_dir.join("base.yml"),
-            "matches:\n  - trigger: \";hi\"\n    replace: \"Hello\"\n  - trigger: \";conflict\"\n    replace: \"Incoming conflict\"\n  - trigger: \";md1\"\n    markdown: \"**Bold 1**\"\n  - trigger: \";md2\"\n    markdown: \"**Bold 2**\"\n",
+            "matches:\n  - trigger: \";hi\"\n    replace: \"Hello\"\n  - trigger: \";conflict\"\n    replace: \"Incoming conflict\"\n  - trigger: \";md1\"\n    markdown: \"~~Struck 1~~\"\n  - trigger: \";md2\"\n    markdown: \"~~Struck 2~~\"\n",
         )
         .unwrap();
         let existing = library_with(vec![

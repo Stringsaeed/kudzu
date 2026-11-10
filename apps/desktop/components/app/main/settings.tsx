@@ -27,7 +27,7 @@ import { useStore, type SettingsSection } from "@/lib/store"
 import { relativeTime } from "@/lib/stats"
 import { applyTheme } from "@/lib/theme"
 import { openExternal, parseNotes, RELEASES_URL, useSyncStatus, useUpdateState } from "@/lib/updates"
-import type { AgentSetup, BackupInfo, EspansoDetection, InsertionMethod, ThemePreference } from "@/lib/types"
+import type { AgentSetup, BackupInfo, EspansoDetection, Group as SnippetGroup, InsertionMethod, ThemePreference } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { PermissionSetup } from "../permissions/permission-setup"
@@ -37,11 +37,13 @@ import { AppPicker } from "../app-picker"
 import { Segmented } from "../segmented"
 import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
+import { Activity } from "./activity"
 import { IMPORT_HINTS, runExport, runImport } from "./data-actions"
 
 export const SETTINGS_SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: "general", label: "General" },
   { id: "expansion", label: "Expansion" },
+  { id: "activity", label: "Activity" },
   { id: "clipboard", label: "Clipboard" },
   { id: "agents", label: "AI agents" },
   { id: "apps", label: "Apps" },
@@ -108,7 +110,7 @@ export function HotkeyRecorder({ value, onChange, label = "Quick search shortcut
   )
 }
 
-export function SettingsView({ section = "general" }: { section?: SettingsSection }) {
+export function SettingsView({ section = "general", onOpenGroupSettings }: { section?: SettingsSection; onOpenGroupSettings?: (group: SnippetGroup) => void }) {
   const setView = useStore((s) => s.setView)
   const setSection = (section: SettingsSection) => setView({ kind: "settings", section })
 
@@ -152,6 +154,7 @@ export function SettingsView({ section = "general" }: { section?: SettingsSectio
           <div className="mx-auto flex max-w-[680px] flex-col gap-8 px-8 py-8 stagger" key={section}>
             {section === "general" && <General />}
             {section === "expansion" && <Expansion />}
+            {section === "activity" && <Activity onOpenGroupSettings={onOpenGroupSettings} />}
             {section === "clipboard" && <ClipboardSettings />}
             {section === "agents" && <Agents />}
             {section === "apps" && <Apps />}

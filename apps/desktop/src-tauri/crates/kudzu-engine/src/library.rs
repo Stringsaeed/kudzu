@@ -13,6 +13,18 @@ use crate::EngineLibrary;
 /// Nested snippet depth limit, matching the renderer.
 const MAX_DEPTH: usize = 8;
 
+/// What one rendering needs besides the library.
+pub(crate) struct RenderInputs<'a> {
+    pub now: DateTime<FixedOffset>,
+    /// Plain-text clipboard snapshot, read before any paste of ours replaces it.
+    pub clipboard: Option<String>,
+    /// Selection captured before a palette insert; `None` for a typed trigger.
+    pub selection: Option<String>,
+    pub form_values: HashMap<String, String>,
+    /// The host's clipboard history: (copies before the current one, current clipboard text).
+    pub history: &'a dyn Fn(usize, Option<&str>) -> Option<String>,
+}
+
 /// An immutable snapshot of what the engine matches and renders against.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub(crate) struct Library {
@@ -67,24 +79,24 @@ impl Library {
         false
     }
 
-    /// Renders `snippet` at `now` with the given clipboard snapshot and form values.
-    pub fn render(
-        &self,
-        snippet: &SnippetRecord,
-        now: DateTime<FixedOffset>,
-        clipboard: Option<String>,
-        form_values: HashMap<String, String>,
-    ) -> RenderResult {
+    /// Renders `snippet` with fresh UUIDs and random picks.
+    pub fn render(&self, snippet: &SnippetRecord, inputs: RenderInputs<'_>) -> RenderResult {
         let resolve = |id: Uuid| self.source(id);
         let resolve_formatting = |id| self.snippets.get(&id).and_then(|s| s.formatting.clone());
+        let current = inputs.clipboard.clone();
+        let history = |index: usize| (inputs.history)(index, current.as_deref());
         let context = RenderContext {
             resolve_formatting: Some(&resolve_formatting),
-            now,
+            now: inputs.now,
             locale: self.locale.clone(),
-            clipboard,
-            form_values,
+            clipboard: inputs.clipboard,
+            form_values: inputs.form_values,
             resolve_snippet: &resolve,
             root_snippet_id: Some(snippet.id),
+            selection: inputs.selection,
+            clipboard_history: Some(&history),
+            new_uuid: Some(&template::random_uuid),
+            pick: Some(&template::random_index),
         };
         template::render_formatted(&snippet.content, snippet.formatting.as_ref(), &context)
     }
@@ -161,6 +173,33 @@ mod tests {
     fn library(snippets: Vec<SnippetRecord>, groups: Vec<GroupRecord>) -> Library {
         let lib = EngineLibrary { snippets, groups, config: MatchingConfig::default(), locale: String::new() };
         Library::new(&lib, || "en_GB".into())
+    }
+
+    #[test]
+    fn render_supplies_selection_history_uuid_and_random() {
+        let nested = SnippetRecord::new("n", vec![], "[{{clipboard history=2}}]");
+        let snippet = SnippetRecord::new(
+            "s",
+            vec![],
+            format!("{{{{selection}}}}|{{{{clipboard}}}}|{{{{clipboard history=1}}}}|{{{{snippet id=\"{}\"}}}}|{{{{random options=\"x|y\"}}}}|{{{{uuid}}}}", nested.id),
+        );
+        let lib = library(vec![snippet.clone(), nested.clone()], vec![]);
+        assert!(lib.uses_clipboard(&snippet) && lib.uses_clipboard(&nested));
+        let history = |index: usize, current: Option<&str>| Some(format!("{}-{index}", current.unwrap_or("none")));
+        let inputs = |selection: Option<&str>| RenderInputs {
+            now: now(),
+            clipboard: Some("clip".into()),
+            selection: selection.map(String::from),
+            form_values: HashMap::new(),
+            history: &history,
+        };
+        let text = lib.render(&snippet, inputs(Some("picked"))).text;
+        let parts: Vec<&str> = text.split('|').collect();
+        assert_eq!(parts[..4], ["picked", "clip", "clip-1", "[clip-2]"]);
+        assert!(parts[4] == "x" || parts[4] == "y");
+        assert!(Uuid::parse_str(parts[5]).is_ok_and(|u| !u.is_nil()));
+        // A typed trigger has no selection.
+        assert!(lib.render(&snippet, inputs(None)).text.starts_with("|clip|"));
     }
 
     #[test]

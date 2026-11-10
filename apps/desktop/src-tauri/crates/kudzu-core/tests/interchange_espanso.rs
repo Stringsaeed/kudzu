@@ -145,16 +145,17 @@ mod interchange {
         assert!(has_warning(&result, ":greet\\((?P<person>.*)\\)"));
         assert!(has_warning(&result, ":cat"));
 
-        assert_eq!(t[":rich_md"].content, "This *text* is **bold**");
-        assert!(has_warning(&result, ":rich_md"));
-        assert_eq!(t[":rich_html"].content, "<p>Hello <b>world</b></p>");
-        assert!(has_warning(&result, ":rich_html"));
+        // Markdown and HTML become Formatted snippets (see interchange_rich_text.rs).
+        assert_eq!(t[":rich_md"].content, "This text is bold");
+        assert_eq!(t[":rich_md"].formatting.as_ref().map(|f| f.spans.len()), Some(2));
+        assert!(!has_warning(&result, ":rich_md"));
+        assert_eq!(t[":rich_html"].content, "Hello world");
+        assert_eq!(t[":rich_html"].formatting.as_ref().map(|f| f.spans.len()), Some(1));
+        assert!(!has_warning(&result, ":rich_html"));
 
         for (trigger, content) in [
             (":ip", "IP: \\{{output}}"),
             (":py", "Out: \\{{script_out}}"),
-            (":rand", "Quote: \\{{r}}"),
-            (":echo_test", "Echo: \\{{e}}"),
             (":broken_nest", "Missing: \\{{missing_match}}"),
         ] {
             assert_eq!(t[trigger].content, content);
@@ -163,6 +164,11 @@ mod interchange {
                 "expected a warning for {trigger}"
             );
         }
+
+        // Random choices and fixed echo values have Kudzu equivalents.
+        assert_eq!(t[":rand"].content, "Quote: {{random options=\"One|Two\"}}");
+        assert_eq!(t[":echo_test"].content, "Echo: Fixed");
+        assert!(!has_warning(&result, ":rand") && !has_warning(&result, ":echo_test"));
 
         assert_eq!(
             t[":weird_date"].content,
@@ -319,6 +325,7 @@ mod interchange {
                 form_values: HashMap::new(),
                 resolve_snippet: &resolve,
                 resolve_formatting: None, root_snippet_id: None,
+            selection: None, clipboard_history: None, new_uuid: None, pick: None,
             };
             template::render(&s.content, &ctx).text
         };

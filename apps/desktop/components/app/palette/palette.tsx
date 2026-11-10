@@ -125,6 +125,8 @@ export function Palette() {
   const [active, setActive] = useState(0)
   const [showNumbers, setShowNumbers] = useState(false)
   const [rendered, setRendered] = useState<{ id: string; result: RenderResult } | null>(null)
+  // Text selected in the target app when the palette opened, for `{{selection}}`.
+  const [selection, setSelection] = useState<string | null>(null)
   const [flash, setFlash] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
@@ -138,8 +140,9 @@ export function Palette() {
     const offs = [
       on<Library>(Events.library, setLibrary),
       on<Settings>(Events.settings, (s) => applyTheme(s.theme)),
-      on<{ target?: AppInfo | null }>(Events.paletteShow, (p) => {
+      on<{ target?: AppInfo | null; selection?: string | null }>(Events.paletteShow, (p) => {
         setTarget(p.target ?? null)
+        setSelection(p.selection ?? null)
         setQuery("")
         setScope("all")
         setActive(0)
@@ -206,13 +209,13 @@ export function Palette() {
     if (!current) return
     let live = true
     const t = setTimeout(() => {
-      renderPreview(current.content, current.id, {}, resolve, current.formatting, resolveFormatting).then((r) => live && setRendered({ id: current.id, result: r }))
+      renderPreview(current.content, current.id, {}, resolve, current.formatting, resolveFormatting, selection).then((r) => live && setRendered({ id: current.id, result: r }))
     }, 40)
     return () => {
       live = false
       clearTimeout(t)
     }
-  }, [current, resolve, resolveFormatting])
+  }, [current, resolve, resolveFormatting, selection])
 
   const pick = useCallback(
     (i: number, mode: "insert" | "copy" | "edit" = "insert") => {
@@ -384,7 +387,7 @@ export function Palette() {
                   <div className="mb-2 text-[11px] font-medium text-faint">Will insert</div>
                   <div className="selectable text-[13.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
                     {preview ? (
-                      preview.text ? <FormattedText result={preview} /> : <span className="text-faint">Empty snippet</span>
+                      preview.text || preview.actions?.length ? <FormattedText result={preview} /> : <span className="text-faint">Empty snippet</span>
                     ) : (
                       <span className="block h-4 w-2/3 rounded bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--foreground)_8%,transparent),transparent)] bg-[length:200%_100%] animate-shimmer" />
                     )}

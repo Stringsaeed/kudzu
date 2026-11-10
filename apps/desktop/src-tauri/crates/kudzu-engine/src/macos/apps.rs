@@ -41,6 +41,11 @@ pub(crate) fn frontmost_pid() -> Option<i32> {
     autoreleasepool(|_| NSWorkspace::sharedWorkspace().frontmostApplication().map(|app| app.processIdentifier()))
 }
 
+/// The running process `pid`.
+pub(crate) fn app_of(pid: i32) -> Option<AppInfo> {
+    autoreleasepool(|_| NSRunningApplication::runningApplicationWithProcessIdentifier(pid).map(|app| info(&app)))
+}
+
 /// Bundle id of the running process `pid`.
 pub(crate) fn bundle_id_of(pid: i32) -> Option<String> {
     autoreleasepool(|_| {

@@ -1,6 +1,10 @@
 //! Platform-independent edit planning: how many backspaces, what to type, where the caret goes.
 
+use std::time::Duration;
+
+use kudzu_core::formatting::{FormatSpan, FormatStyle};
 use kudzu_core::matching::{case_propagation, CaseStyle, TriggerMatch};
+use kudzu_core::template::{ActionKind, Key, RenderAction};
 use kudzu_core::types::{FireMode, InsertionMethod};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -49,6 +53,87 @@ impl InsertionPlan {
         };
         Self { delete_count, text, reemit_separator: m.separator.clone(), caret_left_count }
     }
+}
+
+/// One step of an expansion that has key presses or pauses (`{{key}}`, `{{delay}}`).
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Step {
+    /// Deliver this text (typed or pasted, like a whole expansion would be), with its own formatting.
+    Text { text: String, spans: Option<Vec<FormatSpan>> },
+    Key { key: Key, count: u32 },
+    Pause(Duration),
+}
+
+/// An expansion as ordered steps. See "Key presses and pauses" in docs/TEMPLATE_SYNTAX.md for the rules.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Sequence {
+    pub steps: Vec<Step>,
+    /// Some step presses a key, so the text may end up spread over several fields: the expansion
+    /// can't be undone with Backspace and a whole-word trigger's separator isn't typed again.
+    pub has_keys: bool,
+    /// Left-arrow presses after the last step that put the caret at `{{cursor}}`. The renderer only
+    /// keeps a cursor that comes after the last key press, so the caret is still in that text.
+    pub caret_left: usize,
+    /// Some text carries an image, whose delivered length depends on the target app.
+    pub has_images: bool,
+}
+
+impl Sequence {
+    /// Splits `text` at each action. `spans`, `actions` and `cursor` are in UTF-16 units of `text`
+    /// (already case-propagated). Empty text between two actions produces no step.
+    pub fn new(text: &str, spans: Option<&[FormatSpan]>, actions: &[RenderAction], cursor: Option<usize>) -> Self {
+        let mut steps = Vec::new();
+        let mut from = 0;
+        let push_text = |steps: &mut Vec<Step>, from: usize, to: usize| {
+            let piece = utf16_slice(text, from, to);
+            if !piece.is_empty() {
+                steps.push(Step::Text { text: piece.to_string(), spans: spans.map(|s| clip_spans(s, from, to)) });
+            }
+        };
+        for action in actions {
+            let at = action.offset.max(from);
+            push_text(&mut steps, from, at);
+            from = at;
+            steps.push(match action.action {
+                ActionKind::Key { key, count } => Step::Key { key, count },
+                ActionKind::Pause { ms } => Step::Pause(Duration::from_millis(u64::from(ms))),
+            });
+        }
+        push_text(&mut steps, from, usize::MAX);
+        let is_image = |s: &FormatSpan| matches!(s.style, FormatStyle::Image { .. });
+        Sequence {
+            has_keys: steps.iter().any(|s| matches!(s, Step::Key { .. })),
+            caret_left: cursor.map_or(0, |offset| graphemes_after_utf16(text, offset)),
+            has_images: steps.iter().any(|s| matches!(s, Step::Text { spans: Some(spans), .. } if spans.iter().any(is_image))),
+            steps,
+        }
+    }
+}
+
+/// `text` between UTF-16 offsets `from` and `to`, snapped to character boundaries.
+pub(crate) fn utf16_slice(text: &str, from: usize, to: usize) -> &str {
+    let start = utf16_prefix(text, from).len();
+    let end = utf16_prefix(text, to).len();
+    &text[start..end.max(start)]
+}
+
+/// The parts of `spans` inside `from..to`, re-based to start at 0. An image cut by the boundary
+/// is dropped (its text alternative stays), since half an image can't be delivered.
+fn clip_spans(spans: &[FormatSpan], from: usize, to: usize) -> Vec<FormatSpan> {
+    spans
+        .iter()
+        .filter_map(|span| {
+            let (start, end) = (span.start.max(from), span.end.min(to));
+            let whole = span.start >= from && span.end <= to;
+            let keep = start < end && (whole || !matches!(span.style, FormatStyle::Image { .. }));
+            keep.then(|| FormatSpan { start: start - from, end: end - from, style: span.style.clone() })
+        })
+        .collect()
+}
+
+/// Re-maps action offsets after case propagation, like [`cased_cursor_offset`].
+pub(crate) fn cased_actions(style: CaseStyle, rendered: &str, actions: &[RenderAction]) -> Vec<RenderAction> {
+    actions.iter().map(|a| RenderAction { offset: cased_cursor_offset(style, rendered, a.offset), action: a.action }).collect()
 }
 
 /// Number of grapheme clusters (what one backspace or arrow press moves over).
@@ -135,6 +220,14 @@ pub(crate) fn should_type(method: InsertionMethod, text: &str) -> bool {
     }
 }
 
+/// Whether a piece of an expansion is typed (true) or pasted (false).
+///
+/// Formatted text needs the clipboard unless typing was asked for. While an input method is
+/// composing, typed events would be fed into the composition, so everything is pasted.
+pub(crate) fn types(method: InsertionMethod, text: &str, formatted: bool, composing: bool) -> bool {
+    !composing && should_type(method, text) && (!formatted || method == InsertionMethod::Type)
+}
+
 fn is_newline(c: char) -> bool {
     matches!(c, '\n' | '\r' | '\u{0B}' | '\u{0C}' | '\u{85}' | '\u{2028}' | '\u{2029}')
 }
@@ -155,6 +248,108 @@ mod tests {
             case_style: CaseStyle::AsIs,
             fire_mode,
         }
+    }
+
+    fn key_at(offset: usize, key: Key, count: u32) -> RenderAction {
+        RenderAction { offset, action: ActionKind::Key { key, count } }
+    }
+
+    fn pause_at(offset: usize, ms: u32) -> RenderAction {
+        RenderAction { offset, action: ActionKind::Pause { ms } }
+    }
+
+    fn plain(text: &str) -> Step {
+        Step::Text { text: text.into(), spans: None }
+    }
+
+    #[test]
+    fn sequence_splits_text_at_each_action_in_order() {
+        // "user", Tab, "pass", pause, Return ×2 — a login form.
+        let actions = [key_at(4, Key::Tab, 1), pause_at(8, 200), key_at(8, Key::Return, 2)];
+        let seq = Sequence::new("userpass", None, &actions, None);
+        assert_eq!(
+            seq.steps,
+            [
+                plain("user"),
+                Step::Key { key: Key::Tab, count: 1 },
+                plain("pass"),
+                Step::Pause(Duration::from_millis(200)),
+                Step::Key { key: Key::Return, count: 2 },
+            ]
+        );
+        assert!(seq.has_keys && !seq.has_images);
+        assert_eq!(seq.caret_left, 0);
+    }
+
+    #[test]
+    fn sequence_handles_edges_and_wide_characters() {
+        // Actions at the very start and end, and offsets after a surrogate pair.
+        let actions = [key_at(0, Key::Tab, 1), key_at(2, Key::Down, 3), key_at(3, Key::Escape, 1)];
+        let seq = Sequence::new("😀a", None, &actions, None);
+        assert_eq!(
+            seq.steps,
+            [
+                Step::Key { key: Key::Tab, count: 1 },
+                plain("😀"),
+                Step::Key { key: Key::Down, count: 3 },
+                plain("a"),
+                Step::Key { key: Key::Escape, count: 1 },
+            ]
+        );
+        // An offset past the end (or out of order) never panics or repeats text.
+        let odd = Sequence::new("ab", None, &[key_at(9, Key::Tab, 1), key_at(1, Key::Tab, 1)], None);
+        assert_eq!(odd.steps, [plain("ab"), Step::Key { key: Key::Tab, count: 1 }, Step::Key { key: Key::Tab, count: 1 }]);
+        // Pauses alone keep the expansion one contiguous text.
+        let paused = Sequence::new("ab", None, &[pause_at(1, 50)], Some(1));
+        assert!(!paused.has_keys);
+        assert_eq!(paused.caret_left, 1);
+        assert_eq!(Sequence::new("", None, &[], None).steps, []);
+    }
+
+    #[test]
+    fn sequence_caret_counts_graphemes_after_the_cursor() {
+        let seq = Sequence::new("to: 👋🏽 end", None, &[key_at(3, Key::Tab, 1)], Some(4));
+        assert_eq!(seq.caret_left, 5);
+    }
+
+    #[test]
+    fn sequence_clips_formatting_to_each_text_step() {
+        let image = FormatStyle::Image { data_url: "data:image/png;base64,AAAA".into(), width: 10 };
+        let spans = [
+            FormatSpan { start: 1, end: 6, style: FormatStyle::Bold },
+            FormatSpan { start: 2, end: 5, style: image.clone() },
+            FormatSpan { start: 6, end: 8, style: image.clone() },
+        ];
+        let seq = Sequence::new("abcdefgh", Some(&spans), &[key_at(4, Key::Tab, 1)], None);
+        assert_eq!(
+            seq.steps,
+            [
+                Step::Text { text: "abcd".into(), spans: Some(vec![FormatSpan { start: 1, end: 4, style: FormatStyle::Bold }]) },
+                Step::Key { key: Key::Tab, count: 1 },
+                Step::Text {
+                    text: "efgh".into(),
+                    spans: Some(vec![
+                        FormatSpan { start: 0, end: 2, style: FormatStyle::Bold },
+                        FormatSpan { start: 2, end: 4, style: image },
+                    ]),
+                },
+            ]
+        );
+        assert!(seq.has_images);
+    }
+
+    #[test]
+    fn action_offsets_follow_unicode_case_expansion() {
+        let cased = cased_actions(CaseStyle::Upper, "ß hi", &[key_at(2, Key::Tab, 1)]);
+        assert_eq!(cased[0].offset, 3);
+    }
+
+    #[test]
+    fn utf16_slice_snaps_to_characters() {
+        assert_eq!(utf16_slice("a😀b", 1, 3), "😀");
+        assert_eq!(utf16_slice("a😀b", 2, 3), "😀");
+        assert_eq!(utf16_slice("abc", 2, 1), "");
+        assert_eq!(utf16_slice("abc", 1, usize::MAX), "bc");
     }
 
     #[test]
@@ -267,5 +462,22 @@ mod tests {
         assert!(should_type(InsertionMethod::Automatic, &"x".repeat(99)));
         assert!(should_type(InsertionMethod::Type, &"x".repeat(500)));
         assert!(!should_type(InsertionMethod::Paste, "x"));
+    }
+
+    #[test]
+    fn formatted_text_is_pasted_unless_typing_was_asked_for() {
+        assert!(types(InsertionMethod::Automatic, "hello", false, false));
+        assert!(!types(InsertionMethod::Automatic, "hello", true, false));
+        assert!(types(InsertionMethod::Type, "hello", true, false));
+        assert!(!types(InsertionMethod::Paste, "hello", false, false));
+        assert!(!types(InsertionMethod::Automatic, &"x".repeat(100), false, false));
+    }
+
+    #[test]
+    fn nothing_is_typed_into_a_composing_input_method() {
+        assert!(!types(InsertionMethod::Automatic, "hello", false, true));
+        assert!(!types(InsertionMethod::Type, "hello", false, true));
+        assert!(!types(InsertionMethod::Type, "hello", true, true));
+        assert!(!types(InsertionMethod::Paste, "hello", false, true));
     }
 }

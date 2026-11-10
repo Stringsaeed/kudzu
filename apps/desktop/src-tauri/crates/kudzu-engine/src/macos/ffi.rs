@@ -18,6 +18,9 @@ pub type AXError = i32;
 pub type CGEventType = u32;
 pub type CGEventFlags = u64;
 pub type CGKeyCode = u16;
+/// An opaque Text Input Sources object (a CF type; `Copy`/`Create` results are owned).
+pub type TISInputSourceRef = *mut c_void;
+pub type OSStatus = i32;
 
 pub type CGEventTapCallBack =
     unsafe extern "C" fn(proxy: CGEventTapProxy, kind: CGEventType, event: CGEventRef, user_info: *mut c_void) -> CGEventRef;
@@ -32,6 +35,7 @@ pub const kCGEventTapDisabledByTimeout: CGEventType = 0xFFFF_FFFE;
 pub const kCGEventTapDisabledByUserInput: CGEventType = 0xFFFF_FFFF;
 
 // CGEventField
+pub const kCGKeyboardEventAutorepeat: u32 = 8;
 pub const kCGKeyboardEventKeycode: u32 = 9;
 pub const kCGEventSourceUserData: u32 = 42;
 
@@ -54,6 +58,11 @@ pub const kAXValueCGSizeType: u32 = 2;
 pub const kAXValueCGRectType: u32 = 3;
 
 pub const kAXErrorSuccess: AXError = 0;
+
+// UCKeyTranslate: key action, options, and the Command bit of a modifier state (`cmdKey >> 8`).
+pub const kUCKeyActionDown: u16 = 0;
+pub const kUCKeyTranslateNoDeadKeysMask: u32 = 1;
+pub const kUCModifierCommand: u32 = 1;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -124,4 +133,54 @@ extern "C" {
 #[link(name = "Carbon", kind = "framework")]
 extern "C" {
     pub fn IsSecureEventInputEnabled() -> u8;
+
+    // Text Input Sources (HIToolbox). Main thread only.
+    pub static kTISPropertyInputSourceType: CFStringRef;
+    pub static kTISPropertyInputSourceIsASCIICapable: CFStringRef;
+    pub static kTISPropertyInputSourceID: CFStringRef;
+    pub static kTISPropertyInputModeID: CFStringRef;
+    pub static kTISPropertyUnicodeKeyLayoutData: CFStringRef;
+    pub static kTISTypeKeyboardLayout: CFStringRef;
+    pub static kTISTypeKeyboardInputMethodWithoutModes: CFStringRef;
+    pub static kTISTypeKeyboardInputMethodModeEnabled: CFStringRef;
+    pub static kTISTypeKeyboardInputMode: CFStringRef;
+    pub static kTISNotifySelectedKeyboardInputSourceChanged: CFStringRef;
+    pub fn TISCopyCurrentKeyboardInputSource() -> TISInputSourceRef;
+    pub fn TISCopyCurrentKeyboardLayoutInputSource() -> TISInputSourceRef;
+    pub fn TISCopyCurrentASCIICapableKeyboardLayoutInputSource() -> TISInputSourceRef;
+    /// Get rule: the value belongs to `source`. Its type depends on `key`.
+    pub fn TISGetInputSourceProperty(source: TISInputSourceRef, key: CFStringRef) -> *mut c_void;
+
+    // CarbonCore.
+    /// `layout` points at a `UCKeyboardLayout` (`uchr` data).
+    pub fn UCKeyTranslate(
+        layout: *const c_void,
+        virtual_key_code: u16,
+        key_action: u16,
+        modifier_key_state: u32,
+        keyboard_type: u32,
+        options: u32,
+        dead_key_state: *mut u32,
+        max_len: usize,
+        actual_len: *mut usize,
+        buffer: *mut u16,
+    ) -> OSStatus;
+    pub fn LMGetKbdType() -> u8;
+}
+
+/// `dispatch_function_t`.
+pub type DispatchFunction = extern "C" fn(context: *mut c_void);
+
+/// `struct dispatch_queue_s`, only ever used by address.
+#[repr(C)]
+pub struct DispatchQueue {
+    _opaque: [u8; 0],
+}
+
+// libSystem (always linked).
+extern "C" {
+    /// The main queue object; `dispatch_get_main_queue()` is an inline function returning its address.
+    pub static _dispatch_main_q: DispatchQueue;
+    pub fn dispatch_async_f(queue: *const DispatchQueue, context: *mut c_void, work: DispatchFunction);
+    pub fn pthread_main_np() -> i32;
 }

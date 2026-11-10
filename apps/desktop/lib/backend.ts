@@ -9,6 +9,7 @@ import { formattedHtml } from "./formatting"
 import { renderLocal } from "./render-local"
 import { mockBackend } from "./mock"
 import type {
+  ActivityEntry,
   AgentSetup,
   AppInfo,
   AppState,
@@ -67,6 +68,8 @@ export const Events = {
   sync: "kudzu://sync",
   clipboard: "kudzu://clipboard",
   clipboardShow: "kudzu://clipboard-show",
+  /** One new `ActivityEntry`. */
+  activity: "kudzu://activity",
 } as const
 
 export const api = {
@@ -105,10 +108,13 @@ export const api = {
   openSystemSettings: (pane: "accessibility" | "inputMonitoring" | "loginItems") =>
     call<void>("open_system_settings", { pane }),
   engineStatus: () => call<EngineStatus>("engine_status"),
+  /** Recent expansion attempts, newest first. Memory only; cleared when Kudzu quits. */
+  activityList: () => call<ActivityEntry[]>("activity_list"),
+  activityClear: () => call<void>("activity_clear"),
 
   // Templates
-  renderPreview: (content: string, snippetId: string | null, formValues: Record<string, string>, formatting?: Formatting) =>
-    call<RenderResult>("render_preview", { content, snippetId, formValues, formatting: formatting ?? null }),
+  renderPreview: (content: string, snippetId: string | null, formValues: Record<string, string>, formatting?: Formatting, selection?: string | null) =>
+    call<RenderResult>("render_preview", { content, snippetId, formValues, formatting: formatting ?? null, selection: selection ?? null }),
   copyPreview: (content: string, snippetId: string | null, formatting?: Formatting) =>
     call<void>("copy_preview", { content, snippetId, formatting: formatting ?? null }),
 
@@ -196,16 +202,29 @@ export async function renderPreview(
   resolve: (id: string) => string | undefined,
   formatting?: Formatting,
   resolveFormatting?: (id: string) => Formatting | undefined,
+  /** What `{{selection}}` shows: the captured selection (Quick Search, form) or a sample (editor). */
+  selection?: string | null,
 ): Promise<RenderResult> {
   if (isTauri()) {
     try {
-      return await api.renderPreview(content, snippetId, formValues, formatting)
+      return await api.renderPreview(content, snippetId, formValues, formatting, selection)
     } catch {
       /* fall through to local */
     }
   }
-  return renderLocal(content, { formValues, resolve, formatting, resolveFormatting, clipboard: "clipboard text" })
+  return renderLocal(content, {
+    formValues,
+    resolve,
+    formatting,
+    resolveFormatting,
+    clipboard: "clipboard text",
+    clipboardHistory: ["previous copy", "an older copy"],
+    selection: selection ?? undefined,
+  })
 }
+
+/** Stand-in for `{{selection}}` in the editor's preview, where nothing is selected. */
+export const SAMPLE_SELECTION = "selected text"
 
 export type { Library }
 

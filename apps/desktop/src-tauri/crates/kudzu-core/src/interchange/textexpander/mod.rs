@@ -19,6 +19,7 @@ use super::espanso::tags;
 use super::strftime::{escape_icu_literal, map_specifier};
 use super::template_out::TemplateOut;
 use super::espanso::ImportWarning;
+use super::rich::{self, RichText};
 use super::{ImportResult, InterchangeError};
 use crate::types::{iso8601, CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
 
@@ -93,6 +94,8 @@ struct RawSnippet {
     content: String,
     label: Option<String>,
     kind: Kind,
+    /// A rich snippet's formatting: Cocoa RTF from `extraInfo.RTF`, or `Err` with why it can't be read.
+    rich: Option<Result<RichText, String>>,
     exact_case: bool,
     created: Option<DateTime<Utc>>,
     modified: Option<DateTime<Utc>>,
@@ -177,6 +180,7 @@ fn read_plist(
                     .and_then(Value::as_str)
                     .map(str::to_string),
                 kind,
+                rich: (kind == Kind::Rich).then(|| rich_text(item)),
                 exact_case: item.get("abbreviationMode").and_then(Value::as_int) == Some(0),
                 created: date("creationDate"),
                 modified: date("modificationDate"),
@@ -288,6 +292,7 @@ fn read_csv(
             content: normalize_newlines(content),
             label: label_col.map(cell).map(str::to_string),
             kind: Kind::Plain,
+            rich: None,
             exact_case: false,
             created: None,
             modified: None,
@@ -349,10 +354,23 @@ fn build(groups: Vec<RawGroup>, file: &str, mut warnings: Vec<ImportWarning>) ->
                 continue;
             };
             let mut problems = Vec::new();
-            let content = convert(&snippet.content, &by_abbreviation, &mut problems);
-            if snippet.kind == Kind::Rich {
-                problems.push("Rich text formatting was dropped; the snippet was imported as plain text.".into());
-            }
+            let mut formatting = None;
+            let content = match &snippet.rich {
+                Some(Ok(text)) => {
+                    let atoms = rich::textexpander_atoms(&text.text);
+                    let converted = rich::to_template(text, &atoms, |segment| {
+                        convert(segment, &by_abbreviation, &mut problems)
+                    });
+                    problems.extend(text.warning());
+                    formatting = Some(converted.formatting);
+                    converted.content
+                }
+                Some(Err(reason)) => {
+                    problems.push(format!("Rich text snippet imported as plain text: {reason}."));
+                    convert(&snippet.content, &by_abbreviation, &mut problems)
+                }
+                None => convert(&snippet.content, &by_abbreviation, &mut problems),
+            };
             for message in problems {
                 warnings.push(warning(file, snippet.index, trigger, message));
             }
@@ -390,6 +408,7 @@ fn build(groups: Vec<RawGroup>, file: &str, mut warnings: Vec<ImportWarning>) ->
                     CaseMode::Propagate
                 },
                 is_enabled: has_trigger,
+                formatting,
                 created_at: snippet.created.map_or(timestamp, |d| d.trunc_subsecs(0)),
                 updated_at: snippet
                     .modified
@@ -419,6 +438,29 @@ fn build(groups: Vec<RawGroup>, file: &str, mut warnings: Vec<ImportWarning>) ->
         },
         warnings,
     }
+}
+
+/// Reads a rich snippet's formatting. TextExpander stores it twice: `extraInfo.RTF` (Cocoa RTF,
+/// read here) and `richText` (an `NSArchiver` typedstream of an attributed string, which Kudzu
+/// doesn't decode). RTF whose text disagrees with `plainText` isn't trusted.
+fn rich_text(item: &Value) -> Result<RichText, String> {
+    let rtf = item
+        .get("extraInfo")
+        .and_then(|info| info.get("RTF"))
+        .and_then(Value::as_str);
+    let Some(rtf) = rtf else {
+        return Err(if item.get("richText").is_some() {
+            "its formatting is stored only as an Apple archive Kudzu can't read".into()
+        } else {
+            "the export has no formatting for it".into()
+        });
+    };
+    let text = rich::read_rtf(rtf)?;
+    let plain = item.get("plainText").and_then(Value::as_str).unwrap_or("");
+    if !text.agrees_with(plain) {
+        return Err("its rich text doesn't match its plain text".into());
+    }
+    Ok(text)
 }
 
 /// XML and spreadsheets both write line breaks as `\r\n`; Kudzu templates use `\n`.
@@ -614,6 +656,17 @@ fn convert(raw: &str, abbreviations: &HashMap<String, Uuid>, problems: &mut Vec<
                 continue;
             }
         }
+        if starts_with(&chars, i, "%key:") {
+            if let Some(close) = next_percent(&chars, i + 5) {
+                let name: String = chars[i + 5..close].iter().collect();
+                // TextExpander's Enter and Return both become Return.
+                if let Some(key) = crate::template::Key::parse(&name.trim().to_lowercase()) {
+                    out.tag(&tags::key_tag(key, 1));
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
         if let Some(name) = ["key", "calc", "mouse"]
             .into_iter()
             .find(|k| starts_with(&chars, i + 1, k) && chars.get(i + 1 + k.len()) == Some(&':'))
@@ -718,9 +771,19 @@ mod tests {
 
     #[test]
     fn unsupported_macros_warn_and_stay_text() {
-        let (out, problems) = convert_plain("%key:return% and %calc:1+1% and %@+1D (no date)");
+        let (out, problems) = convert_plain("%key:f13% and %calc:1+1% and %@+1D (no date)");
         assert_eq!(problems.len(), 3);
-        assert_eq!(out, "%key:return% and %calc:1+1% and %@+1D (no date)");
+        assert_eq!(out, "%key:f13% and %calc:1+1% and %@+1D (no date)");
+    }
+
+    #[test]
+    fn key_macros_become_key_tags() {
+        let (out, problems) = convert_plain("user%key:tab%pass%key:enter%%key:return%%key:esc%%key:Tab%");
+        assert!(problems.is_empty(), "{problems:?}");
+        assert_eq!(
+            out,
+            "user{{key name=\"tab\"}}pass{{key name=\"return\"}}{{key name=\"return\"}}{{key name=\"escape\"}}{{key name=\"tab\"}}"
+        );
     }
 
     #[test]

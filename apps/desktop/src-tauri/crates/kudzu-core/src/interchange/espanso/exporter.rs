@@ -292,7 +292,25 @@ fn replace_and_vars(
                     }
                 }
             }
-            TemplateTag::Unknown => text.push_str(&escape_braces(&tag_source(tag))),
+            TemplateTag::Random { options } if !options.is_empty() => {
+                counter += 1;
+                let name = format!("random_{counter}");
+                let choices = Yaml::Array(options.iter().map(|o| s(o)).collect());
+                vars.push(map(vec![
+                    ("name", s(&name)),
+                    ("type", s("random")),
+                    ("params", map(vec![("choices", choices)])),
+                ]));
+                text.push_str(&format!("{{{{{name}}}}}"));
+            }
+            // Espanso has no equivalent (its key presses and selection work differently), so the
+            // tag is written out as text, like one Kudzu doesn't recognize.
+            TemplateTag::Selection { .. }
+            | TemplateTag::Uuid { .. }
+            | TemplateTag::Random { .. }
+            | TemplateTag::Key { .. }
+            | TemplateTag::Delay { .. }
+            | TemplateTag::Unknown => text.push_str(&escape_braces(&tag_source(tag))),
         }
     }
 

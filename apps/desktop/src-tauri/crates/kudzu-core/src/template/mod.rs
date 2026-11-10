@@ -79,12 +79,89 @@ pub struct DateOffset {
     pub parts: Vec<(String, i64)>,
 }
 
+/// A key `{{key}}` can press during insertion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Key {
+    Tab,
+    Return,
+    Escape,
+    Left,
+    Right,
+    Up,
+    Down,
+    /// Deletes backward (the Mac's Delete key).
+    Backspace,
+    /// Deletes forward.
+    Delete,
+    Space,
+}
+
+impl Key {
+    /// Every key, in the order the editor lists them.
+    pub const ALL: [Key; 10] =
+        [Key::Tab, Key::Return, Key::Escape, Key::Space, Key::Backspace, Key::Delete, Key::Left, Key::Right, Key::Up, Key::Down];
+
+    /// Parses a `name` attribute. `enter` and `esc` are accepted spellings of `return` and `escape`.
+    pub fn parse(name: &str) -> Option<Key> {
+        Some(match name {
+            "tab" => Key::Tab,
+            "return" | "enter" => Key::Return,
+            "escape" | "esc" => Key::Escape,
+            "left" => Key::Left,
+            "right" => Key::Right,
+            "up" => Key::Up,
+            "down" => Key::Down,
+            "backspace" => Key::Backspace,
+            "delete" => Key::Delete,
+            "space" => Key::Space,
+            _ => return None,
+        })
+    }
+
+    /// The canonical `name` attribute.
+    pub fn name(self) -> &'static str {
+        match self {
+            Key::Tab => "tab",
+            Key::Return => "return",
+            Key::Escape => "escape",
+            Key::Left => "left",
+            Key::Right => "right",
+            Key::Up => "up",
+            Key::Down => "down",
+            Key::Backspace => "backspace",
+            Key::Delete => "delete",
+            Key::Space => "space",
+        }
+    }
+}
+
+/// Most presses one `{{key}}` tag can ask for.
+pub const MAX_KEY_COUNT: u32 = 50;
+/// Longest pause of one `{{delay}}` tag, in milliseconds.
+pub const MAX_DELAY_MS: u32 = 5_000;
+/// Longest total pause of one expansion, in milliseconds; later delays are cut short.
+pub const MAX_TOTAL_DELAY_MS: u32 = 10_000;
+/// Oldest clipboard-history item `{{clipboard history=N}}` can ask for.
+pub const MAX_CLIPBOARD_HISTORY: u32 = 99;
+
 /// Typed view of a tag using v1 defaults.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TemplateTag {
     Date { format: String, offset: Option<DateOffset>, locale: Option<String> },
     Time { format: String, offset: Option<DateOffset>, locale: Option<String> },
-    Clipboard { trim: bool },
+    /// `history` 0 is the current clipboard; N is the Nth item before it.
+    Clipboard { trim: bool, history: u32 },
+    /// The text selected in the target app (empty for a typed trigger).
+    Selection { trim: bool },
+    /// A random UUID v4.
+    Uuid { upper: bool },
+    /// One of `options`, picked at random.
+    Random { options: Vec<String> },
+    /// Presses `key` `count` times at this point of the insertion.
+    Key { key: Key, count: u32 },
+    /// Pauses the insertion for `ms` milliseconds.
+    Delay { ms: u32 },
     Cursor,
     Snippet { id: Uuid },
     Field { name: String, default: Option<String>, multiline: bool },
@@ -119,6 +196,12 @@ pub struct TemplateInfo {
     pub referenced_snippet_ids: Vec<Uuid>,
     pub has_cursor: bool,
     pub uses_clipboard: bool,
+    /// Has a `{{selection}}` tag.
+    #[serde(default)]
+    pub uses_selection: bool,
+    /// Has a `{{key}}` tag, so the expansion is a sequence rather than one piece of text.
+    #[serde(default)]
+    pub has_key_presses: bool,
 }
 
 /// Explicit inputs for deterministic rendering.
@@ -137,6 +220,35 @@ pub struct RenderContext<'a> {
     pub resolve_formatting: Option<&'a dyn Fn(Uuid) -> Option<crate::formatting::Formatting>>,
     /// The snippet being rendered; referencing it is a cycle even at the top level.
     pub root_snippet_id: Option<Uuid>,
+    /// Text selected in the target app, captured before insertion. `None` renders empty.
+    pub selection: Option<String>,
+    /// Plain text of the Nth clipboard-history item before the current clipboard (1 = previous).
+    /// Without a resolver, history items render empty.
+    pub clipboard_history: Option<&'a dyn Fn(usize) -> Option<String>>,
+    /// Source of `{{uuid}}` values. Without one the nil UUID is used, so tests stay deterministic.
+    pub new_uuid: Option<&'a dyn Fn() -> Uuid>,
+    /// Picks an index below the given option count for `{{random}}` (the result is taken modulo
+    /// the count). Without one the first option is used.
+    pub pick: Option<&'a dyn Fn(usize) -> usize>,
+}
+
+/// Something other than text that happens during insertion.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum ActionKind {
+    /// Press `key` `count` times.
+    Key { key: Key, count: u32 },
+    /// Wait `ms` milliseconds.
+    Pause { ms: u32 },
+}
+
+/// An [`ActionKind`] and where it happens: after the first `offset` UTF-16 units of the text.
+/// Actions are in insertion order; several can share an offset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RenderAction {
+    pub offset: usize,
+    #[serde(flatten)]
+    pub action: ActionKind,
 }
 
 /// Rendered text, caret placement and diagnostics.
@@ -149,6 +261,17 @@ pub struct RenderResult {
     /// Caret offset in UTF-16 code units from the start of `text`, if a root `{{cursor}}` exists.
     pub cursor_offset: Option<usize>,
     pub diagnostics: Vec<Diagnostic>,
+    /// Key presses and pauses from `{{key}}` and `{{delay}}`, in order. `text` never contains them:
+    /// a consumer that only wants text (copy, previews, agents) can ignore this.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub actions: Vec<RenderAction>,
+}
+
+impl RenderResult {
+    /// Whether inserting this needs key presses, so it can't be delivered as one piece of text.
+    pub fn has_key_presses(&self) -> bool {
+        self.actions.iter().any(|a| matches!(a.action, ActionKind::Key { .. }))
+    }
 }
 
 /// Parses template source. Never fails; problems become diagnostics.
@@ -163,7 +286,7 @@ pub fn serialize(nodes: &[Node]) -> String {
 
 /// Typed interpretation of a tag.
 pub fn typed(tag: &Tag) -> TemplateTag {
-    use parser::{parse_uuid, tag_bool, tag_string};
+    use parser::{parse_uuid, tag_bool, tag_integer, tag_string};
     if tag.verbatim.is_some() {
         return TemplateTag::Unknown;
     }
@@ -180,7 +303,21 @@ pub fn typed(tag: &Tag) -> TemplateTag {
                 TemplateTag::Time { format, offset, locale }
             }
         }
-        "clipboard" => TemplateTag::Clipboard { trim: tag_bool(tag, "trim") },
+        "clipboard" => TemplateTag::Clipboard {
+            trim: tag_bool(tag, "trim"),
+            history: tag_integer(tag, "history", 0, MAX_CLIPBOARD_HISTORY, 0).0,
+        },
+        "selection" => TemplateTag::Selection { trim: tag_bool(tag, "trim") },
+        "uuid" => TemplateTag::Uuid { upper: tag_bool(tag, "upper") },
+        "random" => TemplateTag::Random { options: split_options(tag_string(tag, "options").unwrap_or("")) },
+        "key" => match tag_string(tag, "name").and_then(Key::parse) {
+            Some(key) => TemplateTag::Key { key, count: tag_integer(tag, "count", 1, MAX_KEY_COUNT, 1).0 },
+            None => TemplateTag::Unknown,
+        },
+        "delay" => match tag.attributes.iter().any(|a| a.name == "ms") {
+            true => TemplateTag::Delay { ms: tag_integer(tag, "ms", 1, MAX_DELAY_MS, 1).0 },
+            false => TemplateTag::Unknown,
+        },
         "cursor" => TemplateTag::Cursor,
         "snippet" => match tag_string(tag, "id").and_then(parse_uuid) {
             Some(id) => TemplateTag::Snippet { id },
@@ -242,6 +379,20 @@ pub fn analyze(parsed: &ParsedTemplate) -> TemplateInfo {
 /// Form fields of `source` including nested snippets (depth-first, cycle-safe, depth ≤ 8).
 pub fn form_fields(source: &str, resolve_snippet: &dyn Fn(Uuid) -> Option<String>) -> Vec<FormFieldSpec> {
     analysis::form_fields(source, resolve_snippet)
+}
+
+/// A fresh UUID v4 for [`RenderContext::new_uuid`] outside tests.
+pub fn random_uuid() -> Uuid {
+    Uuid::new_v4()
+}
+
+/// A random index below `count` for [`RenderContext::pick`] outside tests (0 when `count` is 0).
+pub fn random_index(count: usize) -> usize {
+    match count {
+        0 => 0,
+        // A v4 UUID's low 62 bits are random, which is plenty for a list of options.
+        n => (Uuid::new_v4().as_u128() % n as u128) as usize,
+    }
 }
 
 /// Formats `date` with an ICU/`DateFormatter` pattern (`yyyy-MM-dd`, `EEEE, MMMM d`, `h:mm a`…)

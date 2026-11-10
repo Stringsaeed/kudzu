@@ -486,6 +486,8 @@
 .kz-editor .kz-chip-form { --kz-chip-fg: var(--chip-form); }
 .kz-editor .kz-chip-snippet { --kz-chip-fg: var(--chip-neutral); }
 .kz-editor .kz-chip-error { --kz-chip-fg: var(--chip-error); font-family: var(--app-mono); }
+/* Key presses and pauses: actions rather than text, so they take the neutral tone. */
+.kz-editor .kz-chip-key { --kz-chip-fg: var(--chip-neutral); }
 .kz-editor .kz-chip {
   /* Tint and ring derive from the tone colour, so every chip works in both themes. */
   background: color-mix(in oklch, var(--kz-chip-fg) 13%, transparent);

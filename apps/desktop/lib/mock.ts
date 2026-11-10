@@ -1,7 +1,8 @@
 // In-browser stand-in for the Rust backend, used only outside Tauri (design work, demos).
 
+import { seedActivity } from "./mock-activity"
 import { renderLocal } from "./render-local"
-import type { AppInfo, AppState, ClipEntry, ClipKind, EngineStatus, Group, Library, Settings, Snippet } from "./types"
+import type { ActivityEntry, AppInfo, AppState, ClipEntry, ClipKind, EngineStatus, Formatting, Group, Library, Settings, Snippet } from "./types"
 
 type Handler = (payload: unknown) => void
 
@@ -51,6 +52,9 @@ function seed(): Library {
     mk("Phone number", [";ph"], "+44 20 7946 0958", { groupID: personal.id }),
     mk("Thanks", [";ty"], "Thank you so much — really appreciate it!"),
     mk("Calendar link", [";cal"], "You can grab a time that works here: https://cal.com/saeed/30min", { groupID: work.id }),
+    mk("Sign-up form", [";signup"], "Saeed{{key name=\"tab\"}}saeed@example.com{{key name=\"tab\" count=2}}{{random options=\"Thanks|Cheers|Best\"}}{{delay ms=300}}{{key name=\"return\"}}", { groupID: work.id }),
+    mk("Quote the selection", [";sel"], "> {{selection trim=true}}\n\nSee also: {{clipboard history=1}}"),
+    mk("Request ID", [";rid"], "req-{{uuid}}", { groupID: dev.id }),
     mk("Lorem ipsum", [";lorem"], "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", { isEnabled: false }),
   ]
   const usage = snippets.slice(0, 12).map((s, i) => ({
@@ -245,6 +249,7 @@ class MockBackend {
   private finishPreviewFailed = false
   private clips: ClipEntry[] = []
   private skillInstalled = false
+  private activity: ActivityEntry[] = []
 
   constructor() {
     const stored = typeof localStorage !== "undefined" ? localStorage.getItem("kudzu-mock") : null
@@ -262,6 +267,7 @@ class MockBackend {
       if (event instanceof CustomEvent && typeof event.detail === "string") this.previewPermission(event.detail)
     })
     this.clips = location.search.includes("emptyclips") ? [] : seedClips(this.mediaUrls)
+    this.activity = location.search.includes("emptyactivity") ? [] : seedActivity(library)
     // Copying in the preview records it, like the real watcher.
     document.addEventListener("copy", () => {
       const text = String(window.getSelection() ?? "").trim()
@@ -472,11 +478,20 @@ class MockBackend {
         return r(undefined)
       case "engine_status":
         return r(this.state.status)
+      case "activity_list":
+        return r(this.activity)
+      case "activity_clear":
+        this.activity = []
+        return r(undefined)
       case "render_preview":
         return r(
           renderLocal(a.content as string, {
             formValues: a.formValues as Record<string, string>,
             clipboard: "copied text",
+            clipboardHistory: ["previous copy", "an older copy"],
+            selection: (a.selection as string | null | undefined) ?? undefined,
+            formatting: (a.formatting as Formatting | null | undefined) ?? undefined,
+            resolveFormatting: (id) => lib.snippets.find((s) => s.id === id)?.formatting,
             resolve: (id) => lib.snippets.find((s) => s.id === id)?.content,
           }),
         )

@@ -189,7 +189,7 @@ export function MainApp() {
               ) : view.kind === "clipboard" ? (
                 <ClipboardView ref={clipRef} filter={view.filter} />
               ) : (
-                <SettingsView section={view.kind === "settings" ? view.section : undefined} />
+                <SettingsView section={view.kind === "settings" ? view.section : undefined} onOpenGroupSettings={setGroupSettings} />
               )}
             </main>
           </div>
