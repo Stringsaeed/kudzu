@@ -1228,6 +1228,8 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D6 | **Component metrics:** exact for buttons, inputs and switches; rune-kit's own elsewhere. | S06, §3 gap 17 |
 | D7 | **Live verification:** the owner grants Accessibility and Input Monitoring, provides a Developer ID identity, and runs one production-identity iCloud build when S71 and S72 start. | S71, S72 |
 | D8 | **Dev identity before cut-over:** Kudzu Next (`sh.saeed.kudzu.next`). | §1.6, S03, S75 |
+| D9 | **FRM-4 form safety:** build the fix. A form interrupted by typing in the target app is not submitted, so it never deletes text in the wrong place. A fourth fix beside D5's three. | §1.2, S39, S57 |
+| D10 | **CI:** the orchestrator pushes `t3/rune-migration-plan` to origin after merges so the `desktop-v2` workflow runs. No PRs. | S01 onward |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
@@ -1239,7 +1241,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - An unbundled binary is Dev, never production (§1.6).
 - The palette, picker and form are non-activating panels, not focusable app windows (WIN-3). What the user sees must be the same; S11 and S71 check it.
 - No visible change: `kzclip://` is gone; the version lives in `version.txt`; the updater checks an archive before installing it.
-- **Awaiting the owner:** FRM-4 built as FEATURES states it (a typed form interrupted by typing in the target is not submitted). The Tauri engine skips that check while a form is open, so this is a fix, and D5 allows only three. The plan builds the fix (§1.2, S39) because the alternative can delete text in the wrong place; say so if it should be built as the Tauri app behaves.
+- FRM-4: a typed form interrupted by typing in the target app is not submitted (D9). The Tauri engine skips that check while a form is open.
 
 ---
 
