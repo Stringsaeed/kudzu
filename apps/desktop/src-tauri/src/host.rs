@@ -3,7 +3,7 @@
 use kudzu_engine::{EngineHost, EngineStatus, ExpansionEvent, FormRequest};
 use tauri::{AppHandle, Emitter};
 
-use crate::state::{core, FormPayload, EV_FORM_REQUEST, EV_LIBRARY, EV_STATUS};
+use crate::state::{core, FormPayload, EV_ACTIVITY, EV_FORM_REQUEST, EV_LIBRARY, EV_STATUS};
 use crate::{tray, windows};
 
 pub struct Host {
@@ -28,6 +28,10 @@ impl EngineHost for Host {
         let _ = self.app.emit(EV_LIBRARY, &library);
     }
 
+    fn clipboard_history(&self, index: usize, current: Option<&str>) -> Option<String> {
+        crate::clipboard::history_text(&core(&self.app), index, current)
+    }
+
     fn form_requested(&self, request: FormRequest) {
         let core = core(&self.app);
         let payload = {
@@ -41,6 +45,7 @@ impl EngineHost for Host {
                 fields: request.fields.clone(),
                 content: snippet.map(|s| s.content.clone()).unwrap_or_default(),
                 target_app: request.target_app.clone(),
+                selection: request.selection.clone(),
             }
         };
         *core.pending_form.lock() = Some(payload.clone());
@@ -53,5 +58,11 @@ impl EngineHost for Host {
             windows::show_form(&app, caret);
             let _ = app.emit(EV_FORM_REQUEST, &payload);
         });
+    }
+
+    fn activity(&self, event: kudzu_core::activity::ActivityEvent) {
+        // Kept in the in-memory ring only (see `AppCore::activity`): no file, no sync, no log line.
+        let event = core(&self.app).activity.lock().push(event);
+        let _ = self.app.emit(EV_ACTIVITY, kudzu_core::activity::ActivityEntry::from(event));
     }
 }

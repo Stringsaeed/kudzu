@@ -38,7 +38,7 @@ pub(crate) fn fold(cluster: &str) -> Cow<'_, str> {
             Cow::Borrowed(cluster)
         };
     }
-    let lowered = cluster.to_lowercase();
+    let lowered = fold_special(cluster.to_lowercase());
     if lowered == cluster {
         Cow::Borrowed(cluster)
     } else if lowered.graphemes(true).count() == 1 {
@@ -46,6 +46,16 @@ pub(crate) fn fold(cluster: &str) -> Cow<'_, str> {
     } else {
         Cow::Borrowed(cluster)
     }
+}
+
+/// Lowercase forms `to_lowercase` leaves apart but a typist means as the same letter:
+/// Turkish `İ` lowercases to `i` plus a combining dot and `I` to `i`, never to dotless `ı`,
+/// and a capital sigma lowercases to `σ` even where the trigger ends in final `ς`.
+fn fold_special(lowered: String) -> String {
+    if !lowered.contains(['\u{307}', 'ı', 'ς']) {
+        return lowered;
+    }
+    lowered.replace("i\u{307}", "i").replace('ı', "i").replace('ς', "σ")
 }
 
 /// Canonical composition, borrowing when the text is already NFC.

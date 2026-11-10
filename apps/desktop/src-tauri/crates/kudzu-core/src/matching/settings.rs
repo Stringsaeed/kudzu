@@ -188,6 +188,24 @@ fn walk(
     result
 }
 
+/// The nearest group at or above `group_id` that is turned off (cycle-safe).
+pub(crate) fn nearest_disabled_group(group_id: Option<Uuid>, groups: &[GroupRecord]) -> Option<Uuid> {
+    let mut visited: Vec<Uuid> = Vec::new();
+    let mut next = group_id;
+    while let Some(id) = next {
+        if visited.contains(&id) {
+            break;
+        }
+        visited.push(id);
+        let group = groups.iter().find(|g| g.id == id)?;
+        if !group.is_enabled {
+            return Some(id);
+        }
+        next = group.parent_id;
+    }
+    None
+}
+
 /// A snippet's effective, inheritance-resolved matching settings.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct EffectiveSnippet {

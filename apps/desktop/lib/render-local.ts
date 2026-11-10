@@ -2,8 +2,8 @@
 // preview / design work). The app itself renders through kudzu-core for exact results.
 
 import { literalPositions, sourceSpans } from "./formatting"
-import { splitOptions, tokenize } from "./template"
-import type { FormatSpan, Formatting, RenderResult } from "./types"
+import { clampInt, keyInfo, MAX_CLIPBOARD_HISTORY, MAX_DELAY_MS, MAX_KEY_COUNT, MAX_TOTAL_DELAY_MS, splitOptions, tokenize } from "./template"
+import type { FormatSpan, Formatting, RenderAction, RenderResult } from "./types"
 
 const pad = (n: number, w = 2) => String(n).padStart(w, "0")
 
@@ -110,14 +110,22 @@ export function renderLocal(
     rich?: boolean
     formValues?: Record<string, string>
     clipboard?: string
+    /** Older copies, most recent first (`[0]` is `{{clipboard history=1}}`). */
+    clipboardHistory?: string[]
+    selection?: string
     resolve?: (id: string) => string | undefined
     depth?: number
     path?: string[]
+    /** Pause budget left for nested snippets (ms); the whole expansion shares one. */
+    pauseLeft?: { ms: number }
   } = {},
 ): RenderResult {
   const now = new Date()
   let text = ""
   let cursorOffset: number | null = null
+  let cursorSeen = false
+  const actions: RenderAction[] = []
+  const pauseLeft = opts.pauseLeft ?? { ms: MAX_TOTAL_DELAY_MS }
   const spans = sourceSpans(source, opts.formatting)
   const rich = opts.rich ?? spans !== null
   const nestedSpans: FormatSpan[] = []
@@ -146,12 +154,44 @@ export function renderLocal(
         )
         break
       case "clipboard": {
-        const clip = opts.clipboard ?? ""
+        const back = clampInt(a.history, 0, MAX_CLIPBOARD_HISTORY, 0)
+        const clip = (back === 0 ? opts.clipboard : opts.clipboardHistory?.[back - 1]) ?? ""
         text += a.trim ? clip.trim() : clip
         break
       }
+      case "selection": {
+        const selection = opts.selection ?? ""
+        text += a.trim ? selection.trim() : selection
+        break
+      }
+      case "uuid": {
+        const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : "00000000-0000-4000-8000-000000000000"
+        text += a.upper ? id.toUpperCase() : id
+        break
+      }
+      case "random": {
+        const options = splitOptions((a.options as string) ?? "")
+        if (options.length) text += options[Math.floor(Math.random() * options.length)]
+        break
+      }
+      case "key":
+        // A key press after the cursor cancels it: the caret can only be placed in the last text.
+        cursorOffset = null
+        actions.push({ offset: text.length, kind: "key", key: keyInfo(a.name)!.name, count: clampInt(a.count, 1, MAX_KEY_COUNT, 1) })
+        break
+      case "delay": {
+        const ms = Math.min(clampInt(a.ms, 1, MAX_DELAY_MS, 1), pauseLeft.ms)
+        if (ms > 0) {
+          pauseLeft.ms -= ms
+          actions.push({ offset: text.length, kind: "pause", ms })
+        }
+        break
+      }
       case "cursor":
-        if (cursorOffset === null && !opts.depth) cursorOffset = text.length
+        if (!cursorSeen && !opts.depth) {
+          cursorSeen = true
+          cursorOffset = text.length
+        }
         break
       case "snippet": {
         const id = a.id as string
@@ -159,7 +199,9 @@ export function renderLocal(
         const path = opts.path ?? []
         const nested = opts.resolve?.(id)
         if (nested !== undefined && depth < 8 && !path.includes(id)) {
-          const result = renderLocal(nested, { ...opts, rich, formatting: rich ? opts.resolveFormatting?.(id) : undefined, depth: depth + 1, path: [...path, id] })
+          const result = renderLocal(nested, { ...opts, rich, formatting: rich ? opts.resolveFormatting?.(id) : undefined, depth: depth + 1, path: [...path, id], pauseLeft })
+          if (result.actions?.some((x) => x.kind === "key")) cursorOffset = null
+          actions.push(...(result.actions ?? []).map((x) => ({ ...x, offset: x.offset + text.length })))
           nestedSpans.push(...(result.formatting ?? []).map((s) => ({ ...s, start: s.start + text.length, end: s.end + text.length })))
           text += result.text
         }
@@ -181,5 +223,5 @@ export function renderLocal(
     return start !== undefined && end !== undefined && start < end ? [{ ...span, start, end }] : []
   })
   const formatting = rich ? [...nestedSpans, ...(ownSpans ?? [])] : undefined
-  return { text, cursorOffset, formatting, diagnostics: [] }
+  return { text, cursorOffset, formatting, diagnostics: [], ...(actions.length ? { actions } : {}) }
 }

@@ -377,7 +377,55 @@ fn random_tag(rng: &mut SplitMix64) -> Tag {
         verbatim: None,
     };
     let string = |rng: &mut SplitMix64| AttributeValue::String(random_text(rng));
-    match rng.below(8) {
+    match rng.below(14) {
+        8 => make(
+            "key",
+            vec![
+                Attribute {
+                    name: "name".into(),
+                    value: AttributeValue::String(rng.pick(&template::Key::ALL).name().into()),
+                },
+                Attribute {
+                    name: "count".into(),
+                    value: AttributeValue::Number(rng.below(60) as f64),
+                },
+            ],
+        ),
+        9 => make(
+            "delay",
+            vec![Attribute {
+                name: "ms".into(),
+                value: AttributeValue::Number(rng.below(7000) as f64),
+            }],
+        ),
+        10 => make(
+            "selection",
+            vec![Attribute {
+                name: "trim".into(),
+                value: AttributeValue::Bool(rng.bool()),
+            }],
+        ),
+        11 => make(
+            "uuid",
+            vec![Attribute {
+                name: "upper".into(),
+                value: AttributeValue::Bool(rng.bool()),
+            }],
+        ),
+        12 => make(
+            "random",
+            vec![Attribute {
+                name: "options".into(),
+                value: string(rng),
+            }],
+        ),
+        13 => make(
+            "clipboard",
+            vec![Attribute {
+                name: "history".into(),
+                value: AttributeValue::Number(rng.below(120) as f64 - 10.0),
+            }],
+        ),
         0 => make(
             "date",
             vec![Attribute {
@@ -501,6 +549,16 @@ fn arbitrary_source_is_stable_after_one_save() {
         "{{DATE}}",
         "{{field name=q default=5}}",
         "{{clipboard trim=true}}",
+        "{{clipboard history=2}}",
+        "{{key name=tab count=3}}",
+        "{{key name=enter}}",
+        "{{key name=F5}}",
+        "{{key}}",
+        "{{delay ms=20}}",
+        "{{delay}}",
+        "{{selection}}",
+        "{{uuid upper=true}}",
+        "{{random options=\"a|b\\|c\"}}",
         "😀",
         "|",
         "{{unknown a=\"b\"}}",
@@ -525,6 +583,40 @@ fn arbitrary_source_is_stable_after_one_save() {
             render(&source),
             "source: {source} saved: {saved}"
         );
+        let (before, after) = (Fixture::new().render(&source), Fixture::new().render(&saved));
+        assert_eq!(after.actions, before.actions, "source: {source} saved: {saved}");
+        assert_eq!(after.cursor_offset, before.cursor_offset, "source: {source} saved: {saved}");
+    }
+}
+
+#[test]
+fn actions_always_sit_inside_the_text_in_order() {
+    let mut rng = SplitMix64(99);
+    const PIECES: &[&str] = &[
+        "a",
+        "😀",
+        "\n",
+        "{{key name=tab}}",
+        "{{key name=return count=2}}",
+        "{{delay ms=20}}",
+        "{{cursor}}",
+        "{{clipboard}}",
+        "{{uuid}}",
+        "{{random options=\"x|yy\"}}",
+    ];
+    for _ in 0..3000 {
+        let source: String = (0..rng.below(12)).map(|_| *rng.pick(PIECES)).collect();
+        let result = Fixture::new().render(&source);
+        let length = result.text.encode_utf16().count();
+        let offsets: Vec<usize> = result.actions.iter().map(|a| a.offset).collect();
+        assert!(offsets.windows(2).all(|w| w[0] <= w[1]), "source: {source}");
+        assert!(offsets.iter().all(|&o| o <= length), "source: {source}");
+        // A surviving cursor is never before a key press.
+        if let Some(cursor) = result.cursor_offset {
+            let last_key = result.actions.iter().filter(|a| matches!(a.action, template::ActionKind::Key { .. })).map(|a| a.offset).max();
+            assert!(last_key.is_none_or(|k| k <= cursor), "source: {source}");
+        }
+        assert_eq!(result.actions.len(), source.matches("{{key").count() + source.matches("{{delay").count());
     }
 }
 

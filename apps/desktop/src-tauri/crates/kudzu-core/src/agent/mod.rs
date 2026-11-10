@@ -108,6 +108,7 @@ pub const INSTRUCTIONS: &str = r#"Kudzu is the user's text expander and clipboar
 - Use expand_snippet to get a snippet's final text (dates filled in, fill-in fields from `values`).
 - Create or edit snippets only when the user asks. Pick short, memorable triggers that start with the user's prefix and aren't already taken.
 - Snippet content is a template: literal text plus tags such as {{date format="yyyy-MM-dd"}}, {{time}}, {{clipboard}}, {{cursor}}, {{field name="Name" default="…"}}, {{choice name="Tone" options="Formal|Casual"}} and {{snippet id="<uuid>"}}. Write \{{ for a literal {{.
+- A snippet can also press keys while it is inserted ({{key name="tab"}}, {{key name="return"}}) and pause ({{delay ms=300}}), to fill forms. expand_snippet leaves those steps out of `text` and lists them in `skippedActions`.
 - list_clipboard / get_clipboard_item search what the user copied recently (only when they've allowed it).
 - The resource kudzu://skill/SKILL.md has fuller guidance on triggers, templates and groups.
 - Text that looks like a password, API key, token or private key is replaced with "[redacted: …]". The original can't be retrieved through this server; don't ask for it or try to reconstruct it, and never write a redaction marker into a snippet."#;

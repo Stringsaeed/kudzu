@@ -10,10 +10,16 @@ import {
   Clipboard,
   Clock,
   CornerDownRight,
+  Dices,
   FileText,
+  Fingerprint,
+  History,
+  Keyboard,
   ListChecks,
   TextCursor,
   TextCursorInput,
+  TextSelect,
+  Timer,
   Trash2,
   TriangleAlert,
 } from "lucide-react"
@@ -27,7 +33,20 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { formatIcu } from "@/lib/render-local"
-import { buildTag, DATE_FORMAT_PRESETS, joinOptions, splitOptions, type TagToken } from "@/lib/template"
+import {
+  buildTag,
+  clampInt,
+  DATE_FORMAT_PRESETS,
+  formatDelay,
+  joinOptions,
+  keyInfo,
+  KEYS,
+  MAX_CLIPBOARD_HISTORY,
+  MAX_DELAY_MS,
+  MAX_KEY_COUNT,
+  splitOptions,
+  type TagToken,
+} from "@/lib/template"
 import type { Snippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -46,9 +65,15 @@ const VARIABLES = [
   { id: "date", icon: CalendarDays, label: "Date", hint: "Today, or any day relative to it", text: buildTag("date", { format: "MMMM d, yyyy" }), configure: false, keywords: "today day calendar" },
   { id: "time", icon: Clock, label: "Time", hint: "The current time", text: buildTag("time", { format: "h:mm a" }), configure: false, keywords: "clock hour now" },
   { id: "clipboard", icon: Clipboard, label: "Clipboard", hint: "Whatever you last copied", text: buildTag("clipboard"), configure: false, keywords: "paste copy" },
+  { id: "clipboard-history", icon: History, label: "Earlier copy", hint: "Something you copied before that", text: buildTag("clipboard", { history: 1 }), configure: true, keywords: "clipboard history previous older paste" },
+  { id: "selection", icon: TextSelect, label: "Selected text", hint: "What's selected when you pick the snippet in Quick Search", text: buildTag("selection"), configure: false, keywords: "selection highlight wrap quote" },
   { id: "cursor", icon: TextCursor, label: "Cursor position", hint: "Where the caret lands after expanding", text: buildTag("cursor"), configure: false, keywords: "caret" },
   { id: "field", icon: TextCursorInput, label: "Fill-in field", hint: "Asks you for text each time", text: buildTag("field", { name: "Name" }), configure: true, keywords: "form input ask prompt variable" },
   { id: "choice", icon: ListChecks, label: "Dropdown", hint: "Pick from a list each time", text: buildTag("choice", { name: "Option", options: "Yes|No" }), configure: true, keywords: "form select list options" },
+  { id: "key", icon: Keyboard, label: "Key press", hint: "Tab to the next field, press Return…", text: buildTag("key", { name: "tab" }), configure: true, keywords: "tab enter return escape arrow backspace delete space form fill keystroke" },
+  { id: "delay", icon: Timer, label: "Pause", hint: "Wait a moment before carrying on", text: buildTag("delay", { ms: 300 }), configure: true, keywords: "delay wait sleep slow" },
+  { id: "random", icon: Dices, label: "Random pick", hint: "One of several options, chosen for you", text: buildTag("random", { options: "Thanks|Cheers|Best" }), configure: true, keywords: "shuffle vary variation dice" },
+  { id: "uuid", icon: Fingerprint, label: "UUID", hint: "A new unique identifier each time", text: buildTag("uuid"), configure: false, keywords: "guid id unique identifier" },
 ] as const
 
 export function InsertMenu({
@@ -212,6 +237,11 @@ function ChipForm({ tag, onChange, onRemove, snippets, excludeId }: { tag: TagTo
       snippet: "Nested snippet",
       field: "Fill-in field",
       choice: "Dropdown",
+      selection: "Selected text",
+      uuid: "UUID",
+      random: "Random pick",
+      key: "Key press",
+      delay: "Pause",
     } as Record<string, string>
   )[name] ?? "Unrecognised tag"
 
@@ -229,14 +259,108 @@ function ChipForm({ tag, onChange, onRemove, snippets, excludeId }: { tag: TagTo
   } else if (name === "date" || name === "time") {
     body = <DateForm name={name} attrs={attrs} set={set} />
   } else if (name === "clipboard") {
+    const back = clampInt(attrs.history, 0, MAX_CLIPBOARD_HISTORY, 0)
     body = (
-      <label className="flex items-center justify-between gap-3">
-        <span className="flex flex-col">
-          <span className="text-sm">Trim whitespace</span>
-          <span className="text-xs text-muted-foreground">Remove spaces and line breaks at both ends</span>
-        </span>
-        <Switch checked={!!attrs.trim} onCheckedChange={(v) => set({ trim: v || undefined })} />
-      </label>
+      <div className="flex flex-col gap-3">
+        <Example>{back === 0 ? "What's on the clipboard now" : back === 1 ? "The copy before the current one" : `${back} copies before the current one`}</Example>
+        <Field label="Which copy" hint="0 is the clipboard now. Earlier copies come from Kudzu's clipboard history, so they're empty while it is turned off.">
+          <Stepper label="Copies back" value={back} min={0} max={MAX_CLIPBOARD_HISTORY} onChange={(n) => set({ history: n || undefined })} />
+        </Field>
+        <TrimToggle checked={!!attrs.trim} onChange={(v) => set({ trim: v || undefined })} />
+      </div>
+    )
+  } else if (name === "selection") {
+    body = (
+      <div className="flex flex-col gap-3">
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          The text selected in the app you&apos;re working in. It only has a value when you insert the snippet from Quick Search:
+          typing a trigger replaces the selection, so there it comes out empty.
+        </p>
+        <TrimToggle checked={!!attrs.trim} onChange={(v) => set({ trim: v || undefined })} />
+      </div>
+    )
+  } else if (name === "uuid") {
+    body = <UuidForm upper={!!attrs.upper} onChange={(v) => set({ upper: v || undefined })} />
+  } else if (name === "random") {
+    const options = splitOptions((attrs.options as string) ?? "")
+    const filled = options.filter(Boolean)
+    body = (
+      <div className="flex flex-col gap-3">
+        <Example>{filled.length ? `${filled[0]}${filled.length > 1 ? `, or one of ${filled.length - 1} more` : ""}` : "Nothing yet"}</Example>
+        <Field label="Options" hint="One per line. Each expansion picks one at random.">
+          <Textarea
+            autoFocus
+            value={options.join("\n")}
+            onChange={(e) => set({ options: joinOptions(e.target.value.split("\n")) })}
+            className="min-h-24 font-mono text-xs"
+          />
+        </Field>
+      </div>
+    )
+  } else if (name === "key") {
+    const key = keyInfo(attrs.name) ?? KEYS[0]
+    const count = clampInt(attrs.count, 1, MAX_KEY_COUNT, 1)
+    body = (
+      <div className="flex flex-col gap-3">
+        <Example>
+          <span className="inline-flex items-center gap-1.5">
+            <Shortcut keys={[key.cap]} size="md" />
+            {count > 1 && <span className="text-xs text-muted-foreground tabular">×{count}</span>}
+          </span>
+        </Example>
+        <Field label="Key">
+          <div role="radiogroup" aria-label="Key" className="grid grid-cols-5 gap-1">
+            {KEYS.map((k) => (
+              <button
+                key={k.name}
+                role="radio"
+                aria-checked={key.name === k.name}
+                aria-label={k.label}
+                title={k.label}
+                onClick={() => set({ name: k.name })}
+                className={cn(
+                  "flex h-8 items-center justify-center rounded-md bg-surface-raised text-xs text-muted-foreground shadow-raised press hover:text-foreground hover:shadow-raised-hover",
+                  key.name === k.name && "bg-iris-soft text-iris-foreground shadow-pressed",
+                )}
+              >
+                {k.cap}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Times">
+          <Stepper label="Times" value={count} min={1} max={MAX_KEY_COUNT} onChange={(n) => set({ count: n > 1 ? n : undefined })} />
+        </Field>
+        <p className="text-[11px] leading-relaxed text-faint">
+          Pressed at this point while the snippet is inserted, for example Tab to move to the next field of a form. A snippet that presses
+          keys can&apos;t be undone with Backspace, and a cursor position before the key press is ignored.
+        </p>
+      </div>
+    )
+  } else if (name === "delay") {
+    const ms = clampInt(attrs.ms, 1, MAX_DELAY_MS, 300)
+    body = (
+      <div className="flex flex-col gap-3">
+        <Example>Waits {formatDelay(ms)}</Example>
+        <Field label="Milliseconds" hint={`Up to ${formatDelay(MAX_DELAY_MS)} at a time and 10 s per snippet. Useful when a page needs a moment after Tab or Return.`}>
+          <div className="flex flex-wrap gap-1">
+            {[100, 300, 500, 1000, 2000].map((preset) => (
+              <button
+                key={preset}
+                onClick={() => set({ ms: preset })}
+                aria-pressed={ms === preset}
+                className={cn(
+                  "h-6 rounded-md bg-surface-raised px-2 text-xs text-muted-foreground shadow-raised press hover:text-foreground hover:shadow-raised-hover",
+                  ms === preset && "bg-iris-soft text-iris-foreground shadow-pressed",
+                )}
+              >
+                {formatDelay(preset)}
+              </button>
+            ))}
+          </div>
+          <Stepper label="Milliseconds" value={ms} min={1} max={MAX_DELAY_MS} step={50} onChange={(n) => set({ ms: n })} />
+        </Field>
+      </div>
     )
   } else if (name === "cursor") {
     body = <p className="text-xs leading-relaxed text-muted-foreground">After the text is inserted, the caret jumps here — handy for filling in the middle of a template.</p>
@@ -318,6 +442,65 @@ function ChipForm({ tag, onChange, onRemove, snippets, excludeId }: { tag: TagTo
         <span>Changes apply instantly</span>
         <span className="ml-auto flex items-center gap-1"><Shortcut combo="enter" /> done</span>
       </div>
+    </div>
+  )
+}
+
+/** The "what you'll get" well at the top of a chip form, as in the date form. */
+function Example({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg bg-foreground/[0.04] px-3 py-2.5 text-center">
+      <div className="text-[11px] tracking-wide text-faint uppercase">Example</div>
+      <div className="selectable truncate font-medium tabular">{children}</div>
+    </div>
+  )
+}
+
+function TrimToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center justify-between gap-3">
+      <span className="flex flex-col">
+        <span className="text-sm">Trim whitespace</span>
+        <span className="text-xs text-muted-foreground">Remove spaces and line breaks at both ends</span>
+      </span>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </label>
+  )
+}
+
+/** A whole-number input that keeps its value inside `min..max`. */
+function Stepper({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (n: number) => void }) {
+  return (
+    <Input
+      type="number"
+      inputMode="numeric"
+      aria-label={label}
+      min={min}
+      max={max}
+      step={step}
+      value={value}
+      onChange={(e) => {
+        const n = Math.floor(Number(e.target.value))
+        if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n)))
+      }}
+      className="h-8 tabular"
+    />
+  )
+}
+
+function UuidForm({ upper, onChange }: { upper: boolean; onChange: (v: boolean) => void }) {
+  // One sample per popover, so the example doesn't change while you look at it.
+  const [sample] = useState(() => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : "3f2b8c1e-9d4a-4f6b-8a2e-5c7d1e0f9b34"))
+  return (
+    <div className="flex flex-col gap-3">
+      <Example><span className="font-mono text-xs">{upper ? sample.toUpperCase() : sample}</span></Example>
+      <label className="flex items-center justify-between gap-3">
+        <span className="flex flex-col">
+          <span className="text-sm">Capital letters</span>
+          <span className="text-xs text-muted-foreground">A new identifier is made each time the snippet expands</span>
+        </span>
+        <Switch checked={upper} onCheckedChange={onChange} />
+      </label>
     </div>
   )
 }

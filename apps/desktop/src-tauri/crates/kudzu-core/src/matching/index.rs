@@ -7,8 +7,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 use super::key_buffer::{folded_key, folded_string, nfc, KeyBuffer};
-use super::settings::{resolve_insertion, EffectiveSnippet, GroupResolver};
-use super::{case_propagation, CaseStyle, KeyInput, MatchingConfig, TriggerMatch};
+use super::settings::{nearest_disabled_group, resolve_insertion, EffectiveSnippet, GroupResolver};
+use super::{case_propagation, CaseStyle, KeyInput, MatchingConfig, SkipCause, SkippedMatch, TriggerMatch};
+use crate::activity::RuleLevel;
 use crate::types::{
     AppRule, AppRuleMode, CaseMode, FireMode, GroupRecord, InsertionMethod, SnippetRecord,
 };
@@ -19,6 +20,8 @@ pub(crate) struct IndexData {
     pub config: MatchingConfig,
     snippets: Vec<IndexedSnippet>,
     entries: Vec<Entry>,
+    /// Entries whose snippet is enabled (the rest exist only to explain a skip).
+    live_entries: usize,
     /// Case-insensitive triggers, keyed by folded clusters.
     folded: SuffixTrie,
     /// Case-sensitive triggers, keyed by clusters as written.
@@ -68,6 +71,19 @@ struct IndexedSnippet {
     case_mode: CaseMode,
     rule: Option<IndexedRule>,
     insertion: Option<InsertionMethod>,
+    /// Why the snippet can never fire; `None` when it is effectively enabled.
+    off: Option<SkipCause>,
+    /// The group `rule` was inherited from; `None` for the snippet's own rule.
+    rule_group: Option<Uuid>,
+}
+
+/// Which candidates a trie walk accepts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pass {
+    /// Enabled snippets whose rule permits the app: what may fire.
+    Fire,
+    /// Every full match, to explain why none fired.
+    Explain,
 }
 
 impl IndexedSnippet {
@@ -159,9 +175,14 @@ impl IndexData {
         };
         for snippet in snippets {
             let effective = EffectiveSnippet::new(snippet, &resolver);
-            if !effective.is_enabled {
-                continue;
-            }
+            let off = if effective.is_enabled {
+                None
+            } else if !snippet.is_enabled {
+                Some(SkipCause::SnippetOff)
+            } else {
+                // Disabled only through its ancestry; an unresolvable group reads as the snippet.
+                Some(nearest_disabled_group(snippet.group_id, groups).map_or(SkipCause::SnippetOff, |group_id| SkipCause::GroupOff { group_id }))
+            };
             let propagate = snippet.case_mode == CaseMode::Propagate;
             let mut seen = HashSet::new();
             let triggers: Vec<&String> = snippet
@@ -186,7 +207,12 @@ impl IndexData {
                 case_mode: snippet.case_mode,
                 rule: effective.rule.as_ref().map(IndexedRule::new),
                 insertion: effective.insertion,
+                off,
+                rule_group: effective.rule_group.as_ref().map(|g| g.id),
             });
+            if effective.is_enabled {
+                data.live_entries += triggers.len();
+            }
             for trigger in triggers {
                 let entry_index = data.entries.len() as u32;
                 let clusters: Vec<&str> = trigger.graphemes(true).collect();
@@ -209,7 +235,7 @@ impl IndexData {
     }
 
     pub fn trigger_count(&self) -> usize {
-        self.entries.len()
+        self.live_entries
     }
 
     /// The trigger completed by the most recent keystroke (already applied to `buffer`), if any.
@@ -224,7 +250,7 @@ impl IndexData {
         last_input: &KeyInput,
         bundle_id: Option<&str>,
     ) -> Option<TriggerMatch> {
-        if !matches!(last_input, KeyInput::Character(_)) || self.entries.is_empty() {
+        if !matches!(last_input, KeyInput::Character(_)) || self.live_entries == 0 {
             return None;
         }
         let count = buffer.len();
@@ -234,12 +260,7 @@ impl IndexData {
         if bundle_id.is_some_and(|id| self.config.denied_bundle_ids.contains(id)) {
             return None;
         }
-        let mut best = None;
-        self.search(buffer, count, false, bundle_id, &mut best);
-        let last = &buffer.cluster(count - 1).text;
-        if count >= 2 && is_separator(&self.config, last) {
-            self.search(buffer, count - 1, true, bundle_id, &mut best);
-        }
+        let (best, last) = self.best(buffer, bundle_id, Pass::Fire);
         let best = best?;
         let entry = &self.entries[best.entry as usize];
         let snippet = &self.snippets[entry.snippet as usize];
@@ -260,6 +281,50 @@ impl IndexData {
         })
     }
 
+    /// See [`TriggerIndex::find_skipped`](super::TriggerIndex::find_skipped).
+    pub fn find_skipped(
+        &self,
+        buffer: &KeyBuffer,
+        last_input: &KeyInput,
+        bundle_id: Option<&str>,
+    ) -> Option<SkippedMatch> {
+        if !matches!(last_input, KeyInput::Character(_)) || self.entries.is_empty() || buffer.is_empty() {
+            return None;
+        }
+        let (best, _) = self.best(buffer, bundle_id, Pass::Explain);
+        let entry = &self.entries[best?.entry as usize];
+        let snippet = &self.snippets[entry.snippet as usize];
+        // Checked in the order the engine applies them: excluded apps first, then enablement,
+        // then the snippet's (own or inherited) rule.
+        let cause = if let Some(id) = bundle_id.filter(|id| self.config.denied_bundle_ids.contains(*id)) {
+            let level = if MatchingConfig::default_denied_bundle_ids().contains(id) { RuleLevel::Default } else { RuleLevel::AppSetting };
+            SkipCause::Rule { level, group_id: None }
+        } else if let Some(off) = &snippet.off {
+            off.clone()
+        } else if snippet.rule.as_ref().is_some_and(|rule| !rule.permits(bundle_id)) {
+            match snippet.rule_group {
+                Some(group_id) => SkipCause::Rule { level: RuleLevel::Group, group_id: Some(group_id) },
+                None => SkipCause::Rule { level: RuleLevel::Snippet, group_id: None },
+            }
+        } else {
+            // It may fire: the caller asked without `find_match` having returned `None`.
+            return None;
+        };
+        Some(SkippedMatch { snippet_id: snippet.id, trigger: entry.trigger.clone(), cause })
+    }
+
+    /// The best-ranked trigger ending at the last keystroke, plus that keystroke's cluster.
+    fn best<'b>(&self, buffer: &'b KeyBuffer, bundle_id: Option<&str>, pass: Pass) -> (Option<Candidate>, &'b String) {
+        let count = buffer.len();
+        let mut best = None;
+        self.search(buffer, count, false, bundle_id, pass, &mut best);
+        let last = &buffer.cluster(count - 1).text;
+        if count >= 2 && is_separator(&self.config, last) {
+            self.search(buffer, count - 1, true, bundle_id, pass, &mut best);
+        }
+        (best, last)
+    }
+
     /// Walks both tries backwards from cluster `end - 1`, considering every trigger ending at `end`.
     fn search(
         &self,
@@ -267,6 +332,7 @@ impl IndexData {
         end: usize,
         whole_word: bool,
         bundle_id: Option<&str>,
+        pass: Pass,
         best: &mut Option<Candidate>,
     ) {
         let mut folded = Some(0u32);
@@ -286,6 +352,7 @@ impl IndexData {
                     buffer,
                     whole_word,
                     bundle_id,
+                    pass,
                     best,
                 );
             }
@@ -297,6 +364,7 @@ impl IndexData {
                     buffer,
                     whole_word,
                     bundle_id,
+                    pass,
                     best,
                 );
             }
@@ -312,6 +380,7 @@ impl IndexData {
         buffer: &KeyBuffer,
         whole_word: bool,
         bundle_id: Option<&str>,
+        pass: Pass,
         best: &mut Option<Candidate>,
     ) {
         for &entry_index in candidates {
@@ -326,10 +395,12 @@ impl IndexData {
                 continue;
             }
             let snippet = &self.snippets[entry.snippet as usize];
-            if snippet
-                .rule
-                .as_ref()
-                .is_some_and(|rule| !rule.permits(bundle_id))
+            if pass == Pass::Fire
+                && (snippet.off.is_some()
+                    || snippet
+                        .rule
+                        .as_ref()
+                        .is_some_and(|rule| !rule.permits(bundle_id)))
             {
                 continue;
             }

@@ -3,6 +3,7 @@
 import { Command as CommandPrimitive } from "cmdk"
 import {
   BarChart3,
+  CircleHelp,
   CircleOff,
   ClipboardList,
   Clock3,
@@ -129,6 +130,7 @@ export function CommandMenu({ onOpenGroupSettings, onDelete }: { onOpenGroupSett
         run: () => st().updateSettings({ clipboardEnabled: !settings.clipboardEnabled }),
       },
       { id: "set", section: "Go to", icon: Settings, label: "Settings", keywords: "preferences", shortcut: "mod+,", run: () => st().setView({ kind: "settings" }) },
+      { id: "activity", section: "Go to", icon: CircleHelp, label: "Why didn’t this expand?", keywords: "activity troubleshooting recent log skipped blocked not working expansion settings", run: () => st().setView({ kind: "settings", section: "activity" }) },
       { id: "apps", section: "Go to", icon: Settings, label: "Settings › Apps", keywords: "exclude block terminal", run: () => st().setView({ kind: "settings", section: "apps" }) },
       { id: "data", section: "Go to", icon: Settings, label: "Settings › Backups & data", keywords: "restore import export", run: () => st().setView({ kind: "settings", section: "data" }) },
     )

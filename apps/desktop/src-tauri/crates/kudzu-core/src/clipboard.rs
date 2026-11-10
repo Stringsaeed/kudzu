@@ -510,6 +510,21 @@ impl History {
         self.entries.iter().find(|e| e.id == id)
     }
 
+    /// The entry copied `n` copies before what is on the clipboard now (1 = the previous copy),
+    /// for `{{clipboard history=N}}`. `current` is the clipboard's plain text. The newest entry is
+    /// normally the current clipboard and is skipped; when it isn't (the copy came from an ignored
+    /// app or was marked private, so it was never recorded), the newest entry is the previous copy.
+    pub fn before_current(&self, n: usize, current: Option<&str>) -> Option<&ClipEntry> {
+        let newest = self.entries.first()?;
+        let newest_is_current = match (newest.text.as_deref(), current) {
+            (Some(text), Some(current)) => text == excerpt(current, TEXT_EXCERPT_LIMIT),
+            // An image or file on the clipboard has no plain text to compare.
+            (None, None) => true,
+            _ => false,
+        };
+        self.entries.get(if newest_is_current { n } else { n.checked_sub(1)? })
+    }
+
     /// Records a copy made at `now`. Repeated content keeps its id, pin and history of timings.
     pub fn ingest(&mut self, c: &Classified, source: Option<ClipSource>, image: Option<ImageSize>, now: DateTime<Utc>) -> Ingest {
         let hash = format!("{:016x}", c.hash);
@@ -744,6 +759,29 @@ mod tests {
 
     fn at(h: i64) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 11, 1, 0, 0, 0).unwrap() + Duration::hours(h)
+    }
+
+    #[test]
+    fn before_current_skips_the_entry_that_is_on_the_clipboard() {
+        let mut h = History::new();
+        for (i, s) in ["oldest", "middle", "newest"].iter().enumerate() {
+            h.ingest(&classify(&text(s), None).unwrap(), None, None, at(i as i64));
+        }
+        let short = h.clone();
+        let text_of = |n, current| short.before_current(n, current).and_then(|e| e.text.clone());
+        assert_eq!(text_of(1, Some("newest")).as_deref(), Some("middle"));
+        assert_eq!(text_of(2, Some("newest")).as_deref(), Some("oldest"));
+        assert_eq!(text_of(3, Some("newest")), None);
+        // The clipboard holds something the history never recorded: the newest entry is the previous copy.
+        assert_eq!(text_of(1, Some("from a password manager")).as_deref(), Some("newest"));
+        assert_eq!(text_of(1, None).as_deref(), Some("newest"));
+        assert_eq!(text_of(0, Some("unrecorded")), None);
+        assert_eq!(text_of(0, Some("newest")).as_deref(), Some("newest"));
+        assert_eq!(History::new().before_current(1, Some("x")), None);
+        // Long text is compared by the stored excerpt.
+        let long = "x".repeat(TEXT_EXCERPT_LIMIT + 50);
+        h.ingest(&classify(&text(&long), None).unwrap(), None, None, at(9));
+        assert_eq!(h.before_current(1, Some(&long)).and_then(|e| e.text.as_deref()), Some("newest"));
     }
 
     #[test]

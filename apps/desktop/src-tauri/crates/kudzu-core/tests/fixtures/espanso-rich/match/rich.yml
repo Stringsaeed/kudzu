@@ -1,0 +1,72 @@
+# Markdown and HTML matches that import as Formatted snippets.
+matches:
+  - trigger: ":md"
+    markdown: "This *text* is **bold**, ***both*** and [a link](https://kudzu.site)."
+
+  - trigger: ":md_vars"
+    markdown: "Today **{{today}}** at $|$ and _my_var_ {{today}}"
+    vars:
+      - name: today
+        type: date
+        params:
+          format: "%Y-%m-%d"
+
+  - trigger: ":md_unicode"
+    markdown: "😀 **héllo** 日本語 *é😀x* سلام"
+
+  - trigger: ":md_blocks"
+    markdown: |
+      # Title
+      - one
+      - **two**
+        - nested
+      1. first
+      2. second
+
+      > quoted
+      `code` and ~~gone~~
+      ***
+      | a | b |
+      |---|---|
+      | 1 | 2 |
+
+  - trigger: ":md_images"
+    markdown: "![Dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==) and ![Remote](https://example.com/a.png) and ![Wide](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAAKCAYAAABovyAJAAAAS0lEQVR4nO3OsQnAQBAEseu/abuJh4VBgXLd3X0AADw1DwAA1MwDAAA18wAAQM08AABQMw8AANTMAwAANfMAAEDNPAAAUDMPAACk/JlpWeo3BAeiAAAAAElFTkSuQmCC)"
+
+  - trigger: ":md_braces"
+    markdown: "**a { b** \\{\\{x}} and *{{ c* and back\\slash"
+
+  - trigger: ":md_unsafe"
+    markdown: "[click](javascript:alert(1)) <https://auto.link/x> plain"
+
+  - trigger: ":md_plain"
+    markdown: "Nothing special"
+
+  - trigger: ":html"
+    html: "<p>Hello <b>world</b> &amp; <i>you</i></p><p><a href=\"mailto:a@b.c\">mail</a> <u>under</u></p>"
+
+  - trigger: ":html_style"
+    html: '<span style="font-weight: bold; color: red">Red</span> <font face="Arial" size="5">big</font> <span style="text-decoration: underline">u</span>'
+
+  - trigger: ":html_lists"
+    html: |
+      <ul>
+        <li>one</li>
+        <li>two</li>
+      </ul>
+      <ol start="3"><li>c</li><li><em>d</em></li></ol>
+
+  - trigger: ":html_broken"
+    html: "<b>unclosed <i>tags <a href='https://x.y/'>link"
+
+  - trigger: ":html_table"
+    html: "<table><tr><th>a</th><td>b</td></tr><tr><td>c</td><td>d</td></tr></table>"
+
+  - trigger: ":html_image"
+    html: '<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAX+XDSwAAAABJRU5ErkJggg==" alt="Logo" width="40"><br><img src="https://example.com/x.gif" alt="Remote">'
+
+  - trigger: ":html_vars"
+    html: "<b>{{clip}}</b> <script>alert(1)</script>x"
+    vars:
+      - name: clip
+        type: clipboard

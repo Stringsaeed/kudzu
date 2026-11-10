@@ -349,6 +349,17 @@ pub fn engine_status(core: Core) -> EngineStatus {
     status_of(&core)
 }
 
+/// Recent expansion attempts with their explanations, newest first. In memory only.
+#[tauri::command]
+pub fn activity_list(core: Core) -> Vec<kudzu_core::activity::ActivityEntry> {
+    core.activity.lock().recent().into_iter().map(Into::into).collect()
+}
+
+#[tauri::command]
+pub fn activity_clear(core: Core) {
+    core.activity.lock().clear();
+}
+
 #[tauri::command]
 pub fn request_permission(kind: String) {
     match kind.as_str() {
@@ -378,25 +389,38 @@ pub fn set_palette_hotkey(app: AppHandle, core: Core, accelerator: String) -> Re
 // MARK: Templates
 
 #[tauri::command]
-pub fn render_preview(core: Core, content: String, snippet_id: Option<Uuid>, form_values: HashMap<String, String>, formatting: Option<kudzu_core::formatting::Formatting>) -> RenderResult {
+pub fn render_preview(
+    core: Core,
+    content: String,
+    snippet_id: Option<Uuid>,
+    form_values: HashMap<String, String>,
+    formatting: Option<kudzu_core::formatting::Formatting>,
+    selection: Option<String>,
+) -> RenderResult {
     let snippets: HashMap<_, _> = core.store.lock().library.snippets.iter().map(|s| (s.id, s.clone())).collect();
     let resolve = |id: Uuid| snippets.get(&id).map(|s| s.content.clone());
     let resolve_formatting = |id| snippets.get(&id).and_then(|s| s.formatting.clone());
+    let clipboard = system::read_clipboard();
+    let history = |index: usize| crate::clipboard::history_text(&core, index, clipboard.as_deref());
     let ctx = RenderContext {
         resolve_formatting: Some(&resolve_formatting),
         now: Local::now().fixed_offset(),
         locale: system::locale(),
-        clipboard: system::read_clipboard(),
+        clipboard: clipboard.clone(),
         form_values,
         resolve_snippet: &resolve,
         root_snippet_id: snippet_id,
+        selection,
+        clipboard_history: Some(&history),
+        new_uuid: Some(&template::random_uuid),
+        pick: Some(&template::random_index),
     };
     template::render_formatted(&content, formatting.as_ref(), &ctx)
 }
 
 #[tauri::command]
 pub fn copy_preview(core: Core, content: String, snippet_id: Option<Uuid>, formatting: Option<kudzu_core::formatting::Formatting>) {
-    let result = render_preview(core, content, snippet_id, HashMap::new(), formatting);
+    let result = render_preview(core, content, snippet_id, HashMap::new(), formatting, None);
     copy_rendered(result);
 }
 
@@ -550,14 +574,16 @@ pub fn palette_insert(app: AppHandle, core: Core, snippet_id: Uuid) {
     windows::hide_palette(&app, false);
     let target = core.palette_target.lock().clone();
     if let Some(engine) = core.engine() {
-        engine.insert_snippet(snippet_id, target);
+        let selection = core.palette_selection.lock().clone();
+        engine.insert_snippet_with_selection(snippet_id, target, selection);
     }
 }
 
 #[tauri::command]
 pub fn palette_copy(app: AppHandle, core: Core, snippet_id: Uuid) -> Res<()> {
     let engine = core.engine().ok_or("Engine not running")?;
-    let result = engine.render_snippet_formatted(snippet_id, HashMap::new()).ok_or("Snippet not found")?;
+    let selection = core.palette_selection.lock().clone();
+    let result = engine.render_snippet_with_selection(snippet_id, HashMap::new(), selection).ok_or("Snippet not found")?;
     copy_rendered(result);
     let app2 = app.clone();
     std::thread::spawn(move || {

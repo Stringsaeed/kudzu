@@ -51,6 +51,47 @@ pub(crate) fn clipboard_tag(trim: bool) -> String {
     )
 }
 
+fn number_attr(name: &str, value: u32) -> Attribute {
+    Attribute {
+        name: name.to_string(),
+        value: AttributeValue::Number(f64::from(value)),
+    }
+}
+
+/// `{{clipboard history=N}}`: the Nth copy before the current clipboard, optionally trimmed.
+pub(crate) fn clipboard_history_tag(history: u32, trim: bool) -> String {
+    let mut attrs = vec![number_attr("history", history)];
+    if trim {
+        attrs.push(bool_attr("trim", true));
+    }
+    source("clipboard", attrs)
+}
+
+/// `{{selection}}`.
+pub(crate) fn selection_tag() -> String {
+    source("selection", vec![])
+}
+
+/// `{{uuid}}` or `{{uuid upper=true}}`.
+pub(crate) fn uuid_tag(upper: bool) -> String {
+    source("uuid", if upper { vec![bool_attr("upper", true)] } else { vec![] })
+}
+
+/// `{{random options="a|b"}}`; a `|` inside an option is written as `\|`.
+pub(crate) fn random_tag(options: &[String]) -> String {
+    let encoded = options.iter().map(|o| o.replace('|', "\\|")).collect::<Vec<_>>().join("|");
+    source("random", vec![string_attr("options", &encoded)])
+}
+
+/// `{{key name="tab"}}`, with `count` when it isn't 1.
+pub(crate) fn key_tag(key: crate::template::Key, count: u32) -> String {
+    let mut attrs = vec![string_attr("name", key.name())];
+    if count != 1 {
+        attrs.push(number_attr("count", count));
+    }
+    source("key", attrs)
+}
+
 /// `{{cursor}}`.
 pub(crate) fn cursor_tag() -> String {
     source("cursor", vec![])

@@ -317,6 +317,54 @@ fn updates_only_what_is_passed_and_protects_secrets() {
 }
 
 #[test]
+fn expand_leaves_out_key_presses_and_guards_clipboard_history() {
+    let mut host = Fake::new();
+    let add = |host: &Fake, content: &str| {
+        let s = SnippetRecord::new("New", vec![], content);
+        let id = s.id;
+        host.library.borrow_mut().snippets.push(s);
+        id.to_string()
+    };
+    // Keys and pauses are dropped from the text and listed; the selection is empty.
+    let id = add(&host, "né{{key name=tab count=2}}[{{selection}}]{{delay ms=300}}{{key name=return}}");
+    let (r, _) = tool(&host, "expand_snippet", json!({ "id": id }));
+    assert_eq!(r["text"], "né[]");
+    assert_eq!(
+        r["skippedActions"],
+        json!([
+            { "afterCharacters": 2, "action": "press tab ×2" },
+            { "afterCharacters": 4, "action": "wait 300 ms" },
+            { "afterCharacters": 4, "action": "press return" },
+        ])
+    );
+    assert!(r["actionsNote"].is_string());
+    let (r, _) = tool(&host, "expand_snippet", json!({ "trigger": ";sig" }));
+    assert!(r.get("skippedActions").is_none() && r.get("actionsNote").is_none());
+
+    // UUIDs and random picks are real values.
+    let id = add(&host, r#"{{uuid}} {{random options="a|b"}}"#);
+    let (r, _) = tool(&host, "expand_snippet", json!({ "id": id }));
+    let text = r["text"].as_str().unwrap();
+    let (uuid, pick) = text.split_once(' ').unwrap();
+    assert!(Uuid::parse_str(uuid).is_ok_and(|u| !u.is_nil()));
+    assert!(pick == "a" || pick == "b");
+
+    // History, newest first: a password, an API key, then the notes. Nothing recorded is on the
+    // clipboard now, so `history=1` is the newest entry. Secrets render empty.
+    let id = add(&host, "[{{clipboard history=1}}][{{clipboard history=2}}][{{clipboard history=3}}][{{clipboard history=4}}]");
+    let (r, _) = tool(&host, "expand_snippet", json!({ "id": id }));
+    assert_eq!(r["text"], "[][][meeting notes for monday][]");
+    // When the newest entry is what's on the clipboard, it is skipped.
+    host.clipboard = Some("P@ssw0rd!".into());
+    let (r, _) = tool(&host, "expand_snippet", json!({ "id": id }));
+    assert_eq!(r["text"], "[][meeting notes for monday][][]");
+    // Without clipboard access the history isn't read at all.
+    host.access.clipboard = false;
+    let (r, _) = tool(&host, "expand_snippet", json!({ "id": id }));
+    assert_eq!(r["text"], "[][][][]");
+}
+
+#[test]
 fn clipboard_withholds_secrets() {
     let host = Fake::new();
     let (r, _) = tool(&host, "list_clipboard", json!({}));

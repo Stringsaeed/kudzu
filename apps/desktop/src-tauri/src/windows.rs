@@ -152,15 +152,51 @@ pub fn toggle_palette(app: &AppHandle) {
     // Remember where the user was, unless it's Kudzu itself.
     let front = system::frontmost_app().filter(|a| a.pid != Some(std::process::id() as i32));
     *core.palette_target.lock() = front.clone();
+    *core.palette_selection.lock() = None;
+    // `{{selection}}` needs the selection as it is now: once the palette has focus it is too late.
+    // Reading it can take a moment (and may press ⌘C), so it only happens while a snippet uses it.
+    if front.is_some() && library_uses_selection(&core) {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let selection = system::selection_for_insert();
+            let handle = app.clone();
+            let _ = app.run_on_main_thread(move || {
+                let core = crate::state::core(&handle);
+                *core.palette_selection.lock() = selection;
+                if let Some(win) = handle.get_webview_window("palette") {
+                    present_palette(&handle, &win);
+                }
+            });
+        });
+        return;
+    }
+    present_palette(app, &win);
+}
+
+/// Whether any snippet has a `{{selection}}` tag (a nested one is some snippet's own tag too).
+fn library_uses_selection(core: &crate::state::AppCore) -> bool {
+    use kudzu_core::template;
+    let store = core.store.lock();
+    store
+        .library
+        .snippets
+        .iter()
+        .any(|s| s.content.contains("selection") && template::analyze(&template::parse(&s.content)).uses_selection)
+}
+
+fn present_palette(app: &AppHandle, win: &WebviewWindow) {
+    let core = core(app);
+    let front = core.palette_target.lock().clone();
+    let selection = core.palette_selection.lock().clone();
     if let Some(engine) = core.engine() {
         engine.set_suppressed(true);
     }
-    if let Some((x, y, w, h)) = active_monitor(app, &win) {
+    if let Some((x, y, w, h)) = active_monitor(app, win) {
         let _ = win.set_position(LogicalPosition::new(x + (w - PALETTE_W) / 2.0, y + h * 0.2));
     }
-    let _ = win.emit(EV_PALETTE_SHOW, serde_json::json!({ "target": front }));
+    let _ = win.emit(EV_PALETTE_SHOW, serde_json::json!({ "target": front, "selection": selection }));
     let _ = win.show();
-    round_corners(&win, PALETTE_RADIUS);
+    round_corners(win, PALETTE_RADIUS);
     let _ = win.set_focus();
 }
 

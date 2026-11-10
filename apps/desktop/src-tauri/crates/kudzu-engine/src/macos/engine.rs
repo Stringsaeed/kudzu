@@ -23,16 +23,21 @@ use kudzu_core::types::{InsertionMethod, SnippetRecord};
 use objc2::rc::autoreleasepool;
 use uuid::Uuid;
 
+use super::input_source;
 use super::ffi::{CGEventRef, CGEventType, kCGEventKeyDown, kCGEventKeyUp, kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput};
 use super::keys::{self, KeyError, REPLAY_MARKER, SYNTHETIC_MARKER};
 use super::pasteboard::{self, PasteError};
 use super::tap::{self, HeldEvent, TapHandle};
 use super::{apps, ax};
+use crate::activity::Recorder;
 use crate::hold::{HoldReplayQueue, HoldState};
+use crate::input::{self, Follow, KeyContext};
 use crate::library::{self, Library};
-use crate::plan::{self, InsertionPlan, PlanMode};
+use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
 use crate::status::{self, StatusInputs};
 use crate::{lock, AppInfo, EngineHost, EngineLibrary, EngineStatus, ExpansionEvent, FormRequest, TapMode};
+
+mod activity;
 
 /// Physical input is never held longer than this, whatever the target app does.
 const HOLD_LIMIT: Duration = Duration::from_secs(1);
@@ -42,6 +47,10 @@ const ACTIVATION_TIMEOUT: Duration = Duration::from_millis(500);
 const SETTLE: Duration = Duration::from_millis(50);
 /// Listen-only: let the final trigger key reach the document before deleting it.
 const LISTEN_ONLY_SETTLE: Duration = Duration::from_millis(30);
+/// After a `{{key}}` press: lets the target move focus (Tab) or react (Return) before the next step.
+const KEY_SETTLE: Duration = Duration::from_millis(30);
+/// A `{{delay}}` sleeps in slices this long, so a click or pause can stop the sequence promptly.
+const PAUSE_SLICE: Duration = Duration::from_millis(50);
 const POLL_TICK: Duration = Duration::from_millis(100);
 const STATUS_EVERY_TICKS: u32 = 10;
 
@@ -70,6 +79,15 @@ struct PendingForm {
     target: Option<AppInfo>,
     /// Typing reached the target after the trigger; deleting it now would delete the wrong text.
     interrupted: bool,
+    /// Selection captured before a palette insert (never set for a typed trigger).
+    selection: Option<String>,
+}
+
+/// What a sequence replaces: a typed trigger, or nothing (palette).
+struct TypedTrigger<'a> {
+    trigger: &'a TriggerMatch,
+    mode: PlanMode,
+    swallowed: Option<&'a str>,
 }
 
 struct Matched {
@@ -84,8 +102,10 @@ struct Matched {
 enum Job {
     Matched(Matched),
     Submit { token: u64, values: HashMap<String, String> },
-    Insert { snippet_id: Uuid, target: Option<AppInfo> },
+    Insert { snippet_id: Uuid, target: Option<AppInfo>, selection: Option<String> },
     Replay,
+    /// Something the tap callback saw, for the activity log.
+    Note(activity::Note),
 }
 
 /// State the tap callback touches. Keep every operation on it short.
@@ -94,6 +114,8 @@ struct Core {
     library: Arc<Library>,
     held: HoldReplayQueue<HeldEvent>,
     hold_since: Option<Instant>,
+    /// Extra time the current step of a key sequence may hold input (a `{{delay}}`).
+    hold_extra: Duration,
     /// Bumped whenever in-flight work must stop (click, pause, deadline, new insertion).
     generation: u64,
     /// An insertion is in flight.
@@ -108,6 +130,10 @@ struct Core {
     undo_caret_left: usize,
     frontmost_pid: Option<i32>,
     frontmost_bundle: Option<String>,
+    /// A pending dead key or held key, which changes what the next key-down means.
+    keys: KeyContext,
+    /// The input source epoch the match buffer was typed under.
+    input_epoch: u64,
 }
 
 impl Core {
@@ -120,6 +146,7 @@ impl Core {
         if self.held.state() != HoldState::Inserting {
             self.hold_since = Some(Instant::now());
         }
+        self.hold_extra = Duration::ZERO;
         self.held.begin();
     }
 
@@ -130,6 +157,7 @@ impl Core {
         self.preparing_form = false;
         self.hold_since = None;
         self.reset_matcher();
+        self.keys.clear();
         self.held.drain()
     }
 
@@ -146,7 +174,7 @@ impl Core {
     }
 
     fn hold_expired(&self) -> bool {
-        self.held.state() == HoldState::Inserting && self.hold_since.is_some_and(|t| t.elapsed() > HOLD_LIMIT)
+        self.held.state() == HoldState::Inserting && self.hold_since.is_some_and(|t| t.elapsed() > HOLD_LIMIT + self.hold_extra)
     }
 }
 
@@ -184,6 +212,7 @@ struct Effects {
     post_unmatched: Vec<HeldEvent>,
     job: Option<Job>,
     replay: bool,
+    note: Option<activity::Note>,
 }
 
 /// Why an insertion step failed.
@@ -216,7 +245,9 @@ impl From<PasteError> for InsertError {
 
 /// The macOS engine.
 pub(crate) struct Imp {
+    /// The host, reached through `recorder` so expansions and forms are noted on the way.
     host: Arc<dyn EngineHost>,
+    recorder: Arc<Recorder>,
     weak: Weak<Imp>,
     core: Mutex<Core>,
     flags: Flags,
@@ -244,14 +275,18 @@ impl Imp {
             flags.post_event.store(ax::post_event_allowed(), Ordering::Relaxed);
             flags.secure_input.store(ax::secure_input().0, Ordering::Relaxed);
             flags.input_monitoring.store(ax::permissions().input_monitoring, Ordering::Relaxed);
+            input_source::install();
+            let recorder = Arc::new(Recorder::new(host));
             Imp {
-                host,
+                host: recorder.clone(),
+                recorder,
                 weak: weak.clone(),
                 core: Mutex::new(Core {
                     matcher: ExpansionMatcher::new(),
                     library: Arc::new(Library::default()),
                     held: HoldReplayQueue::default(),
                     hold_since: None,
+                    hold_extra: Duration::ZERO,
                     generation: 0,
                     busy: false,
                     listen_only_interrupted: false,
@@ -262,6 +297,8 @@ impl Imp {
                     undo_caret_left: 0,
                     frontmost_pid: None,
                     frontmost_bundle: None,
+                    keys: KeyContext::default(),
+                    input_epoch: input_source::epoch(),
                 }),
                 flags,
                 tap: Mutex::new(None),
@@ -302,7 +339,9 @@ impl Imp {
     }
 
     pub fn stop(&self) {
-        self.flags.running.store(false, Ordering::SeqCst);
+        if self.flags.running.swap(false, Ordering::SeqCst) {
+            self.recorder.health(kudzu_core::activity::ActivityOutcome::EngineStopped);
+        }
         self.flags.poll_epoch.fetch_add(1, Ordering::SeqCst);
         let old = lock(&self.tap).take();
         drop(old);
@@ -358,14 +397,21 @@ impl Imp {
     }
 
     pub fn cancel_form(&self, token: u64) {
-        let mut core = lock(&self.core);
-        if core.pending_form.as_ref().is_some_and(|f| f.token == token) {
-            core.pending_form = None;
+        {
+            let mut core = lock(&self.core);
+            if core.pending_form.as_ref().is_some_and(|f| f.token == token) {
+                core.pending_form = None;
+            }
         }
+        self.recorder.form_cancelled(token);
     }
 
-    pub fn insert_snippet(&self, snippet_id: Uuid, target: Option<AppInfo>) {
-        self.send(Job::Insert { snippet_id, target });
+    pub fn insert_snippet(&self, snippet_id: Uuid, target: Option<AppInfo>, selection: Option<String>) {
+        self.send(Job::Insert { snippet_id, target, selection });
+    }
+
+    pub fn host(&self) -> &dyn EngineHost {
+        self.host.as_ref()
     }
 
     // MARK: - Status
@@ -397,6 +443,8 @@ impl Imp {
 
     /// Permission/Secure Input poll; attaches or upgrades the tap.
     fn refresh(&self) {
+        // The change notification normally keeps this current; re-reading is a cheap backstop.
+        input_source::request_refresh();
         let permissions = ax::permissions();
         let post_event = ax::post_event_allowed();
         let secure = ax::secure_input().0;
@@ -426,6 +474,7 @@ impl Imp {
                 drop(slot);
                 self.flags.tap_mode.store(encode(TapMode::Off), Ordering::SeqCst);
                 self.invalidate();
+                self.recorder.health(kudzu_core::activity::ActivityOutcome::ListenerLost);
             }
             return;
         }
@@ -487,12 +536,16 @@ impl Imp {
         if effects.replay {
             self.send(Job::Replay);
         }
+        if let Some(note) = effects.note {
+            self.send(Job::Note(note));
+        }
         swallow
     }
 
     fn receive_locked(&self, core: &mut Core, kind: CGEventType, event: CGEventRef, mode: TapMode, effects: &mut Effects) -> bool {
         if kind == kCGEventTapDisabledByTimeout || kind == kCGEventTapDisabledByUserInput {
             effects.post_unmatched = core.invalidate();
+            effects.note = activity::Note::tap_disabled(kind);
             return false;
         }
         let marker = tap::marker(event);
@@ -543,7 +596,7 @@ impl Imp {
             return false;
         }
         if !self.typed_allowed() {
-            core.reset_matcher();
+            effects.note = self.observe_blocked(core, key_down, event);
             effects.replay = replay;
             return false;
         }
@@ -551,10 +604,39 @@ impl Imp {
             effects.replay = replay;
             return false;
         }
+        // Text typed under another input source says nothing about what comes next.
+        let epoch = input_source::epoch();
+        if epoch != core.input_epoch {
+            core.input_epoch = epoch;
+            core.reset_matcher();
+            core.keys.clear();
+        }
+        // An input method is composing: the keys go to it, not to the document. Matching them
+        // would fire inside a composition and delete composed text.
+        if input_source::composing() {
+            core.reset_matcher();
+            core.keys.clear();
+            effects.replay = replay;
+            return false;
+        }
+        // A held key either repeats or opens the accent popup; neither is typed context.
+        if tap::is_autorepeat(event) {
+            core.reset_matcher();
+            if matches!(tap::classify(event), Some(KeyInput::Character(text)) if input::can_open_accent_popup(&text)) {
+                core.keys.repeated();
+            }
+            effects.replay = replay;
+            return false;
+        }
         let Some(input) = tap::classify(event) else {
+            if input::could_be_dead_key(tap::key_code(event)) {
+                core.keys.silent();
+            }
             effects.replay = replay;
             return false;
         };
+        let follow = core.keys.next(matches!(input, KeyInput::Character(_)));
+        let input = if follow == Follow::Broken { KeyInput::Reset } else { input };
         let pid = apps::frontmost_pid();
         if pid != core.frontmost_pid {
             core.frontmost_pid = pid;
@@ -573,11 +655,13 @@ impl Imp {
         let undo_caret = std::mem::take(&mut core.undo_caret_left);
         let bundle = core.frontmost_bundle.clone();
         let Some(event) = core.matcher.handle(input, bundle.as_deref()) else {
+            effects.note = activity::Note::skipped(core.matcher.skipped(bundle.as_deref()), pid);
             effects.replay = replay;
             return false;
         };
         if core.busy {
             core.reset_matcher();
+            effects.note = activity::Note::dropped(&event, pid);
             return false;
         }
         core.busy = true;
@@ -586,9 +670,12 @@ impl Imp {
             core.start_hold();
         }
         core.generation += 1;
-        let plan_mode = if mode == TapMode::Active { PlanMode::Active } else { PlanMode::ListenOnly };
+        // The app commits a dead-key accent only when it sees the key that completes it, so that
+        // key goes through and the whole trigger is deleted afterwards, as in listen-only mode.
+        let withhold = mode == TapMode::Active && follow != Follow::Composed;
+        let plan_mode = if withhold { PlanMode::Active } else { PlanMode::ListenOnly };
         effects.job = Some(Job::Matched(Matched { generation: core.generation, event, mode: plan_mode, undo_caret, swallowed, pid }));
-        mode == TapMode::Active
+        withhold
     }
 
     fn enforce_hold_deadline(&self) {
@@ -621,17 +708,29 @@ impl Imp {
         match job {
             Job::Matched(matched) => {
                 let generation = matched.generation;
+                self.recorder.begin(self.typed_subject(&matched));
                 if let Err(error) = self.perform_matched(matched) {
                     log::warn!("expansion failed: {error}");
+                    self.recorder.resolve(activity::failed(&error));
                     let mut core = lock(&self.core);
                     if core.generation == generation {
                         core.reset_matcher();
                     }
                 }
+                self.recorder.finish(|| self.unresolved());
                 self.finish(generation);
             }
-            Job::Submit { token, values } => self.submit(token, values),
-            Job::Insert { snippet_id, target } => self.palette_insert(snippet_id, target),
+            Job::Submit { token, values } => {
+                self.recorder.begin_form(token);
+                self.submit(token, values);
+                self.recorder.finish(|| self.unresolved());
+            }
+            Job::Insert { snippet_id, target, selection } => {
+                self.recorder.begin(self.palette_subject(snippet_id, target.as_ref()));
+                self.palette_insert(snippet_id, target, selection);
+                self.recorder.finish(|| self.unresolved());
+            }
+            Job::Note(note) => self.emit(note),
             Job::Replay => {
                 let next = lock(&self.core).next_replay();
                 if let Some(held) = next {
@@ -693,7 +792,8 @@ impl Imp {
                 if !fields.is_empty() {
                     return self.request_typed_form(token, trigger, snippet, fields, m.mode, m.swallowed);
                 }
-                let rendered = self.render(&library, snippet, HashMap::new());
+                // Typing the trigger replaced whatever was selected, so there is no selection.
+                let rendered = self.render(&library, snippet, HashMap::new(), None);
                 let swallowed = if m.mode == PlanMode::Active { m.swallowed.as_deref() } else { None };
                 self.insert_expansion(token, &trigger, rendered, m.mode, swallowed, Guard::Typed)
             }
@@ -702,16 +802,108 @@ impl Imp {
                 // A listen-only backspace already reached the document.
                 let already = usize::from(m.mode == PlanMode::ListenOnly);
                 keys::delete_backward(undo.delete_count.saturating_sub(already))?;
-                keys::type_text(&undo.retype)?;
+                keys::retype(&undo.retype)?;
+                self.recorder.undone();
                 Ok(())
             }
         }
     }
 
-    fn render(&self, library: &Library, snippet: &SnippetRecord, values: HashMap<String, String>) -> RenderResult {
+    fn render(&self, library: &Library, snippet: &SnippetRecord, values: HashMap<String, String>, selection: Option<String>) -> RenderResult {
         // Read before any paste of ours replaces the clipboard, and only when the template needs it.
         let clipboard = if library.uses_clipboard(snippet) { pasteboard::read_string() } else { None };
-        library.render(snippet, library::now(), clipboard, values)
+        let history = |index: usize, current: Option<&str>| self.host.clipboard_history(index, current);
+        library.render(snippet, library::RenderInputs { now: library::now(), clipboard, selection, form_values: values, history: &history })
+    }
+
+    /// Lets the step that starts now hold typing for the usual limit plus `extra` (a `{{delay}}`).
+    /// Without this a sequence of several pastes or pauses would hit the hold deadline midway.
+    fn keep_holding(&self, token: u64, extra: Duration) {
+        let mut core = lock(&self.core);
+        if core.generation == token && core.hold_since.is_some() {
+            core.hold_since = Some(Instant::now());
+            core.hold_extra = extra;
+        }
+    }
+
+    /// Inserts an expansion that has `{{key}}` or `{{delay}}` steps: text, key presses and pauses in
+    /// template order. The rules (see docs/TEMPLATE_SYNTAX.md, "Key presses and pauses"):
+    /// - every text step is typed or pasted by the same rule as a whole expansion, and a paste's
+    ///   clipboard is restored before the next step;
+    /// - the sequence stops, leaving what was already inserted, as soon as the user clicks, the
+    ///   frontmost app changes, or expansion is paused or blocked;
+    /// - with key presses there is no Backspace undo and a whole-word trigger's separator isn't
+    ///   typed again, because the text may be spread over several fields by then.
+    fn insert_sequence(
+        &self,
+        token: u64,
+        guard: Guard,
+        typed: Option<TypedTrigger<'_>>,
+        method: InsertionMethod,
+        sequence: Sequence,
+    ) -> Result<bool, InsertError> {
+        if let Some(t) = &typed {
+            let plan = InsertionPlan::new(t.trigger, String::new(), None, t.mode, t.swallowed);
+            keys::delete_backward(plan.delete_count)?;
+        }
+        let pid = apps::frontmost_pid();
+        let live = |imp: &Imp| imp.is_current(token) && imp.allowed(guard) && apps::frontmost_pid() == pid;
+        for step in &sequence.steps {
+            if !live(self) {
+                lock(&self.core).reset_matcher();
+                return Ok(false);
+            }
+            match step {
+                Step::Text { text, spans } => {
+                    self.keep_holding(token, Duration::ZERO);
+                    let html = spans.as_ref().map(|spans| kudzu_core::formatting::html(text, spans));
+                    self.deliver(text, html.as_deref(), method)?;
+                }
+                Step::Key { key, count } => {
+                    self.keep_holding(token, Duration::ZERO);
+                    keys::press_key(*key, *count)?;
+                    thread::sleep(KEY_SETTLE);
+                }
+                Step::Pause(duration) => {
+                    self.keep_holding(token, *duration);
+                    let until = Instant::now() + *duration;
+                    while let Some(left) = until.checked_duration_since(Instant::now()).filter(|d| !d.is_zero()) {
+                        thread::sleep(left.min(PAUSE_SLICE));
+                        if !self.is_current(token) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        self.keep_holding(token, Duration::ZERO);
+        if !live(self) {
+            lock(&self.core).reset_matcher();
+            return Ok(false);
+        }
+        // An image's delivered length depends on the app, so the caret isn't moved by a guess.
+        let mut caret_left = if sequence.has_images { 0 } else { sequence.caret_left };
+        let separator = typed.as_ref().filter(|_| !sequence.has_keys).and_then(|t| t.trigger.separator.as_deref());
+        if let Some(separator) = separator {
+            keys::retype(separator)?;
+            if caret_left > 0 {
+                caret_left += plan::grapheme_count(separator);
+            }
+        }
+        keys::move_left(caret_left)?;
+        let mut core = lock(&self.core);
+        if core.generation == token {
+            match &typed {
+                // Only pauses: the text is in one piece, so Backspace can still undo it.
+                Some(t) if !sequence.has_keys && !sequence.has_images => {
+                    let inserted: usize = sequence.steps.iter().map(|s| if let Step::Text { text, .. } = s { plan::grapheme_count(text) } else { 0 }).sum();
+                    core.matcher.did_expand(t.trigger, inserted);
+                    core.undo_caret_left = caret_left;
+                }
+                _ => core.reset_matcher(),
+            }
+        }
+        Ok(true)
     }
 
     /// Delivers text by typing or pasting.
@@ -719,7 +911,7 @@ impl Imp {
         if text.is_empty() {
             return Ok(());
         }
-        if plan::should_type(method, text) && (html.is_none() || method == InsertionMethod::Type) {
+        if plan::types(method, text, html.is_some(), input_source::composing()) {
             keys::type_text(text)?;
         } else {
             pasteboard::paste_text(text, html)?;
@@ -739,6 +931,18 @@ impl Imp {
         let text = case_propagation::apply(trigger.case_style, &rendered.text);
         let offset = rendered.cursor_offset.map(|o| plan::cased_cursor_offset(trigger.case_style, &rendered.text, o));
         let spans = rendered.formatting.as_ref().map(|spans| plan::cased_formatting(trigger.case_style, &rendered.text, spans));
+        if !rendered.actions.is_empty() {
+            let actions = plan::cased_actions(trigger.case_style, &rendered.text, &rendered.actions);
+            let sequence = Sequence::new(&text, spans.as_deref(), &actions, offset);
+            let typed = TypedTrigger { trigger, mode, swallowed };
+            if self.insert_sequence(token, guard, Some(typed), trigger.insertion, sequence)? {
+                self.host.expanded(ExpansionEvent {
+                    snippet_id: trigger.snippet_id,
+                    chars_saved: plan::chars_saved(&text, &trigger.typed_trigger),
+                });
+            }
+            return Ok(());
+        }
         let html = spans.as_ref().map(|spans| kudzu_core::formatting::html(&text, spans));
         let has_images = trigger.insertion != InsertionMethod::Type && spans.as_ref().is_some_and(|s| s.iter().any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. })));
         let mut plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
@@ -758,7 +962,7 @@ impl Imp {
             return Ok(());
         }
         if let Some(separator) = &plan.reemit_separator {
-            keys::type_text(separator)?;
+            keys::retype(separator)?;
         }
         keys::move_left(plan.caret_left_count)?;
         {
@@ -791,7 +995,7 @@ impl Imp {
         // the form submission then deletes it like listen-only would.
         if mode == PlanMode::Active {
             if let Some(text) = &swallowed {
-                keys::type_text(text)?;
+                keys::retype(text)?;
             }
         }
         let queued = {
@@ -825,6 +1029,7 @@ impl Imp {
                 kind: FormKind::Typed(trigger),
                 target: target.clone(),
                 interrupted: false,
+                selection: None,
             });
             form_token
         };
@@ -839,6 +1044,7 @@ impl Imp {
             fields,
             caret: ax::caret_rect(),
             target_app: target,
+            selection: None,
         });
         Ok(())
     }
@@ -864,6 +1070,7 @@ impl Imp {
         if let Some(app) = &target {
             if !apps::activate_and_wait(app, ACTIVATION_TIMEOUT) {
                 log::warn!("form target {} did not come to the front", app.bundle_id);
+                self.recorder.resolve(activity::target_gone());
                 return;
             }
         }
@@ -872,6 +1079,7 @@ impl Imp {
         let result = self.insert_submitted(generation, &form, target.as_ref(), values);
         if let Err(error) = result {
             log::warn!("form insertion failed: {error}");
+            self.recorder.resolve(activity::failed(&error));
         }
         self.finish(generation);
     }
@@ -889,7 +1097,7 @@ impl Imp {
         let library = self.library();
         let Some(snippet) = library.snippets.get(&form.snippet_id) else { return Ok(()) };
         let values = library::with_defaults(&library.form_fields(snippet), values);
-        let rendered = self.render(&library, snippet, values);
+        let rendered = self.render(&library, snippet, values, form.selection.clone());
         match &form.kind {
             // The trigger and any separator are in the document as typed.
             FormKind::Typed(trigger) => {
@@ -906,7 +1114,7 @@ impl Imp {
         }
     }
 
-    fn palette_insert(&self, snippet_id: Uuid, target: Option<AppInfo>) {
+    fn palette_insert(&self, snippet_id: Uuid, target: Option<AppInfo>, selection: Option<String>) {
         if !self.explicit_allowed() {
             return;
         }
@@ -914,7 +1122,7 @@ impl Imp {
         let Some(snippet) = library.snippets.get(&snippet_id) else { return };
         let target = target.or_else(apps::frontmost_app);
         // Global exclusions (password managers, login window) apply to explicit inserts too.
-        if library.is_denied(target.as_ref().map(|t| t.bundle_id.as_str())) {
+        if self.note_excluded(&library, target.as_ref().map(|t| t.bundle_id.as_str())) {
             return;
         }
         self.invalidate();
@@ -931,6 +1139,7 @@ impl Imp {
                     kind: FormKind::Palette,
                     target: target.clone(),
                     interrupted: false,
+                    selection: selection.clone(),
                 });
                 form_token
             };
@@ -941,25 +1150,28 @@ impl Imp {
                 fields,
                 caret: if target_front { ax::caret_rect() } else { None },
                 target_app: target,
+                selection,
             });
             return;
         }
         if let Some(app) = &target {
             if !apps::activate_and_wait(app, ACTIVATION_TIMEOUT) {
                 log::warn!("palette target {} did not come to the front", app.bundle_id);
+                self.recorder.resolve(activity::target_gone());
                 return;
             }
         }
         let generation = self.begin_explicit();
         thread::sleep(SETTLE);
         let result = if self.is_current(generation) && self.explicit_allowed() && self.target_is_front(target.as_ref()) {
-            let rendered = self.render(&library, snippet, HashMap::new());
+            let rendered = self.render(&library, snippet, HashMap::new(), selection);
             self.insert_rendered(generation, &library, snippet, rendered, target.as_ref())
         } else {
             Ok(())
         };
         if let Err(error) = result {
             log::warn!("palette insertion failed: {error}");
+            self.recorder.resolve(activity::failed(&error));
         }
         self.finish(generation);
     }
@@ -974,6 +1186,13 @@ impl Imp {
         target: Option<&AppInfo>,
     ) -> Result<(), InsertError> {
         let method = library.insertion_for(snippet, target.map(|t| t.bundle_id.as_str()).filter(|b| !b.is_empty()));
+        if !rendered.actions.is_empty() {
+            let sequence = Sequence::new(&rendered.text, rendered.formatting.as_deref(), &rendered.actions, rendered.cursor_offset);
+            if self.insert_sequence(generation, Guard::Explicit, None, method, sequence)? {
+                self.host.expanded(ExpansionEvent { snippet_id: snippet.id, chars_saved: plan::chars_saved(&rendered.text, "") });
+            }
+            return Ok(());
+        }
         let html = rendered.formatting.as_ref().map(|spans| kudzu_core::formatting::html(&rendered.text, spans));
         let has_images = method != InsertionMethod::Type && rendered.formatting.as_ref().is_some_and(|s| s.iter().any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. })));
         let caret = has_images.then(ax::caret_snapshot).flatten();

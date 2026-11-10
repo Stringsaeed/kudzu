@@ -30,11 +30,18 @@ Content is literal text plus tags:
 
 - `{{date}}`, `{{date format="EEEE, MMMM d"}}`, `{{date offset="+1w"}}`: today's date (ICU pattern, default `yyyy-MM-dd`), optionally shifted by `d`, `w`, `m`, `y`, `h` or `min`.
 - `{{time}}`, `{{time format="h:mm a"}}`: the current time (default `HH:mm`).
-- `{{clipboard}}`, `{{clipboard trim=true}}`: what's on the clipboard.
+- `{{clipboard}}`, `{{clipboard trim=true}}`: what's on the clipboard. `{{clipboard history=1}}` is the copy before that (2, 3, … go further back).
+- `{{selection}}`: the text selected in the app when the user picks the snippet in Quick Search. It is empty for a typed trigger and in `expand_snippet`.
+- `{{uuid}}`: a new random UUID each time (`upper=true` for capitals).
+- `{{random options="Thanks|Cheers|Best"}}`: one of the options, picked at random each time.
+- `{{key name="tab"}}`, `{{key name="return" count=2}}`: presses a key while the snippet is inserted. Keys: `tab`, `return`, `escape`, `space`, `backspace`, `delete`, `left`, `right`, `up`, `down`. Use it to fill forms: text, Tab, text, Return.
+- `{{delay ms=300}}`: pauses the insertion (up to 5000 ms), for pages that need a moment after a key press.
 - `{{cursor}}`: where the caret goes after expanding.
 - `{{field name="Name" default="there"}}`: a fill-in field the user completes when expanding. Add `multiline=true` for long text.
 - `{{choice name="Tone" options="Formal|Casual" default="Casual"}}`: a drop-down. Options are separated by `|`.
 - `{{snippet id="<uuid>"}}`: another snippet's content, by id.
+
+Key presses and pauses only happen when Kudzu types into an app. `expand_snippet` leaves them out of `text` and lists them in `skippedActions`, so tell the user when the text you show isn't everything the snippet does. A snippet that presses keys can't be undone with Backspace, and a `{{cursor}}` before a key press is ignored.
 
 Write `\{{` for a literal `{{`. A repeated field name reuses the same value. Unknown tags are kept as typed and shown as errors in Kudzu, so check the `warnings` in a write result.
 

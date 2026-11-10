@@ -22,6 +22,11 @@ pub struct Fixture {
     pub form_values: HashMap<String, String>,
     pub locale: String,
     pub root: Option<Uuid>,
+    pub selection: Option<String>,
+    /// Older clipboard items, most recent first (`history[0]` is `{{clipboard history=1}}`).
+    pub history: Vec<String>,
+    /// Seeds the UUID and random sources, so a fixture always renders the same thing.
+    pub seed: u64,
 }
 
 impl Fixture {
@@ -32,6 +37,9 @@ impl Fixture {
             form_values: HashMap::new(),
             locale: "en_US_POSIX".into(),
             root: None,
+            selection: None,
+            history: Vec::new(),
+            seed: 1,
         }
     }
 
@@ -44,6 +52,13 @@ impl Fixture {
 
     pub fn render(&self, source: &str) -> RenderResult {
         let resolve = |id: Uuid| self.snippets.get(&id).cloned();
+        let history = |n: usize| self.history.get(n.checked_sub(1)?).cloned();
+        let rng = std::cell::RefCell::new(SplitMix64(self.seed));
+        let new_uuid = || {
+            let mut rng = rng.borrow_mut();
+            Uuid::from_u64_pair(rng.next(), rng.next())
+        };
+        let pick = |n: usize| rng.borrow_mut().below(n);
         let context = RenderContext {
             resolve_formatting: None,
             now: now(),
@@ -52,6 +67,10 @@ impl Fixture {
             form_values: self.form_values.clone(),
             resolve_snippet: &resolve,
             root_snippet_id: self.root,
+            selection: self.selection.clone(),
+            clipboard_history: Some(&history),
+            new_uuid: Some(&new_uuid),
+            pick: Some(&pick),
         };
         template::render(source, &context)
     }

@@ -15,6 +15,8 @@ pub(crate) fn analyze(parsed: &ParsedTemplate) -> TemplateInfo {
         referenced_snippet_ids: Vec::new(),
         has_cursor: false,
         uses_clipboard: false,
+        uses_selection: false,
+        has_key_presses: false,
     };
     let mut names = HashSet::new();
     let mut ids = HashSet::new();
@@ -28,6 +30,8 @@ pub(crate) fn analyze(parsed: &ParsedTemplate) -> TemplateInfo {
             }
             TemplateTag::Clipboard { .. } => info.uses_clipboard = true,
             TemplateTag::Cursor => info.has_cursor = true,
+            TemplateTag::Selection { .. } => info.uses_selection = true,
+            TemplateTag::Key { .. } => info.has_key_presses = true,
             other => {
                 if let Some(field) = field_spec(other) {
                     if names.insert(field.name.clone()) {

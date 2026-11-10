@@ -20,6 +20,8 @@ pub const EV_CLIPBOARD_SHOW: &str = "kudzu://clipboard-show";
 pub const EV_FORM_REQUEST: &str = "kudzu://form-request";
 pub const EV_NAVIGATE: &str = "kudzu://navigate";
 pub const EV_NEW_SNIPPET: &str = "kudzu://new-snippet";
+/// One new [`kudzu_core::activity::ActivityEntry`] for the Activity pane.
+pub const EV_ACTIVITY: &str = "kudzu://activity";
 
 /// What the form window shows: the engine's request plus remembered values and the template.
 #[derive(Debug, Clone, Serialize)]
@@ -32,6 +34,9 @@ pub struct FormPayload {
     pub initial_values: HashMap<String, String>,
     pub content: String,
     pub target_app: Option<AppInfo>,
+    /// Selection captured for a Quick Search insert, for the form's preview of `{{selection}}`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selection: Option<String>,
 }
 
 pub struct AppCore {
@@ -40,6 +45,9 @@ pub struct AppCore {
     pub engine: Mutex<Option<Arc<Engine>>>,
     /// The app that was frontmost when the palette opened.
     pub palette_target: Mutex<Option<AppInfo>>,
+    /// Text selected in that app when the palette opened, for `{{selection}}`. Only captured
+    /// while some snippet uses the tag.
+    pub palette_selection: Mutex<Option<String>>,
     pub pending_form: Mutex<Option<FormPayload>>,
     /// Shortcut currently registered for the palette.
     pub registered_hotkey: Mutex<Option<String>>,
@@ -49,6 +57,9 @@ pub struct AppCore {
     pub clip_target: Mutex<Option<AppInfo>>,
     /// Shortcut currently registered for the clipboard picker.
     pub registered_clip_hotkey: Mutex<Option<String>>,
+    /// Recent expansion attempts ("Why didn't this expand?"). Memory only: never written to
+    /// disk, synced or offered to AI agents, and gone when the app quits.
+    pub activity: Mutex<kudzu_core::activity::ActivityLog>,
 }
 
 impl AppCore {

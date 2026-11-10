@@ -48,7 +48,7 @@ export function FormPanel() {
     if (!request) return
     let live = true
     const t = setTimeout(() => {
-      renderPreview(request.content, request.snippetId, values, (id) => library?.snippets.find((s) => s.id === id)?.content, library?.snippets.find((s) => s.id === request.snippetId)?.formatting, (id) => library?.snippets.find((s) => s.id === id)?.formatting).then((r) => live && setPreview(r))
+      renderPreview(request.content, request.snippetId, values, (id) => library?.snippets.find((s) => s.id === id)?.content, library?.snippets.find((s) => s.id === request.snippetId)?.formatting, (id) => library?.snippets.find((s) => s.id === id)?.formatting, request.selection).then((r) => live && setPreview(r))
     }, 50)
     return () => {
       live = false

@@ -45,10 +45,10 @@ export function sameStyle(a: FormatStyle, b: FormatStyle): boolean {
 }
 
 /** Splits overlapping spans into independently styled pieces, without interpreting HTML. */
-export function formattedParts(text: string, spans: FormatSpan[] = [], cursor?: number | null) {
+export function formattedParts(text: string, spans: FormatSpan[] = [], cursor?: number | null, breaks: number[] = []) {
   const valid = validSpans(text, spans)
   const boundaries = [...new Set([0, text.length, ...valid.flatMap((s) => [s.start, s.end]),
-    ...(cursor != null && cursor >= 0 && cursor <= text.length ? [cursor] : [])])].sort((a, b) => a - b)
+    ...[...breaks, ...(cursor != null ? [cursor] : [])].filter((at) => at >= 0 && at <= text.length)])].sort((a, b) => a - b)
   return boundaries.slice(0, -1).map((start, i) => ({
     start, text: text.slice(start, boundaries[i + 1]),
     image: valid.find((s) => s.style.kind === "image" && s.start <= start && s.end > start),

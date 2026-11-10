@@ -107,6 +107,18 @@ pub fn start(app: &AppHandle) {
 }
 
 /// Saves the index now (on quit).
+/// Plain text of the copy `index` before the current clipboard (1 = the previous copy), for
+/// `{{clipboard history=N}}`. Empty while clipboard history is turned off, and for images.
+pub fn history_text(core: &AppCore, index: usize, current: Option<&str>) -> Option<String> {
+    if !core.store.lock().settings.clipboard_enabled {
+        return None;
+    }
+    let clip = core.clip.lock();
+    let entry = clip.history.before_current(index, current)?;
+    // The index keeps an excerpt; the blob has the whole text.
+    clip.items(entry.id).as_deref().and_then(model::text_of).or_else(|| entry.text.clone())
+}
+
 pub fn flush(app: &AppHandle) {
     if let Some(core) = app.try_state::<Arc<AppCore>>() {
         core.clip.lock().save_if_dirty();

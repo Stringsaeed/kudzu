@@ -17,6 +17,7 @@ pub mod dedupe;
 pub mod espanso;
 pub mod kudzu_json;
 pub mod raycast;
+mod rich;
 pub mod stats;
 pub mod strftime;
 pub mod textexpander;

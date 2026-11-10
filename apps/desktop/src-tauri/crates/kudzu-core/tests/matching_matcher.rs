@@ -408,3 +408,37 @@ fn empty_matcher_is_inert() {
     assert!(type_into("anything", &mut m, None).is_none());
     assert_eq!(m.buffer_string(), "anything");
 }
+
+// Non-US input: word boundaries and case folding
+
+#[test]
+fn whole_word_fires_around_non_ascii_punctuation() {
+    for typed in ["¿brb?", "«brb»", "“brb”", "—brb…", "brb。", "brb、", "（brb）", "brb؟", "brb،", "brb।"] {
+        let mut m = matcher(&[&snip(&["brb"]).whole_word()]);
+        assert!(type_into(typed, &mut m, None).is_some(), "{typed}");
+    }
+}
+
+#[test]
+fn whole_word_still_ignores_letters_and_joining_symbols() {
+    for typed in ["xbrb ", "brbx ", "ébrb ", "brb-", "brb_", "a-brb ", "a_brb ", "a@brb ", "a/brb "] {
+        let mut m = matcher(&[&snip(&["brb"]).whole_word()]);
+        assert!(type_into(typed, &mut m, None).is_none(), "{typed}");
+    }
+}
+
+#[test]
+fn folding_matches_turkish_and_greek_capitals() {
+    for (trigger, typed) in [(";imza", ";İMZA"), (";ılık", ";ILIK"), (";ılık", ";ılık"), (";λογος", ";ΛΟΓΟΣ"), (";λογος", ";λογος"), (";straße", ";straße")] {
+        let mut m = matcher(&[&snip(&[trigger])]);
+        assert!(type_into(typed, &mut m, None).is_some(), "{trigger} typed as {typed}");
+    }
+}
+
+#[test]
+fn folding_leaves_exact_case_triggers_alone() {
+    let mut m = matcher(&[&snip(&[";ılık"]).exact()]);
+    assert!(type_into(";ilik", &mut m, None).is_none());
+    let mut m = matcher(&[&snip(&[";ılık"]).exact()]);
+    assert!(type_into(";ılık", &mut m, None).is_some());
+}
