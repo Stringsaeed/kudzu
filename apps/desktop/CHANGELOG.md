@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/Stringsaeed/kudzu/compare/v0.6.0...v0.7.0) (2026-11-10)
+
+
+### Features
+
+* **desktop:** add micro-interactions across the app and a wordmark-only sidebar header ([#43](https://github.com/Stringsaeed/kudzu/issues/43)) ([bca79f1](https://github.com/Stringsaeed/kudzu/commit/bca79f179f5b6e7c869161d80ce6d3ebb1106689))
+* **desktop:** press keys in snippets, import rich text, explain skipped expansions ([#41](https://github.com/Stringsaeed/kudzu/issues/41)) ([63cfb21](https://github.com/Stringsaeed/kudzu/commit/63cfb21d1585d20e6cf2c914d1a2b81587df542c))
+
 ## [0.6.0](https://github.com/Stringsaeed/kudzu/compare/v0.5.0...v0.6.0) (2026-11-08)
 
 
