@@ -470,9 +470,9 @@ export default async function Home() {
               </summary>
               <p>
                 Absolutely. Kudzu can detect and import an existing Espanso library, including
-                supported dates, clipboard variables, forms, and nested snippets. Unsupported script
-                and rich-text features are imported as plain text with warnings so you can review
-                them.
+                supported dates, clipboard variables, forms, nested snippets, and bold, italic,
+                links, and lists. Script features are imported as plain text with warnings so you
+                can review them.
               </p>
             </details>
             <details>

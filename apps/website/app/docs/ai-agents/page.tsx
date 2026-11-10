@@ -37,7 +37,7 @@ const tools = [
   { name: "get_snippet", does: "Read one snippet’s template, triggers, and fill-in fields." },
   {
     name: "expand_snippet",
-    does: "Get a snippet’s final text, with dates, nested snippets, and your fill-in values.",
+    does: "Get a snippet’s final text, with dates, nested snippets, and your fill-in values. Key presses and pauses are left out of the text and listed separately.",
   },
   { name: "list_groups", does: "See how your snippets are organized." },
   {
