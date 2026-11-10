@@ -13,6 +13,7 @@ import { api, Events, isTauri, on } from "@/lib/backend"
 import { useClipboard } from "@/lib/clipboard"
 import { applyTheme } from "@/lib/theme"
 import type { Group, UpdateState } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 import { ClipboardView, type ClipboardViewHandle } from "../clipboard/clipboard-view"
 import { EditorEmpty, SnippetEditor } from "../editor/snippet-editor"
@@ -103,6 +104,7 @@ export function MainApp() {
   }
 
   const inLibrary = view.kind !== "insights" && view.kind !== "settings" && view.kind !== "clipboard"
+  const area = inLibrary ? "library" : view.kind
 
   useHotkeys([
     { combo: "mod+k", allowInInput: true, handler: () => setCommandOpen(true) },
@@ -171,26 +173,42 @@ export function MainApp() {
             }}
           />
           <div className="flex min-h-0 flex-1">
-            <div id="main-sidebar" hidden={!sidebarOpen} className="w-[224px] shrink-0">
+            {/* Stays mounted and slides off the window's edge, so the main card follows instead of snapping.
+                Closed, it is inert and invisible: out of the tab order and the accessibility tree. The
+                negative margin leaves the card the same 8px gutter it has on its other sides. */}
+            <div
+              id="main-sidebar"
+              inert={!sidebarOpen}
+              aria-hidden={!sidebarOpen || undefined}
+              className={cn(
+                "w-[224px] shrink-0 transition-[margin-left,opacity,visibility] duration-(--motion-slow) ease-spring",
+                !sidebarOpen && "invisible -ml-[216px] opacity-0",
+              )}
+            >
               <Sidebar onOpenGroupSettings={setGroupSettings} isDev={isDev} />
             </div>
-            <main className={`my-2 mr-2 flex min-w-0 flex-1 overflow-hidden rounded-2xl bg-background shadow-card ${sidebarOpen ? "" : "ml-2"}`}>
-              {inLibrary ? (
-                <>
-                  <div className="w-[clamp(260px,27vw,320px)] shrink-0 border-r border-hairline">
-                    <SnippetList ref={listRef} onRequestDelete={requestDelete} onOpen={focusEditor} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {snippet ? <SnippetEditor key={snippet.id} snippet={snippet} onRequestDelete={requestDelete} /> : <EditorEmpty onNew={() => void newSnippet()} />}
-                  </div>
-                </>
-              ) : view.kind === "insights" ? (
-                <Insights />
-              ) : view.kind === "clipboard" ? (
-                <ClipboardView ref={clipRef} filter={view.filter} />
-              ) : (
-                <SettingsView section={view.kind === "settings" ? view.section : undefined} onOpenGroupSettings={setGroupSettings} />
-              )}
+            <main className="my-2 mr-2 flex min-w-0 flex-1 overflow-hidden rounded-2xl bg-background shadow-card">
+              {/* Keyed by area, so a view fades in when you arrive from another one, but not when the
+                  group, filter or settings section changes inside it. Opacity only: the views animate
+                  their own content, and a second translate here would stack with theirs. */}
+              <div key={area} className="flex min-w-0 flex-1 animate-in fade-in-0 duration-(--motion-moderate) ease-out">
+                {inLibrary ? (
+                  <>
+                    <div className="w-[clamp(260px,27vw,320px)] shrink-0 border-r border-hairline">
+                      <SnippetList ref={listRef} onRequestDelete={requestDelete} onOpen={focusEditor} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {snippet ? <SnippetEditor key={snippet.id} snippet={snippet} onRequestDelete={requestDelete} /> : <EditorEmpty onNew={() => void newSnippet()} />}
+                    </div>
+                  </>
+                ) : view.kind === "insights" ? (
+                  <Insights />
+                ) : view.kind === "clipboard" ? (
+                  <ClipboardView ref={clipRef} filter={view.filter} />
+                ) : (
+                  <SettingsView section={view.kind === "settings" ? view.section : undefined} onOpenGroupSettings={setGroupSettings} />
+                )}
+              </div>
             </main>
           </div>
         </div>

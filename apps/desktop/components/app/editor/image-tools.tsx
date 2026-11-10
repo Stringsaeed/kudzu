@@ -94,11 +94,11 @@ export function ImageTools({ view }: { view: () => EditorView | null }) {
         }} />
         {image && <>
           {/* oxlint-disable-next-line nextjs/no-img-element -- preview of an embedded raster image */}
-          <img src={image.dataUrl} width={image.width} alt={label} className="max-h-40 max-w-full self-center object-contain" />
+          <img src={image.dataUrl} width={image.width} alt={label} className="max-h-40 max-w-full self-center object-contain animate-pop" />
           <label className="flex flex-col gap-1 text-xs">Text alternative<Input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={200} /></label>
           <label className="flex flex-col gap-1 text-xs">Width in pixels<Input type="number" min={16} max={512} value={image.width} onChange={(e) => setImage({ ...image, width: Math.min(512, Math.max(16, Number(e.target.value) || 16)) })} /></label>
         </>}
-        {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-xs text-destructive animate-rise">{error}</p>}
         <Button type="submit" size="sm" disabled={!image || loading}>{loading ? "Preparing image…" : "Insert image"}</Button>
       </form>
     </PopoverContent>

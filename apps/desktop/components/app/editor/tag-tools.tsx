@@ -53,6 +53,7 @@ import { cn } from "@/lib/utils"
 import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { TriggerChip } from "../trigger-chip"
+import { useBump } from "./motion"
 
 export interface InsertChoice {
   text: string
@@ -514,6 +515,9 @@ function DateForm({ name, attrs, set }: { name: string; attrs: Record<string, un
     const t = setInterval(() => setNow(new Date()), 15_000)
     return () => clearInterval(t)
   }, [])
+  // The example settles when a choice changes it (kind, preset, shift) — not per keystroke in a custom
+  // pattern, and not when the clock ticks.
+  const exampleSwap = useBump(`${name}|${custom ? "custom" : format}|${OFFSET_PRESETS.some((p) => p.value === offset) ? offset : "custom"}`)
   const example = useMemo(() => {
     try {
       return formatIcu(now, format, (attrs.locale as string | undefined)?.replace("_", "-"))
@@ -526,7 +530,9 @@ function DateForm({ name, attrs, set }: { name: string; attrs: Record<string, un
     <div className="flex flex-col gap-3">
       <div className="rounded-lg bg-foreground/[0.04] px-3 py-2.5 text-center">
         <div className="text-[11px] tracking-wide text-faint uppercase">Example</div>
-        <div className="selectable truncate font-medium tabular">{example || "—"}</div>
+        <div key={exampleSwap} className={cn("selectable truncate font-medium tabular", exampleSwap > 0 && "animate-settle")}>
+          {example || "—"}
+        </div>
       </div>
       <Segmented
         label="Kind"
@@ -561,7 +567,7 @@ function DateForm({ name, attrs, set }: { name: string; attrs: Record<string, un
           <ChevronDown className="pointer-events-none absolute top-2 right-2 size-4 text-muted-foreground" />
         </div>
         {custom && (
-          <Input autoFocus value={format} onChange={(e) => set({ format: e.target.value })} className="h-8 font-mono text-xs" placeholder="EEEE, MMM d · h:mm a" />
+          <Input autoFocus value={format} onChange={(e) => set({ format: e.target.value })} className="h-8 font-mono text-xs animate-rise" placeholder="EEEE, MMM d · h:mm a" />
         )}
       </Field>
       <Field label="Shift" hint={<>Combine units, e.g. <code className="font-mono">+1w2d</code> or <code className="font-mono">-30min</code>.</>}>

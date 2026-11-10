@@ -520,3 +520,66 @@
 @media (prefers-reduced-motion: reduce) {
   [aria-label^="Setup:"] .animate-rise { animation: none; }
 }
+/* Setup steps arrive from the side they come from: forward from the right, back from the left. The first one rises. */
+@keyframes onboarding-step {
+  from { opacity: 0; translate: var(--step-x, 0) var(--step-y, 0); }
+}
+.onboarding-step { animation: onboarding-step var(--motion-slow) var(--spring-soft) backwards; }
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-step { animation: none; }
+}
+
+/* Clipboard and the floating windows. arrive: a new row drops in from above (`translate`, so it
+   composes with transforms); fade: a quick swap of content in place; sink: rise played backwards, for exits. */
+@keyframes arrive {
+  from { opacity: 0; translate: 0 -6px; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+}
+@utility animate-arrive {
+  animation: arrive var(--motion-slow) var(--spring-soft);
+}
+@utility animate-fade {
+  animation: fade-in var(--motion-fast) ease-out;
+}
+@utility animate-sink {
+  animation: rise var(--motion-moderate) ease-out reverse both;
+}
+/* Footer key hints: the keycaps sink while their key is held. The window's key handler sets data-pressed. */
+@utility key-hint {
+  & kbd[data-slot="kbd"],
+  & [data-keycap] {
+    transition:
+      scale var(--motion-slow) var(--spring-pop),
+      background-color var(--motion-fast),
+      color var(--motion-fast),
+      box-shadow var(--motion-fast);
+  }
+  &[data-pressed] kbd[data-slot="kbd"],
+  &[data-pressed] [data-keycap] {
+    scale: 0.9;
+    transition-duration: var(--motion-fast);
+    transition-timing-function: ease-out;
+  }
+  &[data-pressed] kbd[data-slot="kbd"] {
+    background-color: var(--iris-soft);
+    color: var(--iris-foreground);
+    box-shadow: none;
+  }
+}
+
+/* Snippet list and editor. vanish: check-in played backwards, for small marks (a star, a badge) that
+   turn off. settle: content refreshed in place dips and comes back, too soft to read as a flash. */
+@keyframes vanish {
+  to { opacity: 0; scale: 0.4; }
+}
+@keyframes settle {
+  from { opacity: 0.45; }
+}
+@utility animate-vanish {
+  animation: vanish var(--motion-moderate) ease-in both;
+}
+@utility animate-settle {
+  animation: settle var(--motion-moderate) ease-out;
+}

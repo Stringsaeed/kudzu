@@ -83,7 +83,10 @@ function GroupSettingsForm({ group, onOpenChange }: { group: Group; onOpenChange
               />
             </div>
             {draft.rule && (
-              <AppPicker value={draft.rule.bundleIDs} onChange={(bundleIDs) => setDraft({ ...draft, rule: { ...draft.rule!, bundleIDs } })} />
+              // Rises in when a rule is chosen. A group that already has one shows it from the start.
+              <div className={group.rule ? undefined : "animate-rise"}>
+                <AppPicker value={draft.rule.bundleIDs} onChange={(bundleIDs) => setDraft({ ...draft, rule: { ...draft.rule!, bundleIDs } })} />
+              </div>
             )}
           </div>
         </form>

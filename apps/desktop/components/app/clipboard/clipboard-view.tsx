@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  Check,
   ClipboardList,
   Copy,
   ExternalLink,
@@ -11,6 +12,7 @@ import {
   PinOff,
   Play,
   Search,
+  SearchX,
   Settings2,
   TextCursorInput,
   Trash2,
@@ -74,6 +76,8 @@ import { Shortcut } from "../shortcut"
 import { Breadcrumbs } from "../breadcrumbs"
 import { ClipList, type ClipListHandle } from "./clip-list"
 import { ClipContent, ClipDetails, ClipHeading } from "./clip-preview"
+import { KIND_ICON } from "./clip-tile"
+import { useChanged, useExit, useListChanges } from "./motion"
 import { SecretToggleIcon, setSecretWithFeedback } from "./secret"
 
 export interface ClipboardViewHandle {
@@ -127,11 +131,15 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
   const [clearOpen, setClearOpen] = useState(false)
   const [clearPinned, setClearPinned] = useState(false)
   const [announce, setAnnounce] = useState("")
+  const [copied, setCopied] = useState<{ id: string; n: number } | null>(null)
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const anchor = useRef<string | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<ClipListHandle>(null)
 
   useEffect(() => void useClipboard.getState().refresh(), [])
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
+  const { fresh, settling } = useListChanges(entries, ready)
   // A new filter starts a fresh multi-selection (adjusted during render, not in an effect).
   const [shownFilter, setShownFilter] = useState(filter)
   if (shownFilter !== filter) {
@@ -197,6 +205,10 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
         await api.clipboardCopy(e.id, plain)
         toast.success(plain ? "Copied as plain text" : "Copied", { duration: 1600 })
         say("Copied to clipboard")
+        // Confirmed in place too: a check on the Copy button and in the row, for a moment.
+        setCopied((c) => ({ id: e.id, n: (c?.n ?? 0) + 1 }))
+        clearTimeout(copiedTimer.current)
+        copiedTimer.current = setTimeout(() => setCopied(null), 1200)
       } catch (err) {
         toast.error("Couldn't copy", { description: String(err) })
       }
@@ -321,14 +333,22 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
     }
   }
 
-  const bulk = multi.size > 1 ? order.filter((e) => multi.has(e.id)) : []
+  const bulk = useMemo(() => (multi.size > 1 ? order.filter((e) => multi.has(e.id)) : null), [multi, order])
+  // The selection bar stays a moment after the selection clears, to sink away instead of vanishing.
+  const bulkBar = useExit(bulk, 160)
   const enabled = settings.clipboardEnabled
+  const recordingFlipped = useChanged("recording", enabled)
+  const pinFlipped = useChanged(active?.id ?? "", active?.pinned ?? false)
+  const EmptyIcon = query ? SearchX : filter === "pinned" ? Pin : filter === "all" ? ClipboardList : KIND_ICON[filter]
   const retention = settings.clipboardRetentionDays
 
   const empty = !ready ? null : entries.length === 0 ? (
     <Welcome enabled={enabled} hotkey={settings.clipboardHotkey} retention={retention} onEnable={() => void updateSettings({ clipboardEnabled: true })} />
   ) : (
     <div className="flex flex-col items-center gap-3 px-6 pt-16 text-center animate-rise">
+      <span className="flex size-9 items-center justify-center rounded-xl bg-foreground/[0.04] text-faint shadow-well">
+        <EmptyIcon className="size-4" />
+      </span>
       <p className="text-sm text-muted-foreground">
         {query ? (
           <>
@@ -365,11 +385,11 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
                 aria-pressed={enabled}
                 aria-label={enabled ? "Recording copies. Press to pause." : "Paused. Press to resume recording."}
                 className={cn(
-                  "no-drag flex h-6 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium transition-colors",
+                  "no-drag flex h-6 items-center gap-1.5 rounded-full px-2 text-[11px] font-medium press",
                   enabled ? "text-muted-foreground hover:bg-foreground/[0.05] hover:text-foreground" : "bg-warning/12 text-warning hover:bg-warning/18",
                 )}
               >
-                <span className={cn("size-1.5 rounded-full", enabled ? "bg-success shadow-[0_0_0_3px_color-mix(in_oklch,var(--success)_20%,transparent)]" : "bg-warning")} />
+                <span key={String(enabled)} className={cn("size-1.5 rounded-full", recordingFlipped && "animate-pop", enabled ? "bg-success shadow-[0_0_0_3px_color-mix(in_oklch,var(--success)_20%,transparent)]" : "bg-warning")} />
                 {enabled ? "Recording" : "Paused"}
               </button>
             </TooltipTrigger>
@@ -460,7 +480,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
         </div>
 
         {!enabled && entries.length > 0 && (
-          <div role="status" className="mx-3 mb-2 flex items-center gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--warning)_18%,transparent)]">
+          <div role="status" className="mx-3 mb-2 flex animate-rise items-center gap-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning shadow-[inset_0_0_0_1px_color-mix(in_oklch,var(--warning)_18%,transparent)]">
             <Pause className="size-3.5 shrink-0" />
             <span className="flex-1">Recording is paused. New copies aren&apos;t saved.</span>
             <button className="font-medium underline-offset-2 hover:underline" onClick={() => void updateSettings({ clipboardEnabled: true })}>
@@ -484,21 +504,31 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
           onPick={onPick}
           onKeyDown={onListKey}
           onFocusChange={setListFocused}
+          fresh={fresh}
+          settling={settling}
+          copiedId={copied?.id}
           empty={empty}
         />
 
-        {bulk.length > 0 ? (
-          <div role="toolbar" aria-label="Selection actions" className="m-2 flex items-center gap-1 rounded-xl bg-surface-raised p-1.5 pl-3 shadow-float animate-rise">
-            <span className="flex-1 text-xs font-medium tabular">{bulk.length} selected</span>
-            <Action label={bulk.every((e) => e.pinned) ? "Unpin" : "Pin"} combo="mod+p" onClick={() => togglePin(bulk)}>
-              {bulk.every((e) => e.pinned) ? <PinOff /> : <Pin />}
+        {bulkBar.shown ? (
+          <div
+            role="toolbar"
+            aria-label="Selection actions"
+            inert={bulkBar.leaving}
+            className={cn("m-2 flex items-center gap-1 rounded-xl bg-surface-raised p-1.5 pl-3 shadow-float", bulkBar.leaving ? "animate-sink" : "animate-rise")}
+          >
+            <span key={bulkBar.shown.length} className="flex-1 text-xs font-medium tabular">
+              <span className="inline-block animate-tick">{bulkBar.shown.length}</span> selected
+            </span>
+            <Action label={bulkBar.shown.every((e) => e.pinned) ? "Unpin" : "Pin"} combo="mod+p" onClick={() => bulkBar.shown && togglePin(bulkBar.shown)}>
+              {bulkBar.shown.every((e) => e.pinned) ? <PinOff /> : <Pin />}
             </Action>
-            <Action label="Delete" combo="mod+backspace" destructive onClick={() => void remove(bulk)}>
+            <Action label="Delete" combo="mod+backspace" destructive onClick={() => bulkBar.shown && void remove(bulkBar.shown)}>
               <Trash2 />
             </Action>
           </div>
         ) : (
-          <footer className="flex h-9 shrink-0 items-center gap-1 border-t border-hairline px-4 text-[11px] text-faint">
+          <footer className="flex h-9 shrink-0 animate-fade items-center gap-1 border-t border-hairline px-4 text-[11px] text-faint">
             <span className="truncate">
               Kept {retentionLabel(retention)}
               {diskUsage > 0 && ` · ${formatBytes(diskUsage)}`}
@@ -520,7 +550,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
         {active ? (
           <>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5" key={active.id}>
-              <div className="flex flex-col gap-6 animate-rise">
+              <div className="flex flex-col gap-6 animate-rise [animation-duration:var(--motion-moderate)]">
                 <ClipHeading entry={active} />
                 <ClipContent entry={active} terms={terms} />
                 <ClipDetails entry={active} retentionDays={retention} />
@@ -528,7 +558,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
             </div>
             <footer role="toolbar" aria-label="Item actions" className="flex h-14 shrink-0 items-center gap-1 border-t border-hairline px-4">
               <Button size="sm" onClick={() => void copy(active)} aria-keyshortcuts="Enter">
-                <Copy /> Copy <Shortcut combo="enter" className="ml-0.5 max-[1100px]:hidden" />
+                {copied?.id === active.id ? <Check key={copied.n} className="animate-check" /> : <Copy />} Copy <Shortcut combo="enter" className="ml-0.5 max-[1100px]:hidden" />
               </Button>
               {active.rich && (
                 <Button size="sm" variant="ghost" onClick={() => void copy(active, true)} aria-keyshortcuts="Shift+Enter">
@@ -557,7 +587,7 @@ export const ClipboardView = forwardRef<ClipboardViewHandle, { filter?: ClipFilt
                 </Action>
               )}
               <Action label={active.pinned ? "Unpin" : "Pin — keep forever"} combo="mod+p" active={active.pinned} onClick={() => togglePin([active])}>
-                {active.pinned ? <PinOff /> : <Pin />}
+                {active.pinned ? <PinOff key="off" className={cn(pinFlipped && "animate-check")} /> : <Pin key="on" className={cn(pinFlipped && "animate-check")} />}
               </Action>
               <Action label="Delete" combo="mod+backspace" destructive onClick={() => void remove([active])}>
                 <Trash2 />

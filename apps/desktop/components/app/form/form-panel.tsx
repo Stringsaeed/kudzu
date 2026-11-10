@@ -13,6 +13,7 @@ import type { FormRequest, Library, RenderResult } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 import { FormattedText } from "../formatted-text"
+import { hintFor, pressHint, releaseHints } from "../palette/key-hints"
 import { Shortcut } from "../shortcut"
 
 export function FormPanel() {
@@ -22,11 +23,13 @@ export function FormPanel() {
   const [library, setLibrary] = useState<Library | null>(null)
   const root = useRef<HTMLDivElement>(null)
   const first = useRef<HTMLElement | null>(null)
+  const footer = useRef<HTMLElement>(null)
 
   const load = useCallback((r: FormRequest | null) => {
     setRequest(r)
     setValues(r?.initialValues ?? {})
     setPreview(null)
+    releaseHints(footer.current)
     requestAnimationFrame(() => first.current?.focus())
   }, [])
 
@@ -78,6 +81,8 @@ export function FormPanel() {
         aria-label={`Fill in ${request.snippetName}`}
         onKeyDown={(e) => {
           const mod = e.metaKey || e.ctrlKey
+          // Enter in a multi-line field is a newline, not Insert: only light the button when it submits.
+          if (e.key !== "Enter" || mod || !(e.target instanceof HTMLTextAreaElement)) pressHint(footer.current, e.key === "Enter" ? "enter" : hintFor(e, mod))
           if (e.key === "Escape") {
             e.preventDefault()
             cancel()
@@ -86,6 +91,7 @@ export function FormPanel() {
             submit()
           }
         }}
+        onKeyUp={() => releaseHints(footer.current)}
         className="flex w-full flex-col overflow-hidden rounded-2xl bg-popover text-popover-foreground shadow-panel backdrop-blur-2xl animate-pop vibrant:animate-none vibrant:rounded-none vibrant:bg-popover/55 vibrant:shadow-none vibrant:backdrop-blur-none"
       >
         <header className="flex items-center gap-2.5 border-b border-hairline px-4 py-3" data-tauri-drag-region>
@@ -105,10 +111,10 @@ export function FormPanel() {
               if (i === 0) first.current = el
             }
             const set = (v: string) => setValues((cur) => ({ ...cur, [f.name]: v }))
-            const common = "w-full rounded-lg bg-foreground/[0.03] px-3 text-[13.5px] shadow-well outline-none transition-shadow focus:bg-transparent focus:shadow-none focus:ring-2 focus:ring-ring"
+            const common = "w-full rounded-lg bg-foreground/[0.03] px-3 text-[13.5px] shadow-well outline-none transition-[background-color,box-shadow] duration-(--motion-fast) focus:bg-transparent focus:shadow-none focus:ring-2 focus:ring-ring"
             return (
-              <div key={f.name} className="flex flex-col gap-1.5">
-                <label htmlFor={id} className="text-xs font-medium text-muted-foreground">
+              <div key={f.name} className="group/field flex flex-col gap-1.5">
+                <label htmlFor={id} className="text-xs font-medium text-muted-foreground transition-colors duration-(--motion-fast) group-focus-within/field:text-foreground">
                   {f.name}
                 </label>
                 {f.kind === "choice" ? (
@@ -120,7 +126,7 @@ export function FormPanel() {
                         </option>
                       ))}
                     </select>
-                    <ChevronDown className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground" />
+                    <ChevronDown className="pointer-events-none absolute top-2.5 right-2.5 size-4 text-muted-foreground transition-colors duration-(--motion-fast) group-focus-within/field:text-foreground" />
                   </div>
                 ) : f.kind === "multiline" ? (
                   <textarea id={id} ref={ref} value={values[f.name] ?? ""} onChange={(e) => set(e.target.value)} rows={3} className={cn(common, "resize-none py-2 leading-relaxed")} />
@@ -134,17 +140,28 @@ export function FormPanel() {
 
         <div className="mx-4 mb-3.5 max-h-40 overflow-y-auto rounded-lg bg-foreground/[0.03] px-3 py-2.5 shadow-well">
           <div className="mb-1 text-[10.5px] font-medium text-faint">Preview</div>
-          <div className="selectable text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">{preview ? <FormattedText result={preview} /> : "…"}</div>
+          <div className="selectable text-[12.5px] leading-relaxed whitespace-pre-wrap text-foreground/85">
+            {preview ? (
+              <FormattedText result={preview} />
+            ) : (
+              <span aria-hidden className="my-1 block h-3.5 w-2/3 animate-shimmer rounded bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--foreground)_8%,transparent),transparent)] bg-[length:200%_100%]" />
+            )}
+          </div>
         </div>
 
-        <footer className="flex items-center gap-4 border-t border-hairline px-4 py-2.5 text-[11.5px] text-muted-foreground">
-          <span className="flex items-center gap-1.5">
+        <footer ref={footer} className="flex items-center gap-4 border-t border-hairline px-4 py-2.5 text-[11.5px] text-muted-foreground">
+          <span className="key-hint flex items-center gap-1.5" data-hint="tab">
             <Shortcut combo="tab" /> Next field
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="key-hint flex items-center gap-1.5" data-hint="escape">
             <Shortcut combo="escape" /> Cancel
           </span>
-          <button onClick={submit} className="ml-auto flex h-7 items-center gap-2 rounded-lg bg-iris px-3 text-xs font-medium text-iris-contrast shadow-accent sheen-strong press hover:brightness-110 active:shadow-pressed active:bg-none">
+          {/* Return presses it visibly too, the same sink as a click. */}
+          <button
+            onClick={submit}
+            data-hint="enter"
+            className="ml-auto flex h-7 items-center gap-2 rounded-lg bg-iris px-3 text-xs font-medium text-iris-contrast shadow-accent sheen-strong press hover:brightness-110 active:shadow-pressed active:bg-none data-pressed:scale-[0.97] data-pressed:shadow-pressed data-pressed:[--press-duration:var(--motion-fast)] data-pressed:[--press-ease:ease-out]"
+          >
             Insert <Shortcut combo="enter" tone="onAccent" />
           </button>
         </footer>

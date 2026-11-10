@@ -4,9 +4,10 @@ import { isolateHistory } from "@codemirror/commands"
 import type { EditorState } from "@codemirror/state"
 import type { EditorView } from "@codemirror/view"
 import { Bold, Italic, Link, List, ListOrdered, RemoveFormatting, Underline } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 
 import { ImageTools } from "./image-tools"
+import { nudge } from "./motion"
 import { Segmented } from "../segmented"
 import { Shortcut } from "../shortcut"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ export function FormattingToolbar({ state, view }: { state: EditorState | null; 
   const [linkOpen, setLinkOpen] = useState(false)
   const [url, setUrl] = useState("")
   const [error, setError] = useState("")
+  const linkInput = useRef<HTMLInputElement>(null)
   const spans = state?.field(formattingField) ?? null
   const range = state ? selectedRange(state) : { from: 0, to: 0 }
   const selected = range.from !== range.to
@@ -46,7 +48,8 @@ export function FormattingToolbar({ state, view }: { state: EditorState | null; 
         editor.focus()
       }}
     />
-    {spans !== null && <>
+    {/* Switching to Formatted brings the style controls in together; `contents` keeps the toolbar's wrapping. */}
+    {spans !== null && <span className="contents [&>*]:animate-rise">
       {([
         { kind: "bold", label: "Bold", icon: Bold, shortcut: "mod+b" },
         { kind: "italic", label: "Italic", icon: Italic, shortcut: "mod+i" },
@@ -73,14 +76,14 @@ export function FormattingToolbar({ state, view }: { state: EditorState | null; 
           <form className="flex flex-col gap-2" onSubmit={(e) => {
             e.preventDefault()
             const value = url.trim()
-            if (!safeLink(value)) { setError("Use an https://, http://, or mailto: link."); return }
+            if (!safeLink(value)) { setError("Use an https://, http://, or mailto: link."); nudge(linkInput.current); return }
             const existing = spans.find((s) => s.start <= range.from && s.end >= range.to && s.style.kind === "link")
             if (existing?.style.kind !== "link" || existing.style.url !== value) apply({ kind: "link", url: value })
             setLinkOpen(false)
           }}>
             <label htmlFor="snippet-link" className="text-xs font-medium">Link address</label>
-            <Input id="snippet-link" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus aria-invalid={!!error} aria-describedby={error ? "snippet-link-error" : undefined} />
-            {error && <p id="snippet-link-error" className="text-xs text-destructive">{error}</p>}
+            <Input ref={linkInput} id="snippet-link" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com" autoFocus aria-invalid={!!error} aria-describedby={error ? "snippet-link-error" : undefined} />
+            {error && <p id="snippet-link-error" className="text-xs text-destructive animate-rise">{error}</p>}
             <Button type="submit" size="sm">Apply link</Button>
           </form>
         </PopoverContent>
@@ -92,6 +95,6 @@ export function FormattingToolbar({ state, view }: { state: EditorState | null; 
           onMouseDown={(e) => e.preventDefault()} onClick={() => { const editor = view(); if (editor) toggleList(editor, ordered) }}><Icon /></Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>)}
       <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon-sm" aria-label="Remove formatting" disabled={!selected} className="text-muted-foreground"
         onMouseDown={(e) => e.preventDefault()} onClick={() => apply("clear")}><RemoveFormatting /></Button></TooltipTrigger><TooltipContent>Remove formatting</TooltipContent></Tooltip>
-    </>}
+    </span>}
   </div>
 }

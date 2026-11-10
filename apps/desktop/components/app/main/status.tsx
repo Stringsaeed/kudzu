@@ -3,6 +3,7 @@
 import { Pause, Play, ShieldAlert } from "lucide-react"
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useChanges } from "@/hooks/use-changes"
 import { acceleratorLabels } from "@/lib/keys"
 import { useStore } from "@/lib/store"
 import type { EngineStatus } from "@/lib/types"
@@ -37,6 +38,9 @@ export function StatusIndicator() {
   const setView = useStore((s) => s.setView)
   const h = health(status, platform)
   const copy = COPY[h]
+  // The state changing is the event: the label and icons arrive, the dot blends. Quiet on mount.
+  const changes = useChanges(h)
+  const toggles = useChanges(status.paused)
   const detail = h === "secure" && status.secureInputOwner ? `${status.secureInputOwner} has Secure Input on, so macOS blocks expansion.` : copy.detail
 
   return (
@@ -45,12 +49,12 @@ export function StatusIndicator() {
         <TooltipTrigger asChild>
           <button
             onClick={() => (h === "blocked" || h === "limited" ? setView({ kind: "settings", section: "general" }) : undefined)}
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-xs hover:bg-sidebar-accent"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1 text-left text-xs transition-colors duration-(--motion-fast) hover:bg-sidebar-accent"
             aria-label={`Status: ${copy.label}. ${detail}`}
           >
-            <span className={cn("size-1.5 shrink-0 rounded-full", copy.dot)} aria-hidden />
-            <span className="truncate font-medium text-sidebar-foreground/80">{copy.label}</span>
-            {(h === "blocked" || h === "secure") && <ShieldAlert className="size-3.5 text-warning" />}
+            <span className={cn("size-1.5 shrink-0 rounded-full transition-[background-color,box-shadow] duration-(--motion-slow)", copy.dot)} aria-hidden />
+            <span key={changes} className={cn("truncate font-medium text-sidebar-foreground/80", changes > 0 && "animate-rise")}>{copy.label}</span>
+            {(h === "blocked" || h === "secure") && <ShieldAlert className={cn("size-3.5 shrink-0 text-warning", changes > 0 && "animate-check")} />}
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-64">
@@ -69,7 +73,7 @@ export function StatusIndicator() {
             aria-pressed={status.paused}
             className="flex size-7 items-center justify-center rounded-md text-muted-foreground press hover:bg-sidebar-accent hover:text-foreground"
           >
-            {status.paused ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
+            {status.paused ? <Play className={cn("size-3.5", toggles > 0 && "animate-check")} /> : <Pause className={cn("size-3.5", toggles > 0 && "animate-check")} />}
           </button>
         </TooltipTrigger>
         <TooltipContent side="top">

@@ -18,7 +18,7 @@ function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
 
 function BreadcrumbLink({ asChild = false, className, ...props }: React.ComponentProps<"a"> & { asChild?: boolean }) {
   const Comp = asChild ? Slot.Root : "a"
-  return <Comp data-slot="breadcrumb-link" className={cn("truncate rounded-sm transition-colors hover:text-foreground", className)} {...props} />
+  return <Comp data-slot="breadcrumb-link" className={cn("truncate rounded-sm transition-colors duration-(--motion-fast) hover:text-foreground", className)} {...props} />
 }
 
 function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {

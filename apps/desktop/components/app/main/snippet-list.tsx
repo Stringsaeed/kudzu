@@ -1,7 +1,7 @@
 "use client"
 
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ArrowDownUp, CircleOff, FolderInput, Plus, Search, Star, Trash2, X } from "lucide-react"
+import { ArrowDownUp, CircleCheck, CircleOff, FolderInput, FolderOpen, History, Keyboard, Plus, Search, SearchX, Star, Trash2, X } from "lucide-react"
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -24,12 +24,29 @@ import { plainSummary } from "@/lib/template"
 import type { Snippet } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { Presence, useBump } from "../editor/motion"
 import { Shortcut } from "../shortcut"
 import { SNIPPET_DRAG_TYPE } from "./sidebar"
 
 type Sort = "relevance" | "name" | "edited" | "used"
 
 const ROW_HEIGHT = 64
+const LIST_PADDING_START = 4
+
+/**
+ * Snippets that just arrived in or left the library (create, duplicate, delete, undo). Rows are
+ * virtualized and remount while scrolling, so motion is keyed to these real changes, never to mount.
+ */
+interface ListMotion {
+  n: number
+  /** New ids: their rows rise in once. */
+  fresh: ReadonlySet<string>
+  /** Deleted rows, kept where they were for one fade while the rows below slide up. */
+  ghosts: { hit: SearchHit; start: number }[]
+}
+const NO_MOTION: ListMotion = { n: 0, fresh: new Set(), ghosts: [] }
+/** Bulk changes (imports, syncs) just appear; motion is for the few rows a person touched. */
+const MAX_MOVING = 12
 
 export interface SnippetListHandle {
   focusFilter: () => void
@@ -85,6 +102,7 @@ const Row = memo(function Row({
   usage,
   summary,
   groupOff,
+  fresh,
   onClick,
   onDragStart,
 }: {
@@ -95,9 +113,12 @@ const Row = memo(function Row({
   usage: number
   summary: string
   groupOff: boolean
+  /** Created a moment ago: rise in. Captured at mount, so the row stays still when scrolled back to. */
+  fresh: boolean
   onClick: (e: React.MouseEvent, id: string) => void
   onDragStart: (e: React.DragEvent, id: string) => void
 }) {
+  const [arrived] = useState(fresh)
   const s = hit.snippet
   const off = !s.isEnabled || groupOff
   return (
@@ -114,17 +135,22 @@ const Row = memo(function Row({
         inSelection && "bg-foreground/[0.06] shadow-selected hover:bg-foreground/[0.07]",
         selected && active && "bg-iris-soft hover:bg-iris-soft",
         selected && active && "after:absolute after:inset-0 after:rounded-lg after:ring-1 after:ring-iris/35 after:ring-inset",
+        arrived && "animate-rise",
       )}
     >
       <ItemContent className="min-w-0 gap-1">
         <div className="flex min-w-0 items-center gap-2">
-          <ItemTitle className={cn("block min-w-0 flex-1 truncate text-[13px]", off && "text-muted-foreground", !s.name && "text-muted-foreground italic")}>
+          <ItemTitle className={cn("block min-w-0 flex-1 truncate text-[13px] transition-colors duration-(--motion-moderate)", off && "text-muted-foreground", !s.name && "text-muted-foreground italic")}>
             <Highlighted text={s.name || "Untitled"} hits={s.name ? hit.nameHits : []} />
           </ItemTitle>
-          {s.isFavorite && <Star className="size-3 shrink-0 fill-favorite text-favorite" aria-label="Favorite" />}
-          {off && <CircleOff className="size-3 shrink-0 text-faint" aria-label="Turned off" />}
+          <Presence show={s.isFavorite} enter="animate-star">
+            <Star className="size-3 fill-favorite text-favorite" aria-label="Favorite" />
+          </Presence>
+          <Presence show={off} enter="animate-check">
+            <CircleOff className="size-3 text-faint" aria-label="Turned off" />
+          </Presence>
           {s.triggers[0] && (
-            <span className={cn("max-w-[45%] shrink-0 truncate font-mono text-[11.5px]", off ? "text-faint" : "text-iris-foreground/90")}>
+            <span className={cn("max-w-[45%] shrink-0 truncate font-mono text-[11.5px] transition-colors duration-(--motion-moderate)", off ? "text-faint" : "text-iris-foreground/90")}>
               {s.triggers[0]}
               {s.triggers.length > 1 && <span className="text-faint"> +{s.triggers.length - 1}</span>}
             </span>
@@ -153,6 +179,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
   const newSnippet = useStore((s) => s.newSnippet)
   const moveSnippets = useStore((s) => s.moveSnippets)
   const saveSnippet = useStore((s) => s.saveSnippet)
+  const ready = useStore((s) => s.ready)
   const [sort, setSort] = useState<Sort>("relevance")
   const [multi, setMulti] = useState<Set<string>>(new Set())
   const [focused, setFocused] = useState(false)
@@ -211,6 +238,31 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
   }, [library.groups])
 
   const ids = useMemo(() => hits.map((h) => h.snippet.id), [hits])
+
+  // Rows that arrive or leave with a library change. Diffed during render (React's "adjust state when
+  // a prop changes"), so the glide class lands in the same commit as the new row positions.
+  const [seen, setSeen] = useState({ snippets: library.snippets, ready, hits })
+  const [motion, setMotion] = useState(NO_MOTION)
+  if (seen.snippets !== library.snippets || seen.ready !== ready || seen.hits !== hits) {
+    setSeen({ snippets: library.snippets, ready, hits })
+    if (seen.snippets !== library.snippets && seen.ready && ready) {
+      const before = new Set(seen.snippets.map((s) => s.id))
+      const after = new Set(library.snippets.map((s) => s.id))
+      const fresh = new Set([...after].filter((id) => !before.has(id)))
+      const gone = new Set([...before].filter((id) => !after.has(id)))
+      if (fresh.size + gone.size > 0 && fresh.size + gone.size <= MAX_MOVING) {
+        const ghosts = seen.hits.flatMap((hit, i) => (gone.has(hit.snippet.id) ? [{ hit, start: LIST_PADDING_START + i * ROW_HEIGHT }] : []))
+        setMotion({ n: motion.n + 1, fresh, ghosts })
+      }
+    }
+  }
+  useEffect(() => {
+    if (!motion.n) return
+    // A little longer than --motion-slow, so the glide is never cut short.
+    const t = setTimeout(() => setMotion((m) => ({ ...NO_MOTION, n: m.n })), 320)
+    return () => clearTimeout(t)
+  }, [motion.n])
+  const gliding = motion.fresh.size > 0 || motion.ghosts.length > 0
   const selectedIndex = selectedId ? ids.indexOf(selectedId) : -1
 
   // Keep a valid selection inside the visible list.
@@ -228,7 +280,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
     getScrollElement: () => listRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 8,
-    paddingStart: 4,
+    paddingStart: LIST_PADDING_START,
     paddingEnd: 8,
   })
 
@@ -306,6 +358,14 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
   const flatGroups = useMemo(() => flatten(buildTree(library.groups)), [library.groups])
   const bulk = multi.size > 1 ? [...multi] : []
 
+  // The selection bar keeps its last selection while it sinks away, and is inert meanwhile.
+  const [barSelection, setBarSelection] = useState(multi)
+  if (multi.size > 1 && barSelection !== multi) setBarSelection(multi)
+  const [barMounted, setBarMounted] = useState(false)
+  if (bulk.length > 0 && !barMounted) setBarMounted(true)
+  const barLeaving = barMounted && bulk.length === 0
+  const barIds = [...barSelection]
+
   return (
     <section aria-label="Snippets" className="flex h-full min-h-0 flex-col">
       <header className="drag flex h-12 shrink-0 items-center gap-2 pr-2 pl-5" data-tauri-drag-region>
@@ -347,7 +407,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
 
       <div className="px-3 pb-2">
         <div className="group relative flex items-center">
-          <Search className="pointer-events-none absolute left-2.5 size-3.5 text-faint" />
+          <Search className="pointer-events-none absolute left-2.5 size-3.5 text-faint transition-colors duration-(--motion-fast) group-focus-within:text-muted-foreground" />
           <input
             ref={filterRef}
             value={filter}
@@ -371,14 +431,17 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
             aria-label="Filter snippets"
             aria-controls="snippet-listbox"
             spellCheck={false}
-            className="h-8 w-full rounded-lg bg-foreground/[0.03] pr-14 pl-8 text-[13px] shadow-well outline-none placeholder:text-faint focus:bg-transparent focus:shadow-none focus:ring-2 focus:ring-ring"
+            className="h-8 w-full rounded-lg bg-foreground/[0.03] pr-14 pl-8 text-[13px] shadow-well outline-none transition-[background-color,box-shadow] duration-(--motion-fast) placeholder:text-faint focus:bg-transparent focus:shadow-none focus:ring-2 focus:ring-ring"
           />
-          {filter ? (
-            <button className="absolute right-2 flex size-5 items-center justify-center rounded text-faint hover:text-foreground" onClick={() => setFilter("")} aria-label="Clear filter">
+          {/* The ⌘F hint fades out under the clear button rather than swapping with it. */}
+          <Shortcut
+            combo="mod+f"
+            className={cn("pointer-events-none absolute right-2 transition-[opacity,scale] duration-(--motion-fast)", filter && "scale-90 opacity-0")}
+          />
+          {filter && (
+            <button className="absolute right-2 flex size-5 items-center justify-center rounded text-faint press animate-pop hover:bg-foreground/[0.06] hover:text-foreground" onClick={() => setFilter("")} aria-label="Clear filter">
               <X className="size-3.5" />
             </button>
-          ) : (
-            <Shortcut combo="mod+f" className="pointer-events-none absolute right-2" />
           )}
         </div>
       </div>
@@ -427,11 +490,39 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
           <EmptyList view={view} filter={filter} onClear={() => setFilter("")} onNew={() => newSnippet(filter.startsWith(";") ? { triggers: [filter.trim()] } : { name: filter.trim() })} />
         ) : (
           <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+            {motion.ghosts.map(({ hit, start }) => (
+              <div
+                key={`ghost-${hit.snippet.id}`}
+                aria-hidden
+                inert
+                style={{ position: "absolute", top: 0, left: 0, right: 0, height: ROW_HEIGHT, transform: `translateY(${start}px)` }}
+                className="pointer-events-none flex items-center"
+              >
+                <div className="w-full animate-sink">
+                  <Row
+                    hit={hit}
+                    selected={false}
+                    inSelection={false}
+                    active
+                    usage={usage.get(hit.snippet.id)?.count ?? 0}
+                    summary={summaryOf(hit.snippet)}
+                    groupOff={!!(hit.snippet.groupID && groupOff.get(hit.snippet.groupID))}
+                    fresh={false}
+                    onClick={noop}
+                    onDragStart={noop}
+                  />
+                </div>
+              </div>
+            ))}
             {virtualizer.getVirtualItems().map((v) => {
               const hit = hits[v.index]
               const id = hit.snippet.id
               return (
-                <div key={id} style={{ position: "absolute", top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start}px)` }} className="flex items-center">
+                <div
+                  key={id}
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start}px)` }}
+                  className={cn("flex items-center", gliding && "transition-transform duration-(--motion-slow) ease-spring")}
+                >
                   <div className="w-full">
                     <Row
                       hit={hit}
@@ -441,6 +532,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
                       usage={usage.get(id)?.count ?? 0}
                       summary={summaryOf(hit.snippet)}
                       groupOff={!!(hit.snippet.groupID && groupOff.get(hit.snippet.groupID))}
+                      fresh={motion.fresh.has(id)}
                       onClick={onRowClick}
                       onDragStart={onDragStart}
                     />
@@ -452,12 +544,23 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
         )}
       </div>
 
-      {bulk.length > 0 && (
-        <div role="toolbar" aria-label="Selection actions" className="m-2 flex items-center gap-1 rounded-xl bg-surface-raised p-1.5 pl-3 shadow-float animate-rise">
-          <span className="flex-1 text-xs font-medium tabular">{bulk.length} selected</span>
+      {barMounted && (
+        <div
+          role="toolbar"
+          aria-label="Selection actions"
+          aria-hidden={barLeaving || undefined}
+          inert={barLeaving}
+          onAnimationEnd={(e) => {
+            if (e.target === e.currentTarget && barLeaving) setBarMounted(false)
+          }}
+          className={cn("m-2 flex items-center gap-1 rounded-xl bg-surface-raised p-1.5 pl-3 shadow-float", barLeaving ? "animate-sink" : "animate-rise")}
+        >
+          <span className="flex-1 text-xs font-medium tabular">
+            <SelectedCount n={barIds.length} /> selected
+          </span>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Favorite all" onClick={() => bulk.forEach((id) => { const s = library.snippets.find((x) => x.id === id); if (s && !s.isFavorite) void saveSnippet({ ...s, isFavorite: true }) })}>
+              <Button variant="ghost" size="icon-sm" aria-label="Favorite all" onClick={() => barIds.forEach((id) => { const s = library.snippets.find((x) => x.id === id); if (s && !s.isFavorite) void saveSnippet({ ...s, isFavorite: true }) })}>
                 <Star />
               </Button>
             </TooltipTrigger>
@@ -465,7 +568,7 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label="Turn off all" onClick={() => bulk.forEach((id) => { const s = library.snippets.find((x) => x.id === id); if (s) void saveSnippet({ ...s, isEnabled: !s.isEnabled }) })}>
+              <Button variant="ghost" size="icon-sm" aria-label="Turn off all" onClick={() => barIds.forEach((id) => { const s = library.snippets.find((x) => x.id === id); if (s) void saveSnippet({ ...s, isEnabled: !s.isEnabled }) })}>
                 <CircleOff />
               </Button>
             </TooltipTrigger>
@@ -478,16 +581,16 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top" className="w-52">
-              <DropdownMenuLabel>Move {bulk.length} to</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => moveSnippets(bulk, null)}>No group</DropdownMenuItem>
+              <DropdownMenuLabel>Move {barIds.length} to</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => moveSnippets(barIds, null)}>No group</DropdownMenuItem>
               {flatGroups.map((n) => (
-                <DropdownMenuItem key={n.group.id} onSelect={() => moveSnippets(bulk, n.group.id)} style={{ paddingLeft: 8 + n.depth * 14 }}>
+                <DropdownMenuItem key={n.group.id} onSelect={() => moveSnippets(barIds, n.group.id)} style={{ paddingLeft: 8 + n.depth * 14 }}>
                   {n.group.name}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="ghost" size="icon-sm" className="hover:text-destructive" aria-label="Delete selected" onClick={() => (onRequestDelete(bulk), setMulti(new Set()))}>
+          <Button variant="ghost" size="icon-sm" className="hover:text-destructive" aria-label="Delete selected" onClick={() => (onRequestDelete(barIds), setMulti(new Set()))}>
             <Trash2 />
           </Button>
         </div>
@@ -496,10 +599,32 @@ export const SnippetList = forwardRef<SnippetListHandle, { onRequestDelete: (ids
   )
 })
 
+const noop = () => {}
+
+/** The bar's count ticks when the selection grows or shrinks, not when the bar appears. */
+function SelectedCount({ n }: { n: number }) {
+  const bump = useBump(n)
+  return (
+    <span key={bump} className={cn("inline-block", bump > 0 && "animate-tick")}>
+      {n}
+    </span>
+  )
+}
+
+/** A quiet icon tile, the same family as the editor's empty state. */
+function EmptyIcon({ icon: Icon }: { icon: typeof Search }) {
+  return (
+    <div className="flex size-10 items-center justify-center rounded-xl bg-foreground/[0.04] shadow-hairline">
+      <Icon className="size-4 text-muted-foreground" aria-hidden />
+    </div>
+  )
+}
+
 function EmptyList({ view, filter, onClear, onNew }: { view: View; filter: string; onClear: () => void; onNew: () => void }) {
   if (filter)
     return (
-      <div className="flex flex-col items-center gap-3 px-6 pt-16 text-center animate-rise">
+      <div className="flex flex-col items-center gap-3 px-6 pt-16 text-center stagger">
+        <EmptyIcon icon={SearchX} />
         <p className="text-sm text-muted-foreground">
           No snippets match <span className="text-foreground">“{filter}”</span>
         </p>
@@ -513,16 +638,17 @@ function EmptyList({ view, filter, onClear, onNew }: { view: View; filter: strin
         </div>
       </div>
     )
-  const copy: Partial<Record<View["kind"], { title: string; body: string }>> = {
-    all: { title: "Your library is empty", body: "Snippets turn a short trigger like ;sig into text you type often." },
-    favorites: { title: "No favorites yet", body: "Star the snippets you use most to find them faster — they also rank first in search." },
-    recent: { title: "Nothing used yet", body: "Snippets you expand will show up here." },
-    disabled: { title: "Everything is on", body: "Snippets you turn off appear here." },
-    group: { title: "This group is empty", body: "Create a snippet here or drag snippets onto the group." },
+  const copy: Partial<Record<View["kind"], { title: string; body: string; icon: typeof Search }>> = {
+    all: { title: "Your library is empty", body: "Snippets turn a short trigger like ;sig into text you type often.", icon: Keyboard },
+    favorites: { title: "No favorites yet", body: "Star the snippets you use most to find them faster — they also rank first in search.", icon: Star },
+    recent: { title: "Nothing used yet", body: "Snippets you expand will show up here.", icon: History },
+    disabled: { title: "Everything is on", body: "Snippets you turn off appear here.", icon: CircleCheck },
+    group: { title: "This group is empty", body: "Create a snippet here or drag snippets onto the group.", icon: FolderOpen },
   }
   const c = copy[view.kind] ?? copy.all!
   return (
-    <div className="flex flex-col items-center gap-3 px-8 pt-20 text-center animate-rise">
+    <div className="flex flex-col items-center gap-3 px-8 pt-20 text-center stagger">
+      <EmptyIcon icon={c.icon} />
       <div className="flex flex-col gap-1">
         <p className="text-sm font-medium">{c.title}</p>
         <p className="text-xs leading-relaxed text-muted-foreground">{c.body}</p>

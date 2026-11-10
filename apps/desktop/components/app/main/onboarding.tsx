@@ -35,6 +35,8 @@ export function Onboarding() {
   const platform = useStore((s) => s.platform)
   const settings = useStore((s) => s.settings)
   const [step, setStep] = useState<Step>("welcome")
+  // Which way the last move went, so a step slides in from the side it came from. 0 is the first arrival.
+  const [direction, setDirection] = useState<-1 | 0 | 1>(0)
   const [espanso, setEspanso] = useState<EspansoDetection[]>([])
   const completedImports = useRef(new Set<string>())
   const [working, setWorking] = useState<Source | null>(null)
@@ -77,8 +79,12 @@ export function Onboarding() {
     catch { setError("We couldn’t finish setup. Your library is safe; please try again.") }
     finally { setFinishing(false) }
   }
+  const go = (to: number) => {
+    setDirection(to > index ? 1 : -1)
+    setStep(steps[to])
+  }
   const next = () => {
-    if (index < steps.length - 1) setStep(steps[index + 1])
+    if (index < steps.length - 1) go(index + 1)
     else void finish()
   }
   const espansoCount = espanso.reduce((n, d) => n + d.snippetCount, 0)
@@ -189,13 +195,15 @@ export function Onboarding() {
       <div className="drag absolute inset-x-0 top-0 h-12" data-tauri-drag-region />
       <div aria-hidden className="pointer-events-none absolute inset-0 onboarding-atmosphere" />
       <header className="absolute inset-x-0 top-14 z-10 flex items-center justify-between px-8">
-        <Wordmark variant="small" className={cn("w-20 text-muted-foreground", step === "welcome" && "invisible")} />
-        {index > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => setStep(steps[index - 1])}><ArrowLeft className="size-3.5" />Back</Button>}
+        <Wordmark variant="small" className={cn("w-20 text-muted-foreground transition-[opacity,visibility] duration-(--motion-slow)", step === "welcome" && "invisible opacity-0")} />
+        {index > 0 && <Button variant="ghost" size="sm" className="animate-in fade-in-0 duration-(--motion-slow)" disabled={busy} onClick={() => go(index - 1)}><ArrowLeft className="size-3.5" />Back</Button>}
       </header>
 
-      <div ref={stepContent} tabIndex={-1} role="region" aria-label={`Setup: ${stepLabels[step]}`} className="relative my-auto flex w-full max-w-[480px] shrink-0 flex-col gap-8 px-6 py-24 outline-none" key={step}>
+      <div ref={stepContent} tabIndex={-1} role="region" aria-label={`Setup: ${stepLabels[step]}`} className="relative my-auto flex w-full max-w-[480px] shrink-0 flex-col gap-8 px-6 py-24 outline-none"
+        // Not keyed by step: each step mounts in its own slot below, and the progress row has to survive the change to animate it.
+        style={{ "--step-x": `${direction * 12}px`, "--step-y": direction ? "0px" : "4px" } as React.CSSProperties}>
         {step === "welcome" && (
-          <div className="flex flex-col items-center gap-6 text-center animate-rise">
+          <div className="flex flex-col items-center gap-6 text-center onboarding-step">
             <Wordmark className="mb-2 w-56 text-foreground" />
             <div className="flex flex-col gap-2">
               <h1 className="text-[28px] font-semibold tracking-[-0.025em] text-balance">{brand.tagline}</h1>
@@ -216,7 +224,7 @@ export function Onboarding() {
         )}
 
         {step === "permissions" && (
-          <div className="flex flex-col gap-6 animate-rise">
+          <div className="flex flex-col gap-6 onboarding-step">
             <div className="flex flex-col gap-2">
               <h1 className="text-xl font-semibold tracking-tight">Let Kudzu type for you</h1>
               <p className="text-sm text-muted-foreground">Allow access once in macOS. We’ll guide you through it and detect when you’re ready.</p>
@@ -234,7 +242,7 @@ export function Onboarding() {
         )}
 
         {step === "import" && (
-          <div className="flex flex-col gap-6 animate-rise">
+          <div className="flex flex-col gap-6 onboarding-step">
             <div className="flex flex-col gap-2">
               <h1 className="text-xl font-semibold tracking-tight">Bring your snippets?</h1>
               <p className="text-sm text-muted-foreground">
@@ -287,11 +295,14 @@ export function Onboarding() {
 
         {step === "practice" && <Practice onDone={next} hotkey={settings.paletteHotkey} finishing={finishing} />}
 
-        {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive">{error}</p>}
+        {error && <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs text-destructive animate-rise">{error}</p>}
         <ol className="flex justify-center gap-5" aria-label="Setup progress">
           {steps.map((item, i) => (
-            <li key={item} aria-current={item === step ? "step" : undefined} className={cn("flex items-center gap-1.5 text-[10px] transition-colors", i === index ? "text-iris-foreground" : "text-faint")}>
-              {i < index ? <Check className="size-3 text-iris animate-check" /> : <span className={cn("size-1.5 rounded-full", i === index ? "bg-iris" : "bg-foreground/15")} />}
+            <li key={item} aria-current={item === step ? "step" : undefined} className={cn("flex items-center gap-1.5 text-[10px] transition-colors duration-(--motion-slow)", i === index ? "text-iris-foreground" : "text-faint")}>
+              {/* A fixed slot, so a dot turning into a check doesn't nudge the row. */}
+              <span className="flex size-3 items-center justify-center">
+                {i < index ? <Check className="size-3 text-iris animate-check" /> : <span className={cn("size-1.5 rounded-full transition-colors duration-(--motion-slow)", i === index ? "bg-iris" : "bg-foreground/15")} />}
+              </span>
               {stepLabels[item]}
             </li>
           ))}
@@ -317,7 +328,7 @@ function SourceRow({ name, detail, outcome, error, children }: { name: string; d
         <div className="shrink-0">{children}</div>
       </div>
       {outcome && (
-        <p className={cn("flex items-center gap-1.5 text-xs", outcome.count ? "text-success" : "text-muted-foreground")}>
+        <p className={cn("flex items-center gap-1.5 text-xs animate-rise", outcome.count ? "text-success" : "text-muted-foreground")}>
           {outcome.count > 0 && <Check className="size-3.5 animate-check" />}
           {outcome.count ? `Imported ${outcome.count} snippet${outcome.count === 1 ? "" : "s"}` : "No new snippets to add"}
         </p>
@@ -327,7 +338,7 @@ function SourceRow({ name, detail, outcome, error, children }: { name: string; d
           {outcome.changed} item{outcome.changed === 1 ? "" : "s"} need{outcome.changed === 1 ? "s" : ""} a look — e.g. {outcome.firstChange}
         </p>
       )}
-      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-xs text-destructive animate-rise">{error}</p>}
     </li>
   )
 }
@@ -339,14 +350,14 @@ function Practice({ onDone, hotkey, finishing }: { onDone: () => void; hotkey: s
   useEffect(() => ref.current?.focus(), [])
 
   return (
-    <div className="flex flex-col gap-6 animate-rise">
+    <div className="flex flex-col gap-6 onboarding-step">
       <div className="flex flex-col gap-2">
         <h1 className="text-xl font-semibold tracking-tight">Try a preview</h1>
         <p className="text-sm text-muted-foreground">
           Type <span className="rounded bg-iris-soft px-1 font-mono text-iris-foreground">{SAMPLE_TRIGGER}</span> below to see how expansion feels.
         </p>
       </div>
-      <div className={cn("rounded-xl bg-surface shadow-card transition-shadow", success && "shadow-[0_0_0_1px_var(--success),0_0_24px_-6px_var(--success)]")}>
+      <div className={cn("rounded-xl bg-surface shadow-card transition-shadow duration-(--motion-slow)", success && "shadow-[0_0_0_1px_var(--success),0_0_24px_-6px_var(--success)]")}>
         <textarea
           ref={ref}
           value={value}
@@ -376,8 +387,8 @@ function Practice({ onDone, hotkey, finishing }: { onDone: () => void; hotkey: s
             <Shortcut keys={acceleratorLabels(hotkey)} size="md" />
             anywhere to search your snippets.
           </p>
-          <Button onClick={onDone} disabled={finishing} className="self-end">
-            {finishing ? "Opening…" : "Open library"} <ArrowRight />
+          <Button onClick={onDone} disabled={finishing} className="min-w-32 self-end">
+            {finishing ? "Opening…" : "Open library"} {finishing ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <ArrowRight />}
           </Button>
         </div>
       ) : (

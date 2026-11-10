@@ -54,7 +54,7 @@ function Item({ onSelect, children, value }: { onSelect: () => void; children: R
     <CommandPrimitive.Item
       value={value}
       onSelect={onSelect}
-      className="flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-foreground/90 outline-none data-[selected=true]:bg-foreground/[0.07] data-[selected=true]:text-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
+      className="flex h-9 cursor-default items-center gap-2.5 rounded-lg px-2.5 text-[13px] text-foreground/90 outline-none transition-colors duration-(--motion-fast) data-[selected=true]:bg-foreground/[0.07] data-[selected=true]:text-foreground [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground"
     >
       {children}
     </CommandPrimitive.Item>
@@ -164,8 +164,10 @@ export function CommandMenu({ onOpenGroupSettings, onDelete }: { onOpenGroupSett
             />
             <Shortcut combo="escape" />
           </div>
-          <CommandPrimitive.List className="max-h-[min(440px,60vh)] overflow-y-auto px-2 pb-2">
-            <CommandPrimitive.Empty className="py-10 text-center text-sm text-muted-foreground">No results for “{query}”.</CommandPrimitive.Empty>
+          {/* cmdk measures the results into --cmdk-list-height, so the panel eases to its new height as you type
+              instead of jumping. The 0.5rem is this element's bottom padding. */}
+          <CommandPrimitive.List className="h-[calc(var(--cmdk-list-height)+0.5rem)] max-h-[min(440px,60vh)] overflow-y-auto px-2 pb-2 transition-[height] duration-(--motion-moderate) ease-out">
+            <CommandPrimitive.Empty className="py-10 text-center text-sm text-muted-foreground animate-rise">No results for “{query}”.</CommandPrimitive.Empty>
             {snippetHits.length > 0 && (
               <CommandPrimitive.Group heading={<Heading>{q ? "Snippets" : "Frequently used"}</Heading>}>
                 {snippetHits.map((h) => (

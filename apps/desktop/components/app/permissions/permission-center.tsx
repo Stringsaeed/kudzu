@@ -114,12 +114,12 @@ export function PermissionCenter() {
           <div className="relative flex flex-col items-center pt-3 text-center">
             <button ref={icon} type="button" aria-label={`Show ${appName} in Finder to add it to System Settings`} title="Drag this app into System Settings"
               onClick={() => { if (isTauri()) void api.revealPermissionApp().catch(fail); else setHelp(true) }}
-              className="permission-app-icon relative size-20 cursor-grab rounded-[20px] outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 active:cursor-grabbing">
+              className="permission-app-icon relative size-20 cursor-grab rounded-[20px] outline-none transition-[scale] duration-(--motion-slow) ease-pop hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-4 active:cursor-grabbing">
               {/* oxlint-disable-next-line nextjs/no-img-element -- bundled app artwork, also used for native dragging */}
               <img src="/icon.png" alt="" width={80} height={80} draggable={false} className="pointer-events-none size-20 select-none" />
             </button>
             <p className="mt-2 flex h-4 items-center gap-1 text-[10px] text-muted-foreground"><MousePointer2 className="size-3" />{dragAvailable ? "Drag into System Settings to add the app" : "Your app. Your permission."}</p>
-            <h1 className="mt-5 text-[23px] font-semibold tracking-[-0.035em]" aria-live="polite">{headline}</h1>
+            <h1 className="mt-5 text-[23px] font-semibold tracking-[-0.035em]" aria-live="polite"><span key={headline} className="inline-block animate-rise">{headline}</span></h1>
             <p className="mt-2 max-w-[310px] text-[13px] leading-relaxed text-muted-foreground">{detail}</p>
           </div>
 
@@ -131,14 +131,14 @@ export function PermissionCenter() {
                 <Item key={kind} asChild variant="outline" size="sm"
                   className={cn("flex-nowrap gap-3 rounded-xl px-3.5 py-3 text-left", selected === kind ? "border-iris/40 bg-iris-soft/50 shadow-card" : "border-hairline bg-surface/50 hover:bg-surface")}>
                   <button type="button" onClick={() => choose(kind)} aria-pressed={selected === kind}>
-                    <ItemMedia variant="icon" className={cn("size-8 rounded-lg group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center", granted ? "bg-success/10 text-success" : "bg-foreground/5 text-muted-foreground")}>
+                    <ItemMedia variant="icon" className={cn("size-8 rounded-lg transition-colors duration-(--motion-slow) group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center", granted ? "bg-success/10 text-success" : "bg-foreground/5 text-muted-foreground")}>
                       <Icon className="size-4" />
                     </ItemMedia>
                     <ItemContent className="min-w-0 gap-0.5">
                       <ItemTitle className="line-clamp-none text-[13px]">{permissionNames[kind]}</ItemTitle>
                       <ItemDescription className="text-[11px]">{kind === "accessibility" ? "Insert snippets into other apps." : "Additional keyboard monitoring access."}</ItemDescription>
                     </ItemContent>
-                    <ItemActions className={cn("shrink-0 gap-1 text-[10px] font-medium", granted ? "text-success" : "text-muted-foreground")}>
+                    <ItemActions className={cn("shrink-0 gap-1 text-[10px] font-medium transition-colors duration-(--motion-slow)", granted ? "text-success" : "text-muted-foreground")}>
                       {granted ? <><Check className="size-3.5 animate-check" />Allowed</> : kind === "accessibility" ? "Required" : "Optional"}
                     </ItemActions>
                   </button>
@@ -148,21 +148,21 @@ export function PermissionCenter() {
           </ItemGroup>
 
           <div className="mt-4 min-h-[72px] text-center" aria-live="polite">
-            {handoff.kind === "error" ? <p role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs leading-relaxed text-destructive">{handoff.message}</p>
-              : permissionReady && selectedGranted ? <div className="permission-success flex flex-col items-center gap-2 py-2"><span className="flex items-center gap-1.5 text-xs font-medium text-success"><Check className="size-4" />Access confirmed</span><p className="text-[11px] text-muted-foreground">{status?.canExpand ? "Ready to expand in your other apps." : status?.summary}</p></div>
-              : selectedGranted ? <div className="flex flex-col items-center gap-2 py-1"><p className="flex items-center gap-1.5 text-xs font-medium text-success"><Check className="size-4" />Access confirmed</p><p className="text-[11px] leading-relaxed text-muted-foreground">{needsConnection ? restartOffered ? `macOS may need a restart of ${appName} to apply access. We’ll bring you back here.` : "Connecting to your keyboard…" : `Next, allow ${accessibilityName} so Kudzu can insert text.`}</p></div>
-              : handoff.kind === "waiting" ? <div className="flex flex-col items-center gap-2 py-1"><p className="flex items-center gap-1.5 text-xs font-medium"><Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />Waiting for macOS</p><p className="text-[11px] leading-relaxed text-muted-foreground">Turn on <strong className="font-medium text-foreground">{appName}</strong> in {permissionNames[selected]}.<br />If it isn’t listed, drag the icon into the list.</p></div>
-              : <p className="px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">{selectedGranted ? "Access is allowed. If typing is still unavailable, quit and reopen Kudzu after checking the switch." : "We’ll open the right page and stay beside you. macOS may ask you to confirm with Touch ID or your password."}</p>}
+            {handoff.kind === "error" ? <p key="error" role="alert" className="rounded-lg bg-destructive/10 p-3 text-xs leading-relaxed text-destructive animate-rise">{handoff.message}</p>
+              : permissionReady && selectedGranted ? <div key="ready" className="permission-success flex flex-col items-center gap-2 py-2"><span className="flex items-center gap-1.5 text-xs font-medium text-success"><Check className="size-4 animate-check" />Access confirmed</span><p className="text-[11px] text-muted-foreground">{status?.canExpand ? "Ready to expand in your other apps." : status?.summary}</p></div>
+              : selectedGranted ? <div key="granted" className="flex flex-col items-center gap-2 py-1 animate-rise"><p className="flex items-center gap-1.5 text-xs font-medium text-success"><Check className="size-4 animate-check" />Access confirmed</p><p className="text-[11px] leading-relaxed text-muted-foreground">{needsConnection ? restartOffered ? `macOS may need a restart of ${appName} to apply access. We’ll bring you back here.` : "Connecting to your keyboard…" : `Next, allow ${accessibilityName} so Kudzu can insert text.`}</p></div>
+              : handoff.kind === "waiting" ? <div key="waiting" className="flex flex-col items-center gap-2 py-1 animate-rise"><p className="flex items-center gap-1.5 text-xs font-medium"><Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" />Waiting for macOS</p><p className="text-[11px] leading-relaxed text-muted-foreground">Turn on <strong className="font-medium text-foreground">{appName}</strong> in {permissionNames[selected]}.<br />If it isn’t listed, drag the icon into the list.</p></div>
+              : <p key="idle" className="px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">{selectedGranted ? "Access is allowed. If typing is still unavailable, quit and reopen Kudzu after checking the switch." : "We’ll open the right page and stay beside you. macOS may ask you to confirm with Touch ID or your password."}</p>}
           </div>
 
           <div className="mt-auto flex flex-col gap-2 pt-2">
             {permissionReady && selectedGranted ? <Button className="h-10 w-full" onClick={close}>Back to Kudzu<Check className="size-4" /></Button>
               : needsConnection && restartOffered ? <Button className="h-10 w-full" onClick={() => void api.restartPermissionApp().catch(fail)}>Restart {appName}</Button>
               : selected === "inputMonitoring" && selectedGranted ? <Button className="h-10 w-full" onClick={() => choose("accessibility")}>Set up app control<ArrowUpRight className="size-4" /></Button>
-              : <Button className="h-10 w-full" disabled={!status || handoff.kind === "opening"} onClick={() => void begin()}>{handoff.kind === "opening" ? "Opening Settings…" : "Open System Settings"}<ArrowUpRight className="size-4" /></Button>}
-            <button className="flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={help} onClick={() => setHelp(!help)}><CircleHelp className="size-3.5" />{help ? "Hide help" : "Don’t see the app, or already allowed?"}</button>
+              : <Button className="h-10 w-full" disabled={!status || handoff.kind === "opening"} onClick={() => void begin()}>{handoff.kind === "opening" ? "Opening Settings…" : "Open System Settings"}{handoff.kind === "opening" ? <Loader2 className="size-4 animate-spin motion-reduce:animate-none" /> : <ArrowUpRight className="size-4" />}</Button>}
+            <button className="flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] text-muted-foreground outline-none press [--press-scale:0.98] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring" aria-expanded={help} onClick={() => setHelp(!help)}><CircleHelp className="size-3.5" />{help ? "Hide help" : "Don’t see the app, or already allowed?"}</button>
           </div>
-          {help && <div className="absolute inset-x-4 bottom-4 z-10 rounded-xl border border-hairline bg-popover p-4 shadow-raised">
+          {help && <div className="absolute inset-x-4 bottom-4 z-10 rounded-xl border border-hairline bg-popover p-4 shadow-raised animate-rise">
             <div className="flex items-center justify-between"><h2 className="text-[13px] font-semibold">Add {appName} to the list</h2><Button variant="ghost" size="icon" className="size-6" aria-label="Close help" onClick={() => setHelp(false)}><X className="size-3.5" /></Button></div>
             <ol className="mt-2 list-decimal space-y-2 pl-4 text-xs leading-relaxed text-muted-foreground"><li>Open Privacy &amp; Security → {permissionNames[selected]}.</li><li>Drag the app icon into the list, or use the + button to select {appName}.</li><li>Turn on its switch and approve the macOS prompt.</li></ol>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Already on? Quit and reopen {appName} if macOS hasn’t applied the change. Make sure you enabled this copy of the app.</p>
