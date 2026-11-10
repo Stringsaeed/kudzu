@@ -112,8 +112,10 @@ test("macOS imports generated HTML as bold text and a real embedded attachment",
     { start: 0, end: 5, style: { kind: "bold" } },
     { start: 6, end: 12, style: { kind: "image", dataUrl: PNG, width: 120 } },
   ])
+  // A fresh CI runner has no Clang module cache, so `import AppKit` builds it first:
+  // 23\u201330s on GitHub's macOS runners against ~1.5s once warm. Leave generous headroom.
   const result = execFileSync("swift", [fileURLToPath(new URL("./formatted-paste.swift", import.meta.url))], {
-    input: JSON.stringify({ html, text: "Hello\n\ufffc world", attachments: 1 }), encoding: "utf8", timeout: 30000,
+    input: JSON.stringify({ html, text: "Hello\n\ufffc world", attachments: 1 }), encoding: "utf8", timeout: 180_000,
   })
   assert.match(result, /verified/)
 })
