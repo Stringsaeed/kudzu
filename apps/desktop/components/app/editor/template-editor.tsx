@@ -20,6 +20,7 @@ import { changeFormat, formattingField, formattingHistory, setFormatting } from 
 import { sameSpans, sourceSpans } from "@/lib/formatting"
 import type { FormatSpan, Formatting } from "@/lib/types"
 import { FormattingToolbar } from "./formatting-toolbar"
+import { land, useBump } from "./motion"
 
 import { chipLabel, chipTone, tokenize, type TagToken } from "@/lib/template"
 
@@ -41,6 +42,8 @@ export interface TemplateEditorHandle {
   replace: (from: number, to: number, text: string, focus?: boolean) => { from: number; to: number }
   coordsAt: (pos: number) => DOMRect | null
   view: () => EditorView | null
+  /** Lands the chip that starts at `pos` (just inserted). Scale and opacity only: text and caret never move. */
+  pulse: (pos: number) => void
 }
 
 interface Props {
@@ -261,15 +264,27 @@ export const TemplateEditor = forwardRef<TemplateEditorHandle, Props>(function T
       return c ? new DOMRect(c.left, c.top, c.right - c.left, c.bottom - c.top) : null
     },
     view: () => viewRef.current,
+    pulse: (pos) => {
+      const view = viewRef.current
+      if (!view) return
+      for (const el of view.contentDOM.querySelectorAll<HTMLElement>(".kz-chip")) {
+        if (view.posAtDOM(el) === pos) return land(el, { scale: 0.8, fade: true })
+      }
+    },
   }))
+
+  const formatted = editorState?.field(formattingField) != null
+  const hintSwap = useBump(formatted)
 
   return <>
     {allowFormatting && <FormattingToolbar state={editorState} view={() => viewRef.current} />}
-    <div ref={host} className={`kz-editor ${editorState?.field(formattingField) != null ? "kz-editor-formatted" : ""} ${className ?? ""}`} />
+    <div ref={host} className={`kz-editor ${formatted ? "kz-editor-formatted" : ""} ${className ?? ""}`} />
     {allowFormatting && <p id={formatHelpId} className="border-t border-hairline px-3 py-2 text-xs text-muted-foreground">
-      {editorState?.field(formattingField) != null
-        ? "Select text to apply styles or add a link. Use Image to add a logo or picture."
-        : "Choose Formatted to add styles, links, and images."}
+      <span key={hintSwap} className={hintSwap > 0 ? "inline-block animate-rise" : undefined}>
+        {formatted
+          ? "Select text to apply styles or add a link. Use Image to add a logo or picture."
+          : "Choose Formatted to add styles, links, and images."}
+      </span>
     </p>}
   </>
 })

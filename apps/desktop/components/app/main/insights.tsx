@@ -1,7 +1,7 @@
 "use client"
 
 import { Lock } from "lucide-react"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { Item } from "@/components/ui/item"
 import { useStore } from "@/lib/store"
@@ -9,12 +9,49 @@ import { CHARS_PER_WORD, formatCount, formatDuration, relativeTime, totals } fro
 
 import { TriggerChip } from "../trigger-chip"
 
+const COUNT_UP_MS = 560
+
+/**
+ * Counts a formatted stat ("471", "27k", "2.3 h") up from zero, once, when the page arrives. Only the
+ * leading number moves, in the final value's own unit and precision, so the text keeps its shape;
+ * the last frame is the formatted string itself. Later changes (the typing-speed slider) show at once.
+ */
+function useCountUp(value: string) {
+  // Insights only mounts in the browser (the shell waits for the store), so reading the media query here is safe.
+  const [progress, setProgress] = useState(() => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 1 : 0))
+  useEffect(() => {
+    if (progress >= 1) return
+    let frame = 0
+    let start = 0
+    const tick = (now: number) => {
+      start ||= now
+      const t = Math.min(1, (now - start) / COUNT_UP_MS)
+      setProgress(t)
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
+    // Once, on arrival: `progress` is only read to skip the run under reduced motion.
+    // oxlint-disable-next-line react/exhaustive-deps
+  }, [])
+
+  if (progress >= 1) return value
+  const match = /^(\d+(?:\.(\d+))?)(.*)$/.exec(value)
+  if (!match) return value
+  const eased = 1 - (1 - progress) ** 4
+  return (Number(match[1]) * eased).toFixed(match[2]?.length ?? 0) + match[3]
+}
+
 function Tile({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  const shown = useCountUp(value)
   return (
-    <div className="flex flex-col gap-1 rounded-xl bg-surface p-4 shadow-card">
+    <div className="group/tile flex flex-col gap-1 rounded-xl bg-surface p-4 shadow-card transition-[translate] duration-(--motion-moderate) ease-spring hover:-translate-y-px">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-[26px] leading-none font-semibold tracking-[-0.02em] tabular">{value}</span>
-      {sub && <span className="text-[11px] text-faint">{sub}</span>}
+      <span className="text-[26px] leading-none font-semibold tracking-[-0.02em] tabular">
+        <span aria-hidden>{shown}</span>
+        <span className="sr-only">{value}</span>
+      </span>
+      {sub && <span className="text-[11px] text-faint transition-colors duration-(--motion-moderate) group-hover/tile:text-muted-foreground">{sub}</span>}
     </div>
   )
 }
@@ -67,26 +104,34 @@ export function Insights() {
                 <ol className="flex flex-col gap-0.5">
                   {top.map(({ s, u }, i) => (
                     <li key={s.id}>
-                      <Item asChild className="group grid grid-cols-[18px_minmax(0,1fr)_auto] gap-3 px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
+                      <Item asChild className="group grid grid-cols-[18px_minmax(0,1fr)_auto] gap-3 px-2 py-1.5 text-left press [--press-scale:0.99] hover:bg-foreground/[0.04]">
                         <button onClick={() => open(s.id)}>
-                          <span className="text-[11px] text-faint tabular">{i + 1}</span>
+                          <span className="text-[11px] text-faint tabular transition-colors duration-(--motion-fast) group-hover:text-muted-foreground">{i + 1}</span>
                           <span className="flex min-w-0 flex-col gap-1">
                             <span className="flex min-w-0 items-center gap-2">
                               <span className="truncate text-[13px]">{s.name || "Untitled"}</span>
                               {s.triggers[0] && <TriggerChip trigger={s.triggers[0]} muted />}
                             </span>
                             <span className="h-1 overflow-hidden rounded-full bg-foreground/[0.05]">
-                              <span className="block h-full origin-left rounded-full bg-iris/80 transition-[width] duration-500 animate-bar" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%`, animationDelay: `${60 + i * 40}ms` }} />
+                              <span className="block h-full origin-left rounded-full bg-iris/80 [transition:width_var(--motion-slow)_var(--spring-soft),background-color_var(--motion-fast)] animate-bar group-hover:bg-iris" style={{ width: `${Math.max(3, (u!.count / max) * 100)}%`, animationDelay: `${60 + i * 40}ms` }} />
                             </span>
                           </span>
-                          <span className="text-xs text-muted-foreground tabular">{formatCount(u!.count)}</span>
+                          <span className="text-xs text-muted-foreground tabular transition-colors duration-(--motion-fast) group-hover:text-foreground">{formatCount(u!.count)}</span>
                         </button>
                       </Item>
                     </li>
                   ))}
                 </ol>
               ) : (
-                <p className="rounded-xl bg-foreground/[0.03] p-6 text-center text-sm text-muted-foreground">Expand a snippet and it&apos;ll show up here.</p>
+                <div className="flex flex-col items-center gap-4 rounded-xl bg-foreground/[0.03] p-6">
+                  {/* A sketch of the chart to come: three bars growing in, the way real ones do. */}
+                  <div aria-hidden className="flex w-40 flex-col gap-2">
+                    {[100, 64, 36].map((width, i) => (
+                      <span key={width} className="block h-1 origin-left rounded-full bg-foreground/[0.08] animate-bar" style={{ width: `${width}%`, animationDelay: `${60 + i * 40}ms` }} />
+                    ))}
+                  </div>
+                  <p className="text-center text-sm text-muted-foreground">Expand a snippet and it&apos;ll show up here.</p>
+                </div>
               )}
             </section>
 
@@ -96,10 +141,10 @@ export function Insights() {
                 <ul className="flex flex-col gap-0.5">
                   {recent.map(({ s, u }) => (
                     <li key={s.id}>
-                      <Item asChild className="flex-nowrap gap-2 px-2 py-1.5 text-left hover:bg-foreground/[0.04]">
+                      <Item asChild className="group flex-nowrap gap-2 px-2 py-1.5 text-left press [--press-scale:0.99] hover:bg-foreground/[0.04]">
                         <button onClick={() => open(s.id)}>
                           <span className="min-w-0 flex-1 truncate text-[13px]">{s.name || "Untitled"}</span>
-                          <span className="text-[11px] text-faint">{relativeTime(u!.last)}</span>
+                          <span className="text-[11px] text-faint transition-colors duration-(--motion-fast) group-hover:text-muted-foreground">{relativeTime(u!.last)}</span>
                         </button>
                       </Item>
                     </li>

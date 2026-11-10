@@ -12,6 +12,8 @@ import { useStore } from "@/lib/store"
 import type { ClipEntry } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { useChanged } from "./motion"
+
 /** Whether to hide this entry's content: it's a secret and "Show secrets" is off. */
 export function useConcealed(entry: ClipEntry): boolean {
   const show = useStore((s) => s.settings.clipboardShowSecrets)
@@ -34,7 +36,8 @@ export function RowSecret({ children, concealed, stand }: { children: React.Reac
       <span aria-hidden className="group-hover/row:hidden">
         {stand}
       </span>
-      <span className="hidden group-hover/row:inline">{children}</span>
+      {/* Fades in on reveal only (an animation restarts when display changes), so scrolling a virtual list never replays it. */}
+      <span className="hidden group-hover/row:inline group-hover/row:animate-fade">{children}</span>
     </>
   )
 }
@@ -54,10 +57,14 @@ export function Concealed({ entry, children }: { entry: ClipEntry; children: Rea
       aria-label={`Hidden: ${secretReason(entry).toLowerCase()}. Hover or focus to show.`}
       className="group/secret relative min-h-28 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <div className="invisible group-hover/secret:visible group-focus-visible/secret:visible">{children}</div>
+      {/* visibility flips at the start of a reveal and the end of a hide, so the content is never
+          paintable, selectable or read out while covered, yet still fades. */}
+      <div className="invisible opacity-0 transition-[opacity,visibility] duration-(--motion-moderate) ease-out group-hover/secret:visible group-hover/secret:opacity-100 group-focus-visible/secret:visible group-focus-visible/secret:opacity-100">
+        {children}
+      </div>
       <div
         aria-hidden
-        className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-foreground/[0.025] text-center shadow-well group-hover/secret:hidden group-focus-visible/secret:hidden"
+        className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-xl bg-foreground/[0.025] text-center shadow-well transition-[opacity,scale,visibility] duration-(--motion-moderate) ease-out group-hover/secret:invisible group-hover/secret:scale-[0.98] group-hover/secret:opacity-0 group-focus-visible/secret:invisible group-focus-visible/secret:scale-[0.98] group-focus-visible/secret:opacity-0"
       >
         <span className="flex size-9 items-center justify-center rounded-xl bg-foreground/[0.06] text-muted-foreground">
           <EyeOff className="size-4" />
@@ -87,9 +94,11 @@ export function setSecretWithFeedback(entry: ClipEntry, secret: boolean) {
 
 /** Heading badge for a secret, with a one-click "Not a secret?" correction. */
 export function SecretBadge({ entry }: { entry: ClipEntry }) {
-  if (!isSecret(entry)) return null
+  const secret = isSecret(entry)
+  const flipped = useChanged(entry.id, secret)
+  if (!secret) return null
   return (
-    <span className="flex min-w-0 items-center gap-1.5">
+    <span className={cn("flex min-w-0 items-center gap-1.5", flipped && "animate-pop")}>
       <span className="flex items-center gap-1 rounded-md bg-warning/12 px-1.5 py-0.5 text-[11px] font-medium text-warning">
         <KeyRound className="size-3" /> Secret
       </span>
@@ -106,5 +115,8 @@ export function SecretBadge({ entry }: { entry: ClipEntry }) {
 
 /** Icon for the "secret / not a secret" toolbar toggle. */
 export function SecretToggleIcon({ entry, className }: { entry: ClipEntry; className?: string }) {
-  return isSecret(entry) ? <ShieldOff className={cn(className)} /> : <ShieldCheck className={cn(className)} />
+  const secret = isSecret(entry)
+  const flipped = useChanged(entry.id, secret)
+  const cls = cn(flipped && "animate-check", className)
+  return secret ? <ShieldOff key="off" className={cls} /> : <ShieldCheck key="on" className={cls} />
 }

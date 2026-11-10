@@ -46,11 +46,11 @@ export function Toolbar({ sidebarOpen, onToggleSidebar, onNavigate }: { sidebarO
       while (group && !seen.has(group.id)) {
         const id = group.id
         seen.add(id)
-        ancestors.unshift({ label: group.name, onSelect: () => onNavigate({ kind: "group", id }) })
+        ancestors.unshift({ label: group.name, id: `group:${id}`, onSelect: () => onNavigate({ kind: "group", id }) })
         group = groups.find((g) => g.id === group?.parentID)
       }
       items.push(...ancestors)
-      if (snippet) items.push({ label: snippet.name || "Untitled" })
+      if (snippet) items.push({ label: snippet.name || "Untitled", id: `snippet:${snippet.id}` })
       else if (view.kind === "all") items.push({ label: "All snippets" })
     }
   }

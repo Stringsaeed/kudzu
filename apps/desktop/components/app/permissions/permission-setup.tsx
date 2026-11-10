@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUpRight, Check, Keyboard, ShieldCheck } from "lucide-react"
+import { ArrowUpRight, Check, Keyboard, Loader2, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -39,7 +39,7 @@ export function PermissionSetup({ status }: { status: EngineStatus }) {
         Input Monitoring
       </div>
       <Button className="w-full" variant={ready ? "outline" : "default"} onClick={() => void open()} disabled={opening}>
-        {opening ? "Opening…" : ready ? "Review permissions" : "Set up permissions"}<ArrowUpRight />
+        {opening ? "Opening…" : ready ? "Review permissions" : "Set up permissions"}{opening ? <Loader2 className="animate-spin motion-reduce:animate-none" /> : <ArrowUpRight />}
       </Button>
       {error && <p role="alert" className="mt-3 text-xs text-destructive">{error}</p>}
     </div>

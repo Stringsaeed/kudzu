@@ -1,7 +1,7 @@
 "use client"
 
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Pin } from "lucide-react"
+import { Check, Pin } from "lucide-react"
 import { forwardRef, memo, useEffect, useImperativeHandle, useMemo, useRef } from "react"
 
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 
 import { Shortcut } from "../shortcut"
 import { ClipTile } from "./clip-tile"
+import { useChanged } from "./motion"
 import { dots, RowSecret, useConcealed } from "./secret"
 
 export type Density = "comfortable" | "compact"
@@ -49,10 +50,16 @@ const Row = memo(function Row({
   number,
   showNumbers,
   dated,
+  arriving,
+  copied,
   onPointer,
   onPick,
 }: {
   dated: boolean
+  /** Just copied, re-copied or restored: drops in once. */
+  arriving: boolean
+  /** Just copied from here: a check lands next to the time. */
+  copied: boolean
   entry: ClipEntry
   active: boolean
   selected: boolean
@@ -67,6 +74,7 @@ const Row = memo(function Row({
   const { title, subtitle } = describe(entry)
   const mono = entry.kind === "code" || entry.kind === "color"
   const concealed = useConcealed(entry)
+  const pinFlipped = useChanged(entry.id, entry.pinned)
   return (
     <Item
       id={`clip-${entry.id}`}
@@ -77,6 +85,7 @@ const Row = memo(function Row({
       onDoubleClick={() => onPick(entry.id)}
       className={cn(
         "group/row relative mx-1.5 h-full w-auto cursor-default flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 duration-75",
+        arriving && "animate-arrive",
         "hover:bg-foreground/[0.035]",
         selected && "bg-foreground/[0.06] shadow-selected",
         active && (focused ? "bg-iris-soft hover:bg-iris-soft after:pointer-events-none after:absolute after:inset-0 after:rounded-[10px] after:ring-1 after:ring-iris/30 after:ring-inset" : "bg-foreground/[0.07] shadow-selected hover:bg-foreground/[0.07]"),
@@ -105,7 +114,8 @@ const Row = memo(function Row({
               ×{entry.copyCount}
             </span>
           )}
-          {entry.pinned && <Pin className="size-3 -rotate-45 fill-current text-iris-foreground/80" aria-hidden />}
+          {copied && <Check className="size-3 text-success animate-check" aria-hidden />}
+          {entry.pinned && <Pin className={cn("size-3 -rotate-45 fill-current text-iris-foreground/80", pinFlipped && "animate-check")} aria-hidden />}
         </span>
       </ItemActions>
       {number !== null && <Shortcut combo={`mod+${number}`} tone={showNumbers ? "accent" : "ghost"} className="shrink-0" />}
@@ -142,10 +152,16 @@ export const ClipList = forwardRef<
     onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void
     onFocusChange?: (focused: boolean) => void
     tabIndex?: number
+    /** Entries that just arrived (see useListChanges). */
+    fresh?: Set<string>
+    /** Rows glide to their new places (after an insert, delete or pin), instead of jumping. */
+    settling?: boolean
+    /** The entry just copied, for a brief check in its row. */
+    copiedId?: string | null
     empty?: React.ReactNode
     className?: string
   }
->(function ClipList({ rows, activeId, selection, focused, density, terms, label, listId, numbered, showNumbers = false, onPointer, onPick, onKeyDown, onFocusChange, tabIndex, empty, className }, ref) {
+>(function ClipList({ rows, activeId, selection, focused, density, terms, label, listId, numbered, showNumbers = false, onPointer, onPick, onKeyDown, onFocusChange, tabIndex, fresh, settling = false, copiedId = null, empty, className }, ref) {
   const scroller = useRef<HTMLDivElement>(null)
   const sizes = SIZES[density]
   const virtualizer = useVirtualizer({
@@ -203,7 +219,11 @@ export const ClipList = forwardRef<
           {virtualizer.getVirtualItems().map((v) => {
             const r = rows[v.index]
             return (
-              <div key={v.key} style={{ position: "absolute", top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start}px)` }}>
+              <div
+                key={v.key}
+                className={settling ? "transition-transform duration-(--motion-moderate) ease-spring" : undefined}
+                style={{ position: "absolute", top: 0, left: 0, right: 0, height: v.size, transform: `translateY(${v.start}px)` }}
+              >
                 {r.type === "header" ? (
                   <div role="presentation" className="flex h-full items-end gap-1.5 px-4 pb-1.5 text-[11px] font-medium text-faint">
                     <span>{r.label}</span>
@@ -221,6 +241,8 @@ export const ClipList = forwardRef<
                       number={numbered && r.index < 9 ? r.index + 1 : null}
                       showNumbers={showNumbers}
                       dated={r.dated}
+                      arriving={!!fresh?.has(r.entry.id)}
+                      copied={r.entry.id === copiedId}
                       onPointer={onPointer}
                       onPick={onPick}
                     />

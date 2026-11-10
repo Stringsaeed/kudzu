@@ -61,10 +61,11 @@ function Group({ title, description, children }: { title: string; description?: 
   )
 }
 
-function Row({ title, description, children, htmlFor }: { title: string; description?: React.ReactNode; children?: React.ReactNode; htmlFor?: string }) {
+function Row({ title, description, children, htmlFor, dimmed }: { title: string; description?: React.ReactNode; children?: React.ReactNode; htmlFor?: string; dimmed?: boolean }) {
   return (
     <div className="flex min-h-14 items-center gap-6 py-3">
-      <div className="min-w-0 flex-1">
+      {/* `dimmed` follows a disabled control, so a row fades with the switch it depends on. */}
+      <div className={cn("min-w-0 flex-1 transition-opacity duration-(--motion-moderate)", dimmed && "opacity-50")}>
         <label htmlFor={htmlFor} className="text-[13px] font-medium">
           {title}
         </label>
@@ -77,11 +78,16 @@ function Row({ title, description, children, htmlFor }: { title: string; descrip
 
 export function HotkeyRecorder({ value, onChange, label = "Quick search shortcut" }: { value: string; onChange: (accel: string) => void; label?: string }) {
   const [recording, setRecording] = useState(false)
+  // Set once a shortcut is captured, so the keys land with a pop; cancelling just puts them back.
+  const [captured, setCaptured] = useState(false)
   return (
     <button
       type="button"
       aria-label={recording ? "Press the new shortcut, or Escape to cancel" : `${label}: ${acceleratorLabels(value).join(" ")}. Press to change.`}
-      onClick={() => setRecording(true)}
+      onClick={() => {
+        setCaptured(false)
+        setRecording(true)
+      }}
       onBlur={() => setRecording(false)}
       onKeyDown={(e) => {
         if (!recording) return
@@ -91,18 +97,21 @@ export function HotkeyRecorder({ value, onChange, label = "Quick search shortcut
         const accel = acceleratorFromEvent(e.nativeEvent)
         if (accel) {
           onChange(accel)
+          setCaptured(true)
           setRecording(false)
         }
       }}
       className={cn(
-        "flex h-8 min-w-36 items-center justify-center gap-1 rounded-lg px-3 text-xs transition",
+        "flex h-8 min-w-36 items-center justify-center gap-1 rounded-lg px-3 text-xs press",
         recording ? "bg-iris-soft text-iris-foreground ring-2 ring-iris/60" : "bg-surface-raised shadow-raised sheen hover:shadow-raised-hover active:shadow-pressed",
       )}
     >
       {recording ? (
         <span className="animate-pulse">Press shortcut…</span>
       ) : (
-        <Shortcut keys={acceleratorLabels(value)} size="md" />
+        <span key={value} className={cn("inline-flex", captured && "animate-pop")}>
+          <Shortcut keys={acceleratorLabels(value)} size="md" />
+        </span>
       )}
     </button>
   )
@@ -298,6 +307,8 @@ function ClipboardSettings() {
   const days = settings.clipboardRetentionDays
   const preset = RETENTION_OPTIONS.some((o) => o.days === days)
   const [custom, setCustom] = useState(!preset)
+  // Only a field the user just asked for pops in; one that is there when the page opens arrives with it.
+  const [customOpened, setCustomOpened] = useState(false)
   const [draft, setDraft] = useState(String(days || 7))
   const [confirm, setConfirm] = useState(false)
   const pinned = entries.filter((e) => e.pinned).length
@@ -342,7 +353,7 @@ function ClipboardSettings() {
           description={days ? `Unpinned items are deleted ${retentionLabel(days).replace(/^for /, "after ")}. Pinned items stay until you unpin them.` : "Items stay until you delete them (up to 5,000). Pinned items always stay."}
         >
           {custom && (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className={cn("flex origin-right items-center gap-1.5 text-xs text-muted-foreground", customOpened && "animate-pop")}>
               <Input
                 aria-label="Days to keep history"
                 type="number"
@@ -361,6 +372,7 @@ function ClipboardSettings() {
             value={custom ? "custom" : String(days)}
             onValueChange={(v) => {
               if (v === "custom") {
+                setCustomOpened(true)
                 setCustom(true)
                 setDraft(String(days || 7))
               } else {
@@ -440,19 +452,32 @@ function ClipboardSettings() {
 }
 
 function copyText(text: string, what: string) {
-  navigator.clipboard.writeText(text).then(
-    () => toast.success(`Copied ${what}`),
-    () => toast.error("Couldn't copy"),
+  return navigator.clipboard.writeText(text).then(
+    () => {
+      toast.success(`Copied ${what}`)
+      return true
+    },
+    () => {
+      toast.error("Couldn't copy")
+      return false
+    },
   )
 }
 
 /** A command or config block with a copy button. */
 function CopyBlock({ label, value }: { label: string; value: string }) {
+  // The button answers where you pressed it: the icon turns into a check for a moment.
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1600)
+    return () => clearTimeout(timer)
+  }, [copied])
   return (
     <div className="mt-2 flex items-start gap-1 rounded-lg bg-foreground/[0.025] shadow-well dark:bg-black/15">
       <pre className="min-w-0 flex-1 overflow-x-auto py-2.5 pl-3 font-mono text-[11.5px] leading-relaxed whitespace-pre select-all">{value}</pre>
-      <Button variant="ghost" size="icon-xs" className="mt-1.5 mr-1.5 shrink-0" aria-label={`Copy ${label}`} onClick={() => copyText(value, label)}>
-        <Copy />
+      <Button variant="ghost" size="icon-xs" className="mt-1.5 mr-1.5 shrink-0" aria-label={`Copy ${label}`} onClick={() => void copyText(value, label).then(setCopied)}>
+        {copied ? <Check className="text-success animate-check" /> : <Copy />}
       </Button>
     </div>
   )
@@ -463,6 +488,7 @@ function Agents() {
   const update = useStore((s) => s.updateSettings)
   const [setup, setSetup] = useState<AgentSetup | null>(null)
   const [installing, setInstalling] = useState(false)
+  const [justInstalled, setJustInstalled] = useState(false)
   const on = settings.agentAccess
   const reload = () => api.agentSetup().then(setSetup, () => setSetup(null))
   useEffect(() => void reload(), [on])
@@ -472,7 +498,10 @@ function Agents() {
     api
       .installAgentSkill()
       .then(
-        (path) => toast.success("Skill installed", { description: path }),
+        (path) => {
+          setJustInstalled(true)
+          toast.success("Skill installed", { description: path })
+        },
         (e) => toast.error("Couldn't install the skill", { description: String(e) }),
       )
       .finally(() => {
@@ -494,13 +523,14 @@ function Agents() {
         >
           <Switch id="agent-on" checked={on} onCheckedChange={(agentAccess) => void update({ agentAccess })} />
         </Row>
-        <Row title="Create and edit snippets" description="Agents can add snippets and change existing ones. They can't delete anything." htmlFor="agent-write">
+        <Row title="Create and edit snippets" description="Agents can add snippets and change existing ones. They can't delete anything." htmlFor="agent-write" dimmed={!on}>
           <Switch id="agent-write" disabled={!on} checked={settings.agentWrite} onCheckedChange={(agentWrite) => void update({ agentWrite })} />
         </Row>
         <Row
           title="Share clipboard history"
           description={settings.clipboardEnabled ? "Agents can search what you've copied, such as a link or an error message." : "Clipboard history is turned off."}
           htmlFor="agent-clip"
+          dimmed={!on || !settings.clipboardEnabled}
         >
           <Switch id="agent-clip" disabled={!on || !settings.clipboardEnabled} checked={settings.agentClipboard && settings.clipboardEnabled} onCheckedChange={(agentClipboard) => void update({ agentClipboard })} />
         </Row>
@@ -537,8 +567,8 @@ function Agents() {
           }
         >
           {setup?.skill === "current" ? (
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Check className="size-3.5 text-success" aria-hidden /> Installed
+            <span className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", justInstalled && "animate-rise")}>
+              <Check className={cn("size-3.5 text-success", justInstalled && "animate-check")} aria-hidden /> Installed
             </span>
           ) : (
             <Button size="sm" variant="secondary" disabled={installing || !setup} onClick={installSkill}>
@@ -568,6 +598,8 @@ function Apps() {
   const apps = useInstalledApps()
   const entries = Object.entries(settings.appInsertions).sort((a, b) => appName(apps, a[0]).localeCompare(appName(apps, b[0])))
   const [adding, setAdding] = useState<string[]>([])
+  // Rows that were here when the page opened arrive with it; only ones added since rise in.
+  const [initialApps] = useState(() => new Set(Object.keys(settings.appInsertions)))
   return (
     <>
       <Group title="Never expand in" description="Password managers are excluded by default. Snippet and group rules can't override this list.">
@@ -579,7 +611,7 @@ function Apps() {
         {entries.map(([id, method]) => {
           const app = apps.find((a) => a.bundleId === id)
           return (
-            <div key={id} className="flex items-center gap-3 py-2.5">
+            <div key={id} className={cn("flex items-center gap-3 py-2.5", !initialApps.has(id) && "animate-rise")}>
               <AppIcon path={app?.path} name={appName(apps, id)} size={22} />
               <span className="min-w-0 flex-1 truncate text-[13px]">{appName(apps, id)}</span>
               <Segmented<InsertionMethod>
@@ -627,7 +659,18 @@ function Apps() {
 function Data() {
   const [backups, setBackups] = useState<BackupInfo[]>([])
   const [espanso, setEspanso] = useState<EspansoDetection[]>([])
-  const reload = () => api.listBackups().then(setBackups, () => setBackups([]))
+  // The backups in the first listing; ones made after that (Back up now, a restore's safety copy) rise in.
+  const [known, setKnown] = useState<Set<string> | null>(null)
+  // What is running: "backup", or the path being restored or imported.
+  const [busy, setBusy] = useState<string | null>(null)
+  const reload = () =>
+    api.listBackups().then(
+      (list) => {
+        setBackups(list)
+        setKnown((k) => k ?? new Set(list.map((b) => b.path)))
+      },
+      () => setBackups([]),
+    )
   useEffect(() => {
     void reload()
     api.detectEspanso().then(setEspanso, () => setEspanso([]))
@@ -642,14 +685,19 @@ function Data() {
             <Button
               size="sm"
               aria-label={`Import Espanso snippets from ${d.path}`}
-              onClick={() =>
-                api.importEspanso(d.path).then(
-                  (r) => toast.success(`Imported ${r.importedSnippets} snippets`),
-                  (e) => toast.error("Import failed", { description: String(e) }),
-                )
-              }
+              disabled={busy !== null}
+              onClick={() => {
+                setBusy(d.path)
+                void api
+                  .importEspanso(d.path)
+                  .then(
+                    (r) => toast.success(`Imported ${r.importedSnippets} snippets`),
+                    (e) => toast.error("Import failed", { description: String(e) }),
+                  )
+                  .finally(() => setBusy(null))
+              }}
             >
-              <Download /> Import
+              {busy === d.path ? <Loader2 className="animate-spin" /> : <Download />} Import
             </Button>
           </Row>
         ))}
@@ -687,7 +735,7 @@ function Data() {
       <Group title="Backups" description="Kudzu keeps a snapshot every day and before every import — the last 14.">
         {backups.length === 0 && <p className="py-4 text-xs text-muted-foreground">No backups yet.</p>}
         {backups.slice(0, 14).map((b) => (
-          <div key={b.path} className="flex items-center gap-3 py-2.5">
+          <div key={b.path} className={cn("flex items-center gap-3 py-2.5", known && !known.has(b.path) && "animate-rise")}>
             <History className="size-4 text-faint" />
             <div className="min-w-0 flex-1">
               <div className="text-[13px]">{new Date(b.createdAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</div>
@@ -698,22 +746,39 @@ function Data() {
             <Button
               size="sm"
               variant="ghost"
-              onClick={() =>
-                api.restoreBackup(b.path).then(
-                  () => {
-                    toast.success("Library restored", { description: "Your previous library was backed up first." })
-                    void reload()
-                  },
-                  (e) => toast.error("Restore failed", { description: String(e) }),
-                )
-              }
+              disabled={busy !== null}
+              onClick={() => {
+                setBusy(b.path)
+                void api
+                  .restoreBackup(b.path)
+                  .then(
+                    () => {
+                      toast.success("Library restored", { description: "Your previous library was backed up first." })
+                      void reload()
+                    },
+                    (e) => toast.error("Restore failed", { description: String(e) }),
+                  )
+                  .finally(() => setBusy(null))
+              }}
             >
-              <RotateCcw /> Restore
+              {busy === b.path ? <Loader2 className="animate-spin" /> : <RotateCcw />} Restore
             </Button>
           </div>
         ))}
         <div className="flex gap-2 py-3">
-          <Button size="sm" variant="secondary" onClick={() => api.backupNow().then(() => (toast.success("Backup saved"), reload()))}>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy !== null}
+            onClick={() => {
+              setBusy("backup")
+              void api
+                .backupNow()
+                .then(() => (toast.success("Backup saved"), reload()))
+                .finally(() => setBusy(null))
+            }}
+          >
+            {busy === "backup" && <Loader2 className="animate-spin" />}
             Back up now
           </Button>
           {isTauri() && (
@@ -793,10 +858,10 @@ function About() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-8">
+    <>
       <div className="flex flex-col items-center gap-4 pt-6 text-center">
         {/* oxlint-disable-next-line nextjs/no-img-element -- static export */}
-        <img src="/icon.png" alt="" width={88} height={88} className="-my-2 drop-shadow-[0_12px_24px_oklch(0.488_0.243_264.376/0.3)]" draggable={false} />
+        <img src="/icon.png" alt="" width={88} height={88} className="-my-2 drop-shadow-[0_12px_24px_oklch(0.488_0.243_264.376/0.3)] transition-[scale] duration-(--motion-slow) ease-pop hover:scale-105" draggable={false} />
         <div>
           <h2><Wordmark variant="small" className="mb-2 w-36 text-foreground" /></h2>
           <p className="text-xs text-muted-foreground">Version {version ?? "…"} · MIT licensed</p>
@@ -820,7 +885,7 @@ function About() {
           No accounts, no analytics, no Kudzu servers. Your snippets live on this Mac and, if you turn on iCloud sync, in your private iCloud database, which Kudzu&apos;s developer can&apos;t see. Apart from that, Kudzu only goes online to check for updates, and that sends nothing about you.
         </span>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -831,15 +896,20 @@ function UpdateRow() {
     api.checkForUpdates().then(setState, (e) => setState({ phase: "error", message: String(e), needsMove: false }))
   }
   const restart = () => api.restartToUpdate().catch((e) => toast.error("Couldn't install the update", { description: String(e) }))
+  // The stored state loads just after the page opens (idle → whatever it was); that arrives with the
+  // page. Every change after it is news, and gets a transition.
+  const [seen, setSeen] = useState({ phase: state.phase, live: false })
+  if (seen.phase !== state.phase) setSeen({ phase: state.phase, live: seen.live || seen.phase !== "idle" })
+  const live = seen.live
 
   if (state.phase === "ready" || state.phase === "restarting") {
     const notes = state.phase === "ready" ? parseNotes(state.notes) : []
     return (
-      <div className="flex flex-col gap-3 py-3.5">
+      <div key="ready" className={cn("flex flex-col gap-3 py-3.5", live && "animate-rise")}>
         <div className="flex items-center gap-6">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[13px] font-medium">
-              <Sparkles className="size-3.5 text-iris" /> Kudzu {state.version} is ready
+              <Sparkles className={cn("size-3.5 text-iris", live && "animate-star")} /> Kudzu {state.version} is ready
             </div>
             <div className="text-xs text-muted-foreground" aria-live="polite">
               {state.phase === "ready" ? "Downloaded and verified. It installs when you quit Kudzu, or restart now. Takes a second." : "Installing… Kudzu will reopen by itself."}
@@ -867,7 +937,7 @@ function UpdateRow() {
             ))}
           </div>
         )}
-        <button className="self-start text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline" onClick={() => void openExternal(RELEASES_URL)}>
+        <button className="self-start rounded-sm text-xs text-muted-foreground underline-offset-2 press [--press-scale:0.98] hover:text-foreground hover:underline" onClick={() => void openExternal(RELEASES_URL)}>
           All release notes
         </button>
       </div>
@@ -877,17 +947,20 @@ function UpdateRow() {
   if (state.phase === "downloading") {
     const pct = state.total ? Math.min(100, Math.round((state.downloaded / state.total) * 100)) : null
     return (
-      <div className="flex flex-col gap-2.5 py-3.5">
+      <div key="downloading" className={cn("flex flex-col gap-2.5 py-3.5", live && "animate-rise")}>
         <div className="flex items-center justify-between gap-6">
           <div>
             <div className="text-[13px] font-medium">Downloading Kudzu {state.version}</div>
-            <div className="text-xs text-muted-foreground" aria-live="polite">
+            <div className="text-xs text-muted-foreground tabular" aria-live="polite">
               In the background{pct !== null && ` · ${pct}%`}. You&apos;ll be asked before anything restarts.
             </div>
           </div>
         </div>
         <div className="h-1 overflow-hidden rounded-full bg-foreground/[0.06] shadow-well" role="progressbar" aria-label="Download progress" aria-valuenow={pct ?? undefined} aria-valuemin={0} aria-valuemax={100}>
-          <div className="h-full rounded-full bg-iris transition-[width] duration-300" style={{ width: `${pct ?? 30}%` }} />
+          <div className="relative h-full overflow-hidden rounded-full bg-iris transition-[width] duration-(--motion-slow) ease-out" style={{ width: `${pct ?? 30}%` }}>
+            {/* A sheen travelling along the fill: the download is moving even when the number isn't. */}
+            <span aria-hidden className="absolute inset-0 bg-[linear-gradient(90deg,transparent,oklch(1_0_0/0.4),transparent)] bg-[length:200%_100%] animate-shimmer" />
+          </div>
         </div>
       </div>
     )
@@ -907,7 +980,15 @@ function UpdateRow() {
             : "Updates are available in the desktop app."
 
   return (
-    <Row title="Software update" description={<span className={cn(state.phase === "error" && (state.needsMove ? "text-warning" : "text-destructive"))}>{description}</span>}>
+    <Row
+      title="Software update"
+      description={
+        <span key={state.phase} className={cn("flex items-center gap-1.5", live && state.phase !== "checking" && "animate-rise", state.phase === "error" && (state.needsMove ? "text-warning" : "text-destructive"))}>
+          {state.phase === "upToDate" && <Check className={cn("size-3 shrink-0 text-success", live && "animate-check")} aria-hidden />}
+          {description}
+        </span>
+      }
+    >
       <Button size="sm" variant="secondary" onClick={check} disabled={state.phase === "checking"}>
         {state.phase === "checking" ? <Loader2 className="animate-spin" /> : <RefreshCw />}
         {state.phase === "error" && !state.needsMove ? "Try again" : "Check now"}

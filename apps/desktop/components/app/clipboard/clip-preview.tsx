@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 
 import { AppIcon } from "../app-icon"
 import { ClipContent, useFullText } from "./clip-content"
+import { useChanged } from "./motion"
 import { SecretBadge } from "./secret"
 
 const DAY = 86_400_000
@@ -115,7 +116,7 @@ export function ClipDetails({ entry, retentionDays, compact }: { entry: ClipEntr
           </Fact>
         )}
         <Fact label="Expires">
-          <span className={cn(entry.pinned && "text-iris-foreground")}>{expiresIn(entry, retentionDays)}</span>
+          <span className={cn("transition-colors duration-(--motion-moderate)", entry.pinned && "text-iris-foreground")}>{expiresIn(entry, retentionDays)}</span>
         </Fact>
       </dl>
       {!compact && entry.types.length > 0 && (
@@ -140,13 +141,15 @@ export function ClipDetails({ entry, retentionDays, compact }: { entry: ClipEntr
 
 /** Header line: kind, pin state and the source app. */
 export function ClipHeading({ entry }: { entry: ClipEntry }) {
+  // Pinning lands with a pop; moving to an already-pinned item doesn't.
+  const pinFlipped = useChanged(entry.id, entry.pinned)
   return (
     <div className="flex min-w-0 items-center gap-2 text-xs">
       <span className="rounded-md bg-foreground/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">{KIND_LABEL[entry.kind]}</span>
       {entry.rich && <span className="rounded-md bg-foreground/[0.04] px-1.5 py-0.5 text-[11px] text-faint">Formatted</span>}
       <SecretBadge entry={entry} />
       {entry.pinned && (
-        <span className="flex items-center gap-1 rounded-md bg-iris-soft px-1.5 py-0.5 text-[11px] font-medium text-iris-foreground">
+        <span className={cn("flex items-center gap-1 rounded-md bg-iris-soft px-1.5 py-0.5 text-[11px] font-medium text-iris-foreground", pinFlipped && "animate-pop")}>
           <Pin className="size-3 -rotate-45 fill-current" /> Pinned
         </span>
       )}

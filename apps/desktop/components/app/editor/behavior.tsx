@@ -4,9 +4,11 @@ import { Settings2 } from "lucide-react"
 
 import { appName, useInstalledApps } from "@/lib/apps"
 import type { AppRule, AppRuleMode, Group, InsertionMethod, Snippet } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 import { AppPicker } from "../app-picker"
 import { Segmented } from "../segmented"
+import { useBump } from "./motion"
 
 /** Nearest ancestor group setting `key`, with the group name. */
 export function inherited<K extends "rule" | "insertion">(groups: Group[], groupId: string | undefined, key: K): { value: Group[K]; from: Group } | null {
@@ -23,12 +25,16 @@ export function inherited<K extends "rule" | "insertion">(groups: Group[], group
 
 const INSERTION_LABEL: Record<InsertionMethod, string> = { automatic: "Automatic", type: "Typing", paste: "Pasting" }
 
-function Row({ title, description, children }: { title: string; description: React.ReactNode; children: React.ReactNode }) {
+/** `swap` names what the description depends on; when it changes the new text rises in, not on mount. */
+function Row({ title, description, swap, children }: { title: string; description: React.ReactNode; swap: unknown; children: React.ReactNode }) {
+  const n = useBump(swap)
   return (
     <div className="grid grid-cols-[1fr_auto] items-center gap-x-6 gap-y-1 py-3">
       <div className="min-w-0">
         <div className="text-[13px] font-medium">{title}</div>
-        <div className="text-xs text-muted-foreground">{description}</div>
+        <div key={n} className={cn("text-xs text-muted-foreground", n > 0 && "animate-rise")}>
+          {description}
+        </div>
       </div>
       <div className="justify-self-end">{children}</div>
     </div>
@@ -58,6 +64,7 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
       <div className="divide-y divide-hairline">
         <Row
           title="Expand"
+          swap={snippet.fireMode}
           description={snippet.fireMode === "immediate" ? "As soon as the last trigger character is typed." : "After you finish the word — space, return or punctuation."}
         >
           <Segmented
@@ -72,6 +79,7 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
         </Row>
         <Row
           title="Capitalization"
+          swap={snippet.caseMode}
           description={
             snippet.caseMode === "propagate" ? (
               <>
@@ -94,6 +102,7 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
         </Row>
         <Row
           title="Insert by"
+          swap={snippet.insertion}
           description={
             snippet.formatting?.source === snippet.content
               ? (snippet.insertion ?? inheritedInsertion?.value) === "type"
@@ -124,6 +133,7 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
         <div className="py-3">
           <Row
             title="Apps"
+            swap={ruleChoice}
             description={
               ruleChoice === "inherit"
                 ? inheritedRule
@@ -155,7 +165,7 @@ export function BehaviorSection({ snippet, groups, onChange }: { snippet: Snippe
                 addLabel={snippet.rule.mode === "allow" ? "Allow an app" : "Block an app"}
               />
               {snippet.rule.mode === "allow" && snippet.rule.bundleIDs.length > 0 && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground animate-rise">
                   <Settings2 className="size-3.5" />
                   In these apps, insert by
                   <Segmented

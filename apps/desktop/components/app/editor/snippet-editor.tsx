@@ -48,6 +48,7 @@ import { cn } from "@/lib/utils"
 import { FormattedText } from "../formatted-text"
 import { Shortcut } from "../shortcut"
 import { BehaviorSection } from "./behavior"
+import { useBump } from "./motion"
 import { ChipEditor, InsertMenu, type InsertChoice } from "./tag-tools"
 import { TemplateEditor, type TemplateEditorHandle } from "./template-editor"
 import { TriggerInput, type TriggerInputHandle } from "./trigger-input"
@@ -153,6 +154,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
     const slash = menu?.slashAt
     setMenu(null)
     const range = slash != null ? ed.replace(slash, slash + 1, choice.text) : ed.insert(choice.text)
+    ed.pulse(range.from)
     if (choice.configure) openChipAt(range.from)
   }
 
@@ -170,9 +172,24 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
   // Preview
   const debouncedDraft = useDebounced(draft, 120)
   const [preview, setPreview] = useState<RenderResult | null>(null)
+  // A soft refresh cue when the preview changes, once per burst of edits: only if it had been still
+  // for a moment, so typing never makes it flicker.
+  const [previewCue, setPreviewCue] = useState(0)
+  const shownPreview = useRef<RenderResult | null>(null)
+  const previewChangedAt = useRef(0)
   useEffect(() => {
     let live = true
-    renderPreview(debouncedDraft.content, snippet.id, {}, resolve, debouncedDraft.formatting, resolveFormatting).then((r) => live && setPreview(r))
+    renderPreview(debouncedDraft.content, snippet.id, {}, resolve, debouncedDraft.formatting, resolveFormatting).then((r) => {
+      if (!live) return
+      const prev = shownPreview.current
+      shownPreview.current = r
+      if (prev && (prev.text !== r.text || (prev.formatting?.length ?? -1) !== (r.formatting?.length ?? -1))) {
+        const now = performance.now()
+        if (now - previewChangedAt.current > 600) setPreviewCue((n) => n + 1)
+        previewChangedAt.current = now
+      }
+      setPreview(r)
+    })
     return () => {
       live = false
     }
@@ -183,6 +200,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
   const flatGroups = useMemo(() => flatten(buildTree(groups)), [groups])
   const path = groupPath(groups, draft.groupID)
   const groupDisabled = !isGroupEnabled(groups, draft.groupID)
+  const enabledSwap = useBump(draft.isEnabled)
 
   const copyText = async () => {
     try {
@@ -202,7 +220,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
       <header className="drag flex h-12 shrink-0 items-center gap-2 border-b border-hairline px-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="no-drag flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" aria-label="Move to group">
+            <button className="no-drag flex min-w-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs text-muted-foreground press hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground" aria-label="Move to group">
               <Folder className="size-3.5 shrink-0" />
               {path.length ? (
                 path.map((p, i) => (
@@ -231,9 +249,11 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
         </DropdownMenu>
 
         <div className="ml-auto flex items-center gap-1 no-drag">
-          <span aria-live="polite" className={cn("mr-2 flex items-center gap-1 text-[11px] text-faint transition-opacity", saved === "idle" && "opacity-0")}>
+          <span aria-live="polite" className={cn("mr-2 flex items-center gap-1 text-[11px] text-faint transition-opacity duration-(--motion-moderate)", saved === "idle" && "opacity-0")}>
             {saved !== "saving" && <Check className="size-3 text-success animate-check" aria-hidden />}
-            {saved === "saving" ? "Saving…" : "Saved"}
+            <span key={saved === "saving" ? "saving" : "saved"} className="animate-fade">
+              {saved === "saving" ? "Saving…" : "Saved"}
+            </span>
           </span>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -254,7 +274,11 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
             <TooltipTrigger asChild>
               <label className="flex h-7 items-center gap-2 rounded-md px-2 text-xs text-muted-foreground">
                 <Switch checked={draft.isEnabled} onCheckedChange={(isEnabled) => update({ isEnabled })} aria-label="Enabled" size="sm" />
-                <span className="w-12">{draft.isEnabled ? "Enabled" : "Off"}</span>
+                <span className="w-12">
+                  <span key={enabledSwap} className={cn("inline-block", enabledSwap > 0 && "animate-fade")}>
+                    {draft.isEnabled ? "Enabled" : "Off"}
+                  </span>
+                </span>
               </label>
             </TooltipTrigger>
             <TooltipContent>Turn this snippet on or off <Shortcut combo="mod+shift+e" /></TooltipContent>
@@ -298,7 +322,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
       <div className="min-h-0 flex-1 overflow-y-auto" data-editor-scroll>
         <div className="mx-auto flex max-w-[760px] flex-col gap-6 px-8 pt-7 pb-16 animate-rise" key={snippet.id}>
           {(!draft.isEnabled || groupDisabled) && (
-            <div className="flex items-center gap-2 rounded-lg bg-foreground/[0.04] px-3 py-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-lg bg-foreground/[0.04] px-3 py-2 text-xs text-muted-foreground animate-rise">
               <span className="size-1.5 rounded-full bg-faint" />
               {draft.isEnabled ? `This snippet's group “${path.join(" › ")}” is turned off, so it won't expand.` : "This snippet is turned off. It still shows in search but won't expand."}
             </div>
@@ -333,7 +357,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
                 conflicted={conflicted}
               />
               {draft.triggers.length === 0 && draft.content && (
-                <p className="text-xs text-muted-foreground">Add a trigger so this snippet can expand as you type. You can still insert it from search.</p>
+                <p className="text-xs text-muted-foreground animate-rise">Add a trigger so this snippet can expand as you type. You can still insert it from search.</p>
               )}
               {myConflicts.map((c, i) => {
                 const mine = c.snippetId === snippet.id
@@ -346,7 +370,7 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
                       ? `“${c.trigger}” fires before “${c.otherTrigger}” can be finished in`
                       : `“${c.otherTrigger}” can't be typed in full — “${c.trigger}” fires first in`
                 return (
-                  <p key={i} className="flex flex-wrap items-center gap-1 text-xs text-warning">
+                  <p key={i} className="flex flex-wrap items-center gap-1 text-xs text-warning animate-rise">
                     <TriangleAlert className="size-3.5" />
                     {message}
                     <button className="font-medium underline underline-offset-2" onClick={() => select(otherId)}>
@@ -443,15 +467,17 @@ export function SnippetEditor({ snippet, onRequestDelete }: { snippet: Snippet; 
           <section aria-label="Preview" className="flex flex-col gap-1.5">
             <div className="flex items-center gap-2 text-xs">
               <span className="font-medium text-muted-foreground">Preview</span>
-              {facts.isForm && <span className="rounded bg-warning/12 px-1.5 py-px text-[10.5px] font-medium text-warning">Asks for {facts.fieldNames.join(", ")}</span>}
-              {facts.usesClipboard && <span className="rounded bg-success/12 px-1.5 py-px text-[10.5px] font-medium text-success">Uses clipboard</span>}
+              {facts.isForm && <span className="rounded bg-warning/12 px-1.5 py-px text-[10.5px] font-medium text-warning animate-pop">Asks for {facts.fieldNames.join(", ")}</span>}
+              {facts.usesClipboard && <span className="rounded bg-success/12 px-1.5 py-px text-[10.5px] font-medium text-success animate-pop">Uses clipboard</span>}
             </div>
             <div className="selectable relative min-h-12 rounded-xl bg-foreground/[0.025] px-4 py-3 text-[13.5px] leading-relaxed whitespace-pre-wrap shadow-well">
-              {preview && preview.text ? (
-                <FormattedText result={preview} />
-              ) : (
-                <span className="text-faint">Nothing to show yet.</span>
-              )}
+              <div key={previewCue} className={cn(previewCue > 0 && "animate-settle")}>
+                {preview && preview.text ? (
+                  <FormattedText result={preview} />
+                ) : (
+                  <span className="text-faint">Nothing to show yet.</span>
+                )}
+              </div>
             </div>
           </section>
 
@@ -482,7 +508,7 @@ function FavoriteStar({ on }: { on: boolean }) {
 
 export function EditorEmpty({ onNew }: { onNew: () => void }) {
   return (
-    <div className="drag flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+    <div className="drag flex h-full flex-col items-center justify-center gap-4 p-8 text-center stagger">
       <div className="flex size-12 items-center justify-center rounded-2xl bg-foreground/[0.04] shadow-hairline">
         <CornerDownLeft className="size-5 text-muted-foreground" />
       </div>

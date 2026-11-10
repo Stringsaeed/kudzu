@@ -10,6 +10,13 @@ import { appName, useInstalledApps } from "@/lib/apps"
 import { cn } from "@/lib/utils"
 
 import { AppIcon } from "./app-icon"
+import { useFlip } from "./editor/motion"
+
+/** An app chip that pops in when added, but not when the picker opens with it already chosen. */
+function Chip({ enter, className, ...props }: React.ComponentProps<"span"> & { enter: boolean }) {
+  const [pop] = useState(enter)
+  return <span {...props} className={cn(className, pop && "animate-pop")} />
+}
 
 /** Shows chosen apps as removable chips plus an "Add app" searchable picker. */
 export function AppPicker({
@@ -28,24 +35,36 @@ export function AppPicker({
   const [query, setQuery] = useState("")
   const chosen = new Set(value)
   const toggle = (id: string) => onChange(chosen.has(id) ? value.filter((v) => v !== id) : [...value, id])
+  const { ref, snapshot } = useFlip<HTMLDivElement>()
+  // Apps chosen when the picker opened stay still; anything added afterwards pops in.
+  const [opened, setOpened] = useState(() => new Set(value))
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
+    <div ref={ref} className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {value.map((id) => {
         const app = apps.find((a) => a.bundleId === id)
         return (
-          <span key={id} className="inline-flex h-7 items-center gap-1.5 rounded-md bg-surface-raised pr-1 pl-1.5 text-xs shadow-raised animate-pop">
+          <Chip key={id} data-flip={id} enter={!opened.has(id)} className="inline-flex h-7 items-center gap-1.5 rounded-md bg-surface-raised pr-1 pl-1.5 text-xs shadow-raised">
             <AppIcon path={app?.path} name={appName(apps, id)} size={16} />
             <span className="max-w-40 truncate">{appName(apps, id)}</span>
-            <button className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-foreground/10 hover:text-foreground" onClick={() => toggle(id)} aria-label={`Remove ${appName(apps, id)}`}>
+            <button
+              className="flex size-5 items-center justify-center rounded text-muted-foreground press hover:bg-foreground/10 hover:text-foreground"
+              onClick={() => {
+                // The chips after it, and the Add button, slide into its place.
+                snapshot()
+                setOpened((s) => new Set([...s].filter((k) => k !== id)))
+                toggle(id)
+              }}
+              aria-label={`Remove ${appName(apps, id)}`}
+            >
               <X className="size-3" />
             </button>
-          </span>
+          </Chip>
         )
       })}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-7 text-muted-foreground ring-1 ring-dashed ring-border">
+          <Button variant="ghost" size="sm" data-flip=" add" className="h-7 text-muted-foreground ring-1 ring-dashed ring-border">
             <Plus /> {addLabel}
           </Button>
         </PopoverTrigger>

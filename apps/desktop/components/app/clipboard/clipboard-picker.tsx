@@ -3,7 +3,7 @@
 // The clipboard history picker: a floating window summoned by a global shortcut over any app.
 // Type to search, see a live preview, and paste into the app you came from without the mouse.
 
-import { ClipboardList, CornerDownLeft, Search } from "lucide-react"
+import { Check, ClipboardList, CornerDownLeft, Search, SearchX } from "lucide-react"
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 
 import { api, Events, on } from "@/lib/backend"
@@ -14,10 +14,12 @@ import { applyTheme } from "@/lib/theme"
 import type { AppInfo, ClipEntry, Settings } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
+import { hintFor, pressHint, releaseHints } from "../palette/key-hints"
 import { Shortcut } from "../shortcut"
 import { ClipFilters } from "./clip-filters"
 import { ClipList } from "./clip-list"
 import { ClipContent, ClipDetails, ClipHeading } from "./clip-preview"
+import { useListChanges } from "./motion"
 
 const PICKER_FILTERS: ClipFilter[] = ["all", "pinned", "text", "image", "link", "file"]
 
@@ -38,6 +40,9 @@ export function ClipboardPicker() {
   const undo = useRef<ClipEntry[] | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const footer = useRef<HTMLElement>(null)
+  // Rows glide up after a delete. No arrival motion here: new copies land while the picker is hidden.
+  const { settling } = useListChanges(entries, ready)
 
   useEffect(() => {
     const off = useClipboard.getState().init()
@@ -62,11 +67,13 @@ export function ClipboardPicker() {
         setActiveId(null)
         setFlash(null)
         undo.current = null
+        releaseHints(footer.current)
         requestAnimationFrame(() => input.current?.focus())
       }),
     ]
     const onBlur = () => {
       setShowNumbers(false)
+      releaseHints(footer.current)
       void api.hideClipboard()
     }
     window.addEventListener("blur", onBlur)
@@ -126,6 +133,7 @@ export function ClipboardPicker() {
   const onKeyDown = (e: React.KeyboardEvent) => {
     const mod = isMac ? e.metaKey : e.ctrlKey
     if (mod) setShowNumbers(true)
+    pressHint(footer.current, hintFor(e, mod))
     const k = e.key
     if (k === "ArrowDown" || (e.ctrlKey && k === "n")) {
       e.preventDefault()
@@ -209,6 +217,7 @@ export function ClipboardPicker() {
       className="flex h-full w-full items-start justify-center p-3 vibrant:p-0"
       onKeyUp={(e) => {
         if (e.key === "Meta" || e.key === "Control") setShowNumbers(false)
+        releaseHints(footer.current)
       }}
     >
       <div
@@ -267,10 +276,13 @@ export function ClipboardPicker() {
               showNumbers={showNumbers}
               onPointer={onPointer}
               onPick={onPick}
+              settling={settling}
               empty={
                 ready && (
                   <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
-                    <ClipboardList className="size-5 text-faint" />
+                    <span className="mb-1 flex size-9 items-center justify-center rounded-xl bg-foreground/[0.04] text-faint shadow-well">
+                      {query && entries.length > 0 && enabled ? <SearchX className="size-4" /> : <ClipboardList className="size-4" />}
+                    </span>
                     <p className="text-sm text-muted-foreground">
                       {!enabled ? "Clipboard history is paused." : entries.length === 0 ? "Nothing copied yet." : query ? `Nothing matches “${query}”.` : "Nothing here yet."}
                     </p>
@@ -287,7 +299,7 @@ export function ClipboardPicker() {
                 <div className="px-5 pt-3.5 pb-2.5">
                   <ClipHeading entry={active} />
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4" key={active.id}>
+                <div className="min-h-0 flex-1 animate-fade overflow-y-auto px-5 pb-4" key={active.id}>
                   <ClipContent entry={active} terms={terms} />
                 </div>
                 <div className="shrink-0 border-t border-hairline px-5 py-3">
@@ -301,37 +313,42 @@ export function ClipboardPicker() {
         </div>
 
         {/* Footer hints */}
-        <footer className="flex h-10 shrink-0 items-center gap-4 border-t border-hairline px-4 text-[11.5px] text-muted-foreground">
-          <span className="flex min-w-0 items-center gap-1.5" aria-live="polite">
-            <span className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] bg-iris text-iris-contrast shadow-accent sheen-strong">
-              <CornerDownLeft className="size-3" />
+        <footer ref={footer} className="flex h-10 shrink-0 items-center gap-4 border-t border-hairline px-4 text-[11.5px] text-muted-foreground">
+          <span className="key-hint flex min-w-0 items-center gap-1.5" data-hint="enter" aria-live="polite">
+            <span data-keycap className="flex size-[18px] shrink-0 items-center justify-center rounded-[5px] bg-iris text-iris-contrast shadow-accent sheen-strong">
+              {flash === "Copied" ? <Check key="copied" className="size-3 animate-check" /> : <CornerDownLeft className="size-3" />}
             </span>
-            <span className={cn("truncate", flash && "text-foreground")}>{flash ?? pasteLabel}</span>
+            {/* A message rises in; the resting label comes back without motion. */}
+            <span key={flash ? `flash:${flash}` : "label"} className={cn("truncate", flash && "text-foreground animate-rise")}>
+              {flash ?? pasteLabel}
+            </span>
           </span>
           {!flash && (
             <>
               {canPaste && (
-                <span className="flex shrink-0 items-center gap-1.5">
+                <span className="key-hint flex shrink-0 items-center gap-1.5" data-hint="mod+enter">
                   <Shortcut combo="mod+enter" /> Copy
                 </span>
               )}
               {active?.rich && (
-                <span className="flex shrink-0 items-center gap-1.5">
+                <span className="key-hint flex shrink-0 items-center gap-1.5" data-hint="shift+enter">
                   <Shortcut combo="shift+enter" /> {settings?.clipboardPastePlain ? "Formatted" : "Plain text"}
                 </span>
               )}
-              <span className="flex shrink-0 items-center gap-1.5">
+              <span className="key-hint flex shrink-0 items-center gap-1.5" data-hint="mod+p">
                 <Shortcut combo="mod+p" /> {active?.pinned ? "Unpin" : "Pin"}
               </span>
-              <span className="flex shrink-0 items-center gap-1.5">
+              <span className="key-hint flex shrink-0 items-center gap-1.5" data-hint="mod+backspace">
                 <Shortcut combo="mod+backspace" /> Delete
               </span>
             </>
           )}
-          <span className="ml-auto flex shrink-0 items-center gap-1.5">
+          <span className="key-hint ml-auto flex shrink-0 items-center gap-1.5" data-hint="tab">
             <Shortcut combo="tab" /> Filter
           </span>
-          <Shortcut combo="escape" className="shrink-0" />
+          <span className="key-hint flex shrink-0" data-hint="escape">
+            <Shortcut combo="escape" />
+          </span>
         </footer>
         <span className="sr-only" aria-live="polite">
           {active ? (isSecret(active) && !useStore.getState().settings.clipboardShowSecrets ? "Hidden secret" : describe(active).title) : ""}

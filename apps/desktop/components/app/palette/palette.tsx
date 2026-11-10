@@ -6,12 +6,15 @@
 
 import {
   CalendarDays,
+  Check,
   Clipboard,
   CornerDownLeft,
   FileText,
   Folder,
+  History,
   Plus,
   Search,
+  SearchX,
   Star,
   TextCursorInput,
 } from "lucide-react"
@@ -32,6 +35,7 @@ import { cn } from "@/lib/utils"
 import { SelectionPill } from "../selection-pill"
 import { Shortcut } from "../shortcut"
 import { TriggerChip } from "../trigger-chip"
+import { hintFor, pressHint, releaseHints } from "./key-hints"
 
 type Scope = "all" | "favorites" | "recent"
 const SCOPES: { value: Scope; label: string }[] = [
@@ -98,7 +102,7 @@ const ResultRow = memo(function ResultRow({
         !s.isEnabled && "opacity-60",
       )}
     >
-      <ItemMedia className={cn("size-7 rounded-lg transition-colors group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center", active ? "bg-iris text-iris-contrast shadow-accent sheen-strong" : "bg-foreground/[0.06] text-muted-foreground")}>
+      <ItemMedia className={cn("size-7 rounded-lg transition-colors duration-75 group-has-data-[slot=item-description]/item:translate-y-0 group-has-data-[slot=item-description]/item:self-center", active ? "bg-iris text-iris-contrast shadow-accent sheen-strong" : "bg-foreground/[0.06] text-muted-foreground")}>
         <KindIcon snippet={s} />
       </ItemMedia>
       <ItemContent className="min-w-0 gap-0">
@@ -128,6 +132,7 @@ export function Palette() {
   const [flash, setFlash] = useState<string | null>(null)
   const input = useRef<HTMLInputElement>(null)
   const list = useRef<HTMLDivElement>(null)
+  const footer = useRef<HTMLElement>(null)
 
   // Data
   useEffect(() => {
@@ -144,11 +149,13 @@ export function Palette() {
         setScope("all")
         setActive(0)
         setFlash(null)
+        releaseHints(footer.current)
         requestAnimationFrame(() => input.current?.focus())
       }),
     ]
     const onBlur = () => {
       setShowNumbers(false)
+      releaseHints(footer.current)
       void api.hidePalette()
     }
     window.addEventListener("blur", onBlur)
@@ -233,6 +240,7 @@ export function Palette() {
   const onKeyDown = (e: React.KeyboardEvent) => {
     const mod = isMac ? e.metaKey : e.ctrlKey
     if (mod) setShowNumbers(true)
+    pressHint(footer.current, hintFor(e, mod))
     if (e.key === "ArrowDown" || (e.ctrlKey && e.key === "n")) {
       e.preventDefault()
       setActive((a) => (Math.min(a, total - 1) + 1) % Math.max(1, total))
@@ -275,7 +283,10 @@ export function Palette() {
     return m
   }, [library])
 
-  const preview = current && rendered?.id === current.id ? rendered.result : null
+  // While the next preview renders, keep the last one up instead of flashing the shimmer between rows;
+  // it only dims if the render is slow (the transition is delayed).
+  const fresh = !!current && rendered?.id === current.id
+  const preview = current ? (rendered?.result ?? null) : null
   const facts = current ? analyze(current.content) : null
   const u = current ? usage.get(current.id) : undefined
   const sectionLabel = text ? "Best matches" : scope === "recent" ? "Recently used" : scope === "favorites" ? "Favorites" : "Suggested"
@@ -285,6 +296,7 @@ export function Palette() {
       className="flex h-full w-full items-start justify-center p-3 vibrant:p-0"
       onKeyUp={(e) => {
         if (e.key === "Meta" || e.key === "Control") setShowNumbers(false)
+        releaseHints(footer.current)
       }}
     >
       <div
@@ -341,6 +353,9 @@ export function Palette() {
           <div ref={list} id="palette-results" role="listbox" aria-label={sectionLabel} className="w-[54%] shrink-0 overflow-y-auto p-1.5">
             {library === null ? null : total === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-1 px-6 text-center">
+                <span className="mb-2 flex size-9 items-center justify-center rounded-xl bg-foreground/[0.04] text-faint shadow-well">
+                  {query.trim() ? <SearchX className="size-4" /> : scope === "favorites" ? <Star className="size-4" /> : scope === "recent" ? <History className="size-4" /> : <FileText className="size-4" />}
+                </span>
                 <p className="text-sm text-muted-foreground">{scope === "favorites" ? "No favorites yet." : scope === "recent" ? "Nothing used yet." : "No snippets yet."}</p>
                 <p className="text-xs text-faint">Type to create one.</p>
               </div>
@@ -362,7 +377,7 @@ export function Palette() {
                       aria-selected={clamped === hits.length}
                       onMouseMove={() => setActive(hits.length)}
                       onClick={() => pick(hits.length)}
-                      className={cn("h-11 flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 text-[13.5px]", clamped === hits.length ? "bg-foreground/[0.08]" : "text-muted-foreground")}
+                      className={cn("h-11 flex-nowrap gap-3 rounded-[10px] px-2.5 py-0 text-[13.5px] duration-75", clamped === hits.length ? "bg-foreground/[0.08] shadow-selected" : "text-muted-foreground hover:bg-foreground/[0.03]")}
                     >
                       <span className="flex size-7 items-center justify-center rounded-lg bg-foreground/[0.06]">
                         <Plus className="size-3.5" />
@@ -382,9 +397,16 @@ export function Palette() {
               <>
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-3">
                   <div className="mb-2 text-[11px] font-medium text-faint">Will insert</div>
-                  <div className="selectable text-[13.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90">
+                  <div
+                    className={cn(
+                      "selectable text-[13.5px] leading-relaxed break-words whitespace-pre-wrap text-foreground/90 transition-opacity duration-(--motion-moderate)",
+                      preview && !fresh && "opacity-50 delay-150",
+                    )}
+                  >
                     {preview ? (
-                      preview.text ? <FormattedText result={preview} /> : <span className="text-faint">Empty snippet</span>
+                      <div key={rendered?.id} className={cn(fresh && "animate-fade")}>
+                        {preview.text ? <FormattedText result={preview} /> : <span className="text-faint">Empty snippet</span>}
+                      </div>
                     ) : (
                       <span className="block h-4 w-2/3 rounded bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--foreground)_8%,transparent),transparent)] bg-[length:200%_100%] animate-shimmer" />
                     )}
@@ -421,26 +443,28 @@ export function Palette() {
         </div>
 
         {/* Footer hints */}
-        <footer className="flex h-10 shrink-0 items-center gap-4 border-t border-hairline px-4 text-[11.5px] text-muted-foreground">
-          <span className="flex min-w-0 items-center gap-1.5">
-            <span className="flex size-[18px] items-center justify-center rounded-[5px] bg-iris text-iris-contrast shadow-accent sheen-strong">
-              <CornerDownLeft className="size-3" />
+        <footer ref={footer} className="flex h-10 shrink-0 items-center gap-4 border-t border-hairline px-4 text-[11.5px] text-muted-foreground">
+          <span className="key-hint flex min-w-0 items-center gap-1.5" data-hint="enter">
+            <span data-keycap className="flex size-[18px] items-center justify-center rounded-[5px] bg-iris text-iris-contrast shadow-accent sheen-strong">
+              {flash ? <Check key="copied" className="size-3 animate-check" /> : <CornerDownLeft className="size-3" />}
             </span>
-            <span className="truncate">{flash ?? (target ? `Insert into ${target.name}` : "Insert")}</span>
+            <span key={flash ?? "label"} className={cn("truncate", flash && "text-foreground animate-rise")}>
+              {flash ?? (target ? `Insert into ${target.name}` : "Insert")}
+            </span>
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="key-hint flex items-center gap-1.5" data-hint="mod+enter">
             <Shortcut combo="mod+enter" /> Copy
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="key-hint flex items-center gap-1.5" data-hint="mod+e">
             <Shortcut combo="mod+e" /> Edit
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="key-hint flex items-center gap-1.5" data-hint="tab">
             <Shortcut combo="tab" /> Scope
           </span>
           <span className="ml-auto flex items-center gap-1.5 text-faint">
             <span className="font-mono">#</span>group
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="key-hint flex items-center gap-1.5" data-hint="escape">
             <Shortcut combo="escape" />
           </span>
         </footer>

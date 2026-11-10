@@ -27,7 +27,6 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 
-import { Badge } from "@/components/ui/badge"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -36,6 +35,7 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useChanges } from "@/hooks/use-changes"
 import { FILTERS, inFilter, useClipboard, type ClipFilter } from "@/lib/clipboard"
 import { buildTree, descendantIds, recursiveCounts, type GroupNode } from "@/lib/groups"
 import { useStore, type View } from "@/lib/store"
@@ -108,7 +108,7 @@ function SectionHeader({ id, label, open, onToggle, trailing }: { id: string; la
             onToggle()
           }
         }}
-        className="-ml-1 flex h-6 min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-[11px] font-semibold tracking-wide text-faint outline-none transition-colors hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+        className="-ml-1 flex h-6 min-w-0 flex-1 items-center gap-1 rounded-md px-1 text-left text-[11px] font-semibold tracking-wide text-faint outline-none transition-colors duration-(--motion-fast) hover:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="truncate">{label}</span>
         <ChevronRight className={cn("size-3 shrink-0 opacity-0 transition-[rotate,opacity] duration-(--motion-moderate) ease-spring group-hover/sec:opacity-100 group-focus-within/sec:opacity-100", open && "rotate-90", !open && "opacity-100")} />
@@ -118,10 +118,58 @@ function SectionHeader({ id, label, open, onToggle, trailing }: { id: string; la
   )
 }
 
+/**
+ * Folds its content away by animating height (0fr ↔ 1fr), fading as it goes. The content stays
+ * mounted, so nothing replays an entrance when it opens again; folded, it is inert and invisible,
+ * which takes it out of the tab order and the accessibility tree. Clipped on the block axis only,
+ * so a drop target's scale isn't cut off at the sides.
+ */
+function Collapse({ open, id, className, children }: { open: boolean; id?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      id={id}
+      inert={!open}
+      aria-hidden={!open || undefined}
+      className={cn(
+        "grid transition-[grid-template-rows,opacity,visibility] duration-(--motion-slow) ease-spring",
+        open ? "grid-rows-[1fr]" : "invisible grid-rows-[0fr] opacity-0",
+      )}
+    >
+      <div className={cn("min-h-0 overflow-y-clip", className)}>{children}</div>
+    </div>
+  )
+}
+
+/**
+ * While a Collapse is moving, rows below it move every frame. The selection pill follows them
+ * through its ResizeObserver; `data-folding` tells it to keep up exactly instead of easing after
+ * each step (see NAV_PILL).
+ */
+function trackFold(e: React.TransitionEvent<HTMLElement>, delta: 1 | -1) {
+  if (e.propertyName !== "grid-template-rows") return
+  // Counted, because reversing a fold mid-way cancels one transition and starts another in the same frame.
+  const folding = Math.max(0, Number(e.currentTarget.dataset.folding ?? 0) + delta)
+  if (folding) e.currentTarget.dataset.folding = String(folding)
+  else delete e.currentTarget.dataset.folding
+}
+const foldTracking = {
+  onTransitionRun: (e: React.TransitionEvent<HTMLElement>) => trackFold(e, 1),
+  onTransitionEnd: (e: React.TransitionEvent<HTMLElement>) => trackFold(e, -1),
+  onTransitionCancel: (e: React.TransitionEvent<HTMLElement>) => trackFold(e, -1),
+}
+
+/** A row's count. It ticks when the number changes, not when the row mounts. */
+function Count({ value }: { value: number }) {
+  const changes = useChanges(value)
+  if (value <= 0) return null
+  return <span key={changes} className={cn("text-[11px] text-faint tabular", changes > 0 && "animate-tick")}>{value}</span>
+}
+
 /** Arrow-key navigation between sidebar items. */
 function onNavKeyDown(e: React.KeyboardEvent<HTMLElement>) {
   if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return
-  const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-nav-item]")]
+  // Folded groups and sections stay in the DOM, inert; skip their rows.
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>("[data-nav-item]")].filter((el) => !el.closest("[inert]"))
   const i = items.indexOf(document.activeElement as HTMLElement)
   if (i === -1) return
   e.preventDefault()
@@ -156,11 +204,21 @@ function NavItem({
   dropActive?: boolean
 } & Omit<React.HTMLAttributes<HTMLButtonElement>, "onDrop">) {
   const [over, setOver] = useState(false)
+  // dragleave also fires when the pointer crosses onto the icon or label, which made the highlight
+  // blink off and on. Counting enters against leaves keeps it steady until the row is really left.
+  const dragDepth = useRef(0)
   return (
     <button
       data-nav-item
       aria-current={active ? "page" : undefined}
       onClick={onSelect}
+      onDragEnter={
+        onDrop
+          ? () => {
+              dragDepth.current += 1
+            }
+          : undefined
+      }
       onDragOver={
         onDrop
           ? (e) => {
@@ -171,10 +229,18 @@ function NavItem({
             }
           : undefined
       }
-      onDragLeave={() => setOver(false)}
+      onDragLeave={
+        onDrop
+          ? () => {
+              dragDepth.current = Math.max(0, dragDepth.current - 1)
+              if (dragDepth.current === 0) setOver(false)
+            }
+          : undefined
+      }
       onDrop={
         onDrop
           ? (e) => {
+              dragDepth.current = 0
               setOver(false)
               onDrop(e)
             }
@@ -184,7 +250,8 @@ function NavItem({
         "group/nav relative flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] press [--press-scale:0.985] outline-none",
         "text-sidebar-foreground/80 hover:text-sidebar-foreground",
         !active && "hover:bg-sidebar-accent",
-        "focus-visible:ring-2 focus-visible:ring-ring",
+        // Inset, so a fold's clip edge never cuts the ring of its first or last row.
+        "ring-inset focus-visible:ring-2 focus-visible:ring-ring",
         active && "text-sidebar-foreground",
         muted && "text-muted-foreground/70",
         (over || dropActive) && "scale-[1.02] bg-iris-soft text-iris-foreground ring-1 ring-iris/40",
@@ -192,10 +259,10 @@ function NavItem({
       style={{ paddingLeft: 8 + depth * 14 }}
       {...rest}
     >
-      <Icon className={cn("size-4 shrink-0 text-muted-foreground transition-colors", active && "text-iris")} />
+      <Icon className={cn("size-4 shrink-0 text-muted-foreground transition-colors duration-(--motion-fast)", active && "text-iris")} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {trailing}
-      {count !== undefined && count > 0 && <span key={count} className="text-[11px] text-faint tabular animate-tick">{count}</span>}
+      {count !== undefined && <Count value={count} />}
       {shortcut && <Shortcut combo={shortcut} />}
     </button>
   )
@@ -205,6 +272,7 @@ function GroupRow({
   node,
   counts,
   collapsed,
+  shown,
   toggleCollapsed,
   renaming,
   setRenaming,
@@ -213,6 +281,8 @@ function GroupRow({
   node: GroupNode
   counts: Map<string, number>
   collapsed: Set<string>
+  /** False while an ancestor or the section is folded: the row is still mounted, but must not claim the selection pill. */
+  shown: boolean
   toggleCollapsed: (id: string) => void
   renaming: string | null
   setRenaming: (id: string | null) => void
@@ -228,7 +298,7 @@ function GroupRow({
   const g = node.group
   const hasChildren = node.children.length > 0
   const isCollapsed = collapsed.has(g.id)
-  const active = view.kind === "group" && view.id === g.id
+  const active = shown && view.kind === "group" && view.id === g.id
   if (renaming === g.id) {
     return (
       <RenameRow
@@ -284,7 +354,7 @@ function GroupRow({
                       e.stopPropagation()
                       toggleCollapsed(g.id)
                     }}
-                    className="-mr-1 flex size-5 items-center justify-center rounded text-faint hover:text-foreground"
+                    className="-mr-1 flex size-5 items-center justify-center rounded text-faint transition-colors duration-(--motion-fast) hover:text-foreground"
                   >
                     <ChevronRight className={cn("size-3 transition-[rotate] duration-(--motion-moderate) ease-spring", !isCollapsed && "rotate-90")} />
                   </span>
@@ -307,7 +377,13 @@ function GroupRow({
         <ContextMenuItem onSelect={() => setRenaming(g.id)}>
           <Pencil /> Rename
         </ContextMenuItem>
-        <ContextMenuItem onSelect={() => createGroup("New group", g.id).then((ng) => setRenaming(ng.id))}>
+        <ContextMenuItem
+          onSelect={() => {
+            // The new row has to be reachable to be renamed; a folded parent would keep it inert.
+            if (isCollapsed) toggleCollapsed(g.id)
+            void createGroup("New group", g.id).then((ng) => setRenaming(ng.id))
+          }}
+        >
           <FolderPlus /> New subgroup
         </ContextMenuItem>
         <ContextMenuItem onSelect={() => onOpenSettings(g)}>
@@ -391,50 +467,65 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
       return n
     })
 
-  const renderNodes = (nodes: GroupNode[]): React.ReactNode =>
-    nodes.map((n) => (
-      <div key={n.group.id} role="none">
-        <GroupRow node={n} counts={counts} collapsed={collapsed} toggleCollapsed={toggleCollapsed} renaming={renaming} setRenaming={setRenaming} onOpenSettings={onOpenGroupSettings} />
-        {!collapsed.has(n.group.id) && renderNodes(n.children)}
-      </div>
-    ))
+  const snippetsOpen = !closed.has("snippets")
+  const clipboardOpen = !closed.has("clipboard")
+  const [rootOver, setRootOver] = useState(false)
 
-  const item = (v: View, icon: NavItemIcon, label: string, count?: number, shortcut?: string) => (
-    <NavItem icon={icon} label={label} count={count} active={sameView(view, v)} onSelect={() => setView(v)} shortcut={shortcut} />
+  const renderNodes = (nodes: GroupNode[], shown: boolean): React.ReactNode =>
+    nodes.map((n) => {
+      const open = !collapsed.has(n.group.id)
+      return (
+        <div key={n.group.id} role="none">
+          <GroupRow node={n} counts={counts} collapsed={collapsed} shown={shown} toggleCollapsed={toggleCollapsed} renaming={renaming} setRenaming={setRenaming} onOpenSettings={onOpenGroupSettings} />
+          {n.children.length > 0 && <Collapse open={open}>{renderNodes(n.children, shown && open)}</Collapse>}
+        </div>
+      )
+    })
+
+  // `shown` is false for rows inside a folded section (see GroupRow).
+  const item = (v: View, icon: NavItemIcon, label: string, count?: number, shortcut?: string, shown = true) => (
+    <NavItem icon={icon} label={label} count={count} active={shown && sameView(view, v)} onSelect={() => setView(v)} shortcut={shortcut} />
   )
 
   return (
     <aside aria-label="Sidebar" className="flex h-full w-full flex-col">
-      <div className="flex h-[72px] shrink-0 items-center gap-2 px-4">
+      <div className="relative flex h-[72px] shrink-0 items-center px-4">
         <button
           onClick={() => setView({ kind: "all" })}
           aria-label="Kudzu — all snippets"
-          className="flex min-w-0 items-center gap-2.5 rounded-lg p-1 text-foreground/90 transition-colors hover:text-foreground"
+          className="flex min-w-0 flex-1 rounded-lg p-1 text-foreground/90 press [--press-scale:0.985] hover:text-foreground"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- bundled app artwork */}
-          <img src="/icon.png" alt="" width={36} height={36} draggable={false} />
-          <Wordmark variant="small" className="w-[76px]" />
+          <Wordmark className="w-full shrink" />
         </button>
-        {isDev && <Badge className="ml-auto">Dev</Badge>}
+        {isDev && (
+          // A ribbon pinned across the wordmark's top-right corner, so the wordmark keeps the full width.
+          <span className="pointer-events-none absolute top-3.5 right-2.5 rotate-12 rounded-[3px] bg-iris px-2 py-px text-[10px] leading-4 font-semibold tracking-[0.08em] text-iris-contrast uppercase shadow-accent sheen-strong">
+            Dev
+          </span>
+        )}
       </div>
-      <nav aria-label="Library" className="relative isolate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown}>
+      <nav aria-label="Library" className="relative isolate flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-2.5 pb-3" onKeyDown={onNavKeyDown} {...foldTracking}>
         <SelectionPill className={NAV_PILL} />
         <section aria-label="Snippets" className="flex flex-col gap-px">
-          <SectionHeader id="sec-snippets" label="Snippets" open={!closed.has("snippets")} onToggle={() => toggleSection("snippets")} />
-          {!closed.has("snippets") && (
-            <div id="sec-snippets" className="flex flex-col gap-3 animate-rise">
+          <SectionHeader id="sec-snippets" label="Snippets" open={snippetsOpen} onToggle={() => toggleSection("snippets")} />
+          <Collapse id="sec-snippets" open={snippetsOpen} className="flex flex-col gap-3">
         <div className="flex flex-col gap-px">
-          {item({ kind: "all" }, Layers, "All snippets", library.snippets.length, "mod+1")}
-          {item({ kind: "favorites" }, Star, "Favorites", favorites, "mod+2")}
-          {item({ kind: "recent" }, Clock3, "Recently used", recent, "mod+3")}
-          {disabled > 0 && item({ kind: "disabled" }, CircleOff, "Turned off", disabled)}
+          {item({ kind: "all" }, Layers, "All snippets", library.snippets.length, "mod+1", snippetsOpen)}
+          {item({ kind: "favorites" }, Star, "Favorites", favorites, "mod+2", snippetsOpen)}
+          {item({ kind: "recent" }, Clock3, "Recently used", recent, "mod+3", snippetsOpen)}
+          {disabled > 0 && item({ kind: "disabled" }, CircleOff, "Turned off", disabled, undefined, snippetsOpen)}
         </div>
         <div className="flex flex-col gap-px">
           <div className="group/h flex h-6 items-center justify-between pr-1 pl-2">
             <span
-              className="text-[11px] font-medium tracking-wide text-faint"
-              onDragOver={(e) => e.preventDefault()}
+              className={cn("text-[11px] font-medium tracking-wide text-faint transition-colors duration-(--motion-fast)", rootOver && "text-iris-foreground")}
+              onDragOver={(e) => {
+                e.preventDefault()
+                setRootOver(true)
+              }}
+              onDragLeave={() => setRootOver(false)}
               onDrop={(e) => {
+                setRootOver(false)
                 const group = e.dataTransfer.getData(GROUP_DRAG_TYPE)
                 const moved = library.groups.find((x) => x.id === group)
                 if (moved) void saveGroup({ ...moved, parentID: undefined })
@@ -461,44 +552,41 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
             </Tooltip>
           </div>
           {tree.length ? (
-            renderNodes(tree)
+            renderNodes(tree, snippetsOpen)
           ) : (
             <button
               data-nav-item
               onClick={() => createGroup("New group", null).then((g) => setRenaming(g.id))}
-              className="mx-1 rounded-md border border-dashed border-border px-2 py-2 text-left text-xs text-muted-foreground hover:text-foreground"
+              className="mx-1 rounded-md border border-dashed border-border px-2 py-2 text-left text-xs text-muted-foreground press [--press-scale:0.985] outline-none ring-inset hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             >
               Organize snippets into groups — like Work, Email or Code.
             </button>
           )}
         </div>
-            </div>
-          )}
+          </Collapse>
         </section>
 
         <section aria-label="Clipboard" className="flex flex-col gap-px">
           <SectionHeader
             id="sec-clipboard"
             label="Clipboard"
-            open={!closed.has("clipboard")}
+            open={clipboardOpen}
             onToggle={() => toggleSection("clipboard")}
             trailing={!clipOn ? <span className="mr-1 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">Paused</span> : undefined}
           />
-          {!closed.has("clipboard") && (
-            <div id="sec-clipboard" className="flex flex-col gap-px animate-rise">
-              <NavItem icon={ClipboardList} label="History" count={clipCounts.get("all")} active={activeClip === "all"} onSelect={() => setView({ kind: "clipboard" })} shortcut="mod+5" />
+          <Collapse id="sec-clipboard" open={clipboardOpen} className="flex flex-col gap-px">
+              <NavItem icon={ClipboardList} label="History" count={clipCounts.get("all")} active={clipboardOpen && activeClip === "all"} onSelect={() => setView({ kind: "clipboard" })} shortcut="mod+5" />
               {FILTERS.filter((f) => f.value !== "all" && (f.value === "pinned" || (clipCounts.get(f.value) ?? 0) > 0 || activeClip === f.value)).map((f) => (
                 <NavItem
                   key={f.value}
                   icon={CLIP_ICONS[f.value as Exclude<ClipFilter, "all">]}
                   label={f.label}
                   count={clipCounts.get(f.value)}
-                  active={activeClip === f.value}
+                  active={clipboardOpen && activeClip === f.value}
                   onSelect={() => setView({ kind: "clipboard", filter: f.value })}
                 />
               ))}
-            </div>
-          )}
+          </Collapse>
         </section>
       </nav>
       <div className="relative isolate flex flex-col gap-px border-t border-hairline px-2.5 py-2" onKeyDown={onNavKeyDown}>
@@ -511,7 +599,8 @@ export function Sidebar({ onOpenGroupSettings, isDev }: { onOpenGroupSettings: (
   )
 }
 
-const NAV_PILL = "rounded-md bg-sidebar-accent shadow-selected"
+// While a group or section folds, the pill is re-placed every frame; easing each step would leave it trailing its row.
+const NAV_PILL = "rounded-md bg-sidebar-accent shadow-selected in-data-[folding]:transition-[opacity]!"
 
 type NavItemIcon = React.ComponentType<{ className?: string }>
 
