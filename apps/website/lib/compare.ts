@@ -56,7 +56,7 @@ export const comparisons: Comparison[] = [
       steps: [
         "Install Kudzu. Onboarding detects your Espanso library and offers to import it, after taking a backup.",
         "Dates, clipboard variables, forms, and nested snippets carry over.",
-        "Scripts and rich text are imported as plain text, with warnings so you can review them.",
+        "Bold, italic, underline, links, and lists in markdown and HTML matches carry over too. Scripts are imported as plain text, with warnings so you can review them.",
         "Pause Espanso before you try your triggers, so both apps don’t expand the same one. Keep your Espanso files until you’re happy.",
       ],
     },
@@ -70,7 +70,7 @@ export const comparisons: Comparison[] = [
     name: "TextExpander",
     seoTitle: "TextExpander alternative for Mac: Kudzu vs TextExpander",
     checked: "November 8, 2026",
-    migration: "No importer yet. Start with the one reply you type most.",
+    migration: "Kudzu imports your TextExpander groups, with fill-ins and formatting.",
     summary:
       "TextExpander is a long-running service that spans several platforms and offers team plans. Kudzu is a free, open-source Mac app with no account.",
     rows: [
@@ -100,10 +100,11 @@ export const comparisons: Comparison[] = [
     moving: {
       title: "Moving from TextExpander",
       steps: [
-        "Kudzu has no TextExpander importer yet, so start with one snippet you use every day, like your signature.",
-        "Recreate it in Kudzu’s editor. Kudzu triggers can be any text you like, so keep the one your fingers already know.",
-        "Turn off that snippet in TextExpander, or pause TextExpander, so both apps don’t expand it.",
-        "Use it for a day. If it sticks, move the rest of your favorites over.",
+        "In TextExpander, export a group as a .textexpander file or as CSV.",
+        "In Kudzu, open Settings → Backups & data, choose Import, and pick the file. Kudzu takes a backup first.",
+        "Abbreviations, dates, the clipboard, fill-ins, pop-up menus, Tab and Return key presses, and nested snippets carry over. So do bold, italic, underline, links, and lists.",
+        "AppleScript, JavaScript, and shell snippets are skipped, with a warning for each so you can review them.",
+        "Pause TextExpander before you try your abbreviations, so both apps don’t expand the same one.",
       ],
     },
     sources: [
@@ -149,9 +150,10 @@ export const comparisons: Comparison[] = [
     moving: {
       title: "Moving from Raycast",
       steps: [
-        "Kudzu has no Raycast importer yet, so start with the snippets you use most.",
-        "Recreate them in Kudzu’s editor, keeping the same triggers.",
-        "Turn off Raycast’s snippet expansion so both apps don’t fire on the same trigger.",
+        "In Raycast, run Export Snippets to save them as a JSON file.",
+        "In Kudzu, open Settings → Backups & data, choose Import, and pick the file. Your snippets arrive in a Raycast group with the same keywords.",
+        "Dates, the clipboard, the cursor position, arguments, the selection, and nested snippets carry over. Anything Kudzu can’t express is kept as text, with a warning.",
+        "Turn off Raycast’s snippet expansion so both apps don’t fire on the same keyword.",
       ],
     },
     sources: [

@@ -156,7 +156,9 @@ export default function DocsPage() {
           </p>
           <ul>
             <li>
-              <strong>Import:</strong> from Espanso (detected automatically) or a Kudzu JSON file.
+              <strong>Import:</strong> from Espanso (detected automatically), Raycast,
+              TextExpander, or a Kudzu JSON file. Bold, italic, underline, links, and lists come
+              across from Espanso and TextExpander, and Kudzu tells you what it had to leave out.
               Kudzu takes a backup first.
             </li>
             <li>
@@ -176,6 +178,11 @@ export default function DocsPage() {
 
           <h2 id="troubleshooting">Troubleshooting</h2>
           <h3>A shortcut doesn’t expand</h3>
+          <p>
+            Open <strong>Settings → Activity</strong>. It lists your recent shortcuts and says why
+            each one expanded or was skipped, with a button to fix it where there is one. The list
+            is kept in memory only and never includes what you typed.
+          </p>
           <ul>
             <li>Check that Kudzu isn’t paused and the snippet is turned on.</li>
             <li>
@@ -184,6 +191,11 @@ export default function DocsPage() {
             </li>
             <li>Check the snippet’s app rules. Password managers are excluded by default.</li>
             <li>If you just granted access, restarting Kudzu can reconnect the keyboard.</li>
+            <li>
+              Shortcuts don’t expand while you’re composing text with a Japanese, Chinese, Korean,
+              or Vietnamese input method, so Kudzu never breaks a word in progress. Quick search
+              still works there.
+            </li>
           </ul>
           <h3>Text arrives wrong in one app</h3>
           <p>
