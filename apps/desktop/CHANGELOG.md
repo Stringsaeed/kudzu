@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Stringsaeed/kudzu/compare/v0.7.0...v0.7.1) (2026-11-10)
+
+
+### Fixes
+
+* **desktop:** give the native paste test time to build the Swift module cache ([#45](https://github.com/Stringsaeed/kudzu/issues/45)) ([f09c779](https://github.com/Stringsaeed/kudzu/commit/f09c779db9d3bf47137eb40b31353333f580fec8))
+
 ## [0.7.0](https://github.com/Stringsaeed/kudzu/compare/v0.6.0...v0.7.0) (2026-11-10)
 
 
