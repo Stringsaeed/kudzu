@@ -1,9 +1,10 @@
 //! Number, duration, date and size formatting helpers for the UI.
 //!
 //! English, en-US, matching `lib/stats.ts`, `lib/clipboard.ts` (`formatBytes`) and
-//! `lib/activity.ts` (`activityTime`). The product locale is not switched.
+//! `lib/activity.ts` (`activityTime`). The product locale is not switched. Calendar
+//! decisions use a caller-supplied offset so this crate never reads the OS zone.
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
+use chrono::{DateTime, Datelike, FixedOffset, TimeZone, Timelike, Utc};
 
 /// Compact count: `999`, `1.0k`, `1000k`, `1.0M`.
 pub fn format_count(n: i64) -> String {
@@ -36,7 +37,10 @@ pub fn format_duration(minutes: f64) -> String {
 }
 
 /// Relative time from an epoch-millis timestamp. `0` is `"Never"`.
-pub fn relative_time(at_ms: i64, now_ms: i64) -> String {
+///
+/// `offset_minutes` is minutes east of UTC (the JS `Date#getTimezoneOffset` sign flipped).
+/// It is used only for the calendar-date fallback past the 30-day cutoff.
+pub fn relative_time(at_ms: i64, now_ms: i64, offset_minutes: i32) -> String {
     if at_ms == 0 {
         return "Never".into();
     }
@@ -54,7 +58,7 @@ pub fn relative_time(at_ms: i64, now_ms: i64) -> String {
     if abs < 86_400.0 * 30.0 {
         return format_rtf(js_round(diff / 86_400.0), Unit::Day);
     }
-    format_calendar_date(millis_to_utc(at_ms))
+    format_calendar_date(&to_offset(millis_to_utc(at_ms), offset_minutes))
 }
 
 /// Byte size: `0 B`, `1.0 KB`, `977 KB`, `37 MB`.
@@ -73,13 +77,17 @@ pub fn format_bytes(n: u64) -> String {
     format!("{} {}", to_fixed(v, digits), units[u])
 }
 
-/// Clock: time of day when `at` is today, otherwise `"Mon D, h:mm AM"`.
-pub fn clock(at: DateTime<Utc>, now: DateTime<Utc>) -> String {
-    let time = time_of_day(at);
+/// Clock: time of day when `at` is today in the given offset, otherwise `"Mon D, h:mm AM"`.
+///
+/// `offset_minutes` is minutes east of UTC. Core never reads the OS zone.
+pub fn clock(at: DateTime<Utc>, now: DateTime<Utc>, offset_minutes: i32) -> String {
+    let at = to_offset(at, offset_minutes);
+    let now = to_offset(now, offset_minutes);
+    let time = time_of_day(&at);
     if at.date_naive() == now.date_naive() {
         time
     } else {
-        format!("{}, {time}", short_month_day(at))
+        format!("{}, {time}", short_month_day(&at))
     }
 }
 
@@ -107,11 +115,11 @@ fn format_rtf(value: i64, unit: Unit) -> String {
     }
 }
 
-fn format_calendar_date(at: DateTime<Utc>) -> String {
+fn format_calendar_date<Tz: TimeZone>(at: &DateTime<Tz>) -> String {
     format!("{} {}, {}", month_short(at.month()), at.day(), at.year())
 }
 
-fn short_month_day(at: DateTime<Utc>) -> String {
+fn short_month_day<Tz: TimeZone>(at: &DateTime<Tz>) -> String {
     format!("{} {}", month_short(at.month()), at.day())
 }
 
@@ -133,7 +141,7 @@ fn month_short(month: u32) -> &'static str {
     }
 }
 
-fn time_of_day(at: DateTime<Utc>) -> String {
+fn time_of_day<Tz: TimeZone>(at: &DateTime<Tz>) -> String {
     let h24 = at.hour();
     let (h12, ampm) = match h24 {
         0 => (12, "AM"),
@@ -146,6 +154,15 @@ fn time_of_day(at: DateTime<Utc>) -> String {
 
 fn millis_to_utc(ms: i64) -> DateTime<Utc> {
     DateTime::from_timestamp_millis(ms).unwrap_or(DateTime::<Utc>::UNIX_EPOCH)
+}
+
+fn to_offset(at: DateTime<Utc>, offset_minutes: i32) -> DateTime<FixedOffset> {
+    at.with_timezone(&fixed_offset(offset_minutes))
+}
+
+fn fixed_offset(offset_minutes: i32) -> FixedOffset {
+    let seconds = offset_minutes.clamp(-14 * 60, 14 * 60).saturating_mul(60);
+    FixedOffset::east_opt(seconds).unwrap_or_else(|| FixedOffset::east_opt(0).unwrap())
 }
 
 /// JavaScript `Math.round`: nearest integer, ties toward +∞.

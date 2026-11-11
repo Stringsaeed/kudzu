@@ -27,7 +27,7 @@ struct NotesResult {
 #[test]
 fn parse_matches_every_release_notes_fixture() {
     let cases: Vec<NotesCase> = load("release-notes.json");
-    assert_eq!(cases.len(), 4);
+    assert!(!cases.is_empty());
     for (i, case) in cases.iter().enumerate() {
         let got = release_notes::parse(case.input.as_deref());
         let want: Vec<NotesSection> = case

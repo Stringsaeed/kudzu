@@ -91,9 +91,16 @@ fn take_digits(s: &str) -> Option<&str> {
 }
 
 fn strip_bullet(line: &str) -> &str {
-    line.strip_prefix("* ")
-        .or_else(|| line.strip_prefix("- "))
-        .unwrap_or(line)
+    let rest = line.strip_prefix(['*', '-']).unwrap_or(line);
+    if rest.len() == line.len() {
+        return line;
+    }
+    let trimmed = rest.trim_start();
+    if trimmed.len() == rest.len() {
+        line
+    } else {
+        trimmed
+    }
 }
 
 /// `\s*\(\[[0-9a-f]{7,}\]\([^)]*\)\)`

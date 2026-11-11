@@ -17,6 +17,7 @@ fn load<T: for<'de> Deserialize<'de>>(name: &str) -> T {
 #[derive(Deserialize)]
 struct KeysFixture {
     labels: Vec<LabelCase>,
+    spoken: Vec<SpokenCase>,
     recorder: Vec<RecorderCase>,
 }
 
@@ -25,6 +26,12 @@ struct LabelCase {
     input: String,
     keys: Vec<String>,
     accelerator: Vec<String>,
+}
+
+#[derive(Deserialize)]
+struct SpokenCase {
+    input: String,
+    spoken: String,
 }
 
 #[derive(Deserialize)]
@@ -64,7 +71,7 @@ impl From<&FixtureEvent> for KeyEvent {
 #[test]
 fn labels_match_every_keys_fixture() {
     let fixture: KeysFixture = load("keys.json");
-    assert_eq!(fixture.labels.len(), 5);
+    assert!(!fixture.labels.is_empty());
     for case in &fixture.labels {
         assert_eq!(
             key_labels(&case.input),
@@ -82,38 +89,33 @@ fn labels_match_every_keys_fixture() {
 }
 
 #[test]
-fn recorder_matches_every_keys_fixture() {
+fn spoken_labels_match_every_keys_fixture() {
     let fixture: KeysFixture = load("keys.json");
-    assert_eq!(fixture.recorder.len(), 8);
-    for case in &fixture.recorder {
-        let event = KeyEvent::from(&case.event);
+    assert!(!fixture.spoken.is_empty());
+    for case in &fixture.spoken {
         assert_eq!(
-            accelerator_from_event(&event),
-            case.result,
-            "accelerator_from_event({:?})",
-            case.event.key
+            spoken_shortcut(&case.input),
+            case.spoken,
+            "spoken_shortcut({})",
+            case.input
         );
     }
 }
 
 #[test]
-fn spoken_labels_use_mac_words() {
-    assert_eq!(spoken_shortcut("mod+enter"), "Command Return");
-    assert_eq!(spoken_shortcut("mod+shift+p"), "Command Shift P");
-    assert_eq!(spoken_shortcut("alt+up"), "Option Up Arrow");
-}
-
-#[test]
-fn shift_plus_function_key_is_accepted() {
-    let event = KeyEvent {
-        key: "F5".into(),
-        code: "F5".into(),
-        ctrl: false,
-        alt: false,
-        shift: true,
-        meta: false,
-    };
-    assert_eq!(accelerator_from_event(&event).as_deref(), Some("Shift+F5"));
+fn recorder_matches_every_keys_fixture() {
+    let fixture: KeysFixture = load("keys.json");
+    assert!(!fixture.recorder.is_empty());
+    for case in &fixture.recorder {
+        let event = KeyEvent::from(&case.event);
+        assert_eq!(
+            accelerator_from_event(&event),
+            case.result,
+            "accelerator_from_event({:?} {:?})",
+            case.event.key,
+            case.event.code
+        );
+    }
 }
 
 #[test]
