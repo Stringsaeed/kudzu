@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 
-use kudzu_core::matching::{KeyInput, MatcherEvent};
+use kudzu_core::matching::{KeyInput, MatcherEvent, TriggerMatch};
 
 use super::super::ffi::{
     kCGEventKeyDown, kCGEventKeyUp, kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput,
@@ -240,16 +240,6 @@ impl Imp {
             // Listen-only can't hold input: let the final key reach the app before deleting.
             self.observe().sleep(LISTEN_ONLY_SETTLE);
         }
-        if !self.is_current(token)
-            || !self.allowed(Guard::Typed)
-            || self.observe().frontmost_pid() != m.pid
-        {
-            return Ok(());
-        }
-        if m.mode == PlanMode::ListenOnly && lock(&self.core).listen_only_interrupted {
-            lock(&self.core).reset_matcher();
-            return Ok(());
-        }
         let typed_live = Live {
             generation: token,
             guard: Guard::Typed,
@@ -257,10 +247,39 @@ impl Imp {
             listen_only: true,
             form: None,
         };
-        match m.event {
+        // The key an active listener withheld, for a match cancelled before anything happened.
+        let withheld = m
+            .swallowed
+            .as_deref()
+            .filter(|_| m.mode == PlanMode::Active);
+        let cancelled = |imp: &Imp, trigger: &TriggerMatch| {
+            let typed = TypedTrigger {
+                trigger,
+                mode: m.mode,
+                swallowed: withheld,
+                live: typed_live,
+            };
+            imp.cancelled(&typed, 0);
+        };
+        if !self.is_current(token)
+            || !self.allowed(Guard::Typed)
+            || self.observe().frontmost_pid() != m.pid
+        {
+            if let MatcherEvent::Expand(trigger) = &m.event {
+                cancelled(self, trigger);
+            }
+            return Ok(());
+        }
+        if m.mode == PlanMode::ListenOnly && lock(&self.core).listen_only_interrupted {
+            lock(&self.core).reset_matcher();
+            return Ok(());
+        }
+        match &m.event {
             MatcherEvent::Expand(trigger) => {
+                let trigger = trigger.clone();
                 let library = self.library();
                 let Some(snippet) = library.snippets.get(&trigger.snippet_id) else {
+                    cancelled(self, &trigger);
                     return Ok(());
                 };
                 let fields = library.form_fields(snippet);

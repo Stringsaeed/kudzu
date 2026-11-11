@@ -95,6 +95,7 @@ impl Imp {
             while let Some((Step::Pause(duration), rest)) = steps.split_first() {
                 if !self.still_live(&t.live) {
                     lock(&self.core).reset_matcher();
+                    self.cancelled(t, 0);
                     return Ok(false);
                 }
                 self.pause(token, *duration);
@@ -111,19 +112,31 @@ impl Imp {
             listen_only: false,
             ..live
         };
-        let stop = |imp: &Imp| {
+        // A stop after the deletion but before any of the expansion's text went in leaves the
+        // document without the trigger: the host hears it is lost (unless already told).
+        let stop = |imp: &Imp, told: bool| {
+            if let (Some(t), false) = (&typed, told) {
+                imp.lost(t);
+            }
             lock(&imp.core).reset_matcher();
             Ok(false)
         };
+        let mut inserted = false;
         for item in steps {
             if !self.still_live(&step) {
-                return stop(self);
+                return stop(self, inserted);
             }
             match item {
                 Step::Text { text, spans } => {
                     self.keep_holding(token, Duration::ZERO);
                     let delivered = match (first.take(), &typed) {
-                        (Some(delivery), Some(t)) => self.complete_or_put_back(t, delivery)?,
+                        // Reports the loss itself when it stops.
+                        (Some(delivery), Some(t)) => {
+                            if !self.complete_or_put_back(t, delivery)? {
+                                return stop(self, true);
+                            }
+                            true
+                        }
                         _ => {
                             let html = spans
                                 .as_ref()
@@ -132,13 +145,14 @@ impl Imp {
                         }
                     };
                     if !delivered {
-                        return stop(self);
+                        return stop(self, inserted);
                     }
+                    inserted = true;
                 }
                 Step::Key { key, count } => {
                     self.keep_holding(token, Duration::ZERO);
                     if !self.post_checked(&step, &keys::key_presses(*key, *count))? {
-                        return stop(self);
+                        return stop(self, inserted);
                     }
                     self.observe().sleep(KEY_SETTLE);
                 }
@@ -147,7 +161,7 @@ impl Imp {
         }
         self.keep_holding(token, Duration::ZERO);
         if !self.still_live(&step) {
-            return stop(self);
+            return stop(self, inserted);
         }
         // An image's delivered length depends on the app, so the caret isn't moved by a guess.
         let mut caret_left = if sequence.has_images {
@@ -161,17 +175,15 @@ impl Imp {
             .and_then(|t| t.trigger.separator.as_deref());
         if let Some(separator) = separator {
             if !self.post_checked(&step, &keys::retype_presses(separator))? {
-                if let Some(t) = &typed {
-                    self.lost(t);
-                }
-                return stop(self);
+                // The separator the user typed didn't go back in.
+                return stop(self, false);
             }
             if caret_left > 0 {
                 caret_left += plan::grapheme_count(separator);
             }
         }
         if !self.post_checked(&step, &keys::left_presses(caret_left))? {
-            return stop(self);
+            return stop(self, true);
         }
         let mut core = lock(&self.core);
         if core.generation == token {

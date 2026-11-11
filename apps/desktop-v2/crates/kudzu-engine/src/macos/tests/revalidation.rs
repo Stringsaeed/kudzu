@@ -44,6 +44,8 @@ fn a_click_while_the_clipboard_is_prepared_deletes_nothing() {
     assert_eq!(rig.doc(), ";|si");
     assert_eq!(rig.clipboard(), user_clipboard());
     assert_eq!(rig.host.outcomes(), [ActivityOutcome::Interrupted]);
+    // The withheld "g" can't go back at the moved caret.
+    assert_eq!(lost(&rig), sig_lost(&rig));
 }
 
 /// Listen-only: a key typed while the clipboard is prepared reaches the document after the
@@ -58,6 +60,8 @@ fn listen_only_typing_while_the_clipboard_is_prepared_deletes_nothing() {
     assert_eq!(rig.posted(), []);
     assert_eq!(rig.doc(), ";sigx|");
     assert_eq!(rig.clipboard(), user_clipboard());
+    // Listen-only withheld nothing: the trigger is all there.
+    assert_eq!(lost(&rig), []);
 }
 
 /// Another app comes forward while a preparation waits, and then the clipboard can't be saved:
@@ -119,6 +123,7 @@ fn a_click_while_a_sequence_prepares_deletes_nothing() {
     rig.type_(";sig");
     assert_eq!(rig.log(), [transient("first"), restored()]);
     assert_eq!(rig.doc(), ";|si");
+    assert_eq!(lost(&rig), sig_lost(&rig));
 }
 
 /// A Quick Search insert re-checks its target after preparing too: nothing is pasted into the

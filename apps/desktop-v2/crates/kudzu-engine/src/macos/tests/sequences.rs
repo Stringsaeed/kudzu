@@ -158,7 +158,8 @@ fn a_leading_delay_runs_before_the_trigger_is_deleted() {
     assert_eq!(rig.host.expansions(), 1);
 }
 
-/// A click during that pause cancels with nothing deleted.
+/// A click during that pause cancels with nothing deleted. The listener withheld the "d",
+/// and it can't be typed into the changed context, so the host hears it is lost (D17).
 #[test]
 fn a_click_during_a_leading_delay_deletes_nothing() {
     let rig = Rig::new(&[snippet(";d", "{{delay ms=100}}text")]);
@@ -167,4 +168,17 @@ fn a_click_during_a_leading_delay_deletes_nothing() {
     assert_eq!(rig.posted(), []);
     assert_eq!(rig.doc(), ";|");
     assert_eq!(rig.host.expansions(), 0);
+    assert_eq!(rig.host.lost.lock().unwrap().len(), 1);
+}
+
+/// The trigger is deleted, then a click stops the sequence before anything of the expansion
+/// went in: the host hears the trigger is lost.
+#[test]
+fn a_sequence_stopped_right_after_deleting_reports_the_lost_trigger() {
+    let rig = Rig::new(&[snippet(";s", "one{{key name=tab}}two")]);
+    rig.at(At::Press(0), |d| d.clicks());
+    rig.type_(";s");
+    assert_eq!(rig.posted(), [Out::Backspace]);
+    assert_eq!(rig.doc(), "|");
+    assert_eq!(rig.host.lost.lock().unwrap().len(), 1);
 }

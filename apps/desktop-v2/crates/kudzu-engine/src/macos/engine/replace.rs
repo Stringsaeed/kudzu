@@ -216,9 +216,7 @@ impl Imp {
         for deleted in 0..t.delete_count() {
             if !self.still_live(&t.live) {
                 prepared.take();
-                if deleted > 0 {
-                    self.lost(t);
-                }
+                self.cancelled(t, deleted);
                 return Ok(false);
             }
             if let Err(error) = keys::backspace_presses(1)[0].post(self.events()) {
@@ -314,6 +312,15 @@ impl Imp {
                 self.lost(t);
                 false
             }
+        }
+    }
+
+    /// `t`'s insertion was cancelled after `deleted` of its Backspaces. Whatever of the trigger
+    /// isn't in the document (the key an active listener withheld, the deleted part) can't go
+    /// back into the changed context, so the host hears it is lost (D17).
+    pub(super) fn cancelled(&self, t: &TypedTrigger<'_>, deleted: usize) {
+        if !t.restoration(deleted).is_empty() {
+            self.lost(t);
         }
     }
 
