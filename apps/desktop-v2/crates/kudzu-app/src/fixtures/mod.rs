@@ -394,4 +394,62 @@ mod tests {
         cloud.stop();
         assert_eq!(cloud.state.lock().unwrap().stops, 2);
     }
+
+    fn pending_record(name: &str) -> kudzu_core::sync::RemoteRecord {
+        kudzu_core::sync::RemoteRecord {
+            kind: kudzu_core::sync::RecordKind::Snippet,
+            name: name.into(),
+            payload: "{}".into(),
+        }
+    }
+
+    #[test]
+    fn a_conflict_drops_the_pending_record() {
+        let cloud = super::cloudkit::FakeCloud::default();
+        let events = Arc::new(super::cloudkit::FakeCloudEvents::default());
+        cloud.start(1, None, events).unwrap();
+        let record = pending_record("snippet-a");
+        cloud.script(vec![super::cloudkit::CloudScript::Sent(CloudSend {
+            conflicts: vec![record.clone()],
+            ..CloudSend::default()
+        })]);
+        cloud
+            .send(
+                1,
+                CloudBatch {
+                    records: vec![record],
+                    ..CloudBatch::default()
+                },
+            )
+            .unwrap();
+        assert!(
+            cloud.state.lock().unwrap().pending.is_empty(),
+            "a conflict left the losing payload pending"
+        );
+    }
+
+    #[test]
+    fn a_send_failure_drops_the_pending_records() {
+        let cloud = super::cloudkit::FakeCloud::default();
+        let events = Arc::new(super::cloudkit::FakeCloudEvents::default());
+        cloud.start(1, None, events).unwrap();
+        let record = pending_record("snippet-b");
+        cloud.script(vec![super::cloudkit::CloudScript::Sent(CloudSend {
+            failure: Some(CloudSendFailure::Permanent),
+            ..CloudSend::default()
+        })]);
+        cloud
+            .send(
+                1,
+                CloudBatch {
+                    records: vec![record],
+                    ..CloudBatch::default()
+                },
+            )
+            .unwrap();
+        assert!(
+            cloud.state.lock().unwrap().pending.is_empty(),
+            "a send failure left the records pending"
+        );
+    }
 }
