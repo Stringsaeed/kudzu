@@ -1,0 +1,13 @@
+exit=0
+S10 status item installed windowless, title=Dev template=true
+rune: first frame took 1113 ms (setup 858 ms, init 0 ms, first view 2 ms, window and GPU 252 ms); the slowest is setup in `main` before `run`: start slow work from `on_ready`. (debug builds only; RUNE_PERF_WARN=0 silences)
+S10 swapped template image alternate=true
+S10 observed title=Dev template=true menu_items=7
+S10 app menu: About menubar [] |  [] | Services [] |  [] | Hide menubar [h] | Hide Others [h] |  [] | Close Windows [q] | Quit Kudzu []
+S10 app menu: About menubar [] |  [] | Services [] |  [] | Hide menubar [h] | Hide Others [h] |  [] | Close Windows [q] | Quit Kudzu []
+S10 main visible after open=true
+S10 close windows
+S10 main visible after close=false
+S10 requesting Rune quit with no shown windows
+S10 on_quit
+S10 event loop returned
