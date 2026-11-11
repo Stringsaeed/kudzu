@@ -1230,7 +1230,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D8 | **Dev identity before cut-over:** Kudzu Next (`sh.saeed.kudzu.next`). | §1.6, S03, S75 |
 | D9 | **FRM-4 form safety:** build the fix. A form interrupted by typing in the target app is not submitted, so it never deletes text in the wrong place. A fourth fix beside D5's three. | §1.2, S39, S57 |
 | D10 | **CI:** the orchestrator pushes `t3/rune-migration-plan` to origin after merges so the `desktop-v2` workflow runs. No PRs. | S01 onward |
-| D11 | **Model routing (2026-11-11):** Claude has headroom for now, so Claude (Fable 5.1, Opus 5.5, Sonnet 5.5) implements most steps and Codex is used more lightly. The orchestrator may reassign a step's implementer and reviewer from §4; implementer and reviewer still come from different providers, and the step report names the models used. | §4 |
+| D11 | **Model routing (2026-11-11):** spread implementation across providers (Claude, Codex, Grok, OpenCode Go); no single provider takes most steps. Claude has headroom for now and takes the hardest steps; Codex is used a little more lightly than §4 says. The orchestrator may reassign a step's implementer and reviewer from §4; implementer and reviewer still come from different providers, and the step report names the models used. | §4 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
