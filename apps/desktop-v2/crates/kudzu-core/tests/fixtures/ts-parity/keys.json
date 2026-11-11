@@ -1,0 +1,131 @@
+{
+  "labels": [
+    {
+      "input": "mod+k",
+      "keys": [
+        "⌘",
+        "K"
+      ],
+      "accelerator": [
+        "⌘",
+        "K"
+      ]
+    },
+    {
+      "input": "mod+shift+p",
+      "keys": [
+        "⌘",
+        "⇧",
+        "P"
+      ],
+      "accelerator": [
+        "⌘",
+        "⇧",
+        "P"
+      ]
+    },
+    {
+      "input": "Control+Alt+Space",
+      "keys": [
+        "⌃",
+        "⌥",
+        "Space"
+      ],
+      "accelerator": [
+        "⌃",
+        "⌥",
+        "Space"
+      ]
+    },
+    {
+      "input": "CommandOrControl+Shift+F12",
+      "keys": [
+        "CommandOrControl",
+        "⇧",
+        "F12"
+      ],
+      "accelerator": [
+        "⌘",
+        "⇧",
+        "F12"
+      ]
+    },
+    {
+      "input": "Ctrl+Alt+V",
+      "keys": [
+        "⌃",
+        "⌥",
+        "V"
+      ],
+      "accelerator": [
+        "⌃",
+        "⌥",
+        "V"
+      ]
+    }
+  ],
+  "recorder": [
+    {
+      "event": {
+        "key": "a",
+        "code": "KeyA"
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "a",
+        "shiftKey": true,
+        "code": "KeyA"
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "a",
+        "metaKey": true,
+        "code": "KeyA"
+      },
+      "result": "Command+A"
+    },
+    {
+      "event": {
+        "key": "F5",
+        "code": "F5"
+      },
+      "result": "F5"
+    },
+    {
+      "event": {
+        "key": "Shift",
+        "shiftKey": true,
+        "code": "Shift"
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": " ",
+        "ctrlKey": true,
+        "altKey": true,
+        "code": "Space"
+      },
+      "result": "Control+Alt+Space"
+    },
+    {
+      "event": {
+        "key": "Escape",
+        "code": "Escape"
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "ArrowLeft",
+        "ctrlKey": true,
+        "code": "ArrowLeft"
+      },
+      "result": null
+    }
+  ]
+}
