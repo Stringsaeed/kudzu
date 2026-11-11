@@ -1,7 +1,10 @@
 //! The component gallery: one window (headless and debug builds only), one scene per page.
 //! S04 adds the `tokens` scene; S05 and S06 add theirs to `SCENES` and `Page`.
+pub mod components;
 pub mod icons;
 pub mod tokens;
+
+use std::sync::LazyLock;
 
 use rune::{AppSpec, Cx, El};
 
@@ -15,6 +18,7 @@ pub enum Page {
     #[default]
     Tokens,
     Icons,
+    Component(components::Primitive),
 }
 
 #[derive(Debug, Default)]
@@ -35,20 +39,23 @@ type Scene = (&'static str, fn(&mut GalleryState));
 
 const SCENES: &[Scene] = &[("tokens", tokens_page), ("icons", icons_page)];
 
+/// The gallery's own scenes, then one per shadcn primitive (S06).
+static ALL_SCENES: LazyLock<Vec<Scene>> = LazyLock::new(|| [SCENES, components::SCENES].concat());
+
 fn view(s: &GalleryState, cx: &mut Cx<GalleryState>) -> El {
     // The gallery follows `--theme`; the app follows the Appearance setting.
     let theme = Theme::resolve(Appearance::System, cx.system_dark());
     match s.page {
         Page::Tokens => tokens::view(theme),
-        // The icon scene draws white glyphs, so it sits on black in both themes.
-        Page::Icons => icons::scene().fill(rune::Color::BLACK),
+        Page::Icons => icons::scene(theme),
+        Page::Component(p) => components::view(p, theme),
     }
 }
 
 /// The gallery window, opened only when asked for.
 pub fn window() -> rune::AnyWindowSpec {
     let spec = AppSpec {
-        scenes: SCENES,
+        scenes: ALL_SCENES.as_slice(),
         fonts: fonts::FILES,
         families: fonts::families(),
         ..AppSpec::new("Kudzu Gallery", tokens::SIZE, GalleryState::default, view)

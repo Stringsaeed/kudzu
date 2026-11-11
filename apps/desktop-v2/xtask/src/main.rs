@@ -1,5 +1,6 @@
 mod bundle;
 mod check_deps;
+mod parity;
 mod run;
 
 fn main() {
@@ -12,8 +13,9 @@ fn main() {
             .and_then(|(variant, universal)| bundle::build(variant, universal))
             .map(|path| println!("Built {}", path.display())),
         Some("run") if args.len() == 1 => run::run(),
+        Some("parity") => parity::run(&args[1..]),
         _ => Err(
-            "usage: cargo xtask check-deps | bundle --variant dev|prod [--universal] | run".into(),
+            "usage: cargo xtask check-deps | bundle --variant dev|prod [--universal] | run | parity".into(),
         ),
     };
     if let Err(error) = result {
