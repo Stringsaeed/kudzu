@@ -1344,6 +1344,13 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - The real GitHub redirect chain, a system proxy and a custom root; TLS succeeds with managed roots.
   - Restart to Update: no double launch, and a quiet signed skip doesn't pretend a swap happened.
   - Odd file names and an install folder containing `&`: the app starts, and the login item is reported unavailable.
+- **Live checks from the S37 review:**
+  - For fetched Kudzu records, log `zoneID.ownerName` against `CKCurrentUserDefaultName`, and confirm Rune applies the Tauri app's records rather than re-uploading them as new.
+  - First launch on an empty account: no "temporarily unavailable" before the zone exists; `full_fetch`, then the local upload.
+  - One conflicted record: the status is not `PERMANENT_FAILURE`, the winner applies, and there is no requeue loop.
+  - Byte-compare the `KudzuSnippet`, `KudzuGroup`, `KudzuUsage` and `KudzuMeta` names and `payload` strings between Tauri and Rune on two Macs; the SwiftData zone is untouched.
+  - Zone reset: recreation is queued before `zone_deleted`, the library is kept, and the service resends.
+  - A signed run on Apple Silicon and the Intel slice under Rosetta (a successful compile isn't this evidence).
 - **Accept:** `NATIVE_SYSTEM.md` complete, with the machine, macOS version and display. Every failure fixed, or carried to S74. Every budget met, or the miss listed with its cause and upstream issue.
 - **Closes:** SHL-8, SHL-9, SYN-1–6 (live confirmation).
 - **Depends:** S40–S66, S70 · **Parallel with:** S71, S73
