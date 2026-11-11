@@ -5,11 +5,21 @@ use crate::geometry::Rect;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Generation(u64);
 
+/// Frontmost app, as far as placement cares. The pure machine never reads AppKit.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FrontApp {
+    /// This Kudzu process. `begin` starts here.
+    ThisApp,
+    /// System Settings (`com.apple.systempreferences`).
+    SystemSettings,
+    /// Any other frontmost app.
+    Other,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Observation {
     pub visible: bool,
-    /// Only this app and System Settings are relevant foreground apps.
-    pub relevant_front_app: bool,
+    pub front_app: FrontApp,
     pub dragging: bool,
     pub granted: bool,
     pub reduce_motion: bool,
@@ -41,6 +51,13 @@ enum State {
     Waiting {
         due: u64,
         attempt: u8,
+        /// Companion frame recorded at `begin`. When `frame_pending`, the first observation
+        /// supplies it because the caller had no window yet.
+        companion: Rect,
+        frame_pending: bool,
+        /// Last front app accepted for this wait. A change to anything other than System
+        /// Settings cancels placement.
+        front: FrontApp,
     },
     Ready {
         deadline: u64,
@@ -59,11 +76,15 @@ impl Lifecycle {
         self.generation == generation && !matches!(self.state, State::Idle)
     }
     /// `now` and every later timestamp use the same monotonic millisecond clock.
-    pub fn begin(&mut self, now: u64) -> Generation {
+    /// `companion` is the frame at `begin`. `None` means the first observation records it.
+    pub fn begin(&mut self, now: u64, companion: Option<Rect>) -> Generation {
         self.stop();
         self.state = State::Waiting {
             due: now + 450,
             attempt: 0,
+            companion: companion.unwrap_or_default(),
+            frame_pending: companion.is_none(),
+            front: FrontApp::ThisApp,
         };
         self.generation
     }
@@ -93,7 +114,32 @@ impl Lifecycle {
                     Step::Placing
                 }
             }
-            State::Waiting { due, attempt } => {
+            State::Waiting {
+                due,
+                attempt,
+                companion,
+                frame_pending,
+                front,
+            } => {
+                // A companion move since the frame recorded at `begin` abandons placement.
+                if *frame_pending {
+                    *companion = input.companion;
+                    *frame_pending = false;
+                } else if *companion != input.companion {
+                    self.stop();
+                    return Step::Stop;
+                }
+                // A front-app change to anything other than System Settings abandons placement.
+                // Staying on this app, or System Settings coming forward, continues the wait.
+                let previous = *front;
+                let next = input.front_app;
+                if previous != next && next != FrontApp::SystemSettings {
+                    self.stop();
+                    return Step::Stop;
+                }
+                if next == FrontApp::SystemSettings {
+                    *front = FrontApp::SystemSettings;
+                }
                 if now < *due {
                     return Step::WaitUntil(*due);
                 }
@@ -117,7 +163,7 @@ impl Lifecycle {
                 companion,
             } => {
                 if now.saturating_sub(*start) > 4800
-                    || !input.relevant_front_app
+                    || input.front_app == FrontApp::Other
                     || input.granted
                     || input.reduce_motion
                     || input.settings != Some(*settings)

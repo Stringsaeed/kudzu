@@ -155,12 +155,17 @@ impl PermissionsState {
         }
     }
 
-    /// Escape, header X, or "Back to Kudzu": hide companion and return focus to `main`.
+    /// Escape, or "Back to Kudzu": close Help first, then hide the companion.
     pub fn close(&mut self) {
         if self.model.help_open {
             self.model.help_open = false;
             return;
         }
+        self.dismiss();
+    }
+
+    /// Header close: always hide the companion and show `main`, even while Help is open.
+    pub fn dismiss(&mut self) {
         self.hide();
         self.shell.show_main();
     }
@@ -274,7 +279,8 @@ impl PermissionsState {
                         && self.model.snap.selected == kind
                         && !self.model.selected_granted()
                     {
-                        self.pending_guide_wake = self.guide.begin();
+                        let handle = self.shell.window("permissions");
+                        self.pending_guide_wake = self.guide.begin(handle.as_ref());
                     }
                 }
                 Ok((_, Err(err))) => self.model.notice = Some(err),
@@ -327,7 +333,7 @@ impl PermissionsState {
             if let Some(plan) = outcome.placement {
                 let app_handle = self.shell.handles().permissions.clone();
                 app_handle.update(move |state, inner_tx| {
-                    if !state.guide.is_active() {
+                    if !state.guide.is_current(plan.generation) {
                         return;
                     }
                     Guide::request_rune_place(&state.shell.handles().permissions, plan.rune_rect);

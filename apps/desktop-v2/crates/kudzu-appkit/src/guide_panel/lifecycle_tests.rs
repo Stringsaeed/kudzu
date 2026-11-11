@@ -20,7 +20,7 @@ fn settings() -> Rect {
 fn observation() -> Observation {
     Observation {
         visible: true,
-        relevant_front_app: true,
+        front_app: FrontApp::ThisApp,
         dragging: false,
         granted: false,
         reduce_motion: false,
@@ -29,10 +29,14 @@ fn observation() -> Observation {
     }
 }
 
+fn begin(guide: &mut Lifecycle, now: u64) -> Generation {
+    guide.begin(now, Some(companion()))
+}
+
 #[test]
 fn delay_then_first_try_and_twelve_retries_have_exact_deadlines() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(1000);
+    let generation = begin(&mut guide, 1000);
     let mut input = observation();
     input.settings = None;
     assert_eq!(guide.poll(generation, 1449, input), Step::WaitUntil(1450));
@@ -49,8 +53,8 @@ fn delay_then_first_try_and_twelve_retries_have_exact_deadlines() {
 #[test]
 fn a_stale_generation_cannot_start_or_stop_a_new_guide() {
     let mut guide = Lifecycle::default();
-    let old = guide.begin(0);
-    let new = guide.begin(10);
+    let old = begin(&mut guide, 0);
+    let new = begin(&mut guide, 10);
     assert_ne!(old, new);
     assert_eq!(guide.poll(old, 450, observation()), Step::Stale);
     assert_eq!(guide.poll(new, 460, observation()), Step::Ready(settings()));
@@ -65,7 +69,7 @@ fn a_stale_generation_cannot_start_or_stop_a_new_guide() {
 fn every_cancellation_invalidates_pending_ticks() {
     for reason in 0..8 {
         let mut guide = Lifecycle::default();
-        let generation = guide.begin(0);
+        let generation = begin(&mut guide, 0);
         assert_eq!(
             guide.poll(generation, 450, observation()),
             Step::Ready(settings())
@@ -77,7 +81,7 @@ fn every_cancellation_invalidates_pending_ticks() {
             1 => input.granted = true,
             2 => input.settings.as_mut().unwrap().x += 1.,
             3 => input.companion.y += 1.,
-            4 => input.relevant_front_app = false,
+            4 => input.front_app = FrontApp::Other,
             5 => input.visible = false,
             6 => input.reduce_motion = true,
             _ => input.settings = None,
@@ -94,7 +98,7 @@ fn every_cancellation_invalidates_pending_ticks() {
 #[test]
 fn overlapping_windows_do_not_start_a_ghost() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(0);
+    let generation = begin(&mut guide, 0);
     guide.poll(generation, 450, observation());
     assert!(!guide.started(generation, 450, settings(), settings()));
     assert_eq!(guide.poll(generation, 500, observation()), Step::Stale);
@@ -103,7 +107,7 @@ fn overlapping_windows_do_not_start_a_ghost() {
 #[test]
 fn reduce_motion_still_reaches_ready_for_companion_placement() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(0);
+    let generation = begin(&mut guide, 0);
     let mut input = observation();
     input.reduce_motion = true;
     assert_eq!(guide.poll(generation, 449, input), Step::WaitUntil(450));
@@ -113,14 +117,66 @@ fn reduce_motion_still_reaches_ready_for_companion_placement() {
 }
 
 #[test]
-fn waiting_ignores_frame_changes_foreground_and_grant_observations() {
+fn waiting_still_reaches_ready_when_only_the_grant_flag_is_set() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(0);
+    let generation = begin(&mut guide, 0);
     let mut input = observation();
-    input.companion.x += 20.;
-    input.relevant_front_app = false;
     input.granted = true;
     assert_eq!(guide.poll(generation, 450, input), Step::Ready(settings()));
+}
+
+#[test]
+fn switching_apps_during_the_wait_places_nothing() {
+    let mut guide = Lifecycle::default();
+    let generation = begin(&mut guide, 0);
+    let mut away = observation();
+    away.settings = None;
+    away.front_app = FrontApp::Other;
+    assert_eq!(guide.poll(generation, 100, away), Step::Stop);
+    assert_eq!(guide.poll(generation, 450, observation()), Step::Stale);
+
+    // System Settings came forward, then the user returned to this app.
+    let mut guide = Lifecycle::default();
+    let generation = begin(&mut guide, 0);
+    let mut settings_front = observation();
+    settings_front.settings = None;
+    settings_front.front_app = FrontApp::SystemSettings;
+    assert_eq!(
+        guide.poll(generation, 100, settings_front),
+        Step::WaitUntil(450)
+    );
+    let mut back = settings_front;
+    back.front_app = FrontApp::ThisApp;
+    back.settings = Some(settings());
+    assert_eq!(guide.poll(generation, 450, back), Step::Stop);
+    assert_eq!(guide.poll(generation, 451, observation()), Step::Stale);
+}
+
+#[test]
+fn moving_the_companion_during_the_wait_places_nothing() {
+    let mut guide = Lifecycle::default();
+    let generation = begin(&mut guide, 0);
+    let mut moved = observation();
+    moved.companion.x += 20.;
+    moved.settings = Some(settings());
+    assert_eq!(guide.poll(generation, 450, moved), Step::Stop);
+    assert_eq!(guide.poll(generation, 451, observation()), Step::Stale);
+}
+
+#[test]
+fn system_settings_coming_forward_during_the_wait_still_places() {
+    let mut guide = Lifecycle::default();
+    let generation = begin(&mut guide, 0);
+    let mut waiting = observation();
+    waiting.settings = None;
+    assert_eq!(guide.poll(generation, 100, waiting), Step::WaitUntil(450));
+    let mut forward = waiting;
+    forward.front_app = FrontApp::SystemSettings;
+    forward.settings = Some(settings());
+    assert_eq!(
+        guide.poll(generation, 450, forward),
+        Step::Ready(settings())
+    );
 }
 
 #[test]
@@ -128,7 +184,7 @@ fn hidden_or_dragging_companions_cancel_while_waiting_and_ready() {
     for ready in [false, true] {
         for dragging in [false, true] {
             let mut guide = Lifecycle::default();
-            let generation = guide.begin(0);
+            let generation = begin(&mut guide, 0);
             if ready {
                 assert_eq!(
                     guide.poll(generation, 450, observation()),
@@ -153,14 +209,14 @@ fn hidden_or_dragging_companions_cancel_while_waiting_and_ready() {
 #[test]
 fn ready_waits_without_requesting_a_wake_and_expires_after_two_hundred_ms() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(0);
+    let generation = begin(&mut guide, 0);
     assert_eq!(
         guide.poll(generation, 450, observation()),
         Step::Ready(settings())
     );
     let mut input = observation();
     input.reduce_motion = true;
-    input.relevant_front_app = false;
+    input.front_app = FrontApp::Other;
     input.granted = true;
     input.companion.x += 20.;
     // No ghost-only observation can prevent placement or request another immediate poll.
@@ -173,7 +229,7 @@ fn ready_waits_without_requesting_a_wake_and_expires_after_two_hundred_ms() {
 #[test]
 fn started_rejects_late_placement_even_without_an_intervening_poll() {
     let mut guide = Lifecycle::default();
-    let generation = guide.begin(0);
+    let generation = begin(&mut guide, 0);
     guide.poll(generation, 450, observation());
     assert!(!guide.started(generation, 650, settings(), companion()));
     assert_eq!(guide.poll(generation, 651, observation()), Step::Stale);
@@ -182,9 +238,9 @@ fn started_rejects_late_placement_even_without_an_intervening_poll() {
 #[test]
 fn replacing_a_ready_generation_cancels_its_pending_placement() {
     let mut guide = Lifecycle::default();
-    let old = guide.begin(0);
+    let old = begin(&mut guide, 0);
     guide.poll(old, 450, observation());
-    let new = guide.begin(460);
+    let new = begin(&mut guide, 460);
     assert!(!guide.started(old, 461, settings(), companion()));
     assert_eq!(guide.poll(old, 462, observation()), Step::Stale);
     assert_eq!(guide.poll(new, 462, observation()), Step::WaitUntil(910));

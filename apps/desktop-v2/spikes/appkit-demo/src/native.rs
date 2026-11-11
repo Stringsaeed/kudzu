@@ -4,7 +4,7 @@ use kudzu_appkit::{
     app_menu::AppMenu,
     appearance::{self, Preference},
     geometry::{Point, Rect},
-    guide_panel::{Generation, GuidePanel, Lifecycle, Observation, Step},
+    guide_panel::{FrontApp, Generation, GuidePanel, Lifecycle, Observation, Step},
     screens, settings_window,
     sidebar_material::SidebarMaterial,
     status_item::{Entry, Glyph, GlyphKind, Item, ItemId, Shortcut, StatusItem},
@@ -226,11 +226,9 @@ pub fn begin_guide(state: &State) {
                 panel.hide();
             }
             native.guide = Some(GuidePanel::new(mtm(), bundle).expect("Dev bundle guide"));
-            native.generation = Some(
-                native
-                    .lifecycle
-                    .begin(state.clock.elapsed().as_millis() as u64),
-            );
+            let now = state.clock.elapsed().as_millis() as u64;
+            let frame = with_window(|window| window.frame());
+            native.generation = Some(native.lifecycle.begin(now, frame));
         }
     });
 }
@@ -287,19 +285,25 @@ pub fn poll(state: &State) -> Option<Duration> {
         let companion = with_window(|window| window.frame())?;
         let settings = settings_window::find(mtm());
         let front = NSWorkspace::sharedWorkspace().frontmostApplication();
-        let relevant = front.as_ref().is_some_and(|app| {
-            app.processIdentifier() == std::process::id() as i32
-                || app
+        // A missing front app stays "not relevant" for this demo, unlike production.
+        let front_app = match front.as_ref() {
+            Some(app) if app.processIdentifier() == std::process::id() as i32 => FrontApp::ThisApp,
+            Some(app)
+                if app
                     .bundleIdentifier()
-                    .is_some_and(|id| id.to_string() == "com.apple.systempreferences")
-        });
+                    .is_some_and(|id| id.to_string() == "com.apple.systempreferences") =>
+            {
+                FrontApp::SystemSettings
+            }
+            _ => FrontApp::Other,
+        };
         let now = state.clock.elapsed().as_millis() as u64;
         match native.lifecycle.poll(
             generation,
             now,
             Observation {
                 visible: state.main.is_visible(),
-                relevant_front_app: relevant,
+                front_app,
                 dragging: false,
                 granted: false,
                 reduce_motion: settings_window::reduce_motion(mtm()),

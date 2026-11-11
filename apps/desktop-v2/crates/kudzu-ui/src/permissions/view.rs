@@ -103,7 +103,7 @@ fn header(s: &PermissionsState, theme: &Theme) -> El {
                 .hover(crate::theme::kit::hover(theme))
                 .press_scale(motion::press::SCALE)
                 .focus_ring(3.0, 0.0, c.ring.alpha(0.5))
-                .on_press(actions::close)
+                .on_press(actions::dismiss)
                 .child(
                     icon(&icons::X, 14.0)
                         .color(c.muted_foreground)

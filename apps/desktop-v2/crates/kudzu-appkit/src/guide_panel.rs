@@ -2,7 +2,7 @@
 //! non-activating all-Spaces overlay. The borrowed companion window is never stored here.
 mod lifecycle;
 use crate::geometry::{Point, Rect};
-pub use lifecycle::{Generation, Lifecycle, Observation, Step};
+pub use lifecycle::{FrontApp, Generation, Lifecycle, Observation, Step};
 use objc2::{define_class, msg_send, rc::Retained, DefinedClass, MainThreadOnly};
 use objc2_app_kit::{
     NSBackingStoreType, NSBezierPath, NSColor, NSCompositingOperation, NSImage, NSPanel, NSView,

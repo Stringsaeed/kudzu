@@ -125,8 +125,12 @@ impl PermissionsModel {
         self.card_granted(self.snap.selected)
     }
 
+    /// Tauri `needsConnection`: the selected row is Accessibility, that grant is in,
+    /// and the keyboard tap is not ready yet.
     pub fn needs_connection(&self) -> bool {
-        self.snap.status.permissions.accessibility && !self.snap.ready
+        self.snap.selected == PermissionKind::Accessibility
+            && self.selected_granted()
+            && !self.snap.ready
     }
 
     pub fn drag_hint(&self) -> &'static str {
@@ -340,6 +344,31 @@ mod tests {
             m.detail(),
             "Permissions are set. Close the secure input field to expand."
         );
+    }
+
+    #[test]
+    fn input_monitoring_row_does_not_use_connecting_copy_when_the_keyboard_is_unready() {
+        let mut m = loaded_model();
+        m.snap.selected = PermissionKind::InputMonitoring;
+        m.snap.ready = false;
+        m.snap.status.permissions.accessibility = true;
+        m.snap.status.permissions.input_monitoring = true;
+        assert!(
+            !m.needs_connection(),
+            "connecting copy follows the selected Accessibility row"
+        );
+        assert_eq!(m.headline(), "Let Kudzu do the typing.");
+        assert_eq!(
+            m.detail(),
+            "A little permission to turn your triggers into text, wherever you write."
+        );
+        assert_eq!(
+            m.status_banner(),
+            StatusBanner::Granted {
+                subtitle: "Next, allow Accessibility so Kudzu can insert text.".to_owned()
+            }
+        );
+        assert_eq!(m.primary_action(), PrimaryAction::SelectAccessibility);
     }
 
     #[test]

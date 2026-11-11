@@ -39,17 +39,23 @@ pub fn reveal_in_finder(_: MainThreadMarker, bundle: &Path) -> Result<(), &'stat
     Ok(())
 }
 
-/// True when the frontmost app is System Settings or this Kudzu process.
-pub fn is_relevant_front_app(_: MainThreadMarker) -> bool {
+/// Classifies the frontmost app for the permission guide.
+/// No frontmost app counts as this process, matching the previous relevant-app check.
+pub fn front_app(_: MainThreadMarker) -> crate::guide_panel::FrontApp {
+    use crate::guide_panel::FrontApp;
     let Some(front) = NSWorkspace::sharedWorkspace().frontmostApplication() else {
-        return true;
+        return FrontApp::ThisApp;
     };
     if front.processIdentifier() == std::process::id() as i32 {
-        return true;
+        return FrontApp::ThisApp;
     }
-    front
+    if front
         .bundleIdentifier()
         .is_some_and(|id| id.to_string() == SETTINGS_BUNDLE_ID)
+    {
+        return FrontApp::SystemSettings;
+    }
+    FrontApp::Other
 }
 
 #[cfg(test)]

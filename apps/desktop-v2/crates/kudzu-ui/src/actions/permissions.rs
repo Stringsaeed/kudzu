@@ -10,6 +10,11 @@ pub fn close(s: &mut PermissionsState) {
     s.close();
 }
 
+/// Header close: hide the companion and return to `main` even while Help is open.
+pub fn dismiss(s: &mut PermissionsState) {
+    s.dismiss();
+}
+
 pub fn select_kind(s: &mut PermissionsState, kind: PermissionKind) {
     s.model.notice = None;
     s.stop_guide();

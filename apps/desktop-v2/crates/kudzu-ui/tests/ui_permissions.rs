@@ -341,6 +341,21 @@ fn escape_closes_help_sheet_before_closing_companion() {
 }
 
 #[test]
+fn header_close_hides_the_companion_while_help_is_open() {
+    let mut h = Harness::new();
+    h.click("help-toggle");
+    assert!(h.rt.state.model.help_open);
+    assert!(h.rt.state.model.open);
+
+    h.click("close");
+    assert!(
+        !h.rt.state.model.open,
+        "the header close hides the companion even while Help is open"
+    );
+    assert!(!h.rt.state.model.help_open);
+}
+
+#[test]
 fn all_six_parity_scenes_render_in_light_and_dark_themes() {
     let scratch = Scratch::new();
     let fixtures = Fixtures::new().unwrap();

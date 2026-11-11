@@ -144,6 +144,12 @@ impl Guide {
             .is_some_and(|gen| self.lifecycle.is_current(gen))
     }
 
+    /// Whether a placement scheduled under `generation` may still move the companion.
+    /// A newer `begin` leaves some cycle active; only the scheduled generation may place.
+    pub(crate) fn is_current(&self, generation: Generation) -> bool {
+        self.lifecycle.is_current(generation)
+    }
+
     pub fn is_dragging(&self) -> bool {
         self.dragging
     }
@@ -161,13 +167,18 @@ impl Guide {
     }
 
     /// Starts a fresh Settings placement + guide cycle after `Permissions::begin` succeeds.
-    pub fn begin(&mut self) -> Option<Duration> {
+    /// `companion`, when the window already exists, is the frame recorded at `begin`.
+    pub fn begin(&mut self, companion: Option<&WindowHandle>) -> Option<Duration> {
         if !self.native {
             return None;
         }
         self.stop();
         let now = self.now_ms();
-        self.generation = Some(self.lifecycle.begin(now));
+        let frame = companion.and_then(|handle| {
+            let mtm = MainThreadMarker::new()?;
+            with_window(mtm, handle, |window| window.frame())
+        });
+        self.generation = Some(self.lifecycle.begin(now, frame));
         Some(FIRST_DELAY)
     }
 
@@ -221,7 +232,7 @@ impl Guide {
         };
 
         let settings = settings_window::find(mtm);
-        let relevant = app_bundle::is_relevant_front_app(mtm);
+        let front_app = app_bundle::front_app(mtm);
         let reduce_motion = settings_window::reduce_motion(mtm);
         let now = self.now_ms();
 
@@ -230,7 +241,7 @@ impl Guide {
             now,
             Observation {
                 visible: open,
-                relevant_front_app: relevant,
+                front_app,
                 dragging: self.dragging,
                 granted,
                 reduce_motion,
@@ -436,15 +447,28 @@ mod tests {
     fn headless_guide_never_activates_or_schedules_wakes() {
         let mut guide = Guide::new(false, None);
         guide.record_icon_rect([170.0, 77.0, 80.0, 80.0]);
-        assert_eq!(guide.begin(), None);
+        assert_eq!(guide.begin(None), None);
         assert!(!guide.is_active());
         assert_eq!(guide.poll(true, false, None), GuideOutcome::default());
     }
 
     #[test]
+    fn placement_from_an_old_generation_does_nothing_after_a_new_begin() {
+        let mut guide = Guide::new(true, None);
+        guide.begin(None).expect("native guide arms");
+        let old = guide.generation.expect("generation after begin");
+        guide.begin(None).expect("a later begin replaces the cycle");
+        assert!(guide.is_active(), "the replacement cycle is active");
+        assert!(
+            !guide.is_current(old),
+            "a placement scheduled under the previous generation must not run"
+        );
+    }
+
+    #[test]
     fn drag_start_stops_active_native_guide_immediately() {
         let mut guide = Guide::new(true, None);
-        assert!(guide.begin().is_some());
+        assert!(guide.begin(None).is_some());
         assert!(guide.is_active());
         guide.on_drag_start();
         assert!(guide.is_dragging());
