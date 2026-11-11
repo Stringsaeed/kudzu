@@ -17,7 +17,7 @@ including the temporary orchestration modules noted below.
 | `sync` | Records, payloads, local index and merge rules; no CloudKit calls |
 | `activity` | In-memory event ring and explanations; no production serialization |
 | `system` | `AppInfo`, `Rect`, `PermissionStatus`, `TapMode`, `EngineStatus` vocabulary for application ports |
-| `search` | Fuzzy ranking: `index`, `rank`, `highlight`, and `locale_compare` for tie-breaks |
+| `search` | Fuzzy ranking: `index`, `rank`, `highlight`; ICU collation (`icu_collator`) for tie-breaks, crate-private |
 | `color` | S24: colour parsing, representations and contrast |
 | `keys` | S24: accelerator grammar, symbols, spoken labels and recorder rules |
 | `release_notes` | S24: release-note presentation |

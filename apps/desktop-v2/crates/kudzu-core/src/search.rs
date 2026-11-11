@@ -22,12 +22,15 @@
 //!   `İ` (which lowercases to `i` and a combining dot), shift later positions, so [`highlight`]
 //!   is off by that many units for such names, as the TypeScript is.
 //! - Ties in score are broken with a locale comparison of the snippet's own name
-//!   ([`locale_compare`]), not the displayed fallback name; equal names keep library order.
+//!   (ICU collation via `icu_collator`, see `collate`), not the displayed fallback name; equal
+//!   names keep library order.
 //! - The content a term is matched against is the plain summary of the template (tags shown as
 //!   their chip labels, whitespace collapsed, first 2,000 units). The summariser belongs to the
 //!   template editor document (S23), so [`index`] takes it as a function.
 
 mod collate;
+#[cfg(test)]
+mod collation_tests;
 mod fuzzy;
 #[cfg(test)]
 mod tests;
@@ -39,7 +42,8 @@ use std::ops::Range;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-pub use collate::{locale_compare, CollationKey};
+pub(crate) use collate::locale_compare;
+use collate::CollationKey;
 
 use crate::library::usage::SnippetUsage;
 use crate::SnippetRecord;

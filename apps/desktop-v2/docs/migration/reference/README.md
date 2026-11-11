@@ -60,3 +60,12 @@ Fixtures call the original implementations. Search includes the entire input lib
 Limits: browser preview captures do not prove native vibrancy, shadows, clipping, inter-app focus, motion, expansion or permission behavior. See S72 for those. `BASELINE.md` records passive installed-process sampling; launch/palette timings and complete physical footprint remain owner measurements. No Dev build was launched.
 
 The rule-8 Rust gates are unavailable at this source commit because S01's Cargo workspace is absent. `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, and `cargo test --workspace` fail because there is no Cargo.toml; `cargo xtask check-deps` fails because there is no xtask command. S02 adds no Rust files and does not fabricate that workspace.
+
+## Collation fixture (S21)
+
+`collation.mjs` records orderings from the runtime's own ICU `String.prototype.localeCompare` (`en-US`): 529 strings covering ASCII, digits, punctuation and symbols, emoji, Latin accents and expansions (including `ß`), German, French, Turkish, CJK, other scripts, snippet-name shapes and ignorable characters. It is deterministic, and `--check` fails if `fixtures/collation.json` is stale. The Rust copy lives in `crates/kudzu-core/tests/fixtures/ts-parity/collation.json`.
+
+```sh
+node apps/desktop-v2/docs/migration/reference/collation.mjs          # write
+node apps/desktop-v2/docs/migration/reference/collation.mjs --check  # verify
+```
