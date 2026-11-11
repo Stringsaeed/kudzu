@@ -1,0 +1,64 @@
+name: Desktop v2 release candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  candidate:
+    runs-on: xcode-27
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: apps/desktop-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: actions/checkout@v4
+        with:
+          repository: create-dmg/create-dmg
+          ref: 994a036532d3ac1bb1cd5a425a0d5d796ecbed83 # v1.2.3
+          path: apps/desktop-v2/target/create-dmg-tool
+      - name: Packaging tool
+        run: echo "$PWD/target/create-dmg-tool" >> "$GITHUB_PATH"
+      - name: Prepare candidate credentials
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_PROVISIONING_PROFILE: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+        run: |
+          umask 077
+          mkdir -p target/release-credentials
+          printf '%s' "$APPLE_API_KEY_P8" > target/release-credentials/AuthKey.p8
+          if [[ -n "$APPLE_PROVISIONING_PROFILE" ]]; then
+            printf '%s' "$APPLE_PROVISIONING_PROFILE" | base64 --decode > assets/Kudzu.provisionprofile
+          fi
+      - name: Build, sign, notarize, staple and verify
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY_PATH: target/release-credentials/AuthKey.p8
+          KUDZU_UPDATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          KUDZU_UPDATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          REQUIRE_ICLOUD: '1'
+        run: scripts/release/build.sh
+      - name: Clean up and prove keychain removal
+        if: always()
+        run: |
+          trap 'rm -f assets/Kudzu.provisionprofile; rm -rf target/release-credentials' EXIT
+          cargo xtask release cleanup
+          if find target -name release.keychain-db -print | grep -q .; then
+            echo 'release keychain remains' >&2
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-v2-candidate-${{ github.sha }}
+          path: apps/desktop-v2/dist/
+          if-no-files-found: error
