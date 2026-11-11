@@ -8,7 +8,7 @@
 use kudzu_core::activity::ActivityOutcome;
 
 use super::desk::{mail, user_clipboard, At, BoardOp, Ev};
-use super::rig::{backspaces, outs, pasted, Rig};
+use super::rig::{backspaces, outs, pasted, snippet, Rig};
 use crate::{TapMode, TriggerLost};
 
 fn transient(text: &str) -> Ev {
@@ -142,4 +142,37 @@ fn a_quick_search_paste_into_an_app_that_lost_the_front_is_dropped() {
     );
     assert_eq!(rig.posted(), []);
     assert_eq!(rig.clipboard(), user_clipboard());
+}
+
+// MARK: The intended target (re-review blocker 1)
+
+/// Rendering a form's `{{clipboard}}` waits; meanwhile another app comes forward on its own.
+/// The insertion is bound to the form's target, so nothing is deleted in the new app.
+#[test]
+fn an_app_that_comes_forward_while_a_form_renders_is_not_adopted() {
+    let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, {{clipboard}}")]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.engine.set_suppressed(true);
+    rig.engine.form_panel_focused(token, true);
+    rig.type_in_panel("Sam");
+    rig.at(At::ReadClipboard(0), |d| d.set_frontmost(Some(mail())));
+    rig.clear_log();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.posted(), []);
+    assert_eq!(rig.doc(), ";addr|");
+    assert_eq!(rig.host.expansions(), 0);
+}
+
+/// The same for Quick Search: the paste is not delivered to the app that came forward.
+#[test]
+fn an_app_that_comes_forward_while_quick_search_renders_is_not_adopted() {
+    let rig = Rig::new(&[snippet(";c", "Copied: {{clipboard}}")]);
+    rig.at(At::ReadClipboard(0), |d| d.set_frontmost(Some(mail())));
+    rig.engine
+        .insert_snippet(rig.snippet_id(";c"), Some(super::desk::editor()));
+    rig.settle();
+    assert_eq!(rig.posted(), []);
+    assert_eq!(rig.doc(), "|");
+    assert_eq!(rig.host.expansions(), 0);
 }

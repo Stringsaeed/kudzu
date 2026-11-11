@@ -34,12 +34,32 @@ impl Imp {
     }
 
     pub(super) fn target_is_front(&self, target: Option<&AppInfo>) -> bool {
+        self.front_target(target).is_some()
+    }
+
+    /// The pid an explicit insertion is bound to: `target`'s, when it is in front now (`None`
+    /// when it isn't); without a target, whichever app is in front. Taken before rendering, so
+    /// an app that comes forward while the snippet renders is never adopted.
+    pub(super) fn front_target(&self, target: Option<&AppInfo>) -> Option<Option<i32>> {
+        let front = self.observe().frontmost_pid();
         match target {
             Some(app) => self
                 .observe()
                 .resolve_pid(app)
-                .is_some_and(|pid| self.observe().frontmost_pid() == Some(pid)),
-            None => true,
+                .filter(|&pid| front == Some(pid))
+                .map(Some),
+            None => Some(front),
+        }
+    }
+
+    /// The checks for an explicit insertion into `pid` (nothing typed is deleted).
+    pub(super) fn explicit_live(&self, generation: u64, pid: Option<i32>) -> Live {
+        Live {
+            generation,
+            guard: Guard::Explicit,
+            pid,
+            listen_only: false,
+            form: None,
         }
     }
 
@@ -105,14 +125,16 @@ impl Imp {
         }
         let generation = self.begin_explicit();
         self.observe().sleep(SETTLE);
-        let result = if self.is_current(generation)
-            && self.explicit_allowed()
-            && self.target_is_front(target.as_ref())
-        {
-            let rendered = self.render(&library, snippet, HashMap::new(), selection);
-            self.insert_rendered(generation, &library, snippet, rendered, target.as_ref())
-        } else {
-            Ok(())
+        let front = self
+            .front_target(target.as_ref())
+            .filter(|_| self.is_current(generation) && self.explicit_allowed());
+        let result = match front {
+            Some(pid) => {
+                let live = self.explicit_live(generation, pid);
+                let rendered = self.render(&library, snippet, HashMap::new(), selection);
+                self.insert_rendered(live, &library, snippet, rendered, target.as_ref())
+            }
+            None => Ok(()),
         };
         if let Err(error) = result {
             log::warn!("palette insertion failed: {error}");
@@ -121,22 +143,17 @@ impl Imp {
         self.finish(generation);
     }
 
-    /// Inserts a rendered snippet at the caret without deleting anything (palette).
+    /// Inserts a rendered snippet at the caret without deleting anything (palette), checking
+    /// `live`, which was bound to the target before rendering.
     pub(super) fn insert_rendered(
         &self,
-        generation: u64,
+        live: Live,
         library: &Library,
         snippet: &SnippetRecord,
         rendered: RenderResult,
         target: Option<&AppInfo>,
     ) -> Result<(), InsertError> {
-        let live = Live {
-            generation,
-            guard: Guard::Explicit,
-            pid: self.observe().frontmost_pid(),
-            listen_only: false,
-            form: None,
-        };
+        let generation = live.generation;
         let method = library.insertion_for(
             snippet,
             target

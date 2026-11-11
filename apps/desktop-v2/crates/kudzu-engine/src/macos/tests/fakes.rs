@@ -210,6 +210,11 @@ impl Board for FakeBoard {
     }
 
     fn read_string(&self) -> Option<String> {
+        let n = self.0.with(|s| {
+            s.board_ops[3] += 1;
+            s.board_ops[3] - 1
+        });
+        self.0.fire(At::ReadClipboard(n));
         self.0.with(|s| plain(&s.items))
     }
 

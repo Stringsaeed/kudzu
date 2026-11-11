@@ -204,10 +204,13 @@ impl Imp {
         target: Option<&AppInfo>,
         values: HashMap<String, String>,
     ) -> Result<(), InsertError> {
-        if !self.is_current(generation) || !self.explicit_allowed() || !self.target_is_front(target)
-        {
+        // Bound to the target now, before rendering waits on anything.
+        let Some(pid) = self
+            .front_target(target)
+            .filter(|_| self.is_current(generation) && self.explicit_allowed())
+        else {
             return Ok(());
-        }
+        };
         let library = self.library();
         let Some(snippet) = library.snippets.get(&form.snippet_id) else {
             return Ok(());
@@ -222,17 +225,16 @@ impl Imp {
                     mode: PlanMode::ListenOnly,
                     swallowed: None,
                     live: Live {
-                        generation,
-                        guard: Guard::Explicit,
-                        pid: self.observe().frontmost_pid(),
                         listen_only: true,
                         form: Some(form.token),
+                        ..self.explicit_live(generation, pid)
                     },
                 };
                 self.insert_expansion(typed, rendered)
             }
             FormKind::Palette => {
-                self.insert_rendered(generation, &library, snippet, rendered, target)
+                let live = self.explicit_live(generation, pid);
+                self.insert_rendered(live, &library, snippet, rendered, target)
             }
         }
     }

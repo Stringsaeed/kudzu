@@ -119,6 +119,8 @@ pub(super) enum At {
     Transient(usize),
     /// Just before the n-th time items are written back (a restore or a history pick).
     Writing(usize),
+    /// While the n-th plain-text read of the clipboard waits (rendering `{{clipboard}}`).
+    ReadClipboard(usize),
 }
 
 type Action = Box<dyn FnOnce(&Desk) + Send>;
@@ -144,7 +146,7 @@ pub(super) struct State {
     pub next_stamp: u64,
     pub last_stamp: u64,
     /// Pasteboard operations so far: snapshots, transient writes, item writes.
-    pub board_ops: [usize; 3],
+    pub board_ops: [usize; 4],
     pub sleeps: HashMap<Duration, usize>,
     // Pasteboard.
     pub items: Items,
@@ -260,7 +262,7 @@ impl Desk {
             activations: 0,
             next_stamp: 1_000,
             last_stamp: 1_000,
-            board_ops: [0; 3],
+            board_ops: [0; 4],
             sleeps: HashMap::new(),
             items: user_clipboard(),
             count: 100,
