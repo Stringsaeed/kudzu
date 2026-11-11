@@ -75,6 +75,24 @@ mod tests {
     }
 
     #[test]
+    fn release_candidates_order_between_the_stable_releases_around_them() {
+        // The runbook stamps candidates 0.7.1-rc.1, 0.7.1-rc.2, ... over the installed 0.7.0.
+        let order = ["0.7.0", "0.7.1-rc.1", "0.7.1-rc.2", "0.7.1-rc.10", "0.7.1"];
+        for pair in order.windows(2) {
+            assert!(is_newer(pair[1], pair[0]).unwrap(), "{pair:?}");
+            assert!(!is_newer(pair[0], pair[1]).unwrap(), "{pair:?}");
+        }
+        assert!(!is_newer("0.7.1-rc.1", "0.7.1-rc.1").unwrap());
+        assert!(
+            check_archive_url(
+                "https://github.com/Stringsaeed/kudzu/releases/download/v0.7.1-rc.1/Kudzu_0.7.1-rc.1_universal.app.tar.gz",
+                "0.7.1-rc.1"
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
     fn archive_url_must_be_https_github() {
         assert_eq!(
             check_archive_url(

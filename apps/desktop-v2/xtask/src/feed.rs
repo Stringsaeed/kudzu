@@ -68,4 +68,19 @@ mod tests {
         assert!(!newer("1.0.0", "1.0.0").unwrap());
         assert!(newer("broken", "1.0.0").is_err());
     }
+
+    #[test]
+    fn candidates_stamped_as_release_candidates_advance_the_feed_in_order() {
+        // 0.7.0 is the frozen app's version. A candidate is 0.7.1-rc.N, and S72 needs a second,
+        // higher one, because S36 installs only a strictly greater version.
+        let order = ["0.7.0", "0.7.1-rc.1", "0.7.1-rc.2", "0.7.1"];
+        for pair in order.windows(2) {
+            assert!(newer(pair[1], pair[0]).unwrap(), "{pair:?}");
+            assert!(!newer(pair[0], pair[1]).unwrap(), "{pair:?}");
+        }
+        assert!(!newer("0.7.1-rc.1", "0.7.1-rc.1").unwrap());
+        // The feed file itself accepts and carries the candidate version unchanged.
+        let manifest = manifest("0.7.1-rc.1", "sig", "https://example.invalid/x", "n", "d");
+        assert_eq!(manifest["version"], "0.7.1-rc.1");
+    }
 }

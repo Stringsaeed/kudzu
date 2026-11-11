@@ -834,6 +834,26 @@ mod tests {
             validate_tar(&fixture.package.archive, 2, MAX_ENTRIES),
             Err(PortError::TooLarge)
         );
+    #[test]
+    fn release_candidates_install_only_when_strictly_higher() {
+        for (running, candidate, installs) in [
+            ("0.7.0", "0.7.1-rc.1", true),
+            ("0.7.1-rc.1", "0.7.1-rc.2", true),
+            ("0.7.1-rc.2", "0.7.1", true),
+            ("0.7.1-rc.2", "0.7.1-rc.1", false),
+            ("0.7.1-rc.1", "0.7.1-rc.1", false),
+            ("0.7.1", "0.7.1-rc.9", false),
+        ] {
+            let mut fixture = Fixture::new();
+            fixture.write(good_entries(ID, candidate));
+            fixture.package.version = candidate.into();
+            let installer = BundleInstaller::new(fixture.bundle.clone(), ID, running).unwrap();
+            let result =
+                installer.install_with(&fixture.package, accepted, |a, b| fs::rename(a, b));
+            assert_eq!(result.is_ok(), installs, "{running} -> {candidate}");
+        }
+    }
+
         assert_eq!(
             validate_tar(&fixture.package.archive, MAX_EXTRACTED, 2),
             Err(PortError::TooLarge)
