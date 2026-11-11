@@ -302,15 +302,18 @@ impl FormService {
             .preview_snippet(request.snippet_id, request.selection.clone(), values)
             .map(Some)
     }
-    /// Forwards every key-status change of the pending form's panel, numbered from 1.
+    /// Forwards every key-status change of the latest form's panel, numbered from 1. That
+    /// includes reports arriving after it was submitted (the panel resigning key as it hides):
+    /// the engine still counts them against a typed form. A replaced form's reports are dropped.
     pub fn panel_focused(&self, token: FormToken, focus: PanelFocus) {
-        if self
-            .pending()
-            .get()
-            .as_ref()
-            .as_ref()
-            .is_some_and(|p| p.token == token)
-        {
+        let latest = token.is_valid()
+            && self
+                .state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .last_token
+                == token;
+        if latest {
             self.channel.panel_focused(token, focus);
         }
     }

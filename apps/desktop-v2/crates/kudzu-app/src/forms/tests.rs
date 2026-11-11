@@ -491,4 +491,5 @@ fn dropping_the_form_service_cancels_and_clears_a_retained_watch() {
     assert!(!h.engine.state.lock().unwrap().suppressed);
 }
 
+mod in_flight;
 mod review;
