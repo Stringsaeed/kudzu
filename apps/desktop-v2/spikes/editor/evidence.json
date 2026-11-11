@@ -1,0 +1,58 @@
+{
+  "aimedCaret": [
+    6,
+    6
+  ],
+  "blocksStayParagraphs": true,
+  "boldChord": true,
+  "chipNearCaret": true,
+  "chipRect": [
+    200.15625,
+    30.0,
+    146.0,
+    28.25
+  ],
+  "doubleClickSelection": [
+    6,
+    22
+  ],
+  "enterOpens": true,
+  "fieldCaret": [
+    200.1640167236328,
+    8.0,
+    1.5,
+    18.0
+  ],
+  "imeCommittedOutside": true,
+  "imeTextDuringPreedit": "Hello Date · ISO date there",
+  "keystrokeMedianUs": 1581,
+  "keystrokeRunsUs": [
+    3632,
+    1577,
+    1581,
+    1586,
+    1581
+  ],
+  "linkMark": true,
+  "monoWidth": 85.0,
+  "overlayHit": "bitmap",
+  "pill": [
+    6,
+    22
+  ],
+  "sansWidth": 69.0,
+  "singleClickSelectedPill": 0,
+  "singleClicks": 238,
+  "slashInserted": true,
+  "slashMidWord": true,
+  "slashRow": true,
+  "spaceOpens": true,
+  "spellMenu": [
+    "learn-spelling Learn Spelling",
+    "suggestion-0 misspelled",
+    "cut Cut",
+    "copy Copy",
+    "paste Paste"
+  ],
+  "strikeIgnored": true
+}
