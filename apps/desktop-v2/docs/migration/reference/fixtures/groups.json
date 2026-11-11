@@ -1,0 +1,207 @@
+{
+  "collapsed": [
+    {
+      "group": {
+        "id": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+        "name": "Work",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": [
+        {
+          "group": {
+            "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+            "name": "Email",
+            "parentID": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+            "sortIndex": 0,
+            "isEnabled": true
+          },
+          "depth": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "group": {
+        "id": "1de7727d-b502-4053-b854-45bb5d316475",
+        "name": "Developer",
+        "sortIndex": 1,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    },
+    {
+      "group": {
+        "id": "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+        "name": "Personal",
+        "sortIndex": 2,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    }
+  ],
+  "tree": [
+    {
+      "group": {
+        "id": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+        "name": "Work",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": [
+        {
+          "group": {
+            "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+            "name": "Email",
+            "parentID": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+            "sortIndex": 0,
+            "isEnabled": true
+          },
+          "depth": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "group": {
+        "id": "1de7727d-b502-4053-b854-45bb5d316475",
+        "name": "Developer",
+        "sortIndex": 1,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    },
+    {
+      "group": {
+        "id": "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+        "name": "Personal",
+        "sortIndex": 2,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    }
+  ],
+  "flattened": [
+    {
+      "group": {
+        "id": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+        "name": "Work",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": [
+        {
+          "group": {
+            "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+            "name": "Email",
+            "parentID": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+            "sortIndex": 0,
+            "isEnabled": true
+          },
+          "depth": 1,
+          "children": []
+        }
+      ]
+    },
+    {
+      "group": {
+        "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+        "name": "Email",
+        "parentID": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      "depth": 1,
+      "children": []
+    },
+    {
+      "group": {
+        "id": "1de7727d-b502-4053-b854-45bb5d316475",
+        "name": "Developer",
+        "sortIndex": 1,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    },
+    {
+      "group": {
+        "id": "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+        "name": "Personal",
+        "sortIndex": 2,
+        "isEnabled": true
+      },
+      "depth": 0,
+      "children": []
+    }
+  ],
+  "cases": [
+    {
+      "id": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+      "path": [
+        "Work"
+      ],
+      "descendants": [
+        "294be326-0bf6-4380-8e1a-5f5ce269c306",
+        "d199e481-217b-4d81-97e5-778d9a849eee"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+      "path": [
+        "Work",
+        "Email"
+      ],
+      "descendants": [
+        "d199e481-217b-4d81-97e5-778d9a849eee"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "1de7727d-b502-4053-b854-45bb5d316475",
+      "path": [
+        "Developer"
+      ],
+      "descendants": [
+        "1de7727d-b502-4053-b854-45bb5d316475"
+      ],
+      "enabled": true
+    },
+    {
+      "id": "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+      "path": [
+        "Personal"
+      ],
+      "descendants": [
+        "8528dba5-59a6-4137-bc64-ad0a4c676c3b"
+      ],
+      "enabled": true
+    }
+  ],
+  "counts": [
+    [
+      "d199e481-217b-4d81-97e5-778d9a849eee",
+      3
+    ],
+    [
+      "294be326-0bf6-4380-8e1a-5f5ce269c306",
+      5
+    ],
+    [
+      "1de7727d-b502-4053-b854-45bb5d316475",
+      4
+    ],
+    [
+      "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+      2
+    ]
+  ]
+}

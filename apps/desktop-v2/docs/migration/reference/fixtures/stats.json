@@ -1,0 +1,206 @@
+{
+  "usage": [
+    [
+      "c5af65ac-e426-4046-802b-11ccdd3a62ba",
+      {
+        "count": 129,
+        "chars": 5914,
+        "last": 1794398400000
+      }
+    ],
+    [
+      "20493e8e-c034-4ff0-b926-e5ae3e119630",
+      {
+        "count": 75,
+        "chars": 9750,
+        "last": 1794251520000
+      }
+    ],
+    [
+      "0330ec1e-83cc-4b3a-a19a-ea9ff6bbe03d",
+      {
+        "count": 53,
+        "chars": 5135,
+        "last": 1794104640000
+      }
+    ],
+    [
+      "1694192f-e0a1-4ea2-be74-ca80a9a0973d",
+      {
+        "count": 41,
+        "chars": 123,
+        "last": 1793957760000
+      }
+    ],
+    [
+      "aadb79bc-0f3a-4eb0-ae17-0669de8cc5c1",
+      {
+        "count": 33,
+        "chars": 667,
+        "last": 1793810880000
+      }
+    ],
+    [
+      "a5c4a947-fb64-4f49-a98b-ced9cdd4fede",
+      {
+        "count": 28,
+        "chars": 84,
+        "last": 1793664000000
+      }
+    ],
+    [
+      "66e39ffc-1d2a-4e53-aefe-907e44d16c8c",
+      {
+        "count": 24,
+        "chars": 462,
+        "last": 1793517120000
+      }
+    ],
+    [
+      "341b08b7-3246-4f19-885d-b98fe547672b",
+      {
+        "count": 21,
+        "chars": 2571,
+        "last": 1793370240000
+      }
+    ],
+    [
+      "f6b04cab-794f-4073-a044-1f6a1d460fd7",
+      {
+        "count": 19,
+        "chars": 440,
+        "last": 1793223360000
+      }
+    ],
+    [
+      "c322f888-3d93-4987-9a05-cdef84f71ee0",
+      {
+        "count": 17,
+        "chars": 1038,
+        "last": 1793076480000
+      }
+    ],
+    [
+      "6077dd69-71f7-4d82-bf8e-095eb554b112",
+      {
+        "count": 16,
+        "chars": 663,
+        "last": 1792929600000
+      }
+    ],
+    [
+      "43b68916-0ddc-4530-a348-ae28b80d2b57",
+      {
+        "count": 15,
+        "chars": 189,
+        "last": 1792782720000
+      }
+    ]
+  ],
+  "totals": [
+    {
+      "wpm": 20,
+      "result": {
+        "expansions": 471,
+        "chars": 27036,
+        "minutesSaved": 270.36,
+        "activeSnippets": 17,
+        "usedSnippets": 12
+      }
+    },
+    {
+      "wpm": 40,
+      "result": {
+        "expansions": 471,
+        "chars": 27036,
+        "minutesSaved": 135.18,
+        "activeSnippets": 17,
+        "usedSnippets": 12
+      }
+    },
+    {
+      "wpm": 80,
+      "result": {
+        "expansions": 471,
+        "chars": 27036,
+        "minutesSaved": 67.59,
+        "activeSnippets": 17,
+        "usedSnippets": 12
+      }
+    }
+  ],
+  "counts": [
+    {
+      "input": 0,
+      "output": "0"
+    },
+    {
+      "input": 1,
+      "output": "1"
+    },
+    {
+      "input": 999,
+      "output": "999"
+    },
+    {
+      "input": 1000,
+      "output": "1.0k"
+    },
+    {
+      "input": 999999,
+      "output": "1000k"
+    },
+    {
+      "input": 1000000,
+      "output": "1.0M"
+    }
+  ],
+  "durations": [
+    {
+      "input": 0,
+      "output": "0s"
+    },
+    {
+      "input": 0.1,
+      "output": "6s"
+    },
+    {
+      "input": 1,
+      "output": "1 min"
+    },
+    {
+      "input": 59,
+      "output": "59 min"
+    },
+    {
+      "input": 60,
+      "output": "1.0 h"
+    },
+    {
+      "input": 1440,
+      "output": "1.0 days"
+    }
+  ],
+  "relative": [
+    {
+      "age": 0,
+      "output": "Just now"
+    },
+    {
+      "age": 30000,
+      "output": "Just now"
+    },
+    {
+      "age": 3600000,
+      "output": "1 hour ago"
+    },
+    {
+      "age": 86400000,
+      "output": "yesterday"
+    },
+    {
+      "age": 3456000000,
+      "output": "Oct 2, 2026"
+    }
+  ]
+}

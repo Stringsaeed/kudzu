@@ -1,0 +1,18 @@
+{
+  "lib/mock.ts": "981e1691832f3e3c4b9d441d72ef8c176de4c2670f4687d73af0d93c9faa1558",
+  "lib/mock-activity.ts": "3777bfcfac028a16f0064b6ad053f224cd1704ecb0fdc51da953fed53c11582c",
+  "lib/search.ts": "0d90cac231e54678398c1126cc0843e335d02c4a49893b884d29b665e6ff60a2",
+  "lib/clipboard.ts": "e1e4d9c96de48e47711d8463542ee3a15283085cdd400cbfe868b1a4853b8cae",
+  "lib/groups.ts": "8aacaae2e8ec3596c80946f7e6076e8e8ebd36e7161bc4e19b567cae44249796",
+  "lib/stats.ts": "43d07c4556e9ce571c12fcd59008a6815eb25f854a649a4d78b7717c807fd442",
+  "lib/template.ts": "e9679df3051117a9e4d60f578c9d76a3161db3cc0bd4d6d4c5817934bab053e9",
+  "lib/keys.ts": "45945253b48557b783cbaff697cb8a71081a9a902d7ed194bca7774aae511610",
+  "lib/updates.ts": "c5707daa9ed04a3c091b777de0fbf8637d67578e0964752f37696bc8c7cf5c58",
+  "lib/editor-formatting.ts": "6025355fe09c780aaf64f5933933eabc772fa706375ea34edc6900ce2caefc97",
+  "lib/formatting.ts": "eb44392e7275b704935b1be6b70a4d3f093980bd360eea929786f3a8b8d3dccc",
+  "components/app/clipboard/clip-content.tsx": "b2f411b426a223ed5bb9df7cc56ea811288a5e2461758acac40780cbb8e9f7c5",
+  "src-tauri/tauri.conf.json": "6046c3149bc72a6b88265a7b6804d80ca79c691a650bb046320374a8fe5a935e",
+  "src-tauri/src/windows.rs": "008a61a3b0fa4dbaed253ae60005af54ab8d7a911df693fad7715f59ff3c65f8",
+  "src-tauri/src/permissions/mod.rs": "700f367a3586f9f8773d73955f7bf6a6e7e04343e3f547081829185a8fa1bdd3",
+  "app/globals.css": "a1bac88498649d15835781bcd0d5e5da2bc9a9d775623fbd1211147f24c4aa35"
+}

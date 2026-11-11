@@ -1,0 +1,70 @@
+# Reference scenes
+
+All dimensions are logical points; PNGs are 2×. Scene names are scoped by window.
+
+| Window | Scene | Preview path | Size | Themes |
+|---|---|---|---|---|
+| main | library | `/` | 1180 × 760 | light, dark |
+| main | settings-general | `/?view=settings:general` | 1180 × 760 | light, dark |
+| main | settings-expansion | `/?view=settings:expansion` | 1180 × 760 | light, dark |
+| main | settings-activity | `/?view=settings:activity` | 1180 × 760 | light, dark |
+| main | settings-clipboard | `/?view=settings:clipboard` | 1180 × 760 | light, dark |
+| main | settings-agents | `/?view=settings:agents` | 1180 × 760 | light, dark |
+| main | settings-apps | `/?view=settings:apps` | 1180 × 760 | light, dark |
+| main | settings-data | `/?view=settings:data` | 1180 × 760 | light, dark |
+| main | settings-about | `/?view=settings:about` | 1180 × 760 | light, dark |
+| main | activity-empty | `/?view=settings:activity&emptyactivity` | 1180 × 760 | light, dark |
+| main | insights | `/?view=insights` | 1180 × 760 | light, dark |
+| main | clipboard-history | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clips-5000 | `/?view=clipboard&clips=5000` | 1180 × 760 | light, dark |
+| main | clipboard-empty | `/?view=clipboard&emptyclips` | 1180 × 760 | light, dark |
+| main | update | `/?view=settings:about&update` | 1180 × 760 | light, dark |
+| main | onboarding-welcome | `/?onboarding` | 1180 × 760 | light, dark |
+| main | onboarding-access | `/?onboarding` | 1180 × 760 | light, dark |
+| main | onboarding-import | `/?onboarding` | 1180 × 760 | light, dark |
+| main | onboarding-espanso | `/?onboarding&espanso` | 1180 × 760 | light, dark |
+| main | onboarding-espanso-retry | `/?onboarding&espanso=retry` | 1180 × 760 | light, dark |
+| main | onboarding-practice | `/?onboarding` | 1180 × 760 | light, dark |
+| main | onboarding-finish-retry | `/?onboarding&finish=retry` | 1180 × 760 | light, dark |
+| palette | search | `/palette` | 760 × 480 | light, dark |
+| picker | history | `/clipboard` | 800 × 520 | light, dark |
+| picker | clips-5000 | `/clipboard?clips=5000` | 800 × 520 | light, dark |
+| picker | empty | `/clipboard?emptyclips` | 800 × 520 | light, dark |
+| form | demo | `/form?demo` | 440 × content (max 640) | light, dark |
+| permissions | missing | `/permissions` | 420 × 660 | light, dark |
+| permissions | allowed | `/permissions` | 420 × 660 | light, dark |
+| permissions | revoked | `/permissions` | 420 × 660 | light, dark |
+| permissions | paused | `/permissions` | 420 × 660 | light, dark |
+| permissions | secure | `/permissions` | 420 × 660 | light, dark |
+| permissions | restart | `/permissions` | 420 × 660 | light, dark |
+| main | command-menu | `/` | 1180 × 760 | light, dark |
+| main | cheat-sheet | `/` | 1180 × 760 | light, dark |
+| main | library-empty | `/` | 1180 × 760 | light, dark |
+| main | group-context-menu | `/` | 1180 × 760 | light, dark |
+| main | group-dialog | `/` | 1180 × 760 | light, dark |
+| main | snippet-actions | `/` | 1180 × 760 | light, dark |
+| main | snippet-bulk | `/` | 1180 × 760 | light, dark |
+| main | snippet-deleted-toast | `/` | 1180 × 760 | light, dark |
+| main | formatting-toolbar | `/` | 1180 × 760 | light, dark |
+| main | insert-menu | `/` | 1180 × 760 | light, dark |
+| main | clipboard-options-menu | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-bulk | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | chip-date | `/` | 1180 × 760 | light, dark |
+| main | chip-time | `/` | 1180 × 760 | light, dark |
+| main | chip-clipboard | `/` | 1180 × 760 | light, dark |
+| main | chip-cursor | `/` | 1180 × 760 | light, dark |
+| main | chip-snippet | `/` | 1180 × 760 | light, dark |
+| main | chip-field | `/` | 1180 × 760 | light, dark |
+| main | chip-choice | `/` | 1180 × 760 | light, dark |
+| main | chip-selection | `/` | 1180 × 760 | light, dark |
+| main | chip-uuid | `/` | 1180 × 760 | light, dark |
+| main | chip-random | `/` | 1180 × 760 | light, dark |
+| main | chip-key | `/` | 1180 × 760 | light, dark |
+| main | chip-delay | `/` | 1180 × 760 | light, dark |
+| main | clipboard-image | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-link | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-file | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-code | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-color | `/?view=clipboard` | 1180 × 760 | light, dark |
+| main | clipboard-no-match | `/?view=clipboard` | 1180 × 760 | light, dark |
+| palette | no-match | `/palette` | 760 × 480 | light, dark |

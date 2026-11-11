@@ -1,0 +1,44 @@
+[
+  {
+    "input": null,
+    "result": []
+  },
+  {
+    "input": "",
+    "result": []
+  },
+  {
+    "input": "## [0.2.0](https://example.com) (2026-11-04)\n\n### Features\n\n* **palette:** faster search tray ([4143658](https://example.com))\n* new keycap shortcuts ([c818cef](https://example.com))\n\n### Fixes\n\n* keep the titlebar transparent",
+    "result": [
+      {
+        "heading": "Features",
+        "items": [
+          "palette: faster search tray",
+          "new keycap shortcuts"
+        ]
+      },
+      {
+        "heading": "Fixes",
+        "items": [
+          "keep the titlebar transparent"
+        ]
+      }
+    ]
+  },
+  {
+    "input": "# Release\n\n### Fixes\n- **bold** and [link](https://example.com) (`abcdef1`)\n* second item",
+    "result": [
+      {
+        "heading": "Release",
+        "items": []
+      },
+      {
+        "heading": "Fixes",
+        "items": [
+          "bold and link (`abcdef1`)",
+          "second item"
+        ]
+      }
+    ]
+  }
+]
