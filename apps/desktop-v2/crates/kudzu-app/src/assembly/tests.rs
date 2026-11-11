@@ -243,7 +243,8 @@ impl WriteTarget<u8> for Hold {
 
 #[test]
 fn shutdown_stops_producers_before_the_drain_and_runs_once() {
-    let (scratch, fixtures, app) = open(false, Duration::from_secs(3600));
+    let (scratch, fixtures, app) = open(true, Duration::from_secs(3600));
+    wait_for(|| !fixtures.cloud.state.lock().unwrap().starts.is_empty());
     app.settings
         .update(|settings| {
             settings.agent_access = true;
@@ -279,8 +280,16 @@ fn shutdown_stops_producers_before_the_drain_and_runs_once() {
             flag = entered.1.wait_timeout(flag, left).unwrap().0;
         }
     }
+    // (2) the agent socket, (3) the engine and clipboard capture, then the sync worker, all
+    // stopped before (4) the writer drains.
     assert!(!fixtures.engine.state.lock().unwrap().running);
     assert!(!socket.exists());
+    assert!(fixtures.cloud.state.lock().unwrap().stops > 0);
+    let entries = app.clipboard.watch().get().entries.len();
+    fixtures.pasteboard.external_copy(text("after stop"));
+    fixtures.clock.advance(Duration::from_millis(900));
+    std::thread::sleep(Duration::from_millis(30));
+    assert_eq!(app.clipboard.watch().get().entries.len(), entries);
     {
         let mut flag = release.0.lock().unwrap();
         *flag = true;

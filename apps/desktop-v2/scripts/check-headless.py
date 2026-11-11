@@ -31,4 +31,39 @@ with tempfile.TemporaryDirectory(prefix="kudzu-headless-") as directory:
     tree = json.loads((scratch / "tree.json").read_text())
     assert "Kudzu Next" in json.dumps(tree)
     assert (scratch / "snap.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
-    print("All four modes passed under a filesystem write sandbox; no S01 native adapters exist.")
+    listed = subprocess.run([sandbox, "-p", profile, str(BINARY), "--list-windows"], env=env,
+                            cwd=scratch, capture_output=True, text=True, check=True).stdout.split()
+    for key in ["main", "palette", "picker", "form", "permissions"]:
+        assert key in listed, f"--list-windows is missing {key}: {listed}"
+
+    # Scripts that cross windows run on Rune's virtual desktop, on fixtures in this folder.
+    search = {"t": 0.2, "type": "shortcut", "chord": "ctrl+alt+shift+space"}
+    clipboard = {"t": 0.2, "type": "shortcut", "chord": "ctrl+alt+shift+v"}
+    escape = {"t": 0.6, "type": "key", "name": "Escape"}
+    command_q = {"t": 0.6, "type": "key", "name": "q", "cmd": True}
+    reopen = {"t": 1.0, "reopen": True}
+
+    def desktop(name, events, window="main", extra=()):
+        script = scratch / f"{name}.json"
+        script.write_text(json.dumps(events + [{"t": 1.4, "type": "mark", "name": "end"}]))
+        out = scratch / f"{name}-tree.json"
+        args = [sandbox, "-p", profile, str(BINARY), "--desktop", str(scratch / "snap.png"),
+                "--script", str(script), "--window", window, "--tree", str(out), *extra]
+        result = subprocess.run(args, env=env, cwd=scratch, capture_output=True, text=True)
+        print(name, result.returncode, result.stderr.strip().splitlines()[-1:])
+        result.check_returncode()
+        return {w["key"]: w["visible"] for w in json.loads(out.read_text())["windows"]}
+
+    shown = desktop("shortcut-opens-palette", [search], "palette")
+    assert shown["palette"] and shown["main"], shown
+    shown = desktop("escape-hides-palette", [search, escape], "palette")
+    assert not shown["palette"] and shown["main"], shown
+    shown = desktop("shortcut-opens-picker", [clipboard], "picker")
+    assert shown["picker"], shown
+    shown = desktop("command-q-closes-windows", [search, command_q], "palette")
+    assert not shown["palette"] and not shown["main"], shown
+    shown = desktop("reopen-opens-main", [search, command_q, reopen])
+    assert shown["main"] and not shown["palette"], shown
+    shown = desktop("hidden-ignored-on-first-run", [], extra=["--hidden"])
+    assert shown["main"], shown
+    print("All modes and window scripts passed under a filesystem write sandbox, on fixtures.")

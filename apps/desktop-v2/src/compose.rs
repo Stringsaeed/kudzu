@@ -1,6 +1,5 @@
-//! Composition: launch mode → identity → paths → ports (native or fixtures) → `Kudzu::new` →
-//! windows → wakers. Headless runs use fixtures in a temporary folder and never call
-//! `Ports::macos`.
+//! Composition: launch mode → identity → paths → ports (native, or fixtures in a temporary
+//! folder when headless: never `Ports::macos`) → `Kudzu::new` → windows → wakers.
 use crate::{cli::LaunchMode, identity::Identity};
 use kudzu_app::assembly::{Config, Host, Kudzu};
 use kudzu_app::{fixtures::Fixtures, paths::Paths, settings::Variant};
