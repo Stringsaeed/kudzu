@@ -9,11 +9,15 @@ use std::{
     collections::HashMap,
     fs::{self, File, OpenOptions},
     io::{self, Read, Write},
-    os::unix::fs::{DirBuilderExt, OpenOptionsExt},
+    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::Mutex,
 };
+
+pub(crate) mod location;
+mod swap;
+use location::Scratch;
 
 const MAX_ARCHIVE: u64 = 256 * 1024 * 1024;
 const MAX_EXTRACTED: u64 = 1024 * 1024 * 1024;
@@ -48,16 +52,29 @@ impl BundleInstaller {
         verify: impl FnOnce(&Path, &str) -> Result<(), PortError>,
         rename: impl Fn(&Path, &Path) -> io::Result<()>,
     ) -> Result<(), PortError> {
+        self.install_using(package, verify, swap::exchange, rename)
+    }
+
+    fn install_using(
+        &self,
+        package: &UpdatePackage,
+        verify: impl FnOnce(&Path, &str) -> Result<(), PortError>,
+        swap: impl Fn(&Path, &Path) -> io::Result<()>,
+        rename: impl Fn(&Path, &Path) -> io::Result<()>,
+    ) -> Result<(), PortError> {
         let _operation = self.operation.lock().unwrap();
-        if self.probe()?.needs_move {
-            return Err(PortError::PermissionDenied);
-        }
+        let probe = self.probe()?;
         let version = Version::parse(&package.version).map_err(|_| PortError::InvalidData)?;
         if package.bundle_id != self.bundle_id || !version.cmp_precedence(&self.running).is_gt() {
             return Err(PortError::InvalidData);
         }
-        let parent = self.bundle.parent().ok_or(PortError::Unavailable)?;
-        let stage = Scratch::beside(parent)?;
+        if already_current(&self.bundle, &version) {
+            return Ok(());
+        }
+        if probe.needs_move {
+            return Err(PortError::PermissionDenied);
+        }
+        let mut stage = Scratch::for_bundle(&self.bundle)?;
         let snapshot = stage.0.join("archive.tar.gz");
         snapshot_archive(package, &snapshot)?;
         let tar = stage.0.join("validated.tar");
@@ -81,34 +98,18 @@ impl BundleInstaller {
         let extracted = stage.0.join(ROOT);
         validate_bundle(&extracted, package)?;
         verify(&extracted, &self.bundle_id)?;
-        let backup = stage.0.join("previous.app");
-        rename(&self.bundle, &backup).map_err(port_io)?;
-        if let Err(error) = rename(&extracted, &self.bundle) {
-            if rename(&backup, &self.bundle).is_err() {
-                // Preserve the only old copy if rollback itself fails. Never let Drop erase it.
-                std::mem::forget(stage);
-            }
-            return Err(port_io(error));
+        if already_current(&self.bundle, &version) {
+            return Ok(());
         }
-        // Backup survives both renames; only now may the stage (including backup) be deleted.
-        Ok(())
+        swap::publish(&mut stage, &self.bundle, swap, rename).map_err(port_io)
     }
 }
 
 impl UpdateInstaller for BundleInstaller {
     fn probe(&self) -> Result<InstallProbe, PortError> {
-        let path = fs::canonicalize(&self.bundle).unwrap_or_else(|_| self.bundle.clone());
-        let unsafe_location = [&self.bundle, &path].iter().any(|p| {
-            p.starts_with("/Volumes") || p.components().any(|c| c.as_os_str() == "AppTranslocation")
-        });
-        let needs_move = unsafe_location
-            || super::relaunch::validate_bundle(&self.bundle).is_err()
-            || self.bundle.parent().is_none_or(|p| {
-                fs::metadata(p).map_or(true, |m| m.permissions().readonly())
-                    || Scratch::beside(p).is_err()
-            });
-        Ok(InstallProbe { needs_move })
+        Ok(location::probe(&self.bundle))
     }
+
     fn install(&self, package: &UpdatePackage) -> Result<(), PortError> {
         self.install_with(package, verify_signature, |from, to| fs::rename(from, to))
     }
@@ -117,21 +118,27 @@ impl UpdateInstaller for BundleInstaller {
 fn port_io(error: io::Error) -> PortError {
     PortError::Io(error.into())
 }
-struct Scratch(PathBuf);
-impl Scratch {
-    fn beside(parent: &Path) -> Result<Self, PortError> {
-        let path = parent.join(format!(".kudzu-update-{}", uuid::Uuid::new_v4()));
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&path)
-            .map_err(port_io)?;
-        Ok(Self(path))
-    }
-}
-impl Drop for Scratch {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.0);
-    }
+fn already_current(bundle: &Path, version: &Version) -> bool {
+    (|| {
+        let mut bytes = Vec::new();
+        File::open(bundle.join("Contents/Info.plist"))
+            .ok()?
+            .take(1024 * 1024 + 1)
+            .read_to_end(&mut bytes)
+            .ok()?;
+        if bytes.len() > 1024 * 1024 {
+            return None;
+        }
+        let plist = plist::Value::from_reader(io::Cursor::new(bytes)).ok()?;
+        Version::parse(
+            plist
+                .as_dictionary()?
+                .get("CFBundleShortVersionString")?
+                .as_string()?,
+        )
+        .ok()
+    })()
+    .is_some_and(|installed| !installed.cmp_precedence(version).is_lt())
 }
 
 fn snapshot_archive(package: &UpdatePackage, destination: &Path) -> Result<(), PortError> {
@@ -292,7 +299,7 @@ fn validate_tar(path: &Path, max_size: u64, max_entries: usize) -> Result<(), Po
         let kind = header[156];
         let size = octal(&header[124..136])?;
         if !matches!(kind, 0 | b'0' | b'1' | b'2' | b'5')
-            || octal(&header[100..108])? & 0o6000 != 0
+            || octal(&header[100..108])? & 0o6022 != 0
             || (!matches!(kind, 0 | b'0') && size != 0)
             || (path == ROOT && kind != b'5')
         {
@@ -494,7 +501,7 @@ mod tests {
             );
             assert_eq!(
                 fs::read_dir(&self.dir.0).unwrap().count(),
-                2,
+                3,
                 "no probe/staging debris"
             );
         }
@@ -598,22 +605,21 @@ mod tests {
                     Ok(())
                 },
                 |from, to| {
-                    if renames.get() == 1 {
-                        assert!(from.parent().unwrap().join("previous.app/old").exists());
-                        assert!(!to.exists());
-                    }
+                    assert!(fixture.bundle.join("Contents/MacOS/Kudzu").exists());
+                    assert!(from.join("old").exists());
+                    assert_eq!(to.file_name().unwrap(), "previous.app");
                     renames.set(renames.get() + 1);
                     fs::rename(from, to)
                 },
             )
             .unwrap();
-        assert_eq!(renames.get(), 2);
+        assert_eq!(renames.get(), 1);
         assert_eq!(
             fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
             b"new executable"
         );
         assert!(!fixture.bundle.join("old").exists());
-        assert_eq!(fs::read_dir(&fixture.dir.0).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(&fixture.dir.0).unwrap().count(), 3);
     }
 
     #[test]
@@ -621,17 +627,19 @@ mod tests {
         for fail_rollback in [false, true] {
             let fixture = Fixture::new();
             let count = Cell::new(0);
-            let result =
-                fixture
-                    .installer()
-                    .install_with(&fixture.package, accepted, |from, to| {
-                        count.set(count.get() + 1);
-                        if count.get() == 2 || (fail_rollback && count.get() == 3) {
-                            Err(io::ErrorKind::PermissionDenied.into())
-                        } else {
-                            fs::rename(from, to)
-                        }
-                    });
+            let result = fixture.installer().install_using(
+                &fixture.package,
+                accepted,
+                |_, _| Err(io::Error::from_raw_os_error(swap::ENOTSUP)),
+                |from, to| {
+                    count.set(count.get() + 1);
+                    if count.get() == 2 || (fail_rollback && count.get() == 3) {
+                        Err(io::ErrorKind::PermissionDenied.into())
+                    } else {
+                        fs::rename(from, to)
+                    }
+                },
+            );
             assert!(result.is_err());
             if fail_rollback {
                 assert!(!fixture.bundle.exists());
@@ -1039,5 +1047,218 @@ mod tests {
         drop(keychain);
         assert_eq!(keychain_setting("list-keychains"), search_list);
         assert_eq!(keychain_setting("default-keychain"), default);
+    }
+
+    #[test]
+    fn review_swap_failure_between_steps_never_removes_the_installed_path() {
+        let fixture = Fixture::new();
+        let result = fixture
+            .installer()
+            .install_with(&fixture.package, accepted, |from, to| {
+                assert!(
+                    fixture.bundle.is_dir(),
+                    "installed path must always hold a whole app"
+                );
+                assert!(
+                    fixture.bundle.join("Contents/MacOS/Kudzu").exists(),
+                    "atomic exchange happens before backup retention"
+                );
+                assert!(from.join("old").exists());
+                assert_eq!(to.file_name().unwrap(), "previous.app");
+                Err(io::ErrorKind::PermissionDenied.into())
+            });
+        assert!(result.is_err());
+        fixture.unchanged();
+    }
+
+    #[test]
+    fn review_equal_or_newer_disk_version_skips_without_verifying_or_swapping() {
+        for version in ["2.0.0", "2.0.0+local", "3.0.0"] {
+            let fixture = Fixture::new();
+            let stale = fixture.dir.0.join(".kudzu-update-abandoned");
+            fs::create_dir(&stale).unwrap();
+            fs::create_dir(fixture.bundle.join("Contents")).unwrap();
+            fs::write(
+                fixture.bundle.join("Contents/Info.plist"),
+                &good_entries(ID, version)[3].data,
+            )
+            .unwrap();
+            fixture
+                .installer()
+                .install_with(
+                    &fixture.package,
+                    |_, _| panic!("must skip"),
+                    |_, _| panic!("must skip"),
+                )
+                .unwrap();
+            assert!(!stale.exists(), "install entry also sweeps stale folders");
+            fixture.unchanged();
+        }
+    }
+
+    #[test]
+    fn review_group_and_world_writable_modes_are_rejected() {
+        for mode in [0o775, 0o757, 0o777] {
+            let mut fixture = Fixture::new();
+            let mut entries = good_entries(ID, "2.0.0");
+            entries.push(TestEntry {
+                mode,
+                ..TestEntry::file("Kudzu.app/writable", b"unsafe")
+            });
+            fixture.write(entries);
+            assert_eq!(
+                validate_tar(&fixture.package.archive, MAX_EXTRACTED, MAX_ENTRIES),
+                Err(PortError::InvalidData)
+            );
+        }
+    }
+
+    #[test]
+    fn review_killing_the_installer_between_exchange_and_backup_keeps_a_whole_app() {
+        use std::{
+            io::{BufRead, BufReader},
+            process::Stdio,
+        };
+        let fixture = Fixture::new();
+        let mut child = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "update_install::tests::review_swap_crash_child",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env("KUDZU_SWAP_TEST_BUNDLE", &fixture.bundle)
+            .env("KUDZU_SWAP_TEST_ARCHIVE", &fixture.package.archive)
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut output = BufReader::new(child.stdout.take().unwrap());
+        let mut line = String::new();
+        loop {
+            assert_ne!(output.read_line(&mut line).unwrap(), 0);
+            if line.contains("EXCHANGED") {
+                break;
+            }
+            line.clear();
+        }
+        assert_eq!(
+            fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
+            b"new executable"
+        );
+        let stage = fs::read_dir(&fixture.dir.0)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| {
+                p.is_dir()
+                    && p.file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with(".kudzu-update-")
+            })
+            .unwrap();
+        assert!(stage.join("Kudzu.app/old").exists());
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert!(!fixture.installer().probe().unwrap().needs_move);
+        assert!(
+            !stage.exists(),
+            "crash lease released and debris swept by probe"
+        );
+        assert_eq!(
+            fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
+            b"new executable"
+        );
+    }
+
+    #[test]
+    #[ignore = "only invoked by the isolated atomic-swap crash parent"]
+    fn review_swap_crash_child() {
+        let bundle =
+            PathBuf::from(std::env::var_os("KUDZU_SWAP_TEST_BUNDLE").expect("isolated child only"));
+        let archive = PathBuf::from(
+            std::env::var_os("KUDZU_SWAP_TEST_ARCHIVE").expect("isolated child only"),
+        );
+        assert!(bundle.starts_with(std::env::temp_dir()));
+        assert_eq!(archive.parent(), bundle.parent());
+        let package = UpdatePackage {
+            digest: *blake3::hash(&fs::read(&archive).unwrap()).as_bytes(),
+            archive,
+            bundle_id: ID.into(),
+            version: "2.0.0".into(),
+        };
+        BundleInstaller::new(bundle, ID, "1.0.0")
+            .unwrap()
+            .install_with(&package, accepted, |_, _| {
+                println!("EXCHANGED");
+                std::io::stdout().flush().unwrap();
+                loop {
+                    std::thread::park();
+                }
+            })
+            .unwrap();
+        panic!("parent must kill this process");
+    }
+
+    #[test]
+    fn review_failed_atomic_rollback_still_keeps_the_published_app_and_old_copy() {
+        let fixture = Fixture::new();
+        let swaps = Cell::new(0);
+        let result = fixture.installer().install_using(
+            &fixture.package,
+            accepted,
+            |from, to| {
+                swaps.set(swaps.get() + 1);
+                if swaps.get() == 1 {
+                    swap::exchange(from, to)
+                } else {
+                    Err(io::ErrorKind::PermissionDenied.into())
+                }
+            },
+            |_, _| Err(io::ErrorKind::PermissionDenied.into()),
+        );
+        assert!(result.is_err());
+        assert_eq!(swaps.get(), 2);
+        assert_eq!(
+            fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
+            b"new executable"
+        );
+        let stage = fs::read_dir(&fixture.dir.0)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .find(|p| {
+                p.is_dir()
+                    && p.file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .starts_with(".kudzu-update-")
+            })
+            .unwrap();
+        assert_eq!(
+            fs::read(stage.join("Kudzu.app/old")).unwrap(),
+            b"running bundle"
+        );
+    }
+
+    #[test]
+    fn review_disk_version_is_rechecked_after_verification_before_publication() {
+        let fixture = Fixture::new();
+        fixture
+            .installer()
+            .install_using(
+                &fixture.package,
+                |_, _| {
+                    fs::create_dir(fixture.bundle.join("Contents")).unwrap();
+                    fs::write(
+                        fixture.bundle.join("Contents/Info.plist"),
+                        &good_entries(ID, "3.0.0")[3].data,
+                    )
+                    .unwrap();
+                    Ok(())
+                },
+                |_, _| panic!("newer app must not be swapped"),
+                |_, _| panic!("newer app must not be renamed"),
+            )
+            .unwrap();
+        fixture.unchanged();
     }
 }

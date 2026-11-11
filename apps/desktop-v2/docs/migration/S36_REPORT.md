@@ -1,5 +1,7 @@
 # S36 implementation report
 
+The [S36 security review follow-up](S36_REVIEW_FIXES.md) supersedes the swap, instance, probe, login and Fetch implementation details below.
+
 - Worktree: `/Users/saeed/.t3/worktrees/text-expander/t3-4435258a-e789384073b71a61`
 - Branch: `t3/system-adapter-install`. The worktree branch was externally renamed from its initial `t3/4435258a` while HEAD stayed at `6086bc0d`; no branch/checkout/reset command was performed by this implementation.
 - Commit message: `refactor(desktop-v2): add the login item, file, instance and update-install adapters`.

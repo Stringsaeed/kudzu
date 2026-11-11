@@ -26,7 +26,7 @@ pub struct UpdatePackage {
     pub bundle_id: String,
     /// Signed version from the minisign trusted comment (`file:Kudzu_<version>_…`).
     pub version: String,
-    /// SHA-256 of the staged archive bytes.
+    /// BLAKE3 of the staged archive bytes (D16).
     pub digest: [u8; 32],
 }
 pub trait UpdateInstaller: Send + Sync {

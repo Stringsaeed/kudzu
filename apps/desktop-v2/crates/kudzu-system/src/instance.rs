@@ -1,10 +1,14 @@
 //! An OS-held flock, not a sentinel. Never unlink the lock file: waiters share its inode.
 use kudzu_app::error::PortError;
 use std::os::fd::AsRawFd;
-use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::{
+    ffi::{OsStrExt, OsStringExt},
+    fs::OpenOptionsExt,
+};
 use std::{
     fs::{File, OpenOptions},
-    path::Path,
+    io::{Read, Write},
+    path::{Path, PathBuf},
 };
 
 pub enum Instance {
@@ -35,6 +39,8 @@ impl Drop for InstanceGuard {
 
 impl Instance {
     /// `directory` is the resolved identity's private data directory. Hold Primary until exit.
+    /// S40 must acquire this lock before starting NSApplication, so a losing copy never
+    /// registers itself with Launch Services or accepts reopen events intended for the owner.
     pub fn acquire(
         directory: &Path,
         bundle_id: &str,
@@ -63,14 +69,33 @@ impl Instance {
             .map_err(|e| PortError::Io(e.into()))?;
         // LOCK_EX | LOCK_NB, on both macOS and the Unix test hosts.
         if unsafe { flock(lock.as_raw_fd(), 2 | 4) } == 0 {
-            return Ok(Self::Primary(InstanceGuard { _lock: lock }));
+            let mut owner = InstanceGuard { _lock: lock };
+            owner
+                ._lock
+                .set_len(0)
+                .map_err(|e| PortError::Io(e.into()))?;
+            if let Some(bundle) = bundle {
+                owner
+                    ._lock
+                    .write_all(bundle.as_os_str().as_bytes())
+                    .map_err(|e| PortError::Io(e.into()))?;
+            }
+            return Ok(Self::Primary(owner));
         }
         let error = std::io::Error::last_os_error();
         if error.kind() != std::io::ErrorKind::WouldBlock {
             return Err(PortError::Io(error.into()));
         }
-        if let Some(bundle) = bundle {
-            let _ = reopen(bundle);
+        if let Some(own_bundle) = bundle {
+            let mut record = Vec::new();
+            let running = lock
+                .take(4097)
+                .read_to_end(&mut record)
+                .ok()
+                .filter(|_| record.len() <= 4096)
+                .map(|_| PathBuf::from(std::ffi::OsString::from_vec(record)))
+                .filter(|p| super::relaunch::validate_bundle(p).is_ok());
+            let _ = reopen(running.as_deref().unwrap_or(own_bundle));
         }
         Ok(Self::Secondary)
     }
@@ -184,5 +209,46 @@ mod tests {
         loop {
             std::thread::park();
         }
+    }
+
+    #[test]
+    fn review_second_copy_reopens_the_running_bundle_elsewhere() {
+        let dir = std::env::temp_dir().join(format!("kudzu-two-copies-{}", uuid::Uuid::new_v4()));
+        let running = dir.join("installed/Kudzu.app");
+        let second = dir.join("download/Kudzu.app");
+        std::fs::create_dir_all(&running).unwrap();
+        std::fs::create_dir_all(&second).unwrap();
+        let owner = Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&running), |_| {
+            panic!("primary")
+        })
+        .unwrap();
+        assert!(matches!(
+            Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&second), |seen| {
+                assert_eq!(seen, running);
+                Ok(())
+            })
+            .unwrap(),
+            Instance::Secondary
+        ));
+        for record in [b"/missing/Kudzu.app".to_vec(), vec![b'x'; 4097], Vec::new()] {
+            std::fs::write(dir.join("sh.saeed.kudzu.next.lock"), record).unwrap();
+            assert!(matches!(
+                Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&second), |seen| {
+                    assert_eq!(seen, second);
+                    Ok(())
+                })
+                .unwrap(),
+                Instance::Secondary
+            ));
+        }
+        assert!(matches!(
+            Instance::acquire_with(&dir, "sh.saeed.kudzu.next", None, |_| panic!(
+                "unbundled launch must exit"
+            ))
+            .unwrap(),
+            Instance::Secondary
+        ));
+        drop(owner);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
