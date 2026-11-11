@@ -1028,3 +1028,64 @@ fn shutdown_respects_clipboard_write_interval() {
     assert!(service.saved().get().durable >= revision);
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn scheduled_pruning_waits_for_ten_minute_boundary() {
+    use crate::schedule::Scheduler;
+    let dir = std::env::temp_dir().join(format!("kudzu-clip-prune-boundary-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let at: chrono::DateTime<chrono::Utc> = clock.now().into();
+    let mut history = History::new();
+    history.ingest(
+        &classify(&text("expires"), None).unwrap(),
+        None,
+        None,
+        at - chrono::Duration::days(1) + chrono::Duration::seconds(1),
+    );
+    std::fs::write(
+        dir.join("history.json"),
+        serde_json::to_vec(&history).unwrap(),
+    )
+    .unwrap();
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let scheduler = Scheduler::new(clock.clone()).unwrap();
+    let mut initial = Settings::for_variant(Variant::Dev);
+    initial.clipboard_retention_days = 1;
+    let settings = Publisher::new(initial);
+    let service = Arc::new(
+        ClipboardService::open(
+            dir.clone(),
+            settings.watch(),
+            Arc::new(FakePasteboard::default()),
+            Arc::new(FakeThumbnailer::default()),
+            Arc::new(FakeApps::default()),
+            Arc::new(FakeApps::default()),
+            clock.clone(),
+            &writer,
+        )
+        .unwrap(),
+    );
+    service.start(&scheduler).unwrap();
+    let watch = service.watch();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let _subscription = watch.subscribe(move || {
+        let _ = tx.send(());
+    });
+    clock.advance(Duration::from_secs(599));
+    assert_eq!(watch.get().entries.len(), 1);
+    clock.advance(Duration::from_secs(1));
+    while !watch.get().entries.is_empty() {
+        rx.recv_timeout(Duration::from_secs(5))
+            .expect("ten minute prune");
+    }
+    service.shutdown().unwrap();
+    scheduler.shutdown();
+    writer.shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
