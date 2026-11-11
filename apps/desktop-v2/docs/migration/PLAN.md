@@ -1289,6 +1289,16 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Double-click Submit on a typed form: the trigger is replaced once.
   - Suppression is held from submit until the outcome; a trigger typed during activation doesn't expand.
   - The frontmost-pid read on the tap thread stays within the 0.2 ms p99 on a real session.
+- **Live checks from the S35 review:**
+  - Run `cargo test -p kudzu-system -- --ignored general_pasteboard` by hand (it replaces the clipboard).
+  - Promised image and file copies from Finder, Preview and a browser: `read()` keeps the types and resolves the bytes; an empty promise doesn't stick in history once `last_change` moves.
+  - A history write right after a snippet ⌘V waits for the restore and isn't recorded; try to catch the restore/own-change window.
+  - `FileIcons` at 64 px against Finder; app icons by bundle id outside `/Applications`.
+  - The Settings panes and the Accessibility and Input Monitoring prompts on current macOS.
+  - `TargetApp::selection` presses ⌘C only when Accessibility reports no selection.
+  - A blur or key-status report after submit, before the engine worker runs, still reaches the engine.
+  - A dropped native form: the submit is refused and the UI doesn't wait.
+  - D17 `trigger_lost` through the adapter: the clipboard is restored and the notice carries no typed or inserted text.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
