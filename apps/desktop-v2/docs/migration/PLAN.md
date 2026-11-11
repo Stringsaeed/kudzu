@@ -952,6 +952,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Pass `PermissionsConfig { app_name: <identity name>, os_major, marker }`.
   - Compose `Apps` from `AppCatalog` only.
 - **From S27 and S29:** call `expansion.resync()` after every engine `start`. Give the `EngineRouter` a per-engine-instance token namespace, because engine form tokens restart at 1. Treat an error from `data.note_app_version` as log-and-continue: it retries next launch (D19).
+- **From the S36 review:** take the single-instance lock before `NSApplication` starts. Treat a failed `LaunchAgent::new` as "login item unavailable", not a startup failure, and don't enable the login item when the probe reports `needs_move`.
 - **Accept:** On fakes, without Rune: every row of the reactions table, end to end; the shutdown order of §1.2 with a slow writer, run once however quit starts. Headless: `--list-windows` prints `main`, `palette`, `picker`, `form`, `permissions`; a scripted shortcut opens the palette and Escape hides it; `{"reopen": true}` opens `main`; scripts that cross windows run with `--desktop`. With fixtures on a real temp folder, an edited draft is on disk after an immediate relaunch following each of: the tray's Quit, ⌘Q, the close button, a scripted system quit. After every way of dismissing the palette, the picker or a form, nothing is suppressed. Turning recording off hides an open picker. Tray model tests: item order and labels (with Dev names), the status line, glyph priority pause → Secure Input → permission, update label states, Clipboard History disabled while recording is off. New Snippet from Selection captures, then routes to a new snippet even when the selection is empty. Closing `main` hides it and drops the Dock icon. ⌘Q closes every window, cancels a pending form and lifts suppression. `shutdown()` runs once however quit starts. `--hidden` is ignored on first run. A theme change reaches every window in one turn. On a Dev bundle: the status item appears and works; a hotkey conflict rolls back.
 - **Closes:** SHL-1, SHL-2, SHL-3, SHL-4, SHL-5, SHL-6, SHL-7, WIN-1, QS-1 and PKR-1 (shell parts).
 - **Depends:** S04, S11, S26–S33, S35–S38 · **Parallel with:** none
@@ -1225,6 +1226,17 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Owns:** `docs/migration/NATIVE_SYSTEM.md`; fixes go to the owning module as separate small commits.
 - **Needs from the owner (agreed, §6 D7):** one production-identity build run against the owner's iCloud account. It uses `sh.saeed.kudzu`, so quit the installed Kudzu and back up its data folder first.
 - **Checklist (record pass or fail with evidence):** the notarized artifact from S70's workflow installs from its DMG and runs on Apple Silicon, and its x86_64 slice runs under Rosetta (`arch -x86_64`); first run; hidden start at login; the Dock toggle; ⌘Q, the tray's Quit, Dock Quit and logout, each with an unsaved draft; light, dark and System; vibrancy, native shadows and corner clipping beside the Tauri app; Reduce Motion; iCloud between two Macs through each status, with an account change; an update from a local feed, new app to new app (download, verify, install on quit, Restart, needs-move from the DMG, a tampered archive refused). Then every row of the §1.7 budget table beside `reference/BASELINE.md`.
+- **Live checks from the S36 review:**
+  1. Install a real Developer ID archive. `codesign -dvvv`, `spctl -a -vv` and the pinned requirement must pass on the installed app, and permission grants must survive. Repeat with a wrong team, a wrong id, a tampered archive and an equal version; each must be refused.
+  2. `kill -9` during extraction, then relaunch and install. The stale stage folder is swept, and none is left after a normal install.
+  3. With `/Applications/Kudzu.app` running, open Kudzu from the DMG, a translocated copy and a second copy. The running app comes forward each time.
+  4. Log in with and without the old `Kudzu.plist`. Exactly one hidden process starts.
+  5. Translocated launch: expect `needs_move`, and no login agent pointing at a temporary path.
+  6. A root-owned bundle, and one owned by another user: expect `needs_move` or a clear error, with nothing left behind.
+  7. A newer app already copied onto disk: no downgrade.
+  8. The real GitHub redirect chain, behind a system proxy, and with a custom root.
+  9. Restart to Update: no double launch.
+  10. Open and reveal odd file names (spaces, `#`, `%`, `?`, emoji). Install into a folder containing `&`: the app starts, and the login item is reported unavailable.
 - **Accept:** `NATIVE_SYSTEM.md` complete, with the machine, macOS version and display. Every failure fixed, or carried to S74. Every budget met, or the miss listed with its cause and upstream issue.
 - **Closes:** SHL-8, SHL-9, SYN-1–6 (live confirmation).
 - **Depends:** S40–S66, S70 · **Parallel with:** S71, S73
@@ -1268,6 +1280,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   8. **release-please:** `apps/desktop` becomes `"release-type": "simple"`, which updates `version.txt` and `CHANGELOG.md`. Confirm with a dry run.
   9. **Root docs:** `AGENTS.md` (`CLAUDE.md` is a symlink to it): layout, commands, the crate rules of §1.1, the `RUNE-GAP` convention, the Rune pin. `README.md`: source links (`src-tauri/crates/…` → `crates/…`) and run instructions.
   10. **Website (links only):** `apps/website/lib/site.ts` and `lib/worst-case.ts` point at the moved source files and at the executable `Kudzu.app/Contents/MacOS/Kudzu`; `apps/website/README.md` mentions the new layout. Nothing else in the website changes.
+- **From the S36 review (D23):** remove the old Tauri `~/Library/LaunchAgents/Kudzu.plist` (Label `Kudzu`) when its program path is this bundle's executable, so only one login agent starts Kudzu.
 - **Accept:** `apps/desktop-v2` does not exist. `rg "desktop-v2" -g '!apps/desktop/docs/migration/**'` finds nothing. `rg -il "tauri|next\.js|react|shadcn|tailwind|typescript|webview" apps/desktop -g '!docs/migration/**' -g '!CHANGELOG.md'` lists only files where the mention is deliberate history; name them in the commit body. No `package.json`, `node_modules`, `.ts` or `.tsx` under `apps/desktop`. The paths the root README links to exist (`design/app-icon/Kudzu-1024.png`, `docs/PERMISSIONS.md`, `docs/TEMPLATE_SYNTAX.md`, `README.md`, `RELEASING.md`). At the root, `pnpm install --frozen-lockfile && pnpm check && pnpm build` pass. A dispatched run of `ci.yml` on the branch is green. `SKIP_NOTARIZE=1 scripts/release/build.sh` passes from `apps/desktop`. The release-please dry run proposes the next version from this commit alone: no `desktop-v2` commit appears in the proposed changelog. A Kudzu Dev bundle built after the rename launches with its own data folder, `Kudzu --mcp --dev` answers as `kudzu-dev`, the login item points at the new path, and the bundle carries `skills/kudzu/SKILL.md`.
 - **Afterwards:** when the owner accepts the cut-over, a follow-up commit deletes `docs/migration/reference/`.
 - **Closes:** the goal: no Tauri, webview, Next.js, React, shadcn, Tailwind or TypeScript in the desktop app.
@@ -1344,6 +1357,8 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - the checkbox gets its raised depth and sheen, the select its 3 pt focus halo, and the toast is 356 pt wide;
 - the formatted-preview cursor is a 2 pt bar;
 - key hints release on the real key-up, and keyboard activation shows the pressed look, using an AppKit key-up monitor in `kudzu-appkit` (`RUNE-GAP`) until Rune reports key-up and press state (#360). | S07, S38 |
+| D22 | **Update downloads use macOS trust and the system proxy (2026-11-11):** ureq's `platform-verifier` feature (adds `rustls-platform-verifier`) and the system proxy, matching today's updater on managed networks. Archives are fetched byte for byte, with no `Accept-Encoding`. | S36 |
+| D23 | **Old Tauri login agent at cut-over:** S75 removes `~/Library/LaunchAgents/Kudzu.plist` (Label `Kudzu`, written by tauri-plugin-autostart), but only when its program path is this bundle's executable, so one agent starts Kudzu at login (S36 review). | S75 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
