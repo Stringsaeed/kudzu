@@ -154,7 +154,7 @@ fn an_app_that_comes_forward_while_a_form_renders_is_not_adopted() {
     rig.type_(";addr");
     let token = rig.host.form_token();
     rig.engine.set_suppressed(true);
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.type_in_panel("Sam");
     rig.at(At::ReadClipboard(0), |d| d.set_frontmost(Some(mail())));
     rig.clear_log();

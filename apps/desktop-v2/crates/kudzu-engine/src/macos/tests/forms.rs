@@ -74,7 +74,7 @@ fn a_typed_form_keeps_the_trigger_until_submitted() {
 #[test]
 fn submitting_replaces_the_trigger() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.type_in_panel("Sam⏎");
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), inserted());
@@ -88,11 +88,11 @@ fn submitting_replaces_the_trigger() {
 #[test]
 fn a_key_after_the_panel_lost_focus_prevents_the_submission() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.clicks_text(0);
-    rig.engine.form_panel_focused(token, false);
+    rig.focus_panel(token, false);
     rig.type_("z");
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), []);
     assert_eq!(rig.doc(), "z|;addr");
@@ -104,8 +104,8 @@ fn a_key_after_the_panel_lost_focus_prevents_the_submission() {
 #[test]
 fn a_click_after_the_panel_lost_focus_prevents_the_submission() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token, true);
-    rig.engine.form_panel_focused(token, false);
+    rig.focus_panel(token, true);
+    rig.focus_panel(token, false);
     rig.clicks_text(2);
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), []);
@@ -119,7 +119,7 @@ fn a_click_after_the_panel_lost_focus_prevents_the_submission() {
 fn typing_before_the_panel_is_key_prevents_the_submission() {
     let (rig, token) = opened();
     rig.type_("q");
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), []);
     assert_eq!(rig.doc(), ";addrq|");
@@ -129,9 +129,9 @@ fn typing_before_the_panel_is_key_prevents_the_submission() {
 #[test]
 fn losing_focus_alone_does_not_prevent_the_submission() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token, true);
-    rig.engine.form_panel_focused(token, false);
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
+    rig.focus_panel(token, false);
+    rig.focus_panel(token, true);
     rig.clicks();
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), inserted());
@@ -141,7 +141,7 @@ fn losing_focus_alone_does_not_prevent_the_submission() {
 #[test]
 fn a_stale_token_does_nothing_and_a_token_acts_once() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.submit(token + 1, &[("who", "Eve")]);
     rig.engine.cancel_form(token + 1);
     rig.settle();
@@ -160,7 +160,7 @@ fn a_stale_token_does_nothing_and_a_token_acts_once() {
 #[test]
 fn a_focus_report_for_another_token_is_ignored() {
     let (rig, token) = opened();
-    rig.engine.form_panel_focused(token + 1, true);
+    rig.focus_panel(token + 1, true);
     rig.type_("q");
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), []);

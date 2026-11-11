@@ -317,10 +317,10 @@ fn a_key_while_settling_interrupts_a_listen_only_submission() {
 fn a_key_after_the_submit_event_interrupts_even_before_the_engine_hears_of_it() {
     let (rig, token) = opened(true);
     rig.press("Sam⏎");
-    let submitted_by = rig.last_stamp();
+    let submitted_by = rig.last_event();
     rig.focus_moves(Focus::Target);
     rig.press("z");
-    rig.submit_at(token, &[("who", "Sam")], submitted_by);
+    rig.submit_by(token, &[("who", "Sam")], Some(submitted_by));
     assert_eq!(rig.doc(), ";addrz|");
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
@@ -353,7 +353,7 @@ fn a_key_after_the_submission_is_accepted_interrupts_before_the_worker_starts_it
         .insert_snippet(rig.snippet_id(";x"), Some(super::desk::mail()));
     busy.recv().unwrap();
     let values = super::rig::form_values(&[("who", "Sam")]);
-    rig.engine.submit_form(token, values, rig.last_stamp());
+    rig.engine.submit_form(token, values, rig.submission(token));
     // The panel closes; its blur report is late.
     rig.with(|s| s.panels.late = true);
     rig.focus_moves(Focus::Target);
@@ -392,4 +392,133 @@ fn typing_in_the_form_before_a_late_blur_is_not_an_interruption() {
     rig.deliver_reports();
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.log(), inserted());
+}
+
+// MARK: Reports that arrive late or never (re-review blocker 2)
+
+/// Focus leaves the form without a click, a key reaches the target, and the user clicks back
+/// on the form and submits, all before the panel's reports arrive. They arrive while the
+/// target comes forward, after the submission: they still count, and the key that went to
+/// the target interrupts the form.
+#[test]
+fn reports_that_arrive_after_the_submission_still_catch_typing_in_the_target() {
+    let (rig, token) = opened(true);
+    rig.focus_moves(Focus::Target);
+    rig.press("z");
+    rig.click_on(Focus::Form, None);
+    rig.at(At::Activate(0), |d| d.deliver_reports());
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The same when the blur report never arrives: the engine can't tell where that key went, so
+/// it deletes nothing.
+#[test]
+fn a_blur_report_that_never_arrives_fails_closed() {
+    let (rig, token) = opened(true);
+    rig.focus_moves(Focus::Target);
+    rig.press("z");
+    rig.click_on(Focus::Form, None);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Reports that arrive late with no typing in between: the form goes ahead.
+#[test]
+fn late_reports_without_typing_elsewhere_let_the_form_go_ahead() {
+    let (rig, token) = opened(true);
+    rig.focus_moves(Focus::Panel);
+    rig.click_on(Focus::Form, None);
+    rig.press("Sam");
+    rig.at(At::Activate(0), |d| d.deliver_reports());
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+}
+
+// MARK: Equal and missing timestamps (re-review major 7)
+
+/// The panel closes late and a key reaches the target with the very same timestamp as the
+/// submitting Return. A different event with that stamp is not the submission: interrupted.
+#[test]
+fn another_key_with_the_submit_events_stamp_interrupts() {
+    let (rig, token) = opened(true);
+    rig.press("Sam⏎");
+    let stamp = rig.with(|s| s.last_down);
+    rig.focus_moves(Focus::Target);
+    rig.key_at_focus_stamped("z", true, stamp);
+    rig.settle();
+    rig.key_at_focus_stamped("z", false, stamp);
+    rig.settle();
+    rig.submit_by_return(token, &[("who", "Sam")], stamp);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The submitting Return itself, with its own stamp, is part of the form.
+#[test]
+fn the_submitting_key_itself_is_part_of_the_form() {
+    let (rig, token) = opened(true);
+    rig.press("Sam⏎");
+    let stamp = rig.with(|s| s.last_down);
+    rig.submit_by_return(token, &[("who", "Sam")], stamp);
+    assert_eq!(rig.log(), inserted());
+}
+
+/// A key-down with no timestamp can't be placed before the submission: interrupted.
+#[test]
+fn a_key_without_a_timestamp_interrupts() {
+    let (rig, token) = opened(true);
+    rig.press("Sam⏎");
+    let stamp = rig.with(|s| s.last_down);
+    rig.focus_moves(Focus::Target);
+    rig.key_at_focus_stamped("z", true, 0);
+    rig.settle();
+    rig.key_at_focus_stamped("z", false, 0);
+    rig.settle();
+    rig.submit_by_return(token, &[("who", "Sam")], stamp);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The session says where a key goes: one for another process interrupts the form even while
+/// its panel counts as key, whatever the reports say.
+#[test]
+fn a_key_the_session_routes_to_another_process_interrupts() {
+    let (rig, token) = opened(true);
+    rig.press("Sa");
+    let target = super::desk::editor().pid.unwrap();
+    rig.key_at_focus_to("m", true, target);
+    rig.settle();
+    rig.key_at_focus_to("m", false, target);
+    rig.settle();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The form window couldn't say which event submitted: typing since the last report can't be
+/// placed before it, so the form deletes nothing.
+#[test]
+fn a_submission_without_its_event_after_typing_fails_closed() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.submit_by(token, &[("who", "Sam")], None);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// A submission event with a zero stamp is as good as none.
+#[test]
+fn a_submission_event_without_a_stamp_fails_closed() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    let unstamped = crate::InputEvent {
+        stamp: crate::EventStamp(0),
+        key_code: Some(36),
+    };
+    rig.submit_by(token, &[("who", "Sam")], Some(unstamped));
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }

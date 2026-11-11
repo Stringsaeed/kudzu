@@ -57,12 +57,45 @@ use uuid::Uuid;
 
 pub use kudzu_core::system::{AppInfo, EngineStatus, PermissionStatus, Rect, TapMode};
 
-/// When an input event happened: the event's own timestamp, `CGEventGetTimestamp`. The form
-/// window passes the stamp of the event it was handling (`NSApp.currentEvent`'s `CGEvent`), so
-/// the engine can tell which input the window saw before a focus change or the submission, and
-/// which came after.
+/// When an input event happened: the event's own timestamp, `CGEventGetTimestamp`. 0 means the
+/// event carried none.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EventStamp(pub u64);
+
+/// An input event as the form window saw it: the CGEvent behind `NSApp.currentEvent`. The key
+/// code tells it apart from another event with the same stamp; with neither, the engine can't
+/// place the event and assumes the worst.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InputEvent {
+    pub stamp: EventStamp,
+    /// The virtual key code (`kCGKeyboardEventKeycode`) for a key event; `None` for a click.
+    pub key_code: Option<u16>,
+}
+
+/// A change of the form panel's key status, as the form window reports it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PanelFocus {
+    /// The panel became key (`true`) or stopped being key.
+    pub key: bool,
+    /// 1 for the first change this form's panel reports, then 2, 3, …: a gap means a report
+    /// went missing, which interrupts a typed form.
+    pub seq: u64,
+    /// The last event the app had taken from its queue when the change happened
+    /// (`NSApp.currentEvent`); `None` when there was none. Events up to it were routed before
+    /// the change, later ones after it.
+    pub after: Option<InputEvent>,
+}
+
+/// How a form was submitted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Submission {
+    /// The event that submitted it (the Return, the click on Insert); `None` when unavailable,
+    /// which counts any typing since the last focus report as after it.
+    pub event: Option<InputEvent>,
+    /// The `seq` of the panel's last key-status change before the submission (0 if it never
+    /// changed). The trigger is deleted only once every one of those reports has arrived.
+    pub focus_seq: u64,
+}
 
 /// The engine needs a form filled before it can insert a snippet.
 #[derive(Debug, Clone, PartialEq)]
@@ -197,12 +230,12 @@ impl Engine {
     }
 
     /// Fills a pending form: the engine brings the target app back, deletes the trigger (if it
-    /// was typed) and inserts. `at` is the stamp of the event that submitted it (the Return,
-    /// the click on Insert). The submission is accepted at once: a key-down after `at`, and any
-    /// key-down or click from now until the trigger is deleted, interrupts a typed form, which
-    /// then deletes nothing. A stale or repeated token does nothing.
-    pub fn submit_form(&self, token: u64, values: HashMap<String, String>, at: EventStamp) {
-        self.imp.submit_form(token, values, at);
+    /// was typed) and inserts. The submission is accepted at once, on the caller's thread: a
+    /// key-down after its event, any key-down or click from now until the trigger is deleted,
+    /// and a focus report it counted that hasn't arrived by then, all make a typed form delete
+    /// nothing. A stale or repeated token does nothing.
+    pub fn submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission) {
+        self.imp.submit_form(token, values, submission);
     }
 
     /// Abandons a pending form; a typed trigger stays as typed.
@@ -210,27 +243,16 @@ impl Engine {
         self.imp.cancel_form(token);
     }
 
-    /// The form panel for `token` became key (`true`) or stopped being key (`false`). A form
-    /// starts out not key. Call it from the panel's key-status notification, on the main thread,
-    /// starting when it first becomes key. Without a stamp the engine assumes the change came
-    /// before every key-down since the last report: losing key then interrupts a typed form
-    /// that saw any typing. Prefer [`Engine::form_panel_focused_after`].
+    /// The form panel for `token` changed key status. A form starts out not key. Report every
+    /// change, numbered, from the panel's key-status notification, starting when it first
+    /// becomes key; reports may arrive late, even after the submission, and still count.
     ///
     /// A typed form whose trigger may have moved is interrupted, and its submission deletes
-    /// nothing (FRM-4): a key-down while the panel is not key, or a click anywhere but in one of
-    /// Kudzu's own windows (the window server says where each click lands). Typing in the key
-    /// panel and clicking in Kudzu's windows are not interruptions.
-    pub fn form_panel_focused(&self, token: u64, focused: bool) {
-        self.imp.form_panel_focused(token, focused, None);
-    }
-
-    /// [`Engine::form_panel_focused`], with `after`: the stamp of the last event the app had
-    /// taken from its queue when the panel's key status changed (`NSApp.currentEvent`). Events
-    /// up to it were routed before the change; later ones after it. A key-down after `after`
-    /// that the engine counted as typed in the panel interrupts a typed form when the panel
-    /// lost key.
-    pub fn form_panel_focused_after(&self, token: u64, focused: bool, after: EventStamp) {
-        self.imp.form_panel_focused(token, focused, Some(after));
+    /// nothing (FRM-4): a key-down that went anywhere but the key panel (as the reports place
+    /// it), a click anywhere but in one of Kudzu's own windows, or a missing report. Typing in
+    /// the key panel and clicking in Kudzu's windows are not interruptions.
+    pub fn form_panel_focused(&self, token: u64, focus: PanelFocus) {
+        self.imp.form_panel_focused(token, focus);
     }
 
     /// Quick Search insert: brings `target` (the app frontmost before the palette opened) back,

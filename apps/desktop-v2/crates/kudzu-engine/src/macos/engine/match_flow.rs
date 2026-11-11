@@ -119,7 +119,8 @@ impl Imp {
         // trigger sits in. Typing into the form panel itself doesn't. (The engine this was copied
         // from skipped this check while suppressed, which is the whole time a form is open; D9.)
         if key_down {
-            core.note_form_key_down(tap::stamp(event));
+            let elsewhere = tap::target_pid(event).is_some_and(|pid| pid != self.own_pid);
+            core.note_form_key_down(tap::stamp(event), tap::key_code(event) as u16, elsewhere);
         }
         // Listen-only can't withhold keys. Anything typed before our backspaces go out would
         // land inside the deletion range, so the pending insertion is abandoned instead.

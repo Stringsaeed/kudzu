@@ -23,7 +23,7 @@ use crate::macos::ffi::*;
 use crate::macos::keys::SYNTHETIC_MARKER;
 use crate::macos::pasteboard::Items;
 use crate::macos::tap::Handler;
-use crate::{lock, AppInfo, Engine, EventStamp, PermissionStatus, TapMode};
+use crate::{lock, AppInfo, Engine, InputEvent, PermissionStatus, TapMode};
 
 pub(super) const PLAIN: &str = "public.utf8-plain-text";
 
@@ -145,6 +145,9 @@ pub(super) struct State {
     /// The user's events are stamped 1001, 1002, …; the last one received.
     pub next_stamp: u64,
     pub last_stamp: u64,
+    pub last_key: Option<u16>,
+    /// The stamp of the last key-down or click received.
+    pub last_down: u64,
     /// Pasteboard operations so far: snapshots, transient writes, item writes.
     pub board_ops: [usize; 4],
     pub sleeps: HashMap<Duration, usize>,
@@ -262,6 +265,8 @@ impl Desk {
             activations: 0,
             next_stamp: 1_000,
             last_stamp: 1_000,
+            last_key: None,
+            last_down: 1_000,
             board_ops: [0; 4],
             sleeps: HashMap::new(),
             items: user_clipboard(),
@@ -493,10 +498,10 @@ impl Desk {
         unsafe { CGEventSetTimestamp(event.0, stamp) };
     }
 
-    /// The stamp of the last event the user's apps received: what the form window passes as
-    /// the boundary of a focus change or a submission.
-    pub fn last_stamp(&self) -> EventStamp {
-        EventStamp(self.with(|s| s.last_stamp))
+    /// The last event the user's apps received: what the form window passes as the boundary of
+    /// a focus change or a submission.
+    pub fn last_event(&self) -> InputEvent {
+        self.with(|s| s.last_event())
     }
 
     /// Hands `event` to the listeners only. Whether it was swallowed.
@@ -506,14 +511,20 @@ impl Desk {
         } else {
             kCGEventKeyUp
         };
-        self.received(event.event.0);
+        self.received(event.event.0, Some(event.code), event.down);
         self.deliver(kind, event.event.0)
     }
 
     /// Notes that the user's event reached the session.
-    fn received(&self, event: CGEventRef) {
+    fn received(&self, event: CGEventRef, key_code: Option<u16>, down: bool) {
         let stamp = unsafe { CGEventGetTimestamp(event) };
-        self.with(|s| s.last_stamp = stamp);
+        self.with(|s| {
+            s.last_stamp = stamp;
+            s.last_key = key_code;
+            if down {
+                s.last_down = stamp;
+            }
+        });
     }
 
     /// A click in one of Kudzu's panels: it doesn't touch the target's document.
@@ -531,7 +542,7 @@ impl Desk {
     pub fn click_in(&self, window: i64) {
         let event = CgEvent::click(window);
         self.stamp(&event);
-        self.received(event.0);
+        self.received(event.0, None, true);
         self.deliver(kCGEventLeftMouseDown, event.0);
     }
 

@@ -120,7 +120,7 @@ impl Imp {
                 && live.form.is_none_or(|token| {
                     core.pending_form
                         .as_ref()
-                        .is_some_and(|f| f.token == token && !f.input.interrupted())
+                        .is_some_and(|f| f.token == token && f.input.may_delete())
                 })
         };
         unchanged && self.allowed(live.guard) && self.observe().frontmost_pid() == live.pid

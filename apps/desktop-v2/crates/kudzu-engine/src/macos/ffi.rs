@@ -42,6 +42,7 @@ pub const kCGEventTapDisabledByUserInput: CGEventType = 0xFFFF_FFFF;
 // CGEventField
 pub const kCGKeyboardEventAutorepeat: u32 = 8;
 pub const kCGKeyboardEventKeycode: u32 = 9;
+pub const kCGEventTargetUnixProcessID: u32 = 41;
 pub const kCGEventSourceUserData: u32 = 42;
 pub const kCGMouseEventWindowUnderMousePointer: u32 = 91;
 pub const kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent: u32 = 92;

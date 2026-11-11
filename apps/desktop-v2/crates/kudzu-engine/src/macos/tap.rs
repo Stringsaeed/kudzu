@@ -265,6 +265,13 @@ pub(crate) fn window_under_pointer(event: CGEventRef) -> Option<CGWindowID> {
     .and_then(|window| CGWindowID::try_from(window).ok())
 }
 
+/// The process the session routes the event to, when it says (`kCGEventTargetUnixProcessID`).
+/// Only ever used to add an interruption: Kudzu's pid here forgives nothing.
+pub(crate) fn target_pid(event: CGEventRef) -> Option<i32> {
+    let pid = unsafe { CGEventGetIntegerValueField(event, kCGEventTargetUnixProcessID) };
+    i32::try_from(pid).ok().filter(|&pid| pid > 0)
+}
+
 /// When the event happened (its own timestamp).
 pub(crate) fn stamp(event: CGEventRef) -> EventStamp {
     EventStamp(unsafe { CGEventGetTimestamp(event) })

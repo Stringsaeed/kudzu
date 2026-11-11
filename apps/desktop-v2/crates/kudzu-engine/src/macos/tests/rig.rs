@@ -17,11 +17,12 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::desk::{Desk, Ev, Out};
 use super::fakes::{FakeBoard, FakeEvents, FakeObserve};
+use crate::macos::keys::KEY_RETURN;
 use crate::macos::pasteboard::Pasteboard;
 use crate::macos::Platform;
 use crate::{
     lock, Engine, EngineHost, EngineLibrary, EngineStatus, EventStamp, ExpansionEvent, FormRequest,
-    TriggerLost,
+    InputEvent, TriggerLost,
 };
 
 /// Records every host callback.
@@ -218,13 +219,29 @@ impl Rig {
 
     /// Submits form `token` from its panel by the last event the user's apps received.
     pub fn submit(&self, token: u64, values: &[(&str, &str)]) {
-        self.submit_at(token, values, self.desk.last_stamp());
+        self.submit_by(token, values, Some(self.desk.last_event()));
     }
 
-    /// Submits form `token` by the event stamped `at`.
-    pub fn submit_at(&self, token: u64, values: &[(&str, &str)], at: EventStamp) {
-        self.engine.submit_form(token, form_values(values), at);
+    /// Submits form `token` by `event` (`None`: the form window couldn't say which).
+    pub fn submit_by(&self, token: u64, values: &[(&str, &str)], event: Option<InputEvent>) {
+        let submission = self.desk.submission_by(token, event);
+        self.engine
+            .submit_form(token, form_values(values), submission);
         self.settle();
+    }
+
+    /// Submits form `token` by the Return key-down stamped `stamp`.
+    pub fn submit_by_return(&self, token: u64, values: &[(&str, &str)], stamp: u64) {
+        let event = InputEvent {
+            stamp: EventStamp(stamp),
+            key_code: Some(KEY_RETURN),
+        };
+        self.submit_by(token, values, Some(event));
+    }
+
+    /// The form window reports, now, that `token`'s panel became key or stopped being key.
+    pub fn focus_panel(&self, token: u64, key: bool) {
+        self.desk.report_focus(token, key);
     }
 
     /// The id of the loaded snippet with `trigger`.

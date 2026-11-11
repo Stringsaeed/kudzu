@@ -45,7 +45,7 @@ fn form(setup: impl FnOnce(&Desk)) -> (Rig, u64) {
     rig.type_(";addr");
     let token = rig.host.form_token();
     rig.engine.set_suppressed(true);
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.type_in_panel("Sam");
     setup(&rig.desk);
     rig.clear_log();
@@ -304,7 +304,7 @@ fn a_submitted_form_with_a_leading_delay_whose_write_fails_deletes_nothing() {
     rig.type_(";addr");
     let token = rig.host.form_token();
     rig.engine.set_suppressed(true);
-    rig.engine.form_panel_focused(token, true);
+    rig.focus_panel(token, true);
     rig.type_in_panel("Sam");
     rig.with(|s| s.transient_fails = true);
     rig.submit(token, &[("who", "Sam")]);
