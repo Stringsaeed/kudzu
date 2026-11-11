@@ -28,6 +28,9 @@ jobs:
       - run: cargo test --workspace
       - name: Engine tap-callback budget (optimized build)
         run: cargo test --release -p kudzu-engine latency
+      # Ignored locally because it edits the keychain search list; a CI runner's keychain is disposable.
+      - name: Installer rejects a self-signed bundle with the expected id and team
+        run: cargo test -p kudzu-system -- --ignored a_self_signed_fixture_with_the_expected_id_and_team_is_rejected
       - run: cargo xtask check-deps
       - run: python3 scripts/check-design-assets.py
       - run: python3 -m unittest discover -s scripts/tests
