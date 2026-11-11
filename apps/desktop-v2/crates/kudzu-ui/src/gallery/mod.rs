@@ -14,6 +14,7 @@ pub const KEY: &str = "gallery";
 pub enum Page {
     #[default]
     Tokens,
+    Icons,
 }
 
 #[derive(Debug, Default)]
@@ -25,16 +26,22 @@ fn tokens_page(s: &mut GalleryState) {
     s.page = Page::Tokens;
 }
 
+fn icons_page(s: &mut GalleryState) {
+    s.page = Page::Icons;
+}
+
 /// A named scene and how it sets the state up.
 type Scene = (&'static str, fn(&mut GalleryState));
 
-const SCENES: &[Scene] = &[("tokens", tokens_page)];
+const SCENES: &[Scene] = &[("tokens", tokens_page), ("icons", icons_page)];
 
 fn view(s: &GalleryState, cx: &mut Cx<GalleryState>) -> El {
     // The gallery follows `--theme`; the app follows the Appearance setting.
     let theme = Theme::resolve(Appearance::System, cx.system_dark());
     match s.page {
         Page::Tokens => tokens::view(theme),
+        // The icon scene draws white glyphs, so it sits on black in both themes.
+        Page::Icons => icons::scene().fill(rune::Color::BLACK),
     }
 }
 
