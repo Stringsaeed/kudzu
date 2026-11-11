@@ -11,3 +11,5 @@ pub mod relaunch;
 pub mod settings_panes;
 pub mod thumbnails;
 pub mod update_install;
+
+mod code_identity;

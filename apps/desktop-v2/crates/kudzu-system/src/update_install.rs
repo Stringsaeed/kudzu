@@ -2,7 +2,7 @@
 //! No constructor reads global identity or installs anything. S40 supplies the running version.
 use kudzu_app::{
     error::PortError,
-    ports::{InstallProbe, UpdateInstaller, UpdatePackage},
+    ports::{InstallOutcome, InstallProbe, UpdateInstaller, UpdatePackage},
 };
 use semver::Version;
 use std::{
@@ -46,30 +46,44 @@ impl BundleInstaller {
         })
     }
 
+    #[cfg(test)]
     fn install_with(
         &self,
         package: &UpdatePackage,
-        verify: impl FnOnce(&Path, &str) -> Result<(), PortError>,
+        verify: impl Fn(&Path, &str) -> Result<(), PortError>,
         rename: impl Fn(&Path, &Path) -> io::Result<()>,
-    ) -> Result<(), PortError> {
+    ) -> Result<InstallOutcome, PortError> {
         self.install_using(package, verify, swap::exchange, rename)
     }
 
+    #[cfg(test)]
     fn install_using(
         &self,
         package: &UpdatePackage,
-        verify: impl FnOnce(&Path, &str) -> Result<(), PortError>,
+        verify: impl Fn(&Path, &str) -> Result<(), PortError>,
         swap: impl Fn(&Path, &Path) -> io::Result<()>,
         rename: impl Fn(&Path, &Path) -> io::Result<()>,
-    ) -> Result<(), PortError> {
+    ) -> Result<InstallOutcome, PortError> {
+        self.install_checked(package, |path, id, _version| verify(path, id), swap, rename)
+    }
+
+    fn install_checked(
+        &self,
+        package: &UpdatePackage,
+        verify: impl Fn(&Path, &str, &Version) -> Result<(), PortError>,
+        swap: impl Fn(&Path, &Path) -> io::Result<()>,
+        rename: impl Fn(&Path, &Path) -> io::Result<()>,
+    ) -> Result<InstallOutcome, PortError> {
         let _operation = self.operation.lock().unwrap();
         let probe = self.probe()?;
         let version = Version::parse(&package.version).map_err(|_| PortError::InvalidData)?;
         if package.bundle_id != self.bundle_id || !version.cmp_precedence(&self.running).is_gt() {
             return Err(PortError::InvalidData);
         }
-        if already_current(&self.bundle, &version) {
-            return Ok(());
+        if let Some(installed_version) = self.verified_current(&version, &verify) {
+            return Ok(InstallOutcome::Skipped {
+                installed_version: installed_version.to_string(),
+            });
         }
         if probe.needs_move {
             return Err(PortError::PermissionDenied);
@@ -97,11 +111,17 @@ impl BundleInstaller {
         }
         let extracted = stage.0.join(ROOT);
         validate_bundle(&extracted, package)?;
-        verify(&extracted, &self.bundle_id)?;
-        if already_current(&self.bundle, &version) {
-            return Ok(());
+        verify(&extracted, &self.bundle_id, &version)?;
+        if let Some(installed_version) = self.verified_current(&version, &verify) {
+            return Ok(InstallOutcome::Skipped {
+                installed_version: installed_version.to_string(),
+            });
         }
-        swap::publish(&mut stage, &self.bundle, swap, rename).map_err(port_io)
+        // Final trust check after every other decision and immediately before publication.
+        validate_bundle(&extracted, package)?;
+        verify(&extracted, &self.bundle_id, &version)?;
+        swap::publish(&mut stage, &self.bundle, swap, rename).map_err(port_io)?;
+        Ok(InstallOutcome::Installed)
     }
 }
 
@@ -110,35 +130,65 @@ impl UpdateInstaller for BundleInstaller {
         Ok(location::probe(&self.bundle))
     }
 
-    fn install(&self, package: &UpdatePackage) -> Result<(), PortError> {
-        self.install_with(package, verify_signature, |from, to| fs::rename(from, to))
+    fn install(&self, package: &UpdatePackage) -> Result<InstallOutcome, PortError> {
+        self.install_checked(
+            package,
+            crate::code_identity::verify_versioned_bundle,
+            swap::exchange,
+            |from, to| fs::rename(from, to),
+        )
     }
 }
 
 fn port_io(error: io::Error) -> PortError {
     PortError::Io(error.into())
 }
-fn already_current(bundle: &Path, version: &Version) -> bool {
-    (|| {
-        let mut bytes = Vec::new();
-        File::open(bundle.join("Contents/Info.plist"))
-            .ok()?
-            .take(1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .ok()?;
-        if bytes.len() > 1024 * 1024 {
-            return None;
-        }
-        let plist = plist::Value::from_reader(io::Cursor::new(bytes)).ok()?;
-        Version::parse(
-            plist
-                .as_dictionary()?
-                .get("CFBundleShortVersionString")?
-                .as_string()?,
-        )
-        .ok()
-    })()
-    .is_some_and(|installed| !installed.cmp_precedence(version).is_lt())
+/// Read bounded metadata and authenticate it using the shared team/id requirement.
+pub(crate) fn verified_bundle_version(
+    bundle: &Path,
+    bundle_id: &str,
+    verify: impl Fn(&Path, &str, &Version) -> Result<(), PortError>,
+) -> Result<Version, PortError> {
+    super::relaunch::validate_bundle(bundle)?;
+    let mut bytes = Vec::new();
+    File::open(bundle.join("Contents/Info.plist"))
+        .map_err(port_io)?
+        .take(1024 * 1024 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(port_io)?;
+    if bytes.len() > 1024 * 1024 {
+        return Err(PortError::TooLarge);
+    }
+    let plist =
+        plist::Value::from_reader(io::Cursor::new(bytes)).map_err(|_| PortError::InvalidData)?;
+    let dict = plist.as_dictionary().ok_or(PortError::InvalidData)?;
+    if dict
+        .get("CFBundleIdentifier")
+        .and_then(plist::Value::as_string)
+        != Some(bundle_id)
+    {
+        return Err(PortError::InvalidData);
+    }
+    let version = Version::parse(
+        dict.get("CFBundleShortVersionString")
+            .and_then(plist::Value::as_string)
+            .ok_or(PortError::InvalidData)?,
+    )
+    .map_err(|_| PortError::InvalidData)?;
+    verify(bundle, bundle_id, &version)?;
+    Ok(version)
+}
+
+impl BundleInstaller {
+    fn verified_current(
+        &self,
+        candidate: &Version,
+        verify: impl Fn(&Path, &str, &Version) -> Result<(), PortError>,
+    ) -> Option<Version> {
+        verified_bundle_version(&self.bundle, &self.bundle_id, verify)
+            .ok()
+            .filter(|installed| !installed.cmp_precedence(candidate).is_lt())
+    }
 }
 
 fn snapshot_archive(package: &UpdatePackage, destination: &Path) -> Result<(), PortError> {
@@ -420,33 +470,9 @@ fn validate_bundle(bundle: &Path, package: &UpdatePackage) -> Result<(), PortErr
     Ok(())
 }
 
-fn signature_command(bundle: &Path, bundle_id: &str) -> Command {
-    let requirement = format!("=anchor apple generic and identifier \"{bundle_id}\" and certificate leaf[subject.OU] = \"V3HN8HXZYK\" and certificate 1[field.1.2.840.113635.100.6.2.6] exists and certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
-    let mut command = Command::new("/usr/bin/codesign");
-    command
-        .args([
-            "--verify",
-            "--deep",
-            "--strict",
-            "--test-requirement",
-            &requirement,
-        ])
-        .arg(bundle);
-    command
-}
-fn verify_signature(bundle: &Path, bundle_id: &str) -> Result<(), PortError> {
-    let status = signature_command(bundle, bundle_id)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(port_io)?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(PortError::InvalidData)
-    }
-}
+#[cfg(test)]
+use crate::code_identity::command as signature_command;
+pub(crate) use crate::code_identity::verify_bundle as verify_signature;
 
 /// S70 builds the updater archive in xtask. xtask may not depend on this crate, so the test below
 /// compiles xtask's own archiving function and feeds its output to the validator in this file.
@@ -630,45 +656,18 @@ mod tests {
     }
 
     #[test]
-    fn failed_swap_rolls_back_and_failed_rollback_preserves_the_backup() {
-        for fail_rollback in [false, true] {
-            let fixture = Fixture::new();
-            let count = Cell::new(0);
-            let result = fixture.installer().install_using(
+    fn unsupported_install_preserves_the_old_bundle_without_renaming_it() {
+        let fixture = Fixture::new();
+        assert!(fixture
+            .installer()
+            .install_using(
                 &fixture.package,
                 accepted,
                 |_, _| Err(io::Error::from_raw_os_error(swap::ENOTSUP)),
-                |from, to| {
-                    count.set(count.get() + 1);
-                    if count.get() == 2 || (fail_rollback && count.get() == 3) {
-                        Err(io::ErrorKind::PermissionDenied.into())
-                    } else {
-                        fs::rename(from, to)
-                    }
-                },
-            );
-            assert!(result.is_err());
-            if fail_rollback {
-                assert!(!fixture.bundle.exists());
-                let stage = fs::read_dir(&fixture.dir.0)
-                    .unwrap()
-                    .map(|e| e.unwrap().path())
-                    .find(|p| {
-                        p.file_name()
-                            .unwrap()
-                            .to_str()
-                            .unwrap()
-                            .starts_with(".kudzu-update-")
-                    })
-                    .unwrap();
-                assert_eq!(
-                    fs::read(stage.join("previous.app/old")).unwrap(),
-                    b"running bundle"
-                );
-            } else {
-                fixture.unchanged();
-            }
-        }
+                |_, _| panic!("unsupported exchange must not rename anything")
+            )
+            .is_err());
+        fixture.unchanged();
     }
 
     #[test]
@@ -1099,6 +1098,7 @@ mod tests {
 
     #[cfg(target_os = "macos")]
     #[test]
+    #[ignore = "requires a disposable keychain; excluded from filesystem-only verification"]
     fn a_self_signed_fixture_with_the_expected_id_and_team_is_rejected() {
         let mut fixture = Fixture::new();
         let search_list = keychain_setting("list-keychains");
@@ -1227,7 +1227,7 @@ mod tests {
     }
 
     #[test]
-    fn review_equal_or_newer_disk_version_skips_without_verifying_or_swapping() {
+    fn equal_or_newer_disk_version_skips_only_with_pinned_verification() {
         for version in ["2.0.0", "2.0.0+local", "3.0.0"] {
             let fixture = Fixture::new();
             let stale = fixture.dir.0.join(".kudzu-update-abandoned");
@@ -1238,14 +1238,24 @@ mod tests {
                 &good_entries(ID, version)[3].data,
             )
             .unwrap();
-            fixture
+            let outcome = fixture
                 .installer()
                 .install_with(
                     &fixture.package,
-                    |_, _| panic!("must skip"),
+                    |bundle, id| {
+                        assert_eq!(bundle, fixture.bundle);
+                        assert_eq!(id, ID);
+                        Ok(())
+                    },
                     |_, _| panic!("must skip"),
                 )
                 .unwrap();
+            assert_eq!(
+                outcome,
+                InstallOutcome::Skipped {
+                    installed_version: version.into()
+                }
+            );
             assert!(!stale.exists(), "install entry also sweeps stale folders");
             fixture.unchanged();
         }
@@ -1401,7 +1411,10 @@ mod tests {
             .installer()
             .install_using(
                 &fixture.package,
-                |_, _| {
+                |path, _| {
+                    if path == fixture.bundle {
+                        return Ok(());
+                    }
                     fs::create_dir(fixture.bundle.join("Contents")).unwrap();
                     fs::write(
                         fixture.bundle.join("Contents/Info.plist"),
@@ -1414,6 +1427,81 @@ mod tests {
                 |_, _| panic!("newer app must not be renamed"),
             )
             .unwrap();
+        fixture.unchanged();
+    }
+
+    #[test]
+    fn raised_unsigned_disk_version_cannot_skip_archive_authentication() {
+        let mut fixture = Fixture::new();
+        fs::create_dir(fixture.bundle.join("Contents")).unwrap();
+        fs::write(
+            fixture.bundle.join("Contents/Info.plist"),
+            &good_entries(ID, "9999.0.0")[3].data,
+        )
+        .unwrap();
+        fixture.package.digest[0] ^= 1;
+        assert_eq!(
+            fixture.installer().install(&fixture.package),
+            Err(PortError::InvalidData)
+        );
+        fixture.unchanged();
+    }
+    #[test]
+    fn invalid_raised_disk_bundle_is_replaced_by_the_verified_package() {
+        let fixture = Fixture::new();
+        fs::create_dir(fixture.bundle.join("Contents")).unwrap();
+        fs::write(
+            fixture.bundle.join("Contents/Info.plist"),
+            &good_entries(ID, "9999.0.0")[3].data,
+        )
+        .unwrap();
+        let result = fixture
+            .installer()
+            .install_with(
+                &fixture.package,
+                |path, _| {
+                    if path == fixture.bundle {
+                        Err(PortError::InvalidData)
+                    } else {
+                        Ok(())
+                    }
+                },
+                |a, b| fs::rename(a, b),
+            )
+            .unwrap();
+        assert_eq!(result, InstallOutcome::Installed);
+        assert_eq!(
+            fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
+            b"new executable"
+        );
+    }
+
+    #[test]
+    fn stage_mutation_after_first_signature_check_is_rejected_before_publication() {
+        let fixture = Fixture::new();
+        let swapped = Cell::new(false);
+        let result = fixture.installer().install_using(
+            &fixture.package,
+            |path, _| {
+                if path == fixture.bundle {
+                    return Err(PortError::InvalidData);
+                }
+                let executable = path.join("Contents/MacOS/Kudzu");
+                if fs::read(&executable).unwrap() != b"new executable" {
+                    return Err(PortError::InvalidData);
+                }
+                // Simulate a writer changing the stage after the first successful codesign check.
+                fs::write(executable, b"changed after verification").unwrap();
+                Ok(())
+            },
+            |a, b| {
+                swapped.set(true);
+                swap::exchange(a, b)
+            },
+            |a, b| fs::rename(a, b),
+        );
+        assert_eq!(result, Err(PortError::InvalidData));
+        assert!(!swapped.get());
         fixture.unchanged();
     }
 }

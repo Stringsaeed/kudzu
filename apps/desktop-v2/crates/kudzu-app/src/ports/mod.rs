@@ -37,7 +37,7 @@ pub use pasteboard::{PasteSnapshot, Pasteboard};
 pub use relaunch::Relauncher;
 pub use settings_panes::{PermissionKind, SettingsPane, SystemSettings};
 pub use thumbnails::{Thumbnail, Thumbnailer};
-pub use update_install::{InstallProbe, UpdateInstaller, UpdatePackage};
+pub use update_install::{InstallOutcome, InstallProbe, UpdateInstaller, UpdatePackage};
 
 /// Composition-only bundle. Services take their individual ports; windows take services.
 /// Inbound EngineEvents/CloudEvents are supplied by services when starting the adapter.

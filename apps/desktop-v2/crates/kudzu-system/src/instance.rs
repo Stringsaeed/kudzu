@@ -15,6 +15,9 @@ pub enum Instance {
     Primary(InstanceGuard),
     /// The caller must exit, whether Launch Services accepted the reopen or not.
     Secondary,
+    /// An active advisory lock has no authenticated running Kudzu owner. The caller
+    /// must report this condition and exit; never unlink/steal the lock or open a bundle.
+    UnverifiedOwner,
 }
 
 pub struct InstanceGuard {
@@ -55,6 +58,16 @@ impl Instance {
         bundle: Option<&Path>,
         reopen: impl FnOnce(&Path) -> Result<(), PortError>,
     ) -> Result<Self, PortError> {
+        Self::acquire_using(directory, bundle_id, bundle, authorize_owner, reopen)
+    }
+
+    fn acquire_using(
+        directory: &Path,
+        bundle_id: &str,
+        bundle: Option<&Path>,
+        authorize: impl Fn(&OwnerRecord, &str) -> Result<(), PortError>,
+        reopen: impl FnOnce(&Path) -> Result<(), PortError>,
+    ) -> Result<Self, PortError> {
         if !super::login_item::valid_id(bundle_id) {
             return Err(PortError::InvalidData);
         }
@@ -74,31 +87,103 @@ impl Instance {
                 ._lock
                 .set_len(0)
                 .map_err(|e| PortError::Io(e.into()))?;
-            if let Some(bundle) = bundle {
-                owner
-                    ._lock
-                    .write_all(bundle.as_os_str().as_bytes())
-                    .map_err(|e| PortError::Io(e.into()))?;
-            }
+            let record = OwnerRecord {
+                pid: std::process::id(),
+                bundle: bundle.unwrap_or_else(|| Path::new("")).into(),
+            };
+            owner
+                ._lock
+                .write_all(&record.encode())
+                .map_err(|e| PortError::Io(e.into()))?;
             return Ok(Self::Primary(owner));
         }
         let error = std::io::Error::last_os_error();
         if error.kind() != std::io::ErrorKind::WouldBlock {
             return Err(PortError::Io(error.into()));
         }
-        if let Some(own_bundle) = bundle {
-            let mut record = Vec::new();
-            let running = lock
-                .take(4097)
-                .read_to_end(&mut record)
-                .ok()
-                .filter(|_| record.len() <= 4096)
-                .map(|_| PathBuf::from(std::ffi::OsString::from_vec(record)))
-                .filter(|p| super::relaunch::validate_bundle(p).is_ok());
-            let _ = reopen(running.as_deref().unwrap_or(own_bundle));
+        let mut bytes = Vec::new();
+        let record = lock
+            .take(4105)
+            .read_to_end(&mut bytes)
+            .ok()
+            .and_then(|_| OwnerRecord::decode(&bytes));
+        let Some(record) = record.filter(|record| authorize(record, bundle_id).is_ok()) else {
+            return Ok(Self::UnverifiedOwner);
+        };
+        if bundle.is_some() {
+            let _ = reopen(&record.bundle);
         }
         Ok(Self::Secondary)
     }
+}
+
+struct OwnerRecord {
+    pid: u32,
+    bundle: PathBuf,
+}
+impl OwnerRecord {
+    fn encode(&self) -> Vec<u8> {
+        let mut bytes = b"KZI1".to_vec();
+        bytes.extend(self.pid.to_be_bytes());
+        bytes.extend(self.bundle.as_os_str().as_bytes());
+        bytes
+    }
+    fn decode(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() < 9 || bytes.len() > 4104 || &bytes[..4] != b"KZI1" {
+            return None;
+        }
+        let pid = u32::from_be_bytes(bytes[4..8].try_into().ok()?);
+        if pid == 0 || pid > i32::MAX as u32 {
+            return None;
+        }
+        Some(Self {
+            pid,
+            bundle: PathBuf::from(std::ffi::OsString::from_vec(bytes[8..].to_vec())),
+        })
+    }
+}
+
+fn authorize_owner(record: &OwnerRecord, id: &str) -> Result<(), PortError> {
+    authorize_with(
+        record,
+        id,
+        super::update_install::verify_signature,
+        running_bundle,
+        crate::code_identity::verify_process,
+    )
+}
+
+fn authorize_with(
+    record: &OwnerRecord,
+    id: &str,
+    verify_bundle: impl Fn(&Path, &str) -> Result<(), PortError>,
+    lookup: impl Fn(u32) -> Option<PathBuf>,
+    verify_process: impl Fn(u32, &str) -> Result<(), PortError>,
+) -> Result<(), PortError> {
+    super::update_install::verified_bundle_version(&record.bundle, id, |path, id, _version| {
+        verify_bundle(path, id)
+    })?;
+    let actual = lookup(record.pid).ok_or(PortError::Unavailable)?;
+    if std::fs::canonicalize(actual).map_err(|e| PortError::Io(e.into()))?
+        != std::fs::canonicalize(&record.bundle).map_err(|e| PortError::Io(e.into()))?
+    {
+        return Err(PortError::InvalidData);
+    }
+    verify_process(record.pid, id)
+}
+
+#[cfg(target_os = "macos")]
+fn running_bundle(pid: u32) -> Option<PathBuf> {
+    objc2::rc::autoreleasepool(|_| {
+        let app = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(
+            pid.try_into().ok()?,
+        )?;
+        Some(PathBuf::from(app.bundleURL()?.path()?.to_string()))
+    })
+}
+#[cfg(not(target_os = "macos"))]
+fn running_bundle(_: u32) -> Option<PathBuf> {
+    None
 }
 
 #[cfg(test)]
@@ -118,16 +203,15 @@ mod tests {
         .unwrap();
         assert!(matches!(first, Instance::Primary(_)));
         let bundle = Path::new("/fixture/Kudzu Next.app");
-        let second = Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(bundle), |seen| {
-            assert_eq!(seen, bundle);
-            Err(PortError::Unavailable)
+        let second = Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(bundle), |_| {
+            panic!("unverified owner must not open")
         })
         .unwrap();
-        assert!(matches!(second, Instance::Secondary));
+        assert!(matches!(second, Instance::UnverifiedOwner));
         assert!(matches!(
             Instance::acquire_with(&dir, "sh.saeed.kudzu.next", None, |_| panic!("unbundled"))
                 .unwrap(),
-            Instance::Secondary
+            Instance::UnverifiedOwner
         ));
         assert!(matches!(
             Instance::acquire_with(&dir, "sh.saeed.kudzu", None, |_| panic!("other identity"))
@@ -187,7 +271,7 @@ mod tests {
         }
         assert!(matches!(
             Instance::acquire(&dir, "sh.saeed.kudzu.next", None).unwrap(),
-            Instance::Secondary
+            Instance::UnverifiedOwner
         ));
         child.kill().unwrap();
         child.wait().unwrap();
@@ -223,22 +307,32 @@ mod tests {
         })
         .unwrap();
         assert!(matches!(
-            Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&second), |seen| {
-                assert_eq!(seen, running);
-                Ok(())
-            })
+            Instance::acquire_using(
+                &dir,
+                "sh.saeed.kudzu.next",
+                Some(&second),
+                |record, id| {
+                    assert_eq!(record.pid, std::process::id());
+                    assert_eq!(record.bundle, running);
+                    assert_eq!(id, "sh.saeed.kudzu.next");
+                    Ok(())
+                },
+                |seen| {
+                    assert_eq!(seen, running);
+                    Ok(())
+                }
+            )
             .unwrap(),
             Instance::Secondary
         ));
         for record in [b"/missing/Kudzu.app".to_vec(), vec![b'x'; 4097], Vec::new()] {
             std::fs::write(dir.join("sh.saeed.kudzu.next.lock"), record).unwrap();
             assert!(matches!(
-                Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&second), |seen| {
-                    assert_eq!(seen, second);
-                    Ok(())
-                })
+                Instance::acquire_with(&dir, "sh.saeed.kudzu.next", Some(&second), |_| panic!(
+                    "invalid record must not reopen any app"
+                ))
                 .unwrap(),
-                Instance::Secondary
+                Instance::UnverifiedOwner
             ));
         }
         assert!(matches!(
@@ -246,9 +340,113 @@ mod tests {
                 "unbundled launch must exit"
             ))
             .unwrap(),
-            Instance::Secondary
+            Instance::UnverifiedOwner
         ));
         drop(owner);
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn untrusted_owner_record_never_opens_any_bundle() {
+        let root = crate::update_install::location::Scratch::beside(&std::env::temp_dir()).unwrap();
+        let evil = root.0.join("Evil.app");
+        let own = root.0.join("Kudzu.app");
+        std::fs::create_dir(&evil).unwrap();
+        std::fs::create_dir(&own).unwrap();
+        let owner =
+            Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", None, |_| panic!("primary"))
+                .unwrap();
+        std::fs::write(
+            root.0.join("sh.saeed.kudzu.next.lock"),
+            evil.as_os_str().as_bytes(),
+        )
+        .unwrap();
+        let opened = std::cell::Cell::new(false);
+        let _ = Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", Some(&own), |_| {
+            opened.set(true);
+            Ok(())
+        })
+        .unwrap();
+        assert!(
+            !opened.get(),
+            "an advisory owner record must never authorize open"
+        );
+        drop(owner);
+    }
+
+    #[test]
+    fn empty_owner_record_never_reopens_the_losing_bundle() {
+        let root = crate::update_install::location::Scratch::beside(&std::env::temp_dir()).unwrap();
+        let own = root.0.join("Kudzu.app");
+        std::fs::create_dir(&own).unwrap();
+        let owner =
+            Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", None, |_| panic!("primary"))
+                .unwrap();
+        let opened = std::cell::Cell::new(false);
+        let _ = Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", Some(&own), |_| {
+            opened.set(true);
+            Ok(())
+        })
+        .unwrap();
+        assert!(
+            !opened.get(),
+            "an unbundled primary must not cause a relaunch loop"
+        );
+        drop(owner);
+    }
+
+    #[test]
+    fn wrong_id_unsigned_bundle_and_forged_process_cannot_authorize_reopen() {
+        let root = crate::update_install::location::Scratch::beside(&std::env::temp_dir()).unwrap();
+        let target = root.0.join("Kudzu.app");
+        std::fs::create_dir_all(target.join("Contents")).unwrap();
+        let owner =
+            Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", None, |_| panic!("primary"))
+                .unwrap();
+        let record = OwnerRecord {
+            pid: std::process::id(),
+            bundle: target.clone(),
+        };
+        std::fs::write(root.0.join("sh.saeed.kudzu.next.lock"), record.encode()).unwrap();
+        for id in ["wrong.identity", "sh.saeed.kudzu.next"] {
+            let mut info = plist::Dictionary::new();
+            info.insert("CFBundleIdentifier".into(), id.into());
+            info.insert("CFBundleShortVersionString".into(), "1.0.0".into());
+            plist::Value::Dictionary(info)
+                .to_file_xml(target.join("Contents/Info.plist"))
+                .unwrap();
+            assert!(matches!(
+                Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", Some(&target), |_| panic!(
+                    "untrusted bundle must not open"
+                ))
+                .unwrap(),
+                Instance::UnverifiedOwner
+            ));
+        }
+        let authorize = |record: &OwnerRecord, id: &str| {
+            authorize_with(
+                record,
+                id,
+                |_, _| Ok(()),
+                |_| Some(target.clone()),
+                |_, _| Err(PortError::InvalidData),
+            )
+        };
+        assert!(matches!(
+            Instance::acquire_using(
+                &root.0,
+                "sh.saeed.kudzu.next",
+                Some(&target),
+                authorize,
+                |_| panic!("forged process must not open")
+            )
+            .unwrap(),
+            Instance::UnverifiedOwner
+        ));
+        drop(owner);
+        assert!(matches!(
+            Instance::acquire(&root.0, "sh.saeed.kudzu.next", None).unwrap(),
+            Instance::Primary(_)
+        ));
     }
 }

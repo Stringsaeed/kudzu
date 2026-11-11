@@ -9,7 +9,9 @@ mod verify;
 mod tests;
 
 use crate::error::PortError;
-use crate::ports::{Clock, Fetch, FetchRequest, Relauncher, UpdateInstaller, UpdatePackage};
+use crate::ports::{
+    Clock, Fetch, FetchRequest, InstallOutcome, Relauncher, UpdateInstaller, UpdatePackage,
+};
 use crate::schedule::{Scheduler, Timer};
 use crate::tasks::Task;
 use crate::watch::{Publisher, Watch};
@@ -427,7 +429,27 @@ impl Updates {
             digest: staged.digest,
         };
         match self.inner.installer.install(&package) {
-            Ok(()) => true,
+            Ok(InstallOutcome::Installed) => true,
+            Ok(InstallOutcome::Skipped { installed_version }) => {
+                match (
+                    semver::Version::parse(&installed_version),
+                    semver::Version::parse(&self.inner.config.current_version),
+                ) {
+                    (Ok(installed), Ok(running)) if installed.cmp_precedence(&running).is_gt() => {
+                        true
+                    }
+                    (Ok(_), Ok(_)) => {
+                        self.publish(UpdateState::UpToDate {
+                            checked_at: rfc3339(self.inner.clock.now()),
+                        });
+                        false
+                    }
+                    _ => {
+                        self.restore_pending(pending, false);
+                        false
+                    }
+                }
+            }
             Err(_) => {
                 let needs_move = self
                     .inner

@@ -29,8 +29,18 @@ pub struct UpdatePackage {
     /// BLAKE3 of the staged archive bytes (D16).
     pub digest: [u8; 32],
 }
+/// Publication result. Skipped is permitted only for a bundle verified against the
+/// expected id and pinned Developer ID requirement; its version comes from that bundle.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum InstallOutcome {
+    #[default]
+    Installed,
+    Skipped {
+        installed_version: String,
+    },
+}
 pub trait UpdateInstaller: Send + Sync {
     fn probe(&self) -> Result<InstallProbe, PortError>;
     /// Validate archive paths, bundle identity, version, and code signature before swapping.
-    fn install(&self, package: &UpdatePackage) -> Result<(), PortError>;
+    fn install(&self, package: &UpdatePackage) -> Result<InstallOutcome, PortError>;
 }

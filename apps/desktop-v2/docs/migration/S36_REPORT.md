@@ -1,5 +1,7 @@
 # S36 implementation report
 
+The [independent security re-review fixes](S36_REREVIEW_FIXES.md) supersede the skip, owner-authentication, recovery and login cleanup details below.
+
 The [S36 security review follow-up](S36_REVIEW_FIXES.md) supersedes the swap, instance, probe, login and Fetch implementation details below.
 
 - Worktree: `/Users/saeed/.t3/worktrees/text-expander/t3-4435258a-e789384073b71a61`

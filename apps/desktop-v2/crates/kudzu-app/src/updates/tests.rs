@@ -635,3 +635,38 @@ fn wait_until(fetch: &FakeFetch, pred: impl Fn(&FakeFetch) -> bool) {
     }
     panic!("fetch did not reach the expected request count");
 }
+
+#[test]
+fn skipped_current_or_older_bundle_does_not_schedule_a_relaunch() {
+    for version in ["0.7.0", "0.6.9", "0.7.0+local"] {
+        let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+        *h.installer.outcome.lock().unwrap() = crate::ports::InstallOutcome::Skipped {
+            installed_version: version.into(),
+        };
+        offer_signed(&h, STABLE_FEED);
+        wait_task(&h.updates.check(Trigger::User));
+        wait_task(&h.updates.restart_to_update());
+        assert!(matches!(
+            *h.updates.state().get(),
+            UpdateState::UpToDate { .. }
+        ));
+        assert!(h.installer.installed.lock().unwrap().is_empty());
+        h.clock.advance(RESTART_DELAY);
+        assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
+    }
+}
+
+#[test]
+fn skipped_verified_newer_disk_bundle_relaunches_without_claiming_a_swap() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    *h.installer.outcome.lock().unwrap() = crate::ports::InstallOutcome::Skipped {
+        installed_version: "9.9.10".into(),
+    };
+    offer_signed(&h, STABLE_FEED);
+    wait_task(&h.updates.check(Trigger::User));
+    wait_task(&h.updates.restart_to_update());
+    assert!(h.installer.installed.lock().unwrap().is_empty());
+    assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
+    h.clock.advance(RESTART_DELAY);
+    wait_relaunch(&h.relauncher);
+}

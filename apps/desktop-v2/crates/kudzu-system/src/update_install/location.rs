@@ -64,8 +64,8 @@ impl Drop for Scratch {
         if !self.2 {
             let _ = fs::remove_dir_all(&self.0);
         }
-        // Keep the lease alive until removal finishes (including during concurrent probes).
-        let _ = &self.1;
+        // Release explicitly even if an in-flight fork inherited the open-file description.
+        let _ = self.1.unlock();
     }
 }
 
@@ -126,9 +126,6 @@ fn sweep_as(bundle: &Path, uid: u32) {
                 .filter(|p| p.is_absolute())
         })()
         .unwrap_or_else(|| bundle.into());
-        if path.join("previous.app").exists() && !installed.exists() {
-            continue;
-        }
         let lease = path.join(".active");
         let lock = match fs::symlink_metadata(&lease) {
             Ok(m) if m.is_file() && m.uid() == uid && m.nlink() == 1 => {
@@ -145,9 +142,22 @@ fn sweep_as(bundle: &Path, uid: u32) {
         let Ok(lock) = lock else {
             continue;
         };
-        if lock.try_lock().is_ok() {
-            let _ = fs::remove_dir_all(path);
+        if lock.try_lock().is_err() {
+            continue;
         }
+        let previous = path.join("previous.app");
+        if previous.exists() && !installed.exists() {
+            // Recover only an app in this parent, never an arbitrary target from the
+            // advisory record. Preserve the sole backup if any recovery check fails.
+            if installed.parent() != Some(parent)
+                || installed.extension().is_none_or(|e| e != "app")
+                || !fs::symlink_metadata(&previous).is_ok_and(|m| m.is_dir() && m.uid() == uid)
+                || fs::rename(&previous, &installed).is_err()
+            {
+                continue;
+            }
+        }
+        let _ = fs::remove_dir_all(path);
     }
 }
 
@@ -189,9 +199,99 @@ mod tests {
         fs::create_dir_all(recovery.join("previous.app")).unwrap();
         fs::remove_dir(&bundle).unwrap();
         probe(&bundle);
-        assert!(recovery.join("previous.app").exists());
-        fs::create_dir(&bundle).unwrap();
-        probe(&bundle);
+        assert!(bundle.is_dir());
         assert!(!recovery.exists());
+    }
+
+    #[test]
+    fn probe_recovers_a_missing_bundle_from_the_interrupted_legacy_backup() {
+        let root = Scratch::beside(&std::env::temp_dir()).unwrap();
+        let bundle = root.0.join("Kudzu.app");
+        fs::create_dir(&bundle).unwrap();
+        fs::write(bundle.join("old"), b"complete previous app").unwrap();
+        let mut stage = Scratch::for_bundle(&bundle).unwrap();
+        let path = stage.0.clone();
+        fs::rename(&bundle, stage.0.join("previous.app")).unwrap();
+        let inherited = stage.1.try_clone().unwrap();
+        stage.preserve();
+        drop(stage);
+        assert!(!probe(&bundle).needs_move);
+        assert_eq!(
+            fs::read(bundle.join("old")).unwrap(),
+            b"complete previous app"
+        );
+        assert!(!path.exists());
+        drop(inherited);
+    }
+
+    #[test]
+    fn probe_recovers_the_legacy_backup_after_sigkill_skips_drop() {
+        use std::{
+            io::{BufRead, BufReader},
+            process::{Command, Stdio},
+        };
+        let root = Scratch::beside(&std::env::temp_dir()).unwrap();
+        let bundle = root.0.join("Kudzu.app");
+        fs::create_dir(&bundle).unwrap();
+        fs::write(bundle.join("old"), b"old complete app").unwrap();
+        struct Child(std::process::Child);
+        impl Drop for Child {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let mut child = Child(
+            Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "update_install::location::tests::legacy_backup_crash_child",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env("KUDZU_LEGACY_RECOVERY_BUNDLE", &bundle)
+                .stdout(Stdio::piped())
+                .spawn()
+                .unwrap(),
+        );
+        let mut output = BufReader::new(child.0.stdout.take().unwrap());
+        let mut line = String::new();
+        loop {
+            assert_ne!(output.read_line(&mut line).unwrap(), 0);
+            if line.contains("LEGACY_GAP") {
+                break;
+            }
+            line.clear();
+        }
+        assert!(
+            probe(&bundle).needs_move,
+            "live stage must not be recovered"
+        );
+        child.0.kill().unwrap();
+        child.0.wait().unwrap();
+        assert!(!probe(&bundle).needs_move);
+        assert_eq!(fs::read(bundle.join("old")).unwrap(), b"old complete app");
+        assert_eq!(
+            fs::read_dir(&root.0).unwrap().count(),
+            2,
+            "only root lease and restored app remain"
+        );
+    }
+
+    #[test]
+    #[ignore = "invoked only by the temporary legacy-recovery crash parent"]
+    fn legacy_backup_crash_child() {
+        let bundle = PathBuf::from(
+            std::env::var_os("KUDZU_LEGACY_RECOVERY_BUNDLE").expect("isolated child only"),
+        );
+        assert!(bundle.starts_with(std::env::temp_dir()));
+        let stage = Scratch::for_bundle(&bundle).unwrap();
+        // Replay the previous implementation's unsafe first rename; new installs never do it.
+        fs::rename(&bundle, stage.0.join("previous.app")).unwrap();
+        println!("LEGACY_GAP");
+        std::io::stdout().flush().unwrap();
+        loop {
+            std::thread::park();
+        }
     }
 }

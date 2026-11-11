@@ -56,25 +56,37 @@ impl LaunchAgent {
         let path = home
             .join("Library/LaunchAgents")
             .join(format!("{}.plist", self.launch.get_app_name()));
-        write()?;
-        let plist = plist::Value::from_file(path).map_err(|_| PortError::InvalidData)?;
-        let dict = plist.as_dictionary().ok_or(PortError::InvalidData)?;
-        let expected = [self.launch.get_app_path(), "--hidden"];
-        let arguments = dict
-            .get("ProgramArguments")
-            .and_then(plist::Value::as_array);
-        if dict.get("Label").and_then(plist::Value::as_string) != Some(self.launch.get_app_name())
-            || !arguments.is_some_and(|args| {
-                args.len() == 2
-                    && args
-                        .iter()
-                        .zip(expected)
-                        .all(|(value, expected)| value.as_string() == Some(expected))
-            })
-        {
-            return Err(PortError::InvalidData);
+        let result = (|| {
+            write()?;
+            let plist = plist::Value::from_file(&path).map_err(|_| PortError::InvalidData)?;
+            let dict = plist.as_dictionary().ok_or(PortError::InvalidData)?;
+            let expected = [self.launch.get_app_path(), "--hidden"];
+            let arguments = dict
+                .get("ProgramArguments")
+                .and_then(plist::Value::as_array);
+            if dict.contains_key("Program")
+                || dict.get("Label").and_then(plist::Value::as_string)
+                    != Some(self.launch.get_app_name())
+                || !arguments.is_some_and(|args| {
+                    args.len() == 2
+                        && args
+                            .iter()
+                            .zip(expected)
+                            .all(|(value, expected)| value.as_string() == Some(expected))
+                })
+            {
+                return Err(PortError::InvalidData);
+            }
+            Ok(())
+        })();
+        if result.is_err() {
+            match std::fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(PortError::Io(error.into())),
+            }
         }
-        Ok(())
+        result
     }
 }
 
@@ -124,7 +136,10 @@ mod tests {
                 needs_move: self.0.load(std::sync::atomic::Ordering::Relaxed),
             })
         }
-        fn install(&self, _: &kudzu_app::ports::UpdatePackage) -> Result<(), PortError> {
+        fn install(
+            &self,
+            _: &kudzu_app::ports::UpdatePackage,
+        ) -> Result<kudzu_app::ports::InstallOutcome, PortError> {
             panic!("not an installer test");
         }
     }
@@ -257,5 +272,74 @@ mod tests {
             Arc::new(Probe::default())
         )
         .is_err());
+    }
+
+    #[test]
+    fn login_readback_rejects_program_and_removes_failed_registration() {
+        let mut passed = Vec::new();
+        for case in ["cleanup", "program"] {
+            let home =
+                std::env::temp_dir().join(format!("kudzu-login-review-{}", uuid::Uuid::new_v4()));
+            fs::create_dir_all(home.join("Library/LaunchAgents")).unwrap();
+            fs::write(home.join("Kudzu"), b"fixture").unwrap();
+            let status = Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "login_item::tests::login_readback_failure_child",
+                    "--ignored",
+                ])
+                .env("HOME", &home)
+                .env("KUDZU_LOGIN_TEST_HOME", &home)
+                .env("KUDZU_LOGIN_REVIEW_CASE", case)
+                .status()
+                .unwrap();
+            passed.push(status.success());
+            fs::remove_dir_all(home).unwrap();
+        }
+        assert!(passed.into_iter().all(|passed| passed));
+    }
+
+    #[test]
+    #[ignore = "invoked only by the isolated temporary-HOME readback parent"]
+    fn login_readback_failure_child() {
+        let home = std::path::PathBuf::from(
+            std::env::var_os("KUDZU_LOGIN_TEST_HOME").expect("isolated child only"),
+        );
+        assert_eq!(std::env::var_os("HOME").unwrap(), home);
+        let case = std::env::var("KUDZU_LOGIN_REVIEW_CASE").unwrap();
+        let agent = LaunchAgent::new(
+            "sh.saeed.kudzu.next",
+            &home.join("Kudzu"),
+            Arc::new(Probe::default()),
+        )
+        .unwrap();
+        let path = home.join("Library/LaunchAgents/sh.saeed.kudzu.next.plist");
+        let result = agent.enable_with(|| {
+            let mut dict = plist::Dictionary::new();
+            dict.insert(
+                "Label".into(),
+                if case == "cleanup" {
+                    "wrong.id"
+                } else {
+                    "sh.saeed.kudzu.next"
+                }
+                .into(),
+            );
+            dict.insert(
+                "ProgramArguments".into(),
+                plist::Value::Array(vec![
+                    home.join("Kudzu").to_str().unwrap().into(),
+                    "--hidden".into(),
+                ]),
+            );
+            if case == "program" {
+                dict.insert("Program".into(), home.join("Evil").to_str().unwrap().into());
+            }
+            plist::Value::Dictionary(dict).to_file_xml(&path).unwrap();
+            Ok(())
+        });
+        assert_eq!(result, Err(PortError::InvalidData), "case {case}");
+        assert!(!path.exists(), "failed registration survived: {case}");
+        assert!(!agent.enabled().unwrap());
     }
 }

@@ -1,7 +1,8 @@
-//! Atomic publication. Only ENOTSUP permits the legacy, non-atomic fallback.
+//! Atomic publication only. ENOTSUP and EXDEV fail closed; no two-rename emulation.
 use super::location::Scratch;
 use std::{ffi::CString, io, os::unix::ffi::OsStrExt, path::Path};
 
+#[cfg(test)]
 pub(super) const ENOTSUP: i32 = 45;
 
 #[cfg(target_os = "macos")]
@@ -37,27 +38,15 @@ pub(super) fn publish(
 ) -> io::Result<()> {
     let extracted = stage.0.join(super::ROOT);
     let backup = stage.0.join("previous.app");
-    match swap(&extracted, bundle) {
-        Ok(()) => {
-            // The running path already contains the new whole bundle. A kill here leaves
-            // the old whole bundle at extracted; backup retention never empties bundle.
-            if let Err(error) = rename(&extracted, &backup) {
-                if swap(&extracted, bundle).is_err() {
-                    stage.preserve();
-                }
-                return Err(error);
-            }
+    // This includes ENOTSUP (45) and EXDEV (18): neither may remove bundle's name.
+    swap(&extracted, bundle)?;
+    // The new complete app is already published; retain the old copy without ever
+    // unlinking the installed name. Rollback is another atomic exchange.
+    if let Err(error) = rename(&extracted, &backup) {
+        if swap(&extracted, bundle).is_err() {
+            stage.preserve();
         }
-        Err(error) if error.raw_os_error() == Some(ENOTSUP) => {
-            rename(bundle, &backup)?;
-            if let Err(error) = rename(&extracted, bundle) {
-                if rename(&backup, bundle).is_err() {
-                    stage.preserve();
-                }
-                return Err(error);
-            }
-        }
-        Err(error) => return Err(error),
+        return Err(error);
     }
     Ok(())
 }
@@ -66,10 +55,10 @@ pub(super) fn publish(
 mod tests {
     use super::*;
     #[test]
-    fn errors_other_than_enotsup_never_enter_the_fallback() {
+    fn exchange_errors_never_enter_a_non_atomic_fallback() {
         let mut stage = Scratch::beside(&std::env::temp_dir()).unwrap();
         let bundle = stage.0.clone();
-        for code in [1, 2, 5, 13, 18, 22] {
+        for code in [1, 2, 5, 13, 18, 22, ENOTSUP] {
             assert_eq!(
                 publish(
                     &mut stage,
@@ -82,5 +71,44 @@ mod tests {
                 Some(code)
             );
         }
+    }
+
+    #[test]
+    fn unsupported_exchange_never_removes_the_installed_name() {
+        let root = Scratch::beside(&std::env::temp_dir()).unwrap();
+        let bundle = root.0.join("Kudzu.app");
+        std::fs::create_dir(&bundle).unwrap();
+        std::fs::write(bundle.join("old"), b"old").unwrap();
+        let mut stage = Scratch::for_bundle(&bundle).unwrap();
+        std::fs::create_dir(stage.0.join(super::super::ROOT)).unwrap();
+        let error = publish(
+            &mut stage,
+            &bundle,
+            |_, _| Err(io::Error::from_raw_os_error(ENOTSUP)),
+            |a, b| std::fs::rename(a, b),
+        )
+        .unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(ENOTSUP));
+        assert!(bundle.join("old").exists());
+    }
+
+    #[test]
+    fn cross_device_exchange_never_moves_either_bundle() {
+        let root = Scratch::beside(&std::env::temp_dir()).unwrap();
+        let bundle = root.0.join("Kudzu.app");
+        std::fs::create_dir(&bundle).unwrap();
+        std::fs::write(bundle.join("old"), b"old").unwrap();
+        let mut stage = Scratch::for_bundle(&bundle).unwrap();
+        std::fs::create_dir(stage.0.join(super::super::ROOT)).unwrap();
+        let error = publish(
+            &mut stage,
+            &bundle,
+            |_, _| Err(io::Error::from_raw_os_error(18)),
+            |_, _| panic!("EXDEV must never rename"),
+        )
+        .unwrap_err();
+        assert_eq!(error.raw_os_error(), Some(18));
+        assert!(bundle.join("old").exists());
+        assert!(stage.0.join(super::super::ROOT).exists());
     }
 }

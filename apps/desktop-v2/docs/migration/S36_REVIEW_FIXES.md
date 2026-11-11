@@ -1,5 +1,7 @@
 # S36 security review follow-up
 
+The [independent security re-review fixes](S36_REREVIEW_FIXES.md) supersede the skip, owner-authentication, recovery and login cleanup details below.
+
 Worktree: `/Users/saeed/.t3/worktrees/text-expander/t3-4435258a-e789384073b71a61`.
 Branch: `t3/s36-fixes`, created with the requested `git switch -c t3/s36-fixes t3/rune-migration-plan`. The starting commit was `d7974a2f`, including merged S36 (`1794a645`) and the owner's D22/D23 notes. Implementation: GPT-6.1 Sol (xhigh); the owner supplied the Claude Opus review findings. No additional agent was spawned. The existing build directory was reused. No other worktree was changed, and no push or PR was made.
 
