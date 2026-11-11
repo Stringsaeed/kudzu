@@ -14,7 +14,7 @@ use objc2::rc::autoreleasepool;
 use super::super::input_source;
 use super::super::keys::SYNTHETIC_MARKER;
 use super::super::tap::{self, HeldEvent};
-use super::form_flow::PendingForm;
+use super::form_flow::{FormKind, PendingForm};
 use super::{Imp, HOLD_LIMIT, POLL_TICK, STATUS_EVERY_TICKS};
 use crate::hold::{HoldReplayQueue, HoldState};
 use crate::input::KeyContext;
@@ -102,10 +102,14 @@ impl Core {
         }
     }
 
-    /// FRM-4 (D9): a click that reached the session, for the pending form.
-    pub(super) fn note_form_click(&mut self) {
+    /// FRM-4 (D9): a click that reached the session, for the pending form. `on_kudzu` says
+    /// whether it lands in one of Kudzu's own windows; it is only asked for while a typed form
+    /// is pending, since it costs a window-server lookup.
+    pub(super) fn note_form_click(&mut self, on_kudzu: impl FnOnce() -> bool) {
         if let Some(form) = self.pending_form.as_mut() {
-            form.input.click();
+            if matches!(form.kind, FormKind::Typed(_)) {
+                form.input.click(on_kudzu());
+            }
         }
     }
 }

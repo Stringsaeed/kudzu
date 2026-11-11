@@ -123,11 +123,18 @@ impl CgEvent {
         }
     }
 
-    pub fn click() -> CgEvent {
+    /// A mouse-down on `window` (0: the event names no window), as the window server routes it.
+    pub fn click(window: i64) -> CgEvent {
         let at = CGPoint { x: 10.0, y: 10.0 };
         unsafe {
             let event = CGEventCreateMouseEvent(ptr::null_mut(), kCGEventLeftMouseDown, at, 0);
             assert!(!event.is_null(), "CGEventCreateMouseEvent failed");
+            for field in [
+                kCGMouseEventWindowUnderMousePointer,
+                kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent,
+            ] {
+                CGEventSetIntegerValueField(event, field, window);
+            }
             CgEvent(event)
         }
     }

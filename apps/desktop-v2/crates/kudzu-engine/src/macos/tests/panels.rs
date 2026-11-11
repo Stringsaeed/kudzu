@@ -7,7 +7,7 @@
 //! way the form window calls `Engine::form_panel_focused`; with [`Panels::late`] those reports
 //! wait for [`Desk::deliver_reports`], as they do when the main thread is busy.
 
-use super::desk::Desk;
+use super::desk::{windows, Desk};
 use super::keyboard::apply_key;
 use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp};
 
@@ -69,9 +69,14 @@ impl Desk {
     }
 
     /// The user clicks `on`, in the target's text before grapheme `caret` when given. The
-    /// listener sees the click first; then it lands and moves focus.
+    /// listener sees the click (and the window it lands on) first; then it lands and moves
+    /// focus.
     pub fn click_on(&self, on: Focus, caret: Option<usize>) {
-        self.clicks();
+        self.click_in(match on {
+            Focus::Target => windows::TARGET,
+            Focus::Form => windows::FORM,
+            Focus::Panel => windows::PANEL,
+        });
         if let (Focus::Target, Some(index)) = (on, caret) {
             self.with(|s| s.doc.place_caret(index));
         }

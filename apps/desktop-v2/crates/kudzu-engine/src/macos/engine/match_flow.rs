@@ -63,6 +63,13 @@ impl Imp {
         swallow
     }
 
+    /// Whether a mouse-down lands in one of Kudzu's own windows, as the window server says.
+    /// Unknown counts as no.
+    fn clicked_on_kudzu(&self, event: CGEventRef) -> bool {
+        tap::window_under_pointer(event).and_then(|window| self.observe().window_owner(window))
+            == Some(self.own_pid)
+    }
+
     fn receive_locked(
         &self,
         core: &mut Core,
@@ -81,7 +88,7 @@ impl Imp {
             return false;
         }
         if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
-            core.note_form_click();
+            core.note_form_click(|| self.clicked_on_kudzu(event));
             // A click moves the caret or focus: the typed context is gone. Clicks in our own
             // focused windows (form, palette) don't affect the target document.
             if !self.flags.suppressed.load(Ordering::SeqCst) {

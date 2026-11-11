@@ -252,6 +252,19 @@ pub(crate) fn marker(event: CGEventRef) -> i64 {
     unsafe { CGEventGetIntegerValueField(event, kCGEventSourceUserData) }
 }
 
+/// The window a mouse-down lands on, as the window server routes it: the one under the pointer
+/// that can handle the event, else the one under the pointer. `None` when the event doesn't say.
+pub(crate) fn window_under_pointer(event: CGEventRef) -> Option<CGWindowID> {
+    [
+        kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent,
+        kCGMouseEventWindowUnderMousePointer,
+    ]
+    .into_iter()
+    .map(|field| unsafe { CGEventGetIntegerValueField(event, field) })
+    .find(|&window| window > 0)
+    .and_then(|window| CGWindowID::try_from(window).ok())
+}
+
 /// The virtual key code of a key event.
 pub(crate) fn key_code(event: CGEventRef) -> i64 {
     unsafe { CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode) }

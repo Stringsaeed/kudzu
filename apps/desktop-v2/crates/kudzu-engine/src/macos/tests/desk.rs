@@ -27,6 +27,18 @@ use crate::{lock, AppInfo, Engine, PermissionStatus, TapMode};
 
 pub(super) const PLAIN: &str = "public.utf8-plain-text";
 
+/// The windows a click can land on, by window-server id, and who owns them.
+pub(super) mod windows {
+    /// The target app's document window.
+    pub const TARGET: i64 = 11;
+    /// Kudzu's form panel.
+    pub const FORM: i64 = 12;
+    /// Another Kudzu panel (Quick Search, the picker).
+    pub const PANEL: i64 = 13;
+    /// Another app's window.
+    pub const OTHER: i64 = 14;
+}
+
 /// One synthetic or replayed event the engine posted, decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Out {
@@ -452,16 +464,21 @@ impl Desk {
         self.deliver(kind, event.event.0)
     }
 
-    /// A click that doesn't move the target's caret (in a panel, or on a toolbar).
+    /// A click in one of Kudzu's panels: it doesn't touch the target's document.
     pub fn clicks(&self) {
-        let event = CgEvent::click();
-        self.deliver(kCGEventLeftMouseDown, event.0);
+        self.click_in(windows::PANEL);
     }
 
     /// A click in the target's text that puts the caret before grapheme `index`.
     pub fn clicks_text(&self, index: usize) {
-        self.clicks();
+        self.click_in(windows::TARGET);
         self.with(|s| s.doc.place_caret(index));
+    }
+
+    /// A mouse-down on `window` (see [`windows`]), handed to the listeners.
+    pub fn click_in(&self, window: i64) {
+        let event = CgEvent::click(window);
+        self.deliver(kCGEventLeftMouseDown, event.0);
     }
 
     /// A synthetic press reaching the session: the listener sees its down and up, marked as
@@ -482,7 +499,7 @@ impl Desk {
 
     /// macOS disables the tap because a callback took too long.
     pub fn tap_times_out(&self) {
-        let event = CgEvent::click();
+        let event = CgEvent::click(0);
         self.deliver(kCGEventTapDisabledByTimeout, event.0);
     }
 

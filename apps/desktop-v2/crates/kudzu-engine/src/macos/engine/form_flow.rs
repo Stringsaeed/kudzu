@@ -37,8 +37,8 @@ pub(super) struct PendingForm {
 }
 
 impl Imp {
-    /// The form panel for `token` became key (`true`) or stopped being key (`false`). It
-    /// settles where the clicks before it went (see `crate::interruption`).
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`): where
+    /// key-downs go from now on (see `crate::interruption`).
     pub fn form_panel_focused(&self, token: u64, focused: bool) {
         let mut core = lock(&self.core);
         if let Some(form) = core.pending_form.as_mut().filter(|f| f.token == token) {

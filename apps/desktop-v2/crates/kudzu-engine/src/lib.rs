@@ -204,13 +204,12 @@ impl Engine {
 
     /// The form panel for `token` became key (`true`) or stopped being key (`false`). A form
     /// starts out not key. Call it from the panel's key-status notification, on the main thread,
-    /// before the panel handles any later event, starting when it first becomes key; the
-    /// engine relies on that order. Make the panel key on any click in it.
+    /// starting when it first becomes key.
     ///
     /// A typed form whose trigger may have moved is interrupted, and its submission deletes
-    /// nothing (FRM-4): a key-down while the panel is not key, a click after which the panel
-    /// lost key, or a click while it was not key that didn't make it key. Clicks and typing in
-    /// the key panel, and the click that makes it key, are not interruptions.
+    /// nothing (FRM-4): a key-down while the panel is not key, or a click anywhere but in one of
+    /// Kudzu's own windows (the window server says where each click lands). Typing in the key
+    /// panel and clicking in Kudzu's windows are not interruptions.
     pub fn form_panel_focused(&self, token: u64, focused: bool) {
         self.imp.form_panel_focused(token, focused);
     }

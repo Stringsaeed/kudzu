@@ -4,6 +4,7 @@
 
 use std::ffi::c_void;
 
+use core_foundation_sys::array::CFArrayRef;
 use core_foundation_sys::base::{CFTypeID, CFTypeRef};
 use core_foundation_sys::dictionary::CFDictionaryRef;
 use core_foundation_sys::mach_port::CFMachPortRef;
@@ -42,6 +43,12 @@ pub const kCGEventTapDisabledByUserInput: CGEventType = 0xFFFF_FFFF;
 pub const kCGKeyboardEventAutorepeat: u32 = 8;
 pub const kCGKeyboardEventKeycode: u32 = 9;
 pub const kCGEventSourceUserData: u32 = 42;
+pub const kCGMouseEventWindowUnderMousePointer: u32 = 91;
+pub const kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent: u32 = 92;
+
+// CGWindowListOption
+pub const kCGWindowListOptionIncludingWindow: u32 = 1 << 3;
+pub type CGWindowID = u32;
 
 // CGEventFlags
 pub const kCGEventFlagMaskControl: CGEventFlags = 1 << 18;
@@ -130,6 +137,8 @@ extern "C" {
     pub fn CGRequestListenEventAccess() -> bool;
     pub fn CGPreflightPostEventAccess() -> bool;
     pub fn CGSessionCopyCurrentDictionary() -> CFDictionaryRef;
+    pub fn CGWindowListCopyWindowInfo(option: u32, relative_to: CGWindowID) -> CFArrayRef;
+    pub static kCGWindowOwnerPID: CFStringRef;
 }
 
 #[link(name = "ApplicationServices", kind = "framework")]

@@ -2,12 +2,14 @@
 //! the form panel's focus reports, on time or late. `forms.rs` drives the engine's focus input
 //! directly; these tests drive the user and let the panel report.
 //!
-//! The engine only learns where focus is from the form panel. Another Kudzu panel looks to it
-//! like the target app, so typing there interrupts a typed form, conservatively.
+//! A click is judged by the window it lands on, which the listener sees with the event: only
+//! Kudzu's own windows leave a typed form alone. Where the keyboard is, the engine only learns
+//! from the form panel; another Kudzu panel looks to it like the target app, so typing there
+//! interrupts a typed form, conservatively.
 
 use kudzu_core::activity::{ActivityOutcome, ActivitySource};
 
-use super::desk::{editor, At, Desk, Ev, Out};
+use super::desk::{editor, windows, At, Desk, Ev, Out};
 use super::panels::Focus;
 use super::rig::{backspaces, ms, snippet, Rig};
 
@@ -74,8 +76,8 @@ fn typing_in_another_kudzu_panel_then_returning_interrupts_the_form() {
 // MARK: Clicks
 
 /// The user clicks into the target while the form is key, which moves the caret, then clicks
-/// back on the form. The panel's reports arrive late, so the listener saw both clicks while the
-/// panel still counted as key. The click that left the panel interrupts the form.
+/// back on the form. The panel's reports arrive late, so the panel still counted as key; the
+/// click in the target interrupts the form all the same.
 #[test]
 fn a_click_in_the_target_then_back_on_the_form_interrupts_it() {
     let (rig, token) = opened(true);
@@ -127,7 +129,7 @@ fn the_click_that_makes_the_form_key_does_not_interrupt_it() {
     assert_eq!(rig.doc(), "Dear Sam, hi|");
 }
 
-/// A late report still settles that click, as long as nothing came between.
+/// The same with the panel's reports arriving late.
 #[test]
 fn a_late_report_claims_the_click_that_made_the_form_key() {
     let (rig, token) = opened(true);
@@ -140,7 +142,8 @@ fn a_late_report_claims_the_click_that_made_the_form_key() {
     assert_eq!(rig.log(), inserted());
 }
 
-/// Conservative: typing before a late report claims the click counts as typing elsewhere.
+/// Conservative: typing before the late report says the panel is key again counts as typing
+/// elsewhere.
 #[test]
 fn typing_before_a_late_report_claims_the_click_interrupts() {
     let (rig, token) = opened(true);
@@ -154,7 +157,7 @@ fn typing_before_a_late_report_claims_the_click_interrupts() {
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
 
-/// Before the panel was ever key, a click can't be on it.
+/// A click in the target before the form is shown.
 #[test]
 fn a_click_before_the_form_is_shown_interrupts_it() {
     let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, hi")]);
@@ -166,6 +169,55 @@ fn a_click_before_the_form_is_shown_interrupts_it() {
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.doc(), ";a|ddr");
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Review blocker 1: the form loses key with no input, the user clicks elsewhere in the target
+/// (already in front, so no focus report follows), and the form is brought back without a
+/// click. The click moved the caret; the later focus gain must not forgive it.
+#[test]
+fn a_target_click_with_no_focus_change_then_a_programmatic_refocus_interrupts() {
+    let (rig, token) = opened(false);
+    rig.focus_moves(Focus::Target);
+    rig.click_on(Focus::Target, Some(2));
+    rig.focus_moves(Focus::Form);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// A click in another app's window doesn't land in Kudzu: the form is interrupted.
+#[test]
+fn a_click_in_another_app_interrupts_the_form() {
+    let (rig, token) = opened(false);
+    rig.click_in(windows::OTHER);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// When the event doesn't name the window under the pointer, the click is not known to be in
+/// Kudzu: the form is interrupted.
+#[test]
+fn a_click_whose_window_is_unknown_interrupts_the_form() {
+    let (rig, token) = opened(false);
+    rig.click_in(0);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Clicking into another Kudzu panel and back, typing only in the form, leaves it alone.
+#[test]
+fn clicks_in_another_kudzu_panel_and_back_do_not_interrupt_the_form() {
+    let (rig, token) = opened(true);
+    rig.click_on(Focus::Panel, None);
+    rig.deliver_reports();
+    rig.click_on(Focus::Form, None);
+    rig.deliver_reports();
+    rig.press("Sam");
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
 }
 
 // MARK: Submission

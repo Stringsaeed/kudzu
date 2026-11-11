@@ -12,6 +12,7 @@ use std::io;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use super::ffi::CGWindowID;
 use super::{apps, ax};
 use crate::{AppInfo, PermissionStatus, Rect};
 
@@ -39,6 +40,8 @@ pub(crate) trait Observe: Clock {
     fn app_of(&self, pid: i32) -> Option<AppInfo>;
     fn bundle_id_of(&self, pid: i32) -> Option<String>;
     fn name_of(&self, pid: i32) -> Option<String>;
+    /// The process that owns window `window` (from a mouse-down's window under the pointer).
+    fn window_owner(&self, window: CGWindowID) -> Option<i32>;
     /// The pid `app` resolves to when running (by pid, else bundle id).
     fn resolve_pid(&self, app: &AppInfo) -> Option<i32>;
     /// Brings `app` to the front and waits (≤ `timeout`) until it is frontmost.
@@ -113,6 +116,10 @@ impl Observe for SystemObserve {
 
     fn name_of(&self, pid: i32) -> Option<String> {
         apps::name_of(pid)
+    }
+
+    fn window_owner(&self, window: CGWindowID) -> Option<i32> {
+        apps::window_owner(window)
     }
 
     fn resolve_pid(&self, app: &AppInfo) -> Option<i32> {

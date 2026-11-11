@@ -6,6 +6,11 @@ use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use core_foundation::array::CFArray;
+use core_foundation::base::{CFType, TCFType};
+use core_foundation::dictionary::CFDictionary;
+use core_foundation::number::CFNumber;
+use core_foundation::string::CFString;
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::AnyThread;
 use objc2_app_kit::{
@@ -15,6 +20,9 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString, NSURL};
 
+use super::ffi::{
+    kCGWindowListOptionIncludingWindow, kCGWindowOwnerPID, CGWindowID, CGWindowListCopyWindowInfo,
+};
 use crate::AppInfo;
 
 fn info(app: &NSRunningApplication) -> AppInfo {
@@ -135,6 +143,22 @@ pub(crate) fn activate_and_wait(app: &AppInfo, timeout: Duration) -> bool {
         }
     }
     false
+}
+
+/// The process that owns window `window`, from the window server's list.
+pub(crate) fn window_owner(window: CGWindowID) -> Option<i32> {
+    // SAFETY: the copied array is released by `wrap_under_create_rule`.
+    let list = unsafe { CGWindowListCopyWindowInfo(kCGWindowListOptionIncludingWindow, window) };
+    if list.is_null() {
+        return None;
+    }
+    let list: CFArray<CFDictionary<CFString, CFType>> =
+        unsafe { CFArray::wrap_under_create_rule(list) };
+    let info = list.iter().next()?;
+    let key = unsafe { CFString::wrap_under_get_rule(kCGWindowOwnerPID) };
+    info.find(&key)
+        .and_then(|value| value.downcast::<CFNumber>())
+        .and_then(|number| number.to_i32())
 }
 
 /// Opens a URL with its default handler.

@@ -2,34 +2,21 @@
 //!
 //! A typed trigger stays in the target's document while its form is open. Submitting deletes it
 //! with Backspaces from wherever the caret is then, which is only right if nothing reached the
-//! target in between. The listener sees every key-down and click, but not where it lands. The
-//! form panel reports when it becomes key or stops being key: later than the listener sees the
-//! event that caused it, and in the order the panel handled events.
+//! target in between. The listener sees every key-down and click before the app does. For a
+//! click it also sees where it lands: the window under the pointer, and so the process that
+//! owns it. For a key-down it only knows where the keyboard is from the form panel's focus
+//! reports.
 //!
 //! The rules, conservative wherever a destination is unknown:
+//! - A click interrupts unless it lands in one of Kudzu's own windows (the form panel, another
+//!   Kudzu panel). A click in the target, in another app, on the menu bar, or anywhere the
+//!   window server doesn't name, interrupts at once. No later focus report changes that.
 //! - A key-down while the panel is not key reaches the target: interrupted.
-//! - A click is settled by the next focus report. Made while the panel was key, it stayed in
-//!   the panel unless the panel then lost key, in which case it may have moved the target's
-//!   caret: interrupted. Made while the panel was not key, it was on the panel only if the panel
-//!   became key next; a key-down, another click or the submission first means it went
-//!   elsewhere: interrupted.
-//! - Before the panel has ever been key, no click can be on it: interrupted.
-//! - The submission comes from the panel, after the panel reported every focus change the
-//!   events before it caused, so it settles a click made while the panel was key as having
-//!   stayed. From then on the panel is going away and the target is coming forward: every
-//!   key-down or click that reaches the session interrupts, until the trigger is deleted, and
-//!   focus reports no longer count.
+//! - After the submission every key-down and click interrupts until the trigger is deleted, and
+//!   focus reports no longer count (the panel is going away).
 //! - Focus moving without input (a shortcut opens another panel, a panel closes) is not an
 //!   interruption.
-
-/// A click the next focus report settles.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Click {
-    /// Made while the panel was key.
-    WhileKey,
-    /// Made while it wasn't.
-    WhileAway,
-}
+//! - An interruption is final.
 
 /// A pending typed form's view of the input it saw.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -37,9 +24,6 @@ pub(crate) struct Interruption {
     interrupted: bool,
     /// The panel is key, as last reported.
     key: bool,
-    /// The panel has been key at least once.
-    was_key: bool,
-    click: Option<Click>,
     /// Submitted, and the trigger not deleted yet.
     submitted: bool,
 }
@@ -47,43 +31,28 @@ pub(crate) struct Interruption {
 impl Interruption {
     /// A key-down reached the session (the target or the panel; the listener can't tell).
     pub fn key_down(&mut self) {
-        if self.click == Some(Click::WhileAway) {
-            self.click = None;
-        }
         if !self.key || self.submitted {
             self.interrupted = true;
         }
     }
 
-    /// A mouse-down reached the session.
-    pub fn click(&mut self) {
-        if self.submitted || self.click == Some(Click::WhileAway) || !(self.key || self.was_key) {
+    /// A mouse-down reached the session; `on_kudzu` when the window under the pointer is one of
+    /// Kudzu's own.
+    pub fn click(&mut self, on_kudzu: bool) {
+        if self.submitted || !on_kudzu {
             self.interrupted = true;
         }
-        self.click = Some(if self.key {
-            Click::WhileKey
-        } else {
-            Click::WhileAway
-        });
     }
 
     /// The panel reported that it became key (`true`) or stopped being key.
     pub fn focus(&mut self, key: bool) {
-        if self.submitted {
-            return;
+        if !self.submitted {
+            self.key = key;
         }
-        if self.click.take().is_some() && !key {
-            self.interrupted = true;
-        }
-        self.key = key;
-        self.was_key |= key;
     }
 
     /// The form was submitted from its panel.
     pub fn submit(&mut self) {
-        if self.click.take() == Some(Click::WhileAway) {
-            self.interrupted = true;
-        }
         self.submitted = true;
     }
 
@@ -110,11 +79,13 @@ mod tests {
     }
 
     #[test]
-    fn typing_and_clicking_in_the_key_panel_is_not_an_interruption() {
+    fn typing_and_clicking_in_kudzu_windows_is_not_an_interruption() {
         let mut form = key();
-        form.click();
+        form.click(true);
         form.key_down();
-        form.click();
+        form.focus(false);
+        form.click(true);
+        form.focus(true);
         form.key_down();
         form.submit();
         assert!(!form.interrupted());
@@ -133,76 +104,31 @@ mod tests {
     }
 
     #[test]
-    fn a_click_that_takes_focus_away_interrupts() {
-        let mut form = key();
-        form.click();
-        form.focus(false);
-        assert!(form.interrupted());
-    }
-
-    #[test]
-    fn a_click_is_settled_by_a_late_report_even_after_typing() {
-        // The report that the panel lost key arrives after the user typed in the target.
-        let mut form = key();
-        form.click();
-        form.key_down();
-        assert!(!form.interrupted());
-        form.focus(false);
-        assert!(form.interrupted());
-    }
-
-    #[test]
-    fn the_click_that_makes_the_panel_key_is_on_the_panel() {
-        let mut form = key();
-        form.focus(false);
-        form.click();
-        form.focus(true);
-        form.key_down();
-        form.submit();
-        assert!(!form.interrupted());
-    }
-
-    #[test]
-    fn a_click_while_not_key_that_no_report_claims_went_elsewhere() {
-        for then in [
-            Interruption::key_down,
-            Interruption::click,
-            Interruption::submit,
-        ] {
-            let mut form = key();
-            form.focus(false);
-            form.click();
-            then(&mut form);
-            assert!(form.interrupted());
+    fn a_click_outside_kudzu_interrupts_whatever_focus_does() {
+        for (before, after) in [(true, true), (true, false), (false, true), (false, false)] {
+            let mut form = Interruption::default();
+            form.focus(before);
+            form.click(false);
+            form.focus(after);
+            assert!(form.interrupted(), "key {before} then {after}");
         }
-        let mut form = key();
-        form.focus(false);
-        form.click();
-        form.focus(false);
-        assert!(form.interrupted());
     }
 
     #[test]
-    fn a_click_before_the_panel_was_ever_key_interrupts() {
-        let mut form = Interruption::default();
-        form.click();
-        form.focus(true);
-        assert!(form.interrupted());
-    }
-
-    #[test]
-    fn the_submission_settles_a_click_made_while_key() {
-        let mut form = key();
-        form.click();
-        form.submit();
-        // The panel closing after the submission is not that click leaving it.
-        form.focus(false);
-        assert!(!form.interrupted());
+    fn a_click_before_the_panel_was_ever_key_is_judged_by_where_it_lands() {
+        let mut on_kudzu = Interruption::default();
+        on_kudzu.click(true);
+        assert!(!on_kudzu.interrupted());
+        let mut elsewhere = Interruption::default();
+        elsewhere.click(false);
+        assert!(elsewhere.interrupted());
     }
 
     #[test]
     fn after_the_submission_any_key_or_click_interrupts_and_focus_no_longer_counts() {
-        for then in [Interruption::key_down, Interruption::click] {
+        for then in [Interruption::key_down, |form: &mut Interruption| {
+            form.click(true)
+        }] {
             let mut form = key();
             form.submit();
             form.focus(false);
@@ -216,10 +142,9 @@ mod tests {
     #[test]
     fn an_interruption_is_final() {
         let mut form = key();
-        form.focus(false);
-        form.key_down();
+        form.click(false);
         form.focus(true);
-        form.click();
+        form.click(true);
         form.submit();
         assert!(form.interrupted());
     }
