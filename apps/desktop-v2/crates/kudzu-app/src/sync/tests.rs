@@ -6,15 +6,16 @@ use crate::fixtures::ids::FixedIds;
 use crate::library::{LibraryService, SnippetDraft};
 use crate::persist::{PersistError, Revision, WriteTarget, Writer};
 use crate::ports::{CloudBatch, CloudSend, CloudSendFailure};
-use crate::settings::{Settings, SettingsService, Variant};
+use crate::settings::{Settings, SettingsService, Theme, Variant};
 use chrono::{TimeZone, Utc};
 use kudzu_core::library::model::KudzuLibrary;
 use kudzu_core::library::starter::ensure_getting_started_snippets;
 use kudzu_core::sync::{RecordKind, RemoteRecord, SyncIndex, META_RECORD};
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
-use std::sync::{mpsc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use uuid::Uuid;
@@ -881,4 +882,529 @@ fn settings_turn_sync_on_without_a_second_subscription() {
         .unwrap();
     harness.settle();
     assert_eq!(harness.cloud.state.lock().unwrap().starts.len(), 1);
+}
+
+#[test]
+fn a_crash_relaunch_from_disk_does_not_delete_the_remote_snippet() {
+    let root = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    fs::create_dir_all(&root.0).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(3600),
+        Duration::from_secs(3600),
+    )
+    .unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let (library, _) = LibraryService::open(
+        root.0.join("library.json"),
+        "device-a".into(),
+        clock.clone(),
+        Arc::new(FixedIds::new(100)),
+        &writer,
+        scheduler.clone(),
+    )
+    .unwrap();
+    let library = Arc::new(library);
+    let settings = SettingsService::new(
+        Settings {
+            icloud_sync: true,
+            ..Settings::for_variant(Variant::Production)
+        },
+        writer.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let cloud = Arc::new(FakeCloud::default());
+    cloud.set_engine_state(b"token-1".to_vec());
+    let sync_dir = root.0.join("sync");
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: sync_dir.clone(),
+        },
+        library,
+        settings.watch(),
+        cloud.clone(),
+        clock,
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    let id = Uuid::from_u128(77);
+    let generation = cloud.state.lock().unwrap().active.unwrap();
+    cloud.deliver(
+        generation,
+        CloudBatch {
+            records: vec![remote_snippet(id, ";x", "from-icloud", 1_700_000_000)],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    sync.settle();
+
+    let crash = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    let crash_sync = crash.0.join("sync");
+    fs::create_dir_all(&crash_sync).unwrap();
+    for name in ["library.json", "sync/index.json", "sync/engine-state.data"] {
+        let from = root.0.join(name);
+        if from.is_file() {
+            fs::copy(&from, crash.0.join(name)).unwrap();
+        }
+    }
+    drop(sync);
+
+    let clock = Arc::new(FakeClock::default());
+    let writer2 = Writer::new(clock.clone(), Duration::ZERO, Duration::from_millis(1)).unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let (library, _) = LibraryService::open(
+        crash.0.join("library.json"),
+        "device-a".into(),
+        clock.clone(),
+        Arc::new(FixedIds::new(200)),
+        &writer2,
+        scheduler.clone(),
+    )
+    .unwrap();
+    let settings = SettingsService::new(
+        Settings {
+            icloud_sync: true,
+            ..Settings::for_variant(Variant::Production)
+        },
+        writer2.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let cloud = Arc::new(FakeCloud::default());
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: crash_sync,
+        },
+        Arc::new(library),
+        settings.watch(),
+        cloud.clone(),
+        clock.clone(),
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    // The saved token is already past the snippet, so the server does not send it again.
+    // Ask for a push: a tick or Sync now is what turns the stale index into a delete.
+    clock.advance(Duration::from_secs(1));
+    let generation = cloud.state.lock().unwrap().active.expect("restarted");
+    cloud.deliver(
+        generation,
+        CloudBatch {
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    sync.settle();
+    sync.sync_now();
+    sync.settle();
+    let name = kudzu_core::sync::snippet_name(id);
+    let deleted = cloud
+        .state
+        .lock()
+        .unwrap()
+        .sends
+        .iter()
+        .any(|(_, batch)| batch.deleted.iter().any(|deleted| deleted == &name));
+    assert!(
+        !deleted,
+        "relaunch from the files on disk deleted the remote snippet"
+    );
+    drop(sync);
+    writer2.shutdown().ok();
+    writer.shutdown().ok();
+}
+
+#[test]
+fn no_account_survives_ticks_and_fetch_failures() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let generation = harness.generation();
+    let events = harness.cloud.events(generation).unwrap();
+    events.availability(generation, crate::ports::CloudAvailability::NoAccount);
+    harness.settle();
+    harness.clock.advance(FETCH_INTERVAL);
+    wait_fetch(&harness);
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: NO_ACCOUNT.into(),
+        }
+    );
+    harness.cloud.state.lock().unwrap().failure = Some(PortError::TimedOut);
+    harness.sync.sync_now();
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: NO_ACCOUNT.into(),
+        }
+    );
+}
+
+#[test]
+fn an_unacknowledged_snippet_is_not_sent_again() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let first = snippet(&harness, ";a", "one");
+    harness.settle();
+    let name = kudzu_core::sync::snippet_name(first);
+    let once = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert_eq!(once, 1);
+    snippet(&harness, ";b", "two");
+    harness.settle();
+    let again = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert_eq!(again, 1);
+}
+
+#[test]
+fn a_partial_batch_does_not_publish_up_to_date() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let generation = harness.generation();
+    harness.deliver(
+        generation,
+        CloudBatch {
+            records: vec![RemoteRecord {
+                kind: RecordKind::Meta,
+                name: META_RECORD.into(),
+                payload: r#"{"syncVersion":1}"#.into(),
+            }],
+            full_fetch: false,
+            ..CloudBatch::default()
+        },
+    );
+    assert!(!matches!(
+        *harness.sync.status().get(),
+        SyncStatus::UpToDate { .. }
+    ));
+}
+
+#[test]
+fn a_theme_change_does_not_fetch() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let fetches = harness.cloud.state.lock().unwrap().fetches.len();
+    harness
+        .settings
+        .update(|settings| settings.theme = Theme::Light)
+        .unwrap();
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().fetches.len(), fetches);
+}
+
+#[test]
+fn a_failed_start_is_retried_on_the_fetch_interval() {
+    let cloud = Arc::new(FakeCloud::default());
+    cloud.fail_start(Some(PortError::TimedOut));
+    let dir = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    fs::create_dir_all(&dir.0).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(clock.clone(), Duration::ZERO, Duration::from_millis(1)).unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let library = Arc::new(
+        LibraryService::new(
+            KudzuLibrary::default(),
+            "device-a".into(),
+            clock.clone(),
+            Arc::new(FixedIds::new(1)),
+            writer.register(Memory, Revision(0)).unwrap(),
+            scheduler.clone(),
+        )
+        .unwrap(),
+    );
+    let settings = SettingsService::new(
+        Settings::for_variant(Variant::Production),
+        writer.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: dir.0.clone(),
+        },
+        library,
+        settings.watch(),
+        cloud.clone(),
+        clock.clone(),
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    assert_eq!(
+        *sync.status().get(),
+        SyncStatus::Error {
+            message: START_FAILED.into(),
+        }
+    );
+    assert!(cloud.state.lock().unwrap().starts.is_empty());
+    cloud.fail_start(None);
+    clock.advance(FETCH_INTERVAL);
+    let start = Instant::now();
+    loop {
+        sync.settle();
+        if !cloud.state.lock().unwrap().starts.is_empty() {
+            break;
+        }
+        if start.elapsed() > Duration::from_secs(3) {
+            panic!("failed start was not retried");
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    drop(sync);
+    writer.shutdown().ok();
+}
+
+#[test]
+fn a_failed_index_reset_does_not_start_the_new_account() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    harness.cloud.set_engine_state(b"token".to_vec());
+    harness.full_fetch();
+    let starts = harness.cloud.state.lock().unwrap().starts.len();
+    let _restore = RestorePerms(&harness.dir.0);
+    fs::set_permissions(&harness.dir.0, fs::Permissions::from_mode(0o555)).unwrap();
+    let generation = harness.generation();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .account_changed(generation);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Error {
+            message: SAVE_FAILED.into(),
+        }
+    );
+    assert_eq!(harness.cloud.state.lock().unwrap().starts.len(), starts);
+}
+
+struct RestorePerms<'a>(&'a std::path::Path);
+impl Drop for RestorePerms<'_> {
+    fn drop(&mut self) {
+        let _ = fs::set_permissions(self.0, fs::Permissions::from_mode(0o755));
+    }
+}
+
+fn wait_durable(library: &LibraryService, revision: Revision) {
+    let start = Instant::now();
+    loop {
+        let saved = library.saved().get();
+        if saved.error.is_none() && saved.durable >= revision {
+            return;
+        }
+        if start.elapsed() > Duration::from_secs(3) {
+            panic!("library was not durable: {saved:?}");
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+/// Remote delete recorded in the index while `library.json` still contains the snippet.
+/// Relaunch must not upload it again.
+#[test]
+fn a_crash_relaunch_from_disk_does_not_restore_a_remote_delete() {
+    let root = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    fs::create_dir_all(&root.0).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(clock.clone(), Duration::ZERO, Duration::from_millis(1)).unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let (library, _) = LibraryService::open(
+        root.0.join("library.json"),
+        "device-a".into(),
+        clock.clone(),
+        Arc::new(FixedIds::new(100)),
+        &writer,
+        scheduler.clone(),
+    )
+    .unwrap();
+    let library = Arc::new(library);
+    wait_durable(&library, Revision(1));
+    let id = snippet_on(&library, ";keep", "on-disk");
+    wait_durable(&library, library.watch().revision());
+    let settings = SettingsService::new(
+        Settings {
+            icloud_sync: true,
+            ..Settings::for_variant(Variant::Production)
+        },
+        writer.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let cloud = Arc::new(FakeCloud::default());
+    let sync_dir = root.0.join("sync");
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: sync_dir.clone(),
+        },
+        library.clone(),
+        settings.watch(),
+        cloud.clone(),
+        clock.clone(),
+        scheduler.clone(),
+    )
+    .unwrap();
+    sync.settle();
+    let generation = cloud.state.lock().unwrap().active.unwrap();
+    cloud.deliver(
+        generation,
+        CloudBatch {
+            records: vec![remote_snippet(id, ";keep", "on-disk", 1_700_000_000)],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    sync.settle();
+    wait_durable(&library, library.watch().revision());
+    sync.settle();
+    let indexed: SyncIndex =
+        serde_json::from_slice(&fs::read(sync_dir.join("index.json")).unwrap()).unwrap();
+    let name = kudzu_core::sync::snippet_name(id);
+    assert!(indexed.records.contains_key(&name));
+    drop(sync);
+    writer.shutdown().unwrap();
+
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(3600),
+        Duration::from_secs(3600),
+    )
+    .unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let (library, _) = LibraryService::open(
+        root.0.join("library.json"),
+        "device-a".into(),
+        clock.clone(),
+        Arc::new(FixedIds::new(100)),
+        &writer,
+        scheduler.clone(),
+    )
+    .unwrap();
+    let library = Arc::new(library);
+    let settings = SettingsService::new(
+        Settings {
+            icloud_sync: true,
+            ..Settings::for_variant(Variant::Production)
+        },
+        writer.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let cloud = Arc::new(FakeCloud::default());
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: sync_dir.clone(),
+        },
+        library,
+        settings.watch(),
+        cloud.clone(),
+        clock,
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    let generation = cloud.state.lock().unwrap().active.unwrap();
+    cloud.deliver(
+        generation,
+        CloudBatch {
+            deleted: vec![name.clone()],
+            ..CloudBatch::default()
+        },
+    );
+    sync.settle();
+
+    let crash = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    let crash_sync = crash.0.join("sync");
+    fs::create_dir_all(&crash_sync).unwrap();
+    for file_name in ["library.json", "sync/index.json", "sync/engine-state.data"] {
+        let from = root.0.join(file_name);
+        if from.is_file() {
+            fs::copy(&from, crash.0.join(file_name)).unwrap();
+        }
+    }
+    drop(sync);
+
+    let clock = Arc::new(FakeClock::default());
+    let writer2 = Writer::new(clock.clone(), Duration::ZERO, Duration::from_millis(1)).unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let (library, _) = LibraryService::open(
+        crash.0.join("library.json"),
+        "device-a".into(),
+        clock.clone(),
+        Arc::new(FixedIds::new(200)),
+        &writer2,
+        scheduler.clone(),
+    )
+    .unwrap();
+    let settings = SettingsService::new(
+        Settings {
+            icloud_sync: true,
+            ..Settings::for_variant(Variant::Production)
+        },
+        writer2.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let cloud = Arc::new(FakeCloud::default());
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: crash_sync,
+        },
+        Arc::new(library),
+        settings.watch(),
+        cloud.clone(),
+        clock.clone(),
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    sync.sync_now();
+    sync.settle();
+    let uploaded = cloud
+        .state
+        .lock()
+        .unwrap()
+        .sends
+        .iter()
+        .any(|(_, batch)| batch.records.iter().any(|record| record.name == name));
+    assert!(
+        !uploaded,
+        "relaunch from the files on disk uploaded a snippet iCloud had already deleted"
+    );
+    drop(sync);
+    writer2.shutdown().ok();
+    writer.shutdown().ok();
+}
+
+fn snippet_on(library: &LibraryService, trigger: &str, content: &str) -> Uuid {
+    library
+        .create_snippet(SnippetDraft {
+            triggers: vec![trigger.into()],
+            content: content.into(),
+            ..SnippetDraft::default()
+        })
+        .unwrap()
+        .0
+        .id
 }
