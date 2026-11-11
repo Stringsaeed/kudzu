@@ -12,3 +12,39 @@ pub mod relaunch;
 pub mod settings_panes;
 pub mod thumbnails;
 pub mod update_install;
+
+pub mod ids;
+pub use apps::AppDirectory;
+pub use clock::Clock;
+pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
+pub use engine::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormRequest};
+pub use fetch::{Fetch, FetchRequest};
+pub use files::FileOpener;
+pub use hotkey_registrar::{HotkeyRegistrar, ShortcutSlot};
+pub use ids::IdSource;
+pub use login_item::LoginItem;
+pub use pasteboard::{PasteSnapshot, Pasteboard};
+pub use relaunch::Relauncher;
+pub use settings_panes::{PermissionKind, SettingsPane, SystemSettings};
+pub use thumbnails::{Thumbnail, Thumbnailer};
+pub use update_install::{InstallProbe, UpdateInstaller, UpdatePackage};
+
+/// Composition-only bundle. Services take their individual ports; windows take services.
+/// Inbound EngineEvents/CloudEvents are supplied by services when starting the adapter.
+#[derive(Clone)]
+pub struct Ports {
+    pub engine: std::sync::Arc<dyn ExpansionEngine>,
+    pub pasteboard: std::sync::Arc<dyn Pasteboard>,
+    pub thumbnails: std::sync::Arc<dyn Thumbnailer>,
+    pub apps: std::sync::Arc<dyn AppDirectory>,
+    pub settings: std::sync::Arc<dyn SystemSettings>,
+    pub login_item: std::sync::Arc<dyn LoginItem>,
+    pub files: std::sync::Arc<dyn FileOpener>,
+    pub cloud: std::sync::Arc<dyn CloudStore>,
+    pub installer: std::sync::Arc<dyn UpdateInstaller>,
+    pub relauncher: std::sync::Arc<dyn Relauncher>,
+    pub fetch: std::sync::Arc<dyn Fetch>,
+    pub clock: std::sync::Arc<dyn Clock>,
+    pub hotkeys: std::sync::Arc<dyn HotkeyRegistrar>,
+    pub ids: std::sync::Arc<dyn IdSource>,
+}
