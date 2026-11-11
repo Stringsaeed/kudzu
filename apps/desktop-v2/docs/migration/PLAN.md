@@ -1207,6 +1207,12 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - a read-only capture of the Tauri main window for comparison;
   - the guide panel's window order above Settings, click-through, and multi-display placement;
   - the S10 checklist against the production shell.
+- **Live checks from the S34 review:**
+  - A target click that causes no focus change, followed by the form being refocused programmatically.
+  - A blur report that arrives late, between the submit being queued and the worker running it.
+  - Clicks, listen-only typing, pause and target changes while clipboard preparation waits behind a selection copy or promised data.
+  - A slow paste consumer, with a history write right after ⌘V, throughout the 400 ms window.
+  - Leading-delay refusals and permission loss (whole-word and submitted-form variants). The clipboard must be restored, and the D17 notice must show through S35 and S57.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
