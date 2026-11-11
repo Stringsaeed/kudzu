@@ -136,12 +136,17 @@ fn a_settings_launch_never_counts_as_a_grant() {
     assert_eq!(h.permissions.state().phase, Phase::Waiting);
     assert!(!h.permissions.state().ready);
     let mut saw_opening = false;
+    let mut saw_checking = false;
     while let Ok(phase) = rx.try_recv() {
         if phase == Phase::Opening {
             saw_opening = true;
         }
+        if phase == Phase::Checking {
+            saw_checking = true;
+        }
     }
     assert!(saw_opening);
+    assert!(!saw_checking);
 }
 
 #[test]
@@ -221,4 +226,64 @@ fn a_failed_marker_write_does_not_relaunch() {
     std::fs::write(&h.folder.0, b"file").unwrap();
     assert!(h.permissions.request_restart().is_err());
     assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
+}
+
+#[test]
+fn select_treats_the_new_row_as_a_fresh_check() {
+    let h = Harness::new(27);
+    h.set_status(true, true, TapMode::Active);
+    h.permissions.refresh();
+    assert_eq!(h.permissions.state().phase, Phase::Allowed);
+    h.permissions.select(PermissionKind::InputMonitoring);
+    assert_eq!(h.permissions.state().phase, Phase::Checking);
+    assert_eq!(
+        h.permissions.state().selected,
+        PermissionKind::InputMonitoring
+    );
+    assert!(h.permissions.state().error.is_none());
+}
+
+#[test]
+fn select_clears_a_blank_error() {
+    let h = Harness::new(27);
+    *h.system.failure.lock().unwrap() = Some(PortError::Unavailable);
+    assert!(h
+        .permissions
+        .begin(PermissionKind::InputMonitoring)
+        .is_err());
+    assert_eq!(h.permissions.state().phase, Phase::Error);
+    h.permissions.select(PermissionKind::Accessibility);
+    assert_eq!(h.permissions.state().phase, Phase::Checking);
+    assert!(h.permissions.state().error.is_none());
+}
+
+#[test]
+fn revoked_holds_until_begin_or_select() {
+    let h = Harness::new(27);
+    h.set_status(true, true, TapMode::Active);
+    h.permissions.refresh();
+    h.set_status(false, false, TapMode::Off);
+    h.permissions.refresh();
+    assert_eq!(h.permissions.state().phase, Phase::Revoked);
+    h.permissions.refresh();
+    assert_eq!(h.permissions.state().phase, Phase::Revoked);
+    h.permissions.select(PermissionKind::Accessibility);
+    assert_eq!(h.permissions.state().phase, Phase::Checking);
+}
+
+#[test]
+fn begin_lands_on_allowed_when_the_row_is_already_granted() {
+    let h = Harness::new(27);
+    h.set_status(true, true, TapMode::Active);
+    h.permissions.begin(PermissionKind::Accessibility).unwrap();
+    assert_eq!(h.permissions.state().phase, Phase::Allowed);
+}
+
+#[test]
+fn a_failed_relaunch_removes_the_restart_marker() {
+    let h = Harness::new(27);
+    *h.relauncher.failure.lock().unwrap() = Some(PortError::Unavailable);
+    assert!(h.permissions.request_restart().is_err());
+    assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
+    assert!(!h.folder.0.join("permission-setup-pending").exists());
 }

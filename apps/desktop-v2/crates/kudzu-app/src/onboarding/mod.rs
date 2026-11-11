@@ -72,13 +72,6 @@ impl OnboardingState {
     pub fn busy(&self) -> bool {
         self.finishing || self.picking || self.working.is_some()
     }
-
-    pub fn can_continue(&self) -> bool {
-        match self.step {
-            Step::Import => self.imported > 0,
-            _ => true,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -140,6 +133,18 @@ impl Onboarding {
         self.watch().get()
     }
 
+    pub fn can_continue(&self) -> bool {
+        let current = self.snapshot();
+        if current.busy() {
+            return false;
+        }
+        match current.step {
+            Step::Welcome | Step::TryIt => true,
+            Step::Access => crate::permissions::ready(&self.engine.status()),
+            Step::Import => current.imported > 0,
+        }
+    }
+
     pub fn pending_espanso_folders(&self) -> Vec<DetectedFolder> {
         let detection = self.snapshot().detection.clone();
         let completed = self
@@ -167,9 +172,13 @@ impl Onboarding {
 
     pub fn begin_import(&self, source: ImportSource) -> Result<(), OnboardingError> {
         self.edit(|live| {
-            if live.snapshot.busy() {
+            if live.snapshot.finishing {
                 return Err(OnboardingError::Busy);
             }
+            if live.snapshot.working.is_some() && live.snapshot.working != Some(source) {
+                return Err(OnboardingError::Busy);
+            }
+            live.snapshot.picking = false;
             live.snapshot.working = Some(source);
             live.snapshot.failures.remove(&source);
             Ok(())
@@ -210,11 +219,18 @@ impl Onboarding {
                 },
             );
             live.snapshot.failures.remove(&source);
-            live.snapshot.working = None;
-            live.snapshot.picking = false;
             if let Some(path) = tally.path {
                 live.completed.insert(path);
             }
+        });
+    }
+
+    pub fn end_import(&self, source: ImportSource) {
+        self.edit(|live| {
+            if live.snapshot.working == Some(source) {
+                live.snapshot.working = None;
+            }
+            live.snapshot.picking = false;
         });
     }
 
@@ -276,16 +292,14 @@ impl Onboarding {
     }
 
     pub fn finish(&self) -> Result<(), OnboardingError> {
-        {
-            let current = self.snapshot();
-            if current.busy() && !current.finishing {
+        self.edit(|live| {
+            if live.snapshot.finishing || live.snapshot.picking || live.snapshot.working.is_some() {
                 return Err(OnboardingError::Busy);
             }
-        }
-        self.edit(|live| {
             live.snapshot.finishing = true;
             live.snapshot.error = None;
-        });
+            Ok(())
+        })?;
         match self
             .settings
             .update(|settings| settings.onboarding_completed = true)

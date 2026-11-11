@@ -9,11 +9,14 @@ use kudzu_core::system::AppInfo;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
-type IconCache = HashMap<(String, u32), Option<Vec<u8>>>;
+type IconCache = HashMap<(String, u32), Vec<u8>>;
 
 /// Cached installed apps and icons. Uses [`AppCatalog`] only; never [`crate::ports::TargetApp`].
 pub struct Apps {
     installed: Watch<Vec<AppInfo>>,
+    /// Held so dropping `Apps` is the only way the listing slot is abandoned.
+    #[allow(dead_code)]
+    listing: Task<Vec<AppInfo>>,
     icons: Arc<Mutex<IconCache>>,
     catalog: Arc<dyn AppCatalog>,
 }
@@ -21,9 +24,19 @@ pub struct Apps {
 impl Apps {
     /// One enumeration, kept for the life of the service. A catalogue error yields an empty list.
     pub fn new(catalog: Arc<dyn AppCatalog>) -> Self {
-        let listed = catalog.installed().unwrap_or_default();
+        let publisher = Publisher::new(Vec::new());
+        let installed = publisher.watch();
+        let catalog_for_list = catalog.clone();
+        let listing = Task::spawn("kudzu-apps-list", move || {
+            let listed = catalog_for_list.installed().unwrap_or_default();
+            let committed = publisher.replace(Arc::new(listed.clone()));
+            committed.notification.notify();
+            listed
+        })
+        .unwrap_or_else(|_| Task::done(Vec::new()));
         Self {
-            installed: Publisher::new(listed).watch(),
+            installed,
+            listing,
             icons: Arc::new(Mutex::new(HashMap::new())),
             catalog,
         }
@@ -52,17 +65,21 @@ impl Apps {
             .get(&key)
             .cloned()
         {
-            return Task::spawn("kudzu-app-icon", move || cached);
+            return Task::spawn("kudzu-app-icon", move || Some(cached));
         }
         let catalog = self.catalog.clone();
         let cache = self.icons.clone();
         Task::spawn("kudzu-app-icon", move || {
-            let fetched = catalog.icon(&key.0, key.1).ok().flatten();
-            cache
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .insert(key, fetched.clone());
-            fetched
+            match catalog.icon(&key.0, key.1) {
+                Ok(Some(bytes)) => {
+                    cache
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .insert(key, bytes.clone());
+                    Some(bytes)
+                }
+                Ok(None) | Err(_) => None,
+            }
         })
     }
 }

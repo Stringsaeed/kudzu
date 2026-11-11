@@ -100,13 +100,13 @@ impl Permissions {
         self.edit(|live| {
             live.selected = kind;
             live.error = None;
-            if live.phase == Phase::Opening || live.phase == Phase::Waiting {
-                live.phase = Phase::Checking;
-            }
+            live.phase = Phase::Checking;
+            live.restart_offered = false;
             apply_status(live);
         });
     }
 
+    /// Opens System Settings for `kind`. S66 calls this off the UI thread.
     pub fn begin(&self, kind: PermissionKind) -> Result<(), PermissionsError> {
         self.edit(|live| {
             live.selected = kind;
@@ -133,16 +133,13 @@ impl Permissions {
                 other => PermissionsError::Port(other),
             });
         }
+        let status = self.inner.engine.status();
         self.edit(|live| {
             if live.phase == Phase::Opening {
-                live.phase = Phase::Checking;
-            }
-        });
-        self.refresh();
-        self.edit(|live| {
-            if live.phase == Phase::Checking {
                 live.phase = Phase::Waiting;
             }
+            live.status = status;
+            apply_status(live);
         });
         Ok(())
     }
@@ -156,12 +153,12 @@ impl Permissions {
         {
             return;
         }
+        let _guard = RefreshGuard(&self.inner.refreshing);
         let status = self.inner.engine.status();
         self.edit(|live| {
             live.status = status;
             apply_status(live);
         });
-        self.inner.refreshing.store(false, Ordering::Release);
     }
 
     pub fn request_restart(&self) -> Result<(), PermissionsError> {
@@ -169,7 +166,10 @@ impl Permissions {
             std::fs::create_dir_all(parent).map_err(IoFailure::from)?;
         }
         std::fs::write(&self.inner.marker, []).map_err(IoFailure::from)?;
-        self.inner.relauncher.relaunch()?;
+        if let Err(error) = self.inner.relauncher.relaunch() {
+            let _ = std::fs::remove_file(&self.inner.marker);
+            return Err(error.into());
+        }
         Ok(())
     }
 
@@ -179,44 +179,46 @@ impl Permissions {
     }
 
     fn edit(&self, update: impl FnOnce(&mut PermissionsState)) {
-        let connecting = {
-            let publisher = self
-                .inner
-                .publisher
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner);
-            let mut next = (*publisher.watch().get()).clone();
-            update(&mut next);
-            let connecting = next.phase == Phase::Connecting;
-            let committed = publisher.replace(Arc::new(next));
-            drop(publisher);
-            committed.notification.notify();
-            connecting
-        };
-        self.sync_restart_timer(connecting);
-    }
-
-    fn sync_restart_timer(&self, connecting: bool) {
-        let mut timer = self
+        let publisher = self
             .inner
-            .restart_timer
+            .publisher
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        if connecting {
-            if timer.is_some() {
-                return;
-            }
-            let inner = Arc::downgrade(&self.inner);
-            if let Ok(handle) = self.inner.scheduler.after(RESTART_WAIT, move || {
-                if let Some(inner) = inner.upgrade() {
-                    offer_restart(&inner);
+        let mut next = (*publisher.watch().get()).clone();
+        update(&mut next);
+        let connecting = next.phase == Phase::Connecting;
+        let committed = publisher.replace(Arc::new(next));
+        {
+            let mut timer = self
+                .inner
+                .restart_timer
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if connecting {
+                if timer.is_none() {
+                    let inner = Arc::downgrade(&self.inner);
+                    if let Ok(handle) = self.inner.scheduler.after(RESTART_WAIT, move || {
+                        if let Some(inner) = inner.upgrade() {
+                            offer_restart(&inner);
+                        }
+                    }) {
+                        *timer = Some(handle);
+                    }
                 }
-            }) {
-                *timer = Some(handle);
+            } else {
+                timer.take();
             }
-        } else {
-            timer.take();
         }
+        drop(publisher);
+        committed.notification.notify();
+    }
+}
+
+struct RefreshGuard<'a>(&'a AtomicBool);
+
+impl Drop for RefreshGuard<'_> {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
     }
 }
 
@@ -227,6 +229,12 @@ fn offer_restart(inner: &Inner) {
         .unwrap_or_else(PoisonError::into_inner);
     let current = publisher.watch().get();
     if current.phase != Phase::Connecting || current.restart_offered {
+        drop(publisher);
+        inner
+            .restart_timer
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take();
         return;
     }
     let mut next = (*current).clone();
@@ -260,6 +268,9 @@ fn apply_status(live: &mut PermissionsState) {
     if live.phase == Phase::Allowed || live.phase == Phase::Connecting {
         live.phase = Phase::Revoked;
         live.restart_offered = false;
+        return;
+    }
+    if live.phase == Phase::Revoked {
         return;
     }
     if live.phase != Phase::Waiting {

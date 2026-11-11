@@ -192,3 +192,60 @@ fn invalid_chords_are_refused() {
         Err(HotkeyError::Invalid)
     );
 }
+
+#[test]
+fn a_rejected_palette_chord_still_applies_the_clipboard_slot() {
+    let h = Harness::new();
+    h.registrar
+        .rejected
+        .lock()
+        .unwrap()
+        .insert("Control+Alt+Shift+Space".into());
+    assert_eq!(h.slots.apply(&h.registrar), Err(HotkeyError::Taken));
+    let registered = h.registrar.registered.lock().unwrap().clone();
+    assert!(!registered.contains_key(&ShortcutSlot::QuickSearch));
+    assert_eq!(
+        registered.get(&ShortcutSlot::Clipboard).map(String::as_str),
+        Some("Control+Alt+Shift+V")
+    );
+}
+
+#[test]
+fn a_rejected_palette_chord_still_clears_clipboard_when_recording_is_off() {
+    let h = Harness::new();
+    h.slots.apply(&h.registrar).unwrap();
+    h.settings
+        .update(|settings| {
+            settings.clipboard_enabled = false;
+            settings.palette_hotkey = "Control+Alt+K".into();
+        })
+        .unwrap();
+    h.registrar
+        .rejected
+        .lock()
+        .unwrap()
+        .insert("Control+Alt+K".into());
+    assert_eq!(h.slots.apply(&h.registrar), Err(HotkeyError::Taken));
+    assert!(!h
+        .registrar
+        .registered
+        .lock()
+        .unwrap()
+        .contains_key(&ShortcutSlot::Clipboard));
+}
+
+#[test]
+fn a_failed_rollback_is_a_distinct_error() {
+    let h = Harness::new();
+    h.slots.apply(&h.registrar).unwrap();
+    h.registrar
+        .rejected
+        .lock()
+        .unwrap()
+        .extend(["Control+Alt+K".into(), "Control+Alt+Shift+Space".into()]);
+    assert_eq!(
+        h.slots
+            .set(ShortcutSlot::QuickSearch, "Control+Alt+K", &h.registrar),
+        Err(HotkeyError::Rollback)
+    );
+}

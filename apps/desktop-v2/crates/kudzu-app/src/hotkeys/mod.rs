@@ -16,6 +16,8 @@ pub enum HotkeyError {
     Invalid,
     #[error("Couldn't use that shortcut — another app may own it.")]
     Taken,
+    #[error("Couldn't restore the previous shortcut.")]
+    Rollback,
     #[error(transparent)]
     Settings(#[from] SettingsError),
 }
@@ -50,15 +52,16 @@ impl HotkeySlots {
         self.settings.watch().get()
     }
 
-    /// Register the saved chords. Clipboard is left unbound while recording is off.
+    /// Register the saved chords. Both slots run; the first error is returned afterwards.
+    /// Clipboard is left unbound while recording is off.
     pub fn apply(&self, registrar: &dyn HotkeyRegistrar) -> Result<(), HotkeyError> {
         let settings = self.settings.watch().get();
-        self.bind(
+        let palette = self.bind(
             ShortcutSlot::QuickSearch,
             &settings.palette_hotkey,
             registrar,
-        )?;
-        if settings.clipboard_enabled {
+        );
+        let clipboard = if settings.clipboard_enabled {
             self.bind(
                 ShortcutSlot::Clipboard,
                 &settings.clipboard_hotkey,
@@ -67,6 +70,10 @@ impl HotkeySlots {
         } else {
             self.clear(ShortcutSlot::Clipboard, registrar);
             Ok(())
+        };
+        match (palette, clipboard) {
+            (Err(error), _) => Err(error),
+            (Ok(()), result) => result,
         }
     }
 
@@ -96,16 +103,29 @@ impl HotkeySlots {
             return Ok(revision);
         }
         if let Err(error) = self.bind(slot, chord, registrar) {
-            let _ = self.bind(slot, &previous, registrar);
+            self.restore(slot, &previous, registrar)?;
             return Err(error);
         }
         match self.persist(slot, chord) {
             Ok(revision) => Ok(revision),
             Err(error) => {
-                let _ = self.bind(slot, &previous, registrar);
+                self.restore(slot, &previous, registrar)?;
                 Err(error)
             }
         }
+    }
+
+    fn restore(
+        &self,
+        slot: ShortcutSlot,
+        previous: &str,
+        registrar: &dyn HotkeyRegistrar,
+    ) -> Result<(), HotkeyError> {
+        if self.bind(slot, previous, registrar).is_err() {
+            log::error!("hotkey rollback failed");
+            return Err(HotkeyError::Rollback);
+        }
+        Ok(())
     }
 
     fn persist(&self, slot: ShortcutSlot, chord: &str) -> Result<Revision, HotkeyError> {

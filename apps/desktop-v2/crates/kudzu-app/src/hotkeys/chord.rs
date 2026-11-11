@@ -1,5 +1,7 @@
 //! Accelerator identity: Command/Cmd/Meta collapse to Super; modifier order is canonical.
 
+use kudzu_core::keys::{function_key_number, recorder_chord_allowed};
+
 const SUPER: &str = "Super";
 const CONTROL: &str = "Control";
 const ALT: &str = "Alt";
@@ -22,18 +24,17 @@ pub fn identity(chord: &str) -> Option<String> {
     let mut shift = false;
     for token in tokens {
         match token.to_ascii_lowercase().as_str() {
-            "command" | "cmd" | "meta" | "super" => super_key = true,
+            "command" | "cmd" | "meta" | "super" | "commandorcontrol" | "cmdorctrl" => {
+                super_key = true
+            }
             "control" | "ctrl" => control = true,
             "alt" | "option" => alt = true,
             "shift" => shift = true,
             _ => return None,
         }
     }
-    let fkey = is_f_key(key);
-    if !(super_key || control || alt || shift || fkey) {
-        return None;
-    }
-    if shift && !super_key && !control && !alt && !fkey {
+    let fkey = function_key_number(key).is_some();
+    if !recorder_chord_allowed(super_key || control || alt, shift, fkey) {
         return None;
     }
     let mut out = String::new();
@@ -60,26 +61,29 @@ pub fn identity(chord: &str) -> Option<String> {
 fn is_modifier(token: &str) -> bool {
     matches!(
         token.to_ascii_lowercase().as_str(),
-        "command" | "cmd" | "meta" | "super" | "control" | "ctrl" | "alt" | "option" | "shift"
+        "command"
+            | "cmd"
+            | "meta"
+            | "super"
+            | "commandorcontrol"
+            | "cmdorctrl"
+            | "control"
+            | "ctrl"
+            | "alt"
+            | "option"
+            | "shift"
     )
 }
 
-fn is_f_key(token: &str) -> bool {
-    let rest = match token.strip_prefix('F').or_else(|| token.strip_prefix('f')) {
-        Some(rest) => rest,
-        None => return false,
-    };
-    rest.parse::<u8>()
-        .is_ok_and(|number| (1..=24).contains(&number))
-}
-
 fn canonical_key(token: &str) -> String {
-    if is_f_key(token) {
-        let digits = token.trim_start_matches(['F', 'f']);
-        return format!("F{digits}");
+    if let Some(number) = function_key_number(token) {
+        return format!("F{number}");
     }
     if token.eq_ignore_ascii_case("space") {
         return "Space".into();
+    }
+    if token.chars().count() == 1 {
+        return token.to_ascii_uppercase();
     }
     token.to_string()
 }
@@ -104,6 +108,12 @@ mod tests {
             identity("Shift+Alt+Control+V")
         );
         assert_eq!(identity("Control+Alt+Space"), identity("control+alt+space"));
+        assert_eq!(identity("Control+Alt+V"), identity("control+alt+v"));
+        assert_eq!(identity("F05"), identity("F5"));
+        assert_eq!(
+            identity("CommandOrControl+Space"),
+            identity("CmdOrCtrl+Space")
+        );
         assert_ne!(identity("Control+Alt+Space"), identity("Control+Alt+V"));
     }
 

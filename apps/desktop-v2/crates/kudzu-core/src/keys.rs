@@ -143,15 +143,27 @@ pub fn accelerator_from_event(event: &KeyEvent) -> Option<String> {
         None
     };
     let key = key?;
-    let fkey = is_f_key(&key);
-    if mods.is_empty() && !fkey {
-        return None;
-    }
-    if mods.len() == 1 && mods[0] == "Shift" && !fkey {
+    let fkey = function_key_number(&key).is_some();
+    if !recorder_chord_allowed(event.ctrl || event.alt || event.meta, event.shift, fkey) {
         return None;
     }
     mods.push(key.as_str());
     Some(mods.join("+"))
+}
+
+/// Bare keys and Shift-only non-F chords are refused; a bare F-key is allowed.
+pub fn recorder_chord_allowed(non_shift_modifier: bool, shift: bool, fkey: bool) -> bool {
+    (non_shift_modifier || fkey) && (non_shift_modifier || !shift || fkey)
+}
+
+/// `F5`, `f8`, and `F05` are function keys 1–24.
+pub fn function_key_number(token: &str) -> Option<u8> {
+    let rest = token
+        .strip_prefix('F')
+        .or_else(|| token.strip_prefix('f'))?;
+    rest.parse::<u8>()
+        .ok()
+        .filter(|number| (1..=24).contains(number))
 }
 
 fn symbol(k: &str) -> Option<&'static str> {
@@ -229,10 +241,7 @@ fn is_digit_code(code: &str) -> bool {
 }
 
 fn is_f_key(code: &str) -> bool {
-    let Some(rest) = code.strip_prefix('F') else {
-        return false;
-    };
-    (1..=2).contains(&rest.len()) && rest.bytes().all(|b| b.is_ascii_digit())
+    function_key_number(code).is_some()
 }
 
 fn is_named_code(code: &str) -> bool {
@@ -252,4 +261,26 @@ fn is_named_code(code: &str) -> bool {
             | "Enter"
             | "Tab"
     )
+}
+
+#[cfg(test)]
+mod recorder_rules {
+    use super::*;
+
+    #[test]
+    fn function_keys_include_padded_numbers() {
+        assert_eq!(function_key_number("F05"), Some(5));
+        assert_eq!(function_key_number("f8"), Some(8));
+        assert_eq!(function_key_number("F0"), None);
+        assert_eq!(function_key_number("F25"), None);
+    }
+
+    #[test]
+    fn recorder_allows_a_bare_function_key_and_refuses_shift_only_letters() {
+        assert!(recorder_chord_allowed(false, false, true));
+        assert!(recorder_chord_allowed(false, true, true));
+        assert!(recorder_chord_allowed(true, true, false));
+        assert!(!recorder_chord_allowed(false, false, false));
+        assert!(!recorder_chord_allowed(false, true, false));
+    }
 }

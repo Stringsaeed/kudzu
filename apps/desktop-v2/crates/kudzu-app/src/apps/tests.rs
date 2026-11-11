@@ -15,15 +15,22 @@ fn mail() -> AppInfo {
     }
 }
 
-fn wait_icon(task: Task<Option<Vec<u8>>>) -> Option<Vec<u8>> {
+fn wait_ready(ready: crate::watch::Watch<bool>) {
     let (tx, rx) = mpsc::channel();
-    let ready = task.ready();
     let _sub = ready.subscribe(move || {
         let _ = tx.send(());
     });
-    if !*task.ready().get() {
+    if !*ready.get() {
         rx.recv_timeout(Duration::from_secs(2)).unwrap();
     }
+}
+
+fn wait_list(apps: &Apps) {
+    wait_ready(apps.listing.ready());
+}
+
+fn wait_icon(task: Task<Option<Vec<u8>>>) -> Option<Vec<u8>> {
+    wait_ready(task.ready());
     task.take().unwrap().unwrap()
 }
 
@@ -32,6 +39,7 @@ fn enumerates_once_and_keeps_the_cached_list() {
     let fake = Arc::new(FakeApps::default());
     *fake.installed.lock().unwrap() = vec![mail()];
     let apps = Apps::new(fake.clone());
+    wait_list(&apps);
     assert_eq!(*fake.installed_calls.lock().unwrap(), 1);
     assert_eq!(apps.installed().get().as_slice(), [mail()]);
     fake.installed.lock().unwrap().clear();
@@ -52,6 +60,7 @@ fn name_of_a_missing_app_is_the_bundle_id() {
     let fake = Arc::new(FakeApps::default());
     *fake.installed.lock().unwrap() = vec![mail()];
     let apps = Apps::new(fake);
+    wait_list(&apps);
     assert_eq!(apps.name_of("com.apple.mail"), "Mail");
     assert_eq!(apps.name_of("com.missing.app"), "com.missing.app");
 }
@@ -62,6 +71,7 @@ fn failed_enumeration_is_an_empty_catalogue() {
     *fake.failure.lock().unwrap() = Some(PortError::Unavailable);
     *fake.installed.lock().unwrap() = vec![mail()];
     let apps = Apps::new(fake);
+    wait_list(&apps);
     assert!(apps.installed().get().is_empty());
     assert_eq!(apps.name_of("com.apple.mail"), "com.apple.mail");
 }
@@ -75,6 +85,7 @@ fn icons_are_fetched_once_per_bundle_and_size() {
         .unwrap()
         .insert("com.apple.mail".into(), b"png".to_vec());
     let apps = Apps::new(fake.clone());
+    wait_list(&apps);
     let first = wait_icon(apps.icon("com.apple.mail", 32).unwrap());
     let second = wait_icon(apps.icon("com.apple.mail", 32).unwrap());
     assert_eq!(first.as_deref(), Some(b"png".as_slice()));
@@ -92,5 +103,22 @@ fn icons_are_fetched_once_per_bundle_and_size() {
 fn catalogue_is_usable_without_target_app() {
     let catalog: Arc<dyn AppCatalog> = Arc::new(FakeApps::default());
     let apps = Apps::new(catalog);
+    wait_list(&apps);
     assert!(apps.installed().get().is_empty());
+}
+
+#[test]
+fn missing_icons_are_not_cached() {
+    let fake = Arc::new(FakeApps::default());
+    let apps = Apps::new(fake.clone());
+    wait_list(&apps);
+    assert!(wait_icon(apps.icon("com.missing.app", 32).unwrap()).is_none());
+    assert!(wait_icon(apps.icon("com.missing.app", 32).unwrap()).is_none());
+    assert_eq!(
+        *fake.icon_calls.lock().unwrap(),
+        [
+            ("com.missing.app".into(), 32),
+            ("com.missing.app".into(), 32)
+        ]
+    );
 }

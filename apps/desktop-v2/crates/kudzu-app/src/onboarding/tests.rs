@@ -129,6 +129,7 @@ fn retry_skips_imported_folders_and_keeps_partial_counts() {
     h.onboarding.begin_import(ImportSource::Espanso).unwrap();
     h.onboarding
         .record_import(ImportSource::Espanso, tally(3, 1, Some("/one")), true);
+    assert!(h.onboarding.snapshot().busy());
     h.onboarding.fail_import(
         ImportSource::Espanso,
         "Imported 1 of 2 folders; retry brings in the rest. disk".into(),
@@ -148,6 +149,7 @@ fn retry_skips_imported_folders_and_keeps_partial_counts() {
     h.onboarding.begin_import(ImportSource::Espanso).unwrap();
     h.onboarding
         .record_import(ImportSource::Espanso, tally(5, 0, Some("/two")), true);
+    h.onboarding.end_import(ImportSource::Espanso);
     assert_eq!(h.onboarding.snapshot().imported, 7);
     assert_eq!(
         h.onboarding.snapshot().outcomes[&ImportSource::Espanso].count,
@@ -173,12 +175,12 @@ fn continue_requires_net_additions() {
         false,
     );
     assert_eq!(h.onboarding.snapshot().imported, 0);
-    assert!(!h.onboarding.snapshot().can_continue());
+    assert!(!h.onboarding.can_continue());
     assert_eq!(h.onboarding.advance(), Err(OnboardingError::NotReady));
     h.onboarding
         .record_import(ImportSource::TextExpander, tally(2, 0, None), false);
     assert_eq!(h.onboarding.snapshot().imported, 2);
-    assert!(h.onboarding.snapshot().can_continue());
+    assert!(h.onboarding.can_continue());
     h.onboarding.advance().unwrap();
     assert_eq!(h.onboarding.step(), Step::TryIt);
 }
@@ -217,4 +219,57 @@ fn busy_guards_block_navigation() {
     assert_eq!(h.onboarding.advance(), Err(OnboardingError::Busy));
     assert_eq!(h.onboarding.back(), Err(OnboardingError::Busy));
     assert_eq!(h.onboarding.skip(), Err(OnboardingError::Busy));
+}
+
+#[test]
+fn busy_holds_between_folders() {
+    let h = Harness::new();
+    h.onboarding.begin_import(ImportSource::Espanso).unwrap();
+    assert!(h.onboarding.snapshot().busy());
+    h.onboarding
+        .record_import(ImportSource::Espanso, tally(3, 1, Some("/one")), true);
+    assert!(h.onboarding.snapshot().busy());
+    h.onboarding
+        .record_import(ImportSource::Espanso, tally(5, 0, Some("/two")), true);
+    assert!(h.onboarding.snapshot().busy());
+    h.onboarding.end_import(ImportSource::Espanso);
+    assert!(!h.onboarding.snapshot().busy());
+}
+
+#[test]
+fn begin_import_takes_over_picking() {
+    let h = Harness::new();
+    h.onboarding.begin_pick().unwrap();
+    assert!(h.onboarding.snapshot().picking);
+    h.onboarding.begin_import(ImportSource::Espanso).unwrap();
+    let snapshot = h.onboarding.snapshot();
+    assert_eq!(snapshot.working, Some(ImportSource::Espanso));
+    assert!(!snapshot.picking);
+    assert_eq!(
+        h.onboarding.begin_import(ImportSource::Raycast),
+        Err(OnboardingError::Busy)
+    );
+}
+
+#[test]
+fn can_continue_matches_each_step() {
+    let h = Harness::new();
+    assert!(h.onboarding.can_continue());
+    h.onboarding.advance().unwrap();
+    assert_eq!(h.onboarding.step(), Step::Access);
+    assert!(!h.onboarding.can_continue());
+    h.grant();
+    assert!(h.onboarding.can_continue());
+}
+
+#[test]
+fn finish_does_not_reenter_while_finishing() {
+    let h = Harness::new();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding.edit(|live| live.snapshot.finishing = true);
+    assert_eq!(h.onboarding.finish(), Err(OnboardingError::Busy));
+    assert!(h.onboarding.snapshot().finishing);
+    assert!(!h.settings.watch().get().onboarding_completed);
 }
