@@ -14,6 +14,10 @@ impl Suppression {
         })
     }
 
+    pub(super) fn resync(&self) {
+        let count = self.count.lock().unwrap_or_else(PoisonError::into_inner);
+        self.engine.set_suppressed(*count != 0);
+    }
     pub(super) fn acquire(self: &Arc<Self>) -> SuppressionGuard {
         let mut count = self.count.lock().unwrap_or_else(PoisonError::into_inner);
         if *count == 0 {

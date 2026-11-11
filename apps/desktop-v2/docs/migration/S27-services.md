@@ -1,5 +1,7 @@
 # S27 — Expansion, forms and activity services
 
+Current API: [S27 review fixes and D20](S27-review-fixes.md) supersede this report's insertion results, form-token/focus contracts, pruning and remedy rules.
+
 Implemented on `t3/expansion-form-activity-services` in `/Users/saeed/.t3/worktrees/text-expander/t3-0db992d0-5d236e6eed8686ea`.
 Implementer: `gpt-6-astra`, xhigh. No delegated or independent review was run by this implementation agent. The final hand-off supplies the commit SHA; this report belongs to that commit.
 

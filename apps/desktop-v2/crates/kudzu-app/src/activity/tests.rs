@@ -88,6 +88,9 @@ fn remedies_recheck_current_state_apply_only_typed_edits_and_do_not_resurrect_re
     );
     assert_eq!(service.remedy(&entry).unwrap().label, "Fixed since");
     h.settings.update(|s| s.paused = true).unwrap();
+    crate::expansion::testing::until(&expansion.feed(), |f| {
+        f.settings == h.settings.watch().revision()
+    });
     service.record(ActivityEvent::attempt(
         ActivitySource::QuickSearch,
         id,
@@ -98,6 +101,9 @@ fn remedies_recheck_current_state_apply_only_typed_edits_and_do_not_resurrect_re
     let paused = service.watch().get()[0].clone();
     let remedy = service.remedy(&paused).unwrap();
     h.settings.update(|s| s.paused = false).unwrap();
+    crate::expansion::testing::until(&expansion.feed(), |f| {
+        f.settings == h.settings.watch().revision()
+    });
     assert_eq!(service.apply(remedy).unwrap(), AppliedRemedy::FixedSince);
     let (_, _) = h.library.delete_snippets(&[id]).unwrap();
     assert!(service.remedy(&entry).is_none());
@@ -146,6 +152,9 @@ fn every_outcome_retains_its_explanation_fix_and_current_state_resolution() {
         expansion.status(),
         h.clock.clone(),
     );
+    crate::expansion::testing::until(&expansion.feed(), |f| {
+        f.settings == h.settings.watch().revision()
+    });
     let permission = Fix::OpenPermissions {
         permission: Permission::Accessibility,
     };
@@ -360,9 +369,15 @@ fn every_outcome_retains_its_explanation_fix_and_current_state_resolution() {
     };
     expansion.status_changed(ready);
     for entry in actionable {
+        let expected = match entry.event.outcome {
+            ActivityOutcome::Paused
+            | ActivityOutcome::SnippetOff
+            | ActivityOutcome::GroupOff { .. } => RemedyState::FixedSince,
+            _ => RemedyState::Action(entry.explanation.fix.clone().unwrap()),
+        };
         assert_eq!(
             service.remedy(&entry).unwrap().state,
-            RemedyState::FixedSince,
+            expected,
             "{}",
             entry.explanation.label
         );
@@ -394,4 +409,129 @@ fn lost_trigger_activity_discards_trigger_text_even_if_it_is_stored_in_the_libra
     let entries = service.watch().get();
     assert_eq!(entries[0].event.trigger, None);
     assert!(!format!("{entries:?}").contains("PRIVATE"));
+}
+
+#[test]
+fn form_activity_keeps_only_an_exact_stored_trigger() {
+    let snippet = SnippetRecord::new("Signature", vec![";sig".into()], "private body");
+    let id = snippet.id;
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![snippet],
+        ..Default::default()
+    });
+    let expansion = h.expansion();
+    let service = ActivityService::new(
+        h.library.clone(),
+        h.settings.clone(),
+        expansion.status(),
+        h.clock.clone(),
+    );
+    service.record(ActivityEvent::attempt(
+        ActivitySource::Form,
+        id,
+        Some(";sig".into()),
+        None,
+        ActivityOutcome::Expanded,
+    ));
+    assert_eq!(
+        service.watch().get()[0].event.trigger.as_deref(),
+        Some(";sig")
+    );
+    service.record(ActivityEvent::attempt(
+        ActivitySource::Form,
+        id,
+        Some("surrounding input".into()),
+        None,
+        ActivityOutcome::Interrupted,
+    ));
+    assert_eq!(service.watch().get()[0].event.trigger, None);
+}
+
+#[test]
+fn rule_permission_and_secure_input_buttons_remain_available_as_in_tauri() {
+    use kudzu_core::{
+        activity::{Fix, Permission, RuleLevel},
+        library::model::GroupRecord,
+    };
+    let group = GroupRecord::new("Group");
+    let group_id = group.id;
+    let snippet = SnippetRecord::new("Snippet", vec![], "");
+    let id = snippet.id;
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![snippet],
+        groups: vec![group],
+        ..Default::default()
+    });
+    let expansion = h.expansion();
+    let service = ActivityService::new(
+        h.library.clone(),
+        h.settings.clone(),
+        expansion.status(),
+        h.clock.clone(),
+    );
+    for (outcome, fix, label) in [
+        (
+            ActivityOutcome::AppRule {
+                level: RuleLevel::Snippet,
+                group_id: None,
+            },
+            Fix::OpenSnippet,
+            "Snippet rules",
+        ),
+        (
+            ActivityOutcome::AppRule {
+                level: RuleLevel::Group,
+                group_id: Some(group_id),
+            },
+            Fix::OpenGroup { group_id },
+            "Group rules",
+        ),
+        (
+            ActivityOutcome::AppRule {
+                level: RuleLevel::AppSetting,
+                group_id: None,
+            },
+            Fix::OpenAppSettings,
+            "App settings",
+        ),
+        (
+            ActivityOutcome::MissingPermission {
+                permission: Permission::Accessibility,
+            },
+            Fix::OpenPermissions {
+                permission: Permission::Accessibility,
+            },
+            "Fix permission",
+        ),
+        (
+            ActivityOutcome::SecureInput { owner: None },
+            Fix::ExplainSecureInput,
+            "What's this?",
+        ),
+    ] {
+        service.record(ActivityEvent::attempt(
+            ActivitySource::Typed,
+            id,
+            None,
+            None,
+            outcome,
+        ));
+        let entry = service.watch().get()[0].clone();
+        let remedy = service.remedy(&entry).unwrap();
+        assert_eq!(remedy.state, RemedyState::Action(fix));
+        assert_eq!(remedy.label, label);
+    }
+    service.record(ActivityEvent::attempt(
+        ActivitySource::Form,
+        id,
+        None,
+        None,
+        ActivityOutcome::AppRule {
+            level: RuleLevel::Group,
+            group_id: Some(group_id),
+        },
+    ));
+    let entry = service.watch().get()[0].clone();
+    h.library.delete_snippets(&[id]).unwrap();
+    assert_eq!(service.remedy(&entry).unwrap().label, "Group rules");
 }

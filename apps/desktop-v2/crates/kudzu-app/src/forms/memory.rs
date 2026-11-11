@@ -9,7 +9,7 @@ use kudzu_core::{
     template::{FormFieldSpec, FormMemory},
 };
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     panic::{catch_unwind, AssertUnwindSafe},
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -24,8 +24,12 @@ pub struct PruneState {
     pub library: Revision,
     pub error: Option<FormError>,
 }
+struct State {
+    values: Publisher<FormMemory>,
+    previous_ids: Option<HashSet<Uuid>>,
+}
 struct Shared {
-    state: Mutex<Publisher<FormMemory>>,
+    state: Mutex<State>,
     persisted: Persisted<FormMemory>,
     library: Watch<KudzuLibrary>,
     pruned: Publisher<PruneState>,
@@ -46,7 +50,10 @@ impl Memory {
         let initial = Arc::new(initial);
         persisted.submit(Revision(1), initial.clone())?;
         let shared = Arc::new(Shared {
-            state: Mutex::new(Publisher::with_revision(initial, Revision(1))),
+            state: Mutex::new(State {
+                values: Publisher::with_revision(initial, Revision(1)),
+                previous_ids: None,
+            }),
             persisted,
             library: library.clone(),
             pruned: Publisher::new(PruneState::default()),
@@ -101,6 +108,7 @@ impl Memory {
             .state
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
+            .values
             .watch()
             .get()
             .initial_values(snippet, fields)
@@ -138,18 +146,23 @@ impl Shared {
         edit: impl FnOnce(&mut FormMemory),
     ) -> (Revision, Option<PersistError>, Revision) {
         let (committed, error, library_revision) = {
-            let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-            let mut next = (*state.watch().get()).clone();
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let mut next = (*state.values.watch().get()).clone();
             edit(&mut next);
-            // Read inside this serialization boundary: a delayed prune must not remove a
-            // newly restored snippet's submission, or re-add a deleted snippet's values.
+            // An empty recovered library is not evidence that the user deleted snippets.
+            // The first observation is a baseline; only subsequent disappearances prune.
             let (revision, library) = self.library.snapshot();
-            next.retain_snippets(&library.snippets.iter().map(|s| s.id).collect());
+            let current_ids: HashSet<_> = library.snippets.iter().map(|s| s.id).collect();
+            if let Some(previous) = state.previous_ids.replace(current_ids.clone()) {
+                for removed in previous.difference(&current_ids) {
+                    next.values.remove(removed);
+                }
+            }
             while next.values.len() > FormMemory::CAPACITY {
                 let victim = *next.values.keys().min().expect("over capacity");
                 next.values.remove(&victim);
             }
-            let committed = state.replace(Arc::new(next));
+            let committed = state.values.replace(Arc::new(next));
             let error = self
                 .persisted
                 .submit(committed.revision, committed.value.clone())

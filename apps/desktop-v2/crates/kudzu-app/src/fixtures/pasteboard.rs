@@ -12,6 +12,7 @@ pub struct FakePasteboard {
     pub paste_allowed: Mutex<bool>,
     pub pasted_into: Mutex<Vec<Option<AppInfo>>>,
     pub failure: Mutex<Option<PortError>>,
+    pub text_reads: Mutex<usize>,
 }
 impl FakePasteboard {
     pub fn external_copy(&self, items: Vec<PasteItem>) {
@@ -42,6 +43,21 @@ impl Pasteboard for FakePasteboard {
             return Err(e);
         }
         Ok(self.snapshot.lock().unwrap().clone())
+    }
+    fn read_text(&self) -> Result<Option<String>, PortError> {
+        *self.text_reads.lock().unwrap() += 1;
+        if let Some(error) = *self.failure.lock().unwrap() {
+            return Err(error);
+        }
+        Ok(self
+            .snapshot
+            .lock()
+            .unwrap()
+            .items
+            .iter()
+            .flat_map(|item| item.iter())
+            .find(|(kind, _)| kind == "public.utf8-plain-text")
+            .and_then(|(_, bytes)| String::from_utf8(bytes.clone()).ok()))
     }
     fn write(&self, items: &[PasteItem]) -> Result<i64, PortError> {
         if let Some(e) = *self.failure.lock().unwrap() {

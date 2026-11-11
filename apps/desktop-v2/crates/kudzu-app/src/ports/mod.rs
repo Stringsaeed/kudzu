@@ -5,6 +5,8 @@ pub mod apps;
 pub mod clock;
 pub mod cloudkit;
 pub mod engine;
+pub mod form_tokens;
+pub use form_tokens::{EngineInstance, EngineInstances, FormToken};
 pub mod fetch;
 pub mod files;
 pub mod hotkey_registrar;
@@ -20,7 +22,8 @@ pub use apps::{AppCatalog, FileIcons, TargetApp};
 pub use clock::Clock;
 pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
 pub use engine::{
-    EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest, TriggerLost,
+    EngineEvents, EngineLibrary, EventStamp, Expansion, ExpansionEngine, FormChannel, FormRequest,
+    TriggerLost,
 };
 pub use fetch::{Cancel, Fetch, FetchRequest};
 pub use files::FileOpener;

@@ -11,7 +11,11 @@ use kudzu_core::{
     library::model::KudzuLibrary,
     template::{self, RenderContext, RenderResult},
 };
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::SystemTime,
+};
 use uuid::Uuid;
 
 /// S40 supplies clipboard.history_text here. Never route it through Activity or agents.
@@ -56,15 +60,12 @@ impl Renderer {
                 .find(|s| s.id == id)
                 .and_then(|s| s.formatting.clone())
         };
-        let clipboard = self
-            .environment
-            .pasteboard
-            .read()?
-            .items
-            .iter()
-            .flat_map(|item| item.iter())
-            .find(|(kind, _)| kind == "public.utf8-plain-text")
-            .and_then(|(_, bytes)| String::from_utf8(bytes.clone()).ok());
+        let mut path = context.snippet_id.into_iter().collect();
+        let clipboard = if uses_clipboard(source, &library, &mut path, 0) {
+            self.environment.pasteboard.read_text().ok().flatten()
+        } else {
+            None
+        };
         let history = |index| (self.environment.history)(index, clipboard.as_deref());
         let render_context = RenderContext {
             now: (self.environment.local_time)(self.environment.clock.now()),
@@ -141,4 +142,33 @@ impl ExpansionService {
             Ok(())
         })
     }
+}
+
+fn uses_clipboard(
+    source: &str,
+    library: &KudzuLibrary,
+    path: &mut HashSet<Uuid>,
+    depth: usize,
+) -> bool {
+    let info = template::analyze(&template::parse(source));
+    if info.uses_clipboard {
+        return true;
+    }
+    if depth >= 8 {
+        return false;
+    }
+    for id in info.referenced_snippet_ids {
+        if path.insert(id) {
+            let uses = library
+                .snippets
+                .iter()
+                .find(|s| s.id == id)
+                .is_some_and(|s| uses_clipboard(&s.content, library, path, depth + 1));
+            path.remove(&id);
+            if uses {
+                return true;
+            }
+        }
+    }
+    false
 }

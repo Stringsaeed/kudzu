@@ -1,9 +1,10 @@
 //! Pending forms belong to this service, not to the panel. Tokens are consumed exactly once.
 mod memory;
+mod submission;
 use crate::{
     expansion::{ExpansionService, SuppressionGuard},
     persist::{PersistError, Persisted, Revision, SaveState},
-    ports::{engine::InsertionError, FormChannel, FormRequest as EngineRequest, TargetApp},
+    ports::{EventStamp, FormChannel, FormRequest as EngineRequest, FormToken, TargetApp},
     tasks::{Task, TaskError},
     watch::{Publisher, Watch},
 };
@@ -17,12 +18,13 @@ use std::{
     collections::HashMap,
     sync::{Arc, Mutex, PoisonError},
 };
+pub use submission::{Submission, SubmissionWorker, SubmitStartError};
 use uuid::Uuid;
 
 /// Local product data only. Deliberately has neither Debug nor serialization.
 #[derive(Clone, PartialEq)]
 pub struct FormRequest {
-    pub token: u64,
+    pub token: FormToken,
     pub snippet_id: Uuid,
     pub snippet_name: String,
     pub fields: Vec<FormFieldSpec>,
@@ -42,21 +44,13 @@ pub enum FormError {
     #[error(transparent)]
     Target(#[from] crate::error::PortError),
 }
-pub struct Submission {
-    pub memory_revision: Revision,
-    /// Queue errors only. Asynchronous disk errors are published through saved().
-    pub memory_error: Option<PersistError>,
-    /// Adapter acceptance, not proof of insertion. Native completion/failure arrives via
-    /// EngineEvents (including trigger_lost); only expanded records usage.
-    pub insertion: Result<(), InsertionError>,
-}
 struct Pending {
     request: Arc<FormRequest>,
     guard: SuppressionGuard,
 }
 struct State {
     pending: Option<Pending>,
-    last_token: u64,
+    last_token: FormToken,
     output: Publisher<Option<Arc<FormRequest>>>,
 }
 pub struct FormService {
@@ -64,6 +58,7 @@ pub struct FormService {
     memory: Arc<memory::Memory>,
     expansion: Arc<ExpansionService>,
     channel: Arc<dyn FormChannel>,
+    submit_worker: Arc<dyn SubmissionWorker>,
     target: Arc<dyn TargetApp>,
 }
 impl FormService {
@@ -103,14 +98,19 @@ impl FormService {
         Ok(Self {
             state: Mutex::new(State {
                 pending: None,
-                last_token: 0,
+                last_token: FormToken::default(),
                 output: Publisher::new(None),
             }),
             memory: Arc::new(memory::Memory::new(initial, persisted, library)?),
             expansion,
             channel,
+            submit_worker: Arc::new(submission::ThreadedSubmission),
             target,
         })
+    }
+    pub fn with_submission_worker(mut self, worker: Arc<dyn SubmissionWorker>) -> Self {
+        self.submit_worker = worker;
+        self
     }
     pub fn pending(&self) -> Watch<Option<Arc<FormRequest>>> {
         self.state
@@ -125,19 +125,24 @@ impl FormService {
     pub fn stop_pruning(&self) {
         self.memory.stop();
     }
+    /// Shared content-free completions; filter by source/snippet and observe sequence changes.
+    pub fn outcomes(&self) -> Watch<Option<crate::expansion::OutcomeNotice>> {
+        self.expansion.outcomes()
+    }
     pub fn saved(&self) -> Watch<SaveState> {
         self.memory.saved()
     }
-    /// EngineRouter calls this. Tokens must be nonzero, monotonically increasing across restarts.
+    /// EngineRouter qualifies native tokens with its EngineInstance before forwarding here.
     pub fn requested(&self, request: EngineRequest) -> bool {
-        if request.token
-            <= self
-                .state
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-                .last_token
-        {
-            return false;
+        let rejected = !request.token.is_valid()
+            || request.token
+                <= self
+                    .state
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .last_token;
+        if rejected {
+            return self.reject_request(request.token, request.snippet_id);
         }
         let initial_values = self
             .memory
@@ -156,7 +161,9 @@ impl FormService {
         let (old, committed) = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
             if request.token <= state.last_token {
-                return false;
+                drop(state);
+                drop(guard);
+                return self.reject_request(request.token, request.snippet_id);
             }
             state.last_token = request.token;
             let old = state.pending.replace(Pending {
@@ -172,7 +179,17 @@ impl FormService {
         committed.notification.notify();
         true
     }
-    fn take(&self, token: Option<u64>) -> Option<Pending> {
+    fn reject_request(&self, token: FormToken, snippet: Uuid) -> bool {
+        drop(self.take(Some(token)));
+        self.channel.cancel_form(token);
+        self.expansion.publish_outcome(
+            Some(snippet),
+            Some(kudzu_core::activity::ActivitySource::Form),
+            crate::expansion::InsertionOutcome::FormRejected { token },
+        );
+        false
+    }
+    fn take(&self, token: Option<FormToken>) -> Option<Pending> {
         let (pending, committed) = {
             let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
             let pending_token = state.pending.as_ref()?.request.token;
@@ -189,9 +206,10 @@ impl FormService {
     /// never blocks insertion. EngineEvents::expanded, not this result, records usage.
     pub fn submit(
         &self,
-        token: u64,
+        token: FormToken,
         values: HashMap<String, String>,
-    ) -> Result<Option<Task<Submission>>, TaskError> {
+        at: EventStamp,
+    ) -> Result<Option<Task<Submission>>, SubmitStartError> {
         let Some(pending) = self.take(Some(token)) else {
             return Ok(None);
         };
@@ -200,30 +218,59 @@ impl FormService {
             .record(pending.request.snippet_id, values.clone());
         drop(pending.guard);
         let channel = self.channel.clone();
-        match Task::spawn("kudzu-form-submit", move || Submission {
-            memory_revision,
-            memory_error,
-            insertion: channel.submit_form(token, values),
-        }) {
+        match self.submit_worker.spawn(Box::new(move || {
+            let admission = channel.submit_form(token, values, at);
+            if admission.is_err() {
+                channel.cancel_form(token);
+            }
+            Submission {
+                memory_revision,
+                memory_error,
+                admission,
+            }
+        })) {
             Ok(task) => Ok(Some(task)),
-            Err(error) => {
-                self.channel.cancel_form(token);
-                Err(error)
+            Err(start) => {
+                let snippet = pending.request.snippet_id;
+                let restoration = self.cancel_request(pending.request, true);
+                self.expansion.publish_outcome(
+                    Some(snippet),
+                    Some(kudzu_core::activity::ActivitySource::Form),
+                    crate::expansion::InsertionOutcome::SubmitStartFailed { token },
+                );
+                Err(SubmitStartError { start, restoration })
             }
         }
     }
-    pub fn cancel(&self, token: u64) -> Result<Option<Task<Result<(), FormError>>>, TaskError> {
+    pub fn cancel(
+        &self,
+        token: FormToken,
+    ) -> Result<Option<Task<Result<(), FormError>>>, TaskError> {
         let Some(pending) = self.take(Some(token)) else {
             return Ok(None);
         };
-        self.cancel_pending(pending).map(Some)
+        self.cancel_pending(pending, true).map(Some)
     }
-    fn cancel_pending(&self, pending: Pending) -> Result<Task<Result<(), FormError>>, TaskError> {
-        self.channel.cancel_form(pending.request.token);
+    fn cancel_pending(
+        &self,
+        pending: Pending,
+        restore_target: bool,
+    ) -> Result<Task<Result<(), FormError>>, TaskError> {
         drop(pending.guard);
+        self.cancel_request(pending.request, restore_target)
+    }
+    fn cancel_request(
+        &self,
+        request: Arc<FormRequest>,
+        restore_target: bool,
+    ) -> Result<Task<Result<(), FormError>>, TaskError> {
+        self.channel.cancel_form(request.token);
+        if !restore_target {
+            return Ok(Task::done(Ok(())));
+        }
         let target = self.target.clone();
         Task::spawn("kudzu-form-cancel", move || {
-            if let Some(app) = &pending.request.target {
+            if let Some(app) = &request.target {
                 target.activate(app)?;
             }
             Ok(())
@@ -232,13 +279,13 @@ impl FormService {
     /// Every shell close-windows path calls this, even when the form panel is hidden.
     pub fn close_windows(&self) -> Result<Option<Task<Result<(), FormError>>>, TaskError> {
         match self.take(None) {
-            Some(pending) => self.cancel_pending(pending).map(Some),
+            Some(pending) => self.cancel_pending(pending, false).map(Some),
             None => Ok(None),
         }
     }
     pub fn preview(
         &self,
-        token: u64,
+        token: FormToken,
         values: HashMap<String, String>,
     ) -> Result<
         Option<Task<Result<kudzu_core::template::RenderResult, crate::expansion::ExpansionError>>>,
@@ -252,7 +299,7 @@ impl FormService {
             .preview_snippet(request.snippet_id, request.selection.clone(), values)
             .map(Some)
     }
-    pub fn panel_focused(&self, token: u64, focused: bool) {
+    pub fn panel_focused(&self, token: FormToken, focused: bool, after: Option<EventStamp>) {
         if self
             .pending()
             .get()
@@ -260,7 +307,7 @@ impl FormService {
             .as_ref()
             .is_some_and(|p| p.token == token)
         {
-            self.channel.panel_focused(token, focused);
+            self.channel.panel_focused(token, focused, after);
         }
     }
 }

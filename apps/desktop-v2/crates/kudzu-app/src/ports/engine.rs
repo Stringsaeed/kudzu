@@ -1,8 +1,8 @@
 //! Typed engine callbacks go to services, never directly to a window.
 //! Every callback runs after engine locks have been released.
-use crate::error::PortError;
+use crate::{error::PortError, ports::FormToken};
 use kudzu_core::{
-    activity::{ActivityEvent, InsertFailure},
+    activity::ActivityEvent,
     library::model::{GroupRecord, SnippetRecord},
     matching::MatchingConfig,
     system::{AppInfo, EngineStatus, Rect},
@@ -10,34 +10,28 @@ use kudzu_core::{
 };
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
-/// Content-free insertion rejection/failure codes. Adapters may reject synchronously;
-/// native worker outcomes arrive later through EngineEvents, including D9/D14/D17.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum InsertionError {
-    #[error("Kudzu is paused.")]
-    Paused,
-    #[error("Secure Input is blocking expansion.")]
-    SecureInput,
-    #[error("This app is excluded from expansion.")]
-    Excluded,
-    #[error("That snippet no longer exists.")]
-    MissingSnippet,
-    #[error("Typing or a click interrupted the insertion. Your text was left alone.")]
-    Interrupted,
-    #[error("{}", failure_message(*.0))]
-    Failed(InsertFailure),
-    #[error(transparent)]
-    Port(#[from] PortError),
-}
-fn failure_message(error: InsertFailure) -> &'static str {
-    match error {
-        InsertFailure::NotAllowed => "macOS refused the insertion.",
-        InsertFailure::EventCreation => "macOS could not create the keystrokes.",
-        InsertFailure::PasteUnavailable => {
-            "The clipboard could not be used to paste this expansion."
-        }
-        InsertFailure::TargetGone => "The target app is no longer available.",
+/// Opaque CGEvent timestamp. S57 captures CGEventGetTimestamp from the CGEvent of
+/// NSApp.currentEvent in the submit/key-status handler. Do not substitute wall time,
+/// NSEvent's floating-point seconds, or the time a worker eventually runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct EventStamp(u64);
+impl EventStamp {
+    pub fn from_cg_event_timestamp(value: u64) -> Self {
+        Self(value)
     }
+    pub fn cg_event_timestamp(self) -> u64 {
+        self.0
+    }
+}
+/// Admission only (D20). Expansion results are reported by EngineEvents/Activity later.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum AdmissionError {
+    #[error("The expansion engine is not running.")]
+    NoEngine,
+    #[error("That form is no longer pending.")]
+    StaleToken,
+    #[error("The expansion engine is busy. Try again.")]
+    Busy,
 }
 #[derive(Clone, Default, PartialEq)]
 pub struct EngineLibrary {
@@ -48,8 +42,8 @@ pub struct EngineLibrary {
 }
 #[derive(Clone, PartialEq)]
 pub struct FormRequest {
-    /// Nonzero and strictly increasing for the lifetime of this service/router, including engine restarts.
-    pub token: u64,
+    /// Qualified by the forwarding host's EngineInstance; native tokens restart per Engine.
+    pub token: FormToken,
     pub snippet_id: Uuid,
     pub snippet_name: String,
     pub fields: Vec<FormFieldSpec>,
@@ -94,6 +88,7 @@ pub trait ExpansionEngine: Send + Sync {
     /// I/O or EngineEvents callback. Guard transitions serialize this call. Suppression
     /// must never disable form interruption.
     fn set_suppressed(&self, suppressed: bool);
+    /// Admission only: NoEngine, StaleToken or Busy. Never return a runtime outcome.
     /// Maps to native insert_snippet_with_selection, which enqueues and returns. Ok means
     /// accepted, not inserted: final outcomes arrive through EngineEvents. On its worker,
     /// the engine rechecks posting, pause, Secure Input and global exclusions; RUL-9 bypasses
@@ -105,21 +100,28 @@ pub trait ExpansionEngine: Send + Sync {
         snippet: Uuid,
         target: Option<AppInfo>,
         selection: Option<String>,
-    ) -> Result<(), InsertionError>;
+    ) -> Result<(), AdmissionError>;
 }
 pub trait FormChannel: Send + Sync {
+    /// Admission only, never a final insertion outcome.
     /// Maps to native submit_form, which enqueues and returns. Ok is acceptance only;
-    /// EngineEvents reports the outcome later. The worker consumes the matching token,
+    /// EngineEvents reports the outcome later. Native submission marks the supplied event
+    /// boundary at admission; its worker consumes the matching token,
     /// rechecks interruption independently of suppression, activates/waits for the target,
-    /// then inserts. Hide the UI before calling. An interrupted typed form deletes nothing.
+    /// then inserts. `at` is the submitting event's CGEvent timestamp, captured by S57
+    /// from NSApp.currentEvent, never a delayed worker timestamp. Hide the UI before calling.
+    /// An interrupted typed form deletes nothing.
     fn submit_form(
         &self,
-        token: u64,
+        token: FormToken,
         values: HashMap<String, String>,
-    ) -> Result<(), InsertionError>;
-    fn cancel_form(&self, token: u64);
-    /// Maps to native form_panel_focused. Report key-status changes on the main thread
-    /// before the next panel event, and make it key on clicks inside. Native clicks are
-    /// settled by the next focus report. Suppression never disables this interruption signal.
-    fn panel_focused(&self, token: u64, focused: bool);
+        at: EventStamp,
+    ) -> Result<(), AdmissionError>;
+    /// Ignore tokens belonging to a retired EngineInstance.
+    fn cancel_form(&self, token: FormToken);
+    /// S57 passes CGEventGetTimestamp of NSApp.currentEvent's CGEvent as `after`, captured
+    /// at the key-status change. S35 maps Some to form_panel_focused_after and None to the
+    /// conservative form_panel_focused fallback. Never invent a stamp for a missing event.
+    /// Native click targets are determined by the window server, independently of focus.
+    fn panel_focused(&self, token: FormToken, focused: bool, after: Option<EventStamp>);
 }

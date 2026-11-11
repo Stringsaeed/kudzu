@@ -15,6 +15,8 @@ pub trait Pasteboard: Send + Sync {
     fn has_private_marker(&self, change_count: i64) -> Result<bool, PortError>;
     /// Preserve marker types for every item, even when data is empty or promised.
     fn read(&self) -> Result<PasteSnapshot, PortError>;
+    /// Plain text only: adapters must not load image/file/all-flavor payloads for previews.
+    fn read_text(&self) -> Result<Option<String>, PortError>;
     fn write(&self, items: &[PasteItem]) -> Result<i64, PortError>;
     fn can_paste(&self) -> bool;
     /// Copy first; this paste never restores previous clipboard contents.

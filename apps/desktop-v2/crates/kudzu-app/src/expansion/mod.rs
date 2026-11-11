@@ -1,5 +1,7 @@
 //! Expansion coordination. S40 owns EngineEvents routing and the engine's start/stop.
 mod feed;
+mod outcomes;
+pub use outcomes::{InsertionOutcome, OutcomeNotice};
 mod recovery;
 pub use recovery::{LostTriggerNotice, RecoveryId, RetypeTrigger};
 mod health;
@@ -22,8 +24,6 @@ pub use suppression::SuppressionGuard;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum ExpansionError {
-    #[error(transparent)]
-    Insertion(#[from] crate::ports::engine::InsertionError),
     #[error("That snippet no longer exists.")]
     MissingSnippet,
     #[error("The engine feed could not start.")]
@@ -38,6 +38,7 @@ pub enum ExpansionError {
 
 pub struct ExpansionService {
     recovery: Mutex<recovery::Recovery>,
+    outcomes: Mutex<Publisher<Option<OutcomeNotice>>>,
     library: Watch<KudzuLibrary>,
     target: Arc<dyn TargetApp>,
     engine: Arc<dyn ExpansionEngine>,
@@ -69,6 +70,7 @@ impl ExpansionService {
         });
         Ok(Self {
             recovery: Mutex::new(recovery::Recovery::new()),
+            outcomes: Mutex::new(Publisher::new(None)),
             renderer,
             library,
             target,
@@ -104,6 +106,12 @@ impl ExpansionService {
     /// Source revisions applied by the feed; zero until the initial reload.
     pub fn feed(&self) -> Watch<FeedState> {
         self.feed.watch()
+    }
+    /// S40 calls after every engine start, even without a store change. Wait for feed().generation
+    /// to reach the returned generation before enabling insertion for the restarted engine.
+    pub fn resync(&self) -> u64 {
+        self.suppression.resync();
+        self.feed.resync()
     }
     /// Stop this producer before stopping the engine and draining persistence.
     pub fn stop_feed(&self) {

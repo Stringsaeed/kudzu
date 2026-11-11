@@ -49,6 +49,9 @@ impl EngineEvents for Router {
         }
     }
     fn activity(&self, event: ActivityEvent) {
+        if let Some(expansion) = self.expansion.upgrade() {
+            expansion.activity_outcome(&event);
+        }
         if let Some(activity) = self.activity.upgrade() {
             activity.record(event);
         }
@@ -94,7 +97,7 @@ fn typed_engine_callbacks_route_to_service_snapshots_and_post_insertion_usage() 
         f.library == h.library.watch().revision()
     });
     h.engine.emit_form(FormRequest {
-        token: 1,
+        token: h.engine.form_token(1),
         snippet_id: id,
         snippet_name: "Form".into(),
         fields: vec![],
@@ -102,8 +105,20 @@ fn typed_engine_callbacks_route_to_service_snapshots_and_post_insertion_usage() 
         caret: None,
         selection: None,
     });
-    assert_eq!(forms.pending().get().as_ref().as_ref().unwrap().token, 1);
-    finish(forms.submit(1, Default::default()).unwrap().unwrap());
+    assert_eq!(
+        forms.pending().get().as_ref().as_ref().unwrap().token,
+        h.engine.form_token(1)
+    );
+    finish(
+        forms
+            .submit(
+                h.engine.form_token(1),
+                Default::default(),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
+            .unwrap()
+            .unwrap(),
+    );
     assert!(h.library.watch().get().usage.is_empty());
     h.engine.emit_expansion(Expansion {
         snippet_id: id,
@@ -169,6 +184,10 @@ fn lost_trigger_routes_to_a_content_free_notice_and_memory_only_activity() {
         snippet_id: id,
         trigger: ";PRIVATE-TRIGGER".into(),
     });
+    assert_eq!(
+        expansion.outcomes().get().as_ref().unwrap().outcome,
+        crate::expansion::InsertionOutcome::TriggerLost
+    );
     let notice = expansion.lost_trigger_notice().get().as_ref().unwrap();
     assert_eq!(notice.snippet_id, id);
     assert_eq!(

@@ -1,3 +1,4 @@
+use crate::ports::{EngineEvents, ExpansionEngine};
 use crate::{
     fixtures::{
         apps::FakeApps, clock::FakeClock, engine::FakeEngine, ids::FixedIds,
@@ -55,6 +56,13 @@ pub(crate) struct Harness {
     pub writer: Writer,
 }
 impl Harness {
+    pub fn wire_outcomes(&self, expansion: &Arc<super::ExpansionService>) {
+        self.engine
+            .start(Arc::new(OutcomeRouter(Arc::downgrade(expansion))))
+            .unwrap();
+        let generation = expansion.resync();
+        until(&expansion.feed(), |f| f.generation == generation);
+    }
     pub fn expansion(&self) -> Arc<super::ExpansionService> {
         Arc::new(
             super::ExpansionService::new(
@@ -104,10 +112,16 @@ impl Harness {
             )
             .unwrap(),
         );
+        let engine = Arc::new(FakeEngine::default());
+        engine
+            .start(Arc::new(
+                crate::fixtures::engine::FakeEngineEvents::default(),
+            ))
+            .unwrap();
         Self {
             library,
             settings,
-            engine: Arc::default(),
+            engine,
             apps: Arc::default(),
             pasteboard: Arc::default(),
             clock,
@@ -128,4 +142,35 @@ pub(crate) fn until<T>(watch: &Watch<T>, ready: impl Fn(&T) -> bool) {
 pub(crate) fn finish<T: Send + 'static>(task: Task<T>) -> T {
     until(&task.ready(), |ready| *ready);
     task.take().unwrap().unwrap()
+}
+
+struct OutcomeRouter(std::sync::Weak<super::ExpansionService>);
+impl EngineEvents for OutcomeRouter {
+    fn status_changed(&self, status: kudzu_core::system::EngineStatus) {
+        if let Some(s) = self.0.upgrade() {
+            s.status_changed(status);
+        }
+    }
+    fn expanded(&self, _: crate::ports::Expansion) {}
+    fn form_requested(&self, _: crate::ports::FormRequest) {}
+    fn activity(&self, event: kudzu_core::activity::ActivityEvent) {
+        if let Some(s) = self.0.upgrade() {
+            s.activity_outcome(&event);
+        }
+    }
+    fn trigger_lost(&self, lost: crate::ports::TriggerLost) {
+        if let Some(s) = self.0.upgrade() {
+            self.activity(s.trigger_lost(lost));
+        }
+    }
+    fn clipboard_history(&self, _: usize, _: Option<&str>) -> Option<String> {
+        None
+    }
+}
+
+/// Tests with one fake Engine use its first namespace; restart tests take tokens from the fake.
+pub(crate) fn form_token(native: u64) -> crate::ports::FormToken {
+    crate::ports::EngineInstances::default()
+        .next_engine()
+        .form_token(native)
 }

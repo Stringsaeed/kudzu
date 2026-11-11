@@ -204,18 +204,32 @@ mod tests {
         let catalog: &dyn AppCatalog = ports.apps.as_ref();
         let target: &dyn TargetApp = ports.target_app.as_ref();
         let forms: &dyn FormChannel = ports.forms.as_ref();
+        ports
+            .engine
+            .start(Arc::new(
+                crate::fixtures::engine::FakeEngineEvents::default(),
+            ))
+            .unwrap();
         let app = catalog.installed().unwrap().remove(0);
         target.activate(&app).unwrap();
         assert_eq!(target.frontmost().unwrap(), Some(app));
-        forms.panel_focused(3, true);
-        forms.cancel_form(3);
-        forms.submit_form(4, Default::default()).unwrap();
-        assert_eq!(fixtures.engine.state.lock().unwrap().cancelled, [3]);
-        assert_eq!(fixtures.engine.state.lock().unwrap().focus, [(3, true)]);
+        forms.panel_focused(fixtures.engine.form_token(3), true, None);
+        forms.cancel_form(fixtures.engine.form_token(3));
+        forms
+            .submit_form(
+                fixtures.engine.form_token(4),
+                Default::default(),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
+            .unwrap();
+        let cancelled = fixtures.engine.state.lock().unwrap().cancelled.clone();
+        assert_eq!(cancelled, [fixtures.engine.form_token(3)]);
+        let focus = fixtures.engine.state.lock().unwrap().focus.clone();
+        assert_eq!(focus, [(fixtures.engine.form_token(3), true, None)]);
         let library = EngineLibrary::default();
         assert!(library == library.clone());
         let request = FormRequest {
-            token: 1,
+            token: fixtures.engine.form_token(1),
             snippet_id: uuid::Uuid::nil(),
             snippet_name: String::new(),
             fields: vec![],
@@ -323,9 +337,10 @@ mod tests {
         engine.emit_expansion(expansion);
         assert_eq!(*events.expansions.lock().unwrap(), [expansion]);
         engine.set_suppressed(true);
-        engine.panel_focused(5, false);
+        engine.panel_focused(engine.form_token(5), false, None);
         assert!(engine.state.lock().unwrap().suppressed);
-        assert_eq!(engine.state.lock().unwrap().focus, [(5, false)]);
+        let focus = engine.state.lock().unwrap().focus.clone();
+        assert_eq!(focus, [(engine.form_token(5), false, None)]);
         engine.stop();
         engine.emit_expansion(expansion);
         assert_eq!(events.expansions.lock().unwrap().len(), 1);

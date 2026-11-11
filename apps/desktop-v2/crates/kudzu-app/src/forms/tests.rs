@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    expansion::testing::{finish, Harness, Memory},
+    expansion::testing::{finish, form_token, Harness, Memory},
     persist::Revision,
     ports::FormRequest as EngineRequest,
 };
@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 fn request(token: u64, snippet: Uuid) -> EngineRequest {
     EngineRequest {
-        token,
+        token: form_token(token),
         snippet_id: snippet,
         snippet_name: "Form".into(),
         fields: vec![FormFieldSpec {
@@ -34,11 +34,13 @@ fn request(token: u64, snippet: Uuid) -> EngineRequest {
     }
 }
 fn forms(h: &Harness, initial: FormMemory) -> FormService {
+    let expansion = h.expansion();
+    h.wire_outcomes(&expansion);
     FormService::new(
         initial,
         h.writer.register(Memory::default(), Revision(0)).unwrap(),
         h.library.watch(),
-        h.expansion(),
+        expansion,
         h.engine.clone(),
         h.apps.clone(),
     )
@@ -65,21 +67,42 @@ fn tokens_complete_once_replacement_and_close_release_only_their_guard() {
         "Guest"
     );
     assert!(h.engine.state.lock().unwrap().suppressed);
-    assert!(forms.submit(0, HashMap::new()).unwrap().is_none());
-    assert!(forms.cancel(0).unwrap().is_none());
-    forms.panel_focused(1, true);
-    forms.panel_focused(0, false);
-    assert_eq!(h.engine.state.lock().unwrap().focus, [(1, true)]);
+    assert!(forms
+        .submit(
+            form_token(0),
+            HashMap::new(),
+            crate::ports::EventStamp::from_cg_event_timestamp(100)
+        )
+        .unwrap()
+        .is_none());
+    assert!(forms.cancel(form_token(0)).unwrap().is_none());
+    forms.panel_focused(form_token(1), true, None);
+    forms.panel_focused(form_token(0), false, None);
+    assert_eq!(
+        h.engine.state.lock().unwrap().focus,
+        [(form_token(1), true, None)]
+    );
     let result = finish(
         forms
-            .submit(1, HashMap::from([("who".into(), "Ada".into())]))
+            .submit(
+                form_token(1),
+                HashMap::from([("who".into(), "Ada".into())]),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
             .unwrap()
             .unwrap(),
     );
-    assert_eq!(result.insertion, Ok(()));
+    assert_eq!(result.admission, Ok(()));
     assert!(forms.pending().get().is_none());
     assert!(!h.engine.state.lock().unwrap().suppressed);
-    assert!(forms.submit(1, HashMap::new()).unwrap().is_none());
+    assert!(forms
+        .submit(
+            form_token(1),
+            HashMap::new(),
+            crate::ports::EventStamp::from_cg_event_timestamp(100)
+        )
+        .unwrap()
+        .is_none());
     assert!(
         !forms.requested(request(1, id)),
         "completed requests cannot be replayed"
@@ -97,12 +120,18 @@ fn tokens_complete_once_replacement_and_close_release_only_their_guard() {
     );
     assert!(forms.requested(request(3, id)));
     assert!(h.engine.state.lock().unwrap().suppressed);
-    assert_eq!(h.engine.state.lock().unwrap().cancelled, [2]);
+    assert_eq!(
+        h.engine.state.lock().unwrap().cancelled,
+        [form_token(1), form_token(2)]
+    );
     finish(forms.close_windows().unwrap().unwrap()).unwrap();
     assert!(forms.pending().get().is_none());
     assert!(!h.engine.state.lock().unwrap().suppressed);
-    assert_eq!(h.apps.activations.lock().unwrap().len(), 1);
-    assert_eq!(h.engine.state.lock().unwrap().cancelled, [2, 3]);
+    assert!(h.apps.activations.lock().unwrap().is_empty());
+    assert_eq!(
+        h.engine.state.lock().unwrap().cancelled,
+        [form_token(1), form_token(2), form_token(3)]
+    );
     assert_eq!(h.engine.state.lock().unwrap().submissions.len(), 1);
 }
 
@@ -166,7 +195,11 @@ fn memory_uses_valid_fallbacks_caps_smallest_uuid_and_prunes_deleted_snippets() 
     forms.requested(request(2, Uuid::from_u128(201)));
     finish(
         forms
-            .submit(2, HashMap::from([("who".into(), "Newest".into())]))
+            .submit(
+                form_token(2),
+                HashMap::from([("who".into(), "Newest".into())]),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
             .unwrap()
             .unwrap(),
     );
@@ -209,8 +242,8 @@ fn memory_uses_valid_fallbacks_caps_smallest_uuid_and_prunes_deleted_snippets() 
 }
 
 #[test]
-fn interrupted_typing_or_click_is_rejected_even_while_suppressed_and_focus_is_separate() {
-    use crate::ports::engine::InsertionError;
+fn interrupted_submission_reports_an_outcome_after_admission_while_suppressed() {
+    use crate::expansion::InsertionOutcome;
     let snippet = SnippetRecord::new("Form", vec![], "{{field name=who}} {{selection}}");
     let id = snippet.id;
     let h = Harness::new(KudzuLibrary {
@@ -219,24 +252,42 @@ fn interrupted_typing_or_click_is_rejected_even_while_suppressed_and_focus_is_se
     });
     let forms = forms(&h, FormMemory::default());
     forms.requested(request(1, id));
-    forms.panel_focused(1, true);
-    h.engine.input_outside_form(1);
-    forms.panel_focused(1, false);
+    forms.panel_focused(form_token(1), true, None);
+    h.engine.input_outside_form(form_token(1));
+    forms.panel_focused(form_token(1), false, None);
     assert!(h.engine.state.lock().unwrap().suppressed);
-    h.engine.input_outside_form(1);
+    h.engine.input_outside_form(form_token(1));
     let preview = finish(
         forms
-            .preview(1, HashMap::from([("who".into(), "Ada".into())]))
+            .preview(form_token(1), HashMap::from([("who".into(), "Ada".into())]))
             .unwrap()
             .unwrap(),
     )
     .unwrap();
     assert_eq!(preview.text, "Ada selection");
-    let result = finish(forms.submit(1, HashMap::new()).unwrap().unwrap());
-    assert_eq!(result.insertion, Err(InsertionError::Interrupted));
-    assert!(h.engine.state.lock().unwrap().submissions.is_empty());
+    let result = finish(
+        forms
+            .submit(
+                form_token(1),
+                HashMap::new(),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
+            .unwrap()
+            .unwrap(),
+    );
+    assert_eq!(result.admission, Ok(()));
+    assert!(forms.outcomes().get().is_none());
+    h.engine.resolve_form(form_token(1), id);
+    assert_eq!(
+        forms.outcomes().get().as_ref().unwrap().outcome,
+        InsertionOutcome::Interrupted
+    );
+    assert_eq!(h.engine.state.lock().unwrap().submissions.len(), 1);
     assert!(!h.engine.state.lock().unwrap().suppressed);
-    assert!(forms.preview(1, HashMap::new()).unwrap().is_none());
+    assert!(forms
+        .preview(form_token(1), HashMap::new())
+        .unwrap()
+        .is_none());
 }
 
 #[test]
@@ -278,11 +329,15 @@ fn memory_is_accepted_before_submission_and_a_disk_failure_does_not_block_insert
     forms.requested(request(1, id));
     let submitted = finish(
         forms
-            .submit(1, HashMap::from([("who".into(), "Remember me".into())]))
+            .submit(
+                form_token(1),
+                HashMap::from([("who".into(), "Remember me".into())]),
+                crate::ports::EventStamp::from_cg_event_timestamp(100),
+            )
             .unwrap()
             .unwrap(),
     );
-    assert_eq!(submitted.insertion, Ok(()));
+    assert_eq!(submitted.admission, Ok(()));
     assert_eq!(submitted.memory_error, None);
     assert!(submitted.memory_revision > Revision(1));
     forms.stop_pruning();
@@ -317,7 +372,11 @@ fn submitted_memory_reopens_from_the_local_json_file() {
         forms.requested(request(1, id));
         finish(
             forms
-                .submit(1, HashMap::from([("who".into(), "Saved locally".into())]))
+                .submit(
+                    form_token(1),
+                    HashMap::from([("who".into(), "Saved locally".into())]),
+                    crate::ports::EventStamp::from_cg_event_timestamp(100),
+                )
                 .unwrap()
                 .unwrap(),
         );
@@ -382,11 +441,18 @@ fn concurrent_submit_and_cancel_consume_one_token_and_preserve_another_suppressi
             std::thread::spawn(move || {
                 barrier.wait();
                 if i % 2 == 0 {
-                    forms.submit(1, HashMap::new()).unwrap().map(|task| {
-                        finish(task);
-                    })
+                    forms
+                        .submit(
+                            form_token(1),
+                            HashMap::new(),
+                            crate::ports::EventStamp::from_cg_event_timestamp(100),
+                        )
+                        .unwrap()
+                        .map(|task| {
+                            finish(task);
+                        })
                 } else {
-                    forms.cancel(1).unwrap().map(|task| {
+                    forms.cancel(form_token(1)).unwrap().map(|task| {
                         finish(task).unwrap();
                     })
                 }
@@ -421,6 +487,8 @@ fn dropping_the_form_service_cancels_and_clears_a_retained_watch() {
     forms.requested(request(1, id));
     drop(forms);
     assert!(pending.get().is_none());
-    assert_eq!(h.engine.state.lock().unwrap().cancelled, [1]);
+    assert_eq!(h.engine.state.lock().unwrap().cancelled, [form_token(1)]);
     assert!(!h.engine.state.lock().unwrap().suppressed);
 }
+
+mod review;

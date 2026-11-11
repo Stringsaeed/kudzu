@@ -1,6 +1,6 @@
 use super::{ExpansionError, ExpansionService, SuppressionGuard};
 use crate::{
-    ports::TargetApp,
+    ports::{engine::AdmissionError, TargetApp},
     tasks::{Task, TaskError},
 };
 use kudzu_core::{system::AppInfo, template};
@@ -21,7 +21,7 @@ impl QuickSearchSession {
     pub fn insert(
         self,
         snippet: uuid::Uuid,
-    ) -> Result<Task<Result<(), ExpansionError>>, TaskError> {
+    ) -> Result<Task<Result<(), AdmissionError>>, TaskError> {
         let Self {
             engine,
             target,
@@ -85,10 +85,9 @@ fn insert(
     snippet: uuid::Uuid,
     target: Option<AppInfo>,
     selection: Option<String>,
-) -> Result<Task<Result<(), ExpansionError>>, TaskError> {
+) -> Result<Task<Result<(), AdmissionError>>, TaskError> {
     Task::spawn("kudzu-insert", move || {
-        engine.insert(snippet, target, selection)?;
-        Ok(())
+        engine.insert(snippet, target, selection)
     })
 }
 impl ExpansionService {
@@ -97,7 +96,7 @@ impl ExpansionService {
         snippet: uuid::Uuid,
         target: Option<AppInfo>,
         selection: Option<String>,
-    ) -> Result<Task<Result<(), ExpansionError>>, TaskError> {
+    ) -> Result<Task<Result<(), AdmissionError>>, TaskError> {
         insert(self.engine.clone(), snippet, target, selection)
     }
 }

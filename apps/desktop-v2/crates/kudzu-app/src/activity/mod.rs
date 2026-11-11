@@ -60,7 +60,10 @@ impl ActivityService {
             event.snippet_id = None;
             event.trigger = None;
         } else if event.outcome == ActivityOutcome::TriggerLost
-            || event.source != Some(ActivitySource::Typed)
+            || !matches!(
+                event.source,
+                Some(ActivitySource::Typed | ActivitySource::Form)
+            )
             || !library.snippets.iter().any(|s| {
                 Some(s.id) == event.snippet_id
                     && event

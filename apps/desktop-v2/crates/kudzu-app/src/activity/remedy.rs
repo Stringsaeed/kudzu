@@ -1,13 +1,6 @@
 use super::ActivityService;
 use crate::{library::LibraryError, settings::SettingsError, watch::Revision};
-use kudzu_core::{
-    activity::{explain, ActivityEntry, ActivityOutcome, Fix, Permission, RuleLevel},
-    library::{
-        groups::{EffectiveSnippet, GroupResolver},
-        model::{AppRule, AppRuleMode},
-    },
-    system::TapMode,
-};
+use kudzu_core::activity::{explain, ActivityEntry, ActivityOutcome, Fix};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,71 +34,30 @@ impl ActivityService {
     pub fn remedy(&self, entry: &ActivityEntry) -> Option<Remedy> {
         let fix = explain(&entry.event).fix?;
         let library = self.library.watch().get();
-        let settings = self.settings.watch().get();
         let status = self.status.get();
         let snippet = library
             .snippets
             .iter()
             .find(|s| Some(s.id) == entry.event.snippet_id);
-        let app = entry.event.app.as_ref().map(|a| a.bundle_id.as_str());
         let (fixed, label) = match &fix {
-            Fix::Resume => (!settings.paused, "Resume Kudzu"),
+            Fix::Resume => (!status.paused, "Resume Kudzu"),
             Fix::TurnOnSnippet => (snippet?.is_enabled, "Turn on"),
             Fix::OpenSnippet => {
-                let snippet = snippet?;
-                let effective =
-                    EffectiveSnippet::new(snippet, &GroupResolver::new(&library.groups));
-                (allows(effective.rule.as_ref(), app), "Snippet rules")
+                snippet?;
+                (false, "Snippet rules")
             }
             Fix::OpenGroup { group_id } => {
                 let group = library.groups.iter().find(|g| g.id == *group_id)?;
                 if matches!(entry.event.outcome, ActivityOutcome::GroupOff { .. }) {
                     (group.is_enabled, "Group settings")
                 } else {
-                    let effective =
-                        EffectiveSnippet::new(snippet?, &GroupResolver::new(&library.groups));
-                    (
-                        effective
-                            .rule_group
-                            .as_ref()
-                            .is_none_or(|g| g.id != *group_id)
-                            || allows(effective.rule.as_ref(), app),
-                        "Group rules",
-                    )
+                    (false, "Group rules")
                 }
             }
-            Fix::OpenAppSettings => (
-                app.is_some_and(|id| !settings.denied_bundle_ids.iter().any(|denied| denied == id)),
-                "App settings",
-            ),
-            Fix::OpenPermissions { permission } => {
-                let fixed = if matches!(entry.event.outcome, ActivityOutcome::ListenerLost) {
-                    status.tap != TapMode::Off
-                } else {
-                    match permission {
-                        Permission::Accessibility => {
-                            status.permissions.accessibility
-                                && status.can_post_events
-                                && !status.secure_input
-                        }
-                        Permission::InputMonitoring => {
-                            status.permissions.input_monitoring && status.tap != TapMode::Off
-                        }
-                    }
-                };
-                (fixed, "Fix permission")
-            }
-            Fix::ExplainSecureInput => (!status.secure_input, "What's this?"),
+            Fix::OpenAppSettings => (false, "App settings"),
+            Fix::OpenPermissions { .. } => (false, "Fix permission"),
+            Fix::ExplainSecureInput => (false, "What's this?"),
         };
-        // A snippet rule removed in favour of an inherited rule no longer has that cause.
-        let fixed = fixed
-            || matches!(
-                entry.event.outcome,
-                ActivityOutcome::AppRule {
-                    level: RuleLevel::Snippet,
-                    ..
-                }
-            ) && snippet.is_some_and(|s| s.rule.is_none());
         Some(Remedy {
             entry_id: entry.event.id,
             state: if fixed {
@@ -152,13 +104,4 @@ impl ActivityService {
             }),
         }
     }
-}
-fn allows(rule: Option<&AppRule>, app: Option<&str>) -> bool {
-    rule.is_none_or(|rule| {
-        let listed = app.is_some_and(|app| rule.bundle_ids.iter().any(|id| id == app));
-        match rule.mode {
-            AppRuleMode::Allow => listed,
-            AppRuleMode::Deny => !listed,
-        }
-    })
 }

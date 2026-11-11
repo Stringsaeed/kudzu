@@ -14,11 +14,13 @@ use std::{
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub struct FeedState {
+    pub generation: u64,
     pub library: Revision,
     pub settings: Revision,
     pub error: Option<ExpansionError>,
 }
 struct Pending {
+    generation: u64,
     dirty: bool,
     stopped: bool,
 }
@@ -42,6 +44,7 @@ impl Feed {
     ) -> Result<Self, ExpansionError> {
         let shared = Arc::new(Shared {
             pending: Mutex::new(Pending {
+                generation: 0,
                 dirty: true,
                 stopped: false,
             }),
@@ -69,8 +72,9 @@ impl Feed {
                 let result = catch_unwind(AssertUnwindSafe(|| {
                     let mut previous = None;
                     let mut paused = None;
+                    let mut applied = 0;
                     loop {
-                        {
+                        let generation = {
                             let mut pending =
                                 state.pending.lock().unwrap_or_else(PoisonError::into_inner);
                             while !pending.dirty && !pending.stopped {
@@ -83,6 +87,12 @@ impl Feed {
                                 return;
                             }
                             pending.dirty = false;
+                            pending.generation
+                        };
+                        if generation != applied {
+                            previous = None;
+                            paused = None;
+                            applied = generation;
                         }
                         let (library_revision, library) = library.snapshot();
                         let (settings_revision, settings) = settings.snapshot();
@@ -111,6 +121,7 @@ impl Feed {
                         state
                             .output
                             .replace(Arc::new(FeedState {
+                                generation,
                                 library: library_revision,
                                 settings: settings_revision,
                                 error: None,
@@ -134,6 +145,20 @@ impl Feed {
     }
     pub(super) fn watch(&self) -> Watch<FeedState> {
         self.shared.output.watch()
+    }
+    pub(super) fn resync(&self) -> u64 {
+        let mut pending = self
+            .shared
+            .pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        pending.generation = pending
+            .generation
+            .checked_add(1)
+            .expect("feed generation exhausted");
+        pending.dirty = true;
+        self.shared.changed.notify_one();
+        pending.generation
     }
     pub(super) fn stop(&self) {
         self.shared

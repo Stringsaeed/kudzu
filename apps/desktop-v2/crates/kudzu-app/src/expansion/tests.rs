@@ -162,11 +162,9 @@ fn previews_resolve_clipboard_history_selection_forms_and_copy_plain_plus_html()
 }
 
 #[test]
-fn explicit_insertion_preserves_rul9_and_surfaces_typed_paste_refusal() {
+fn explicit_insertion_preserves_rul9_and_reports_outcomes_after_admission() {
     use super::testing::finish;
-    use crate::ports::engine::InsertionError;
     use kudzu_core::{
-        activity::InsertFailure,
         library::model::{AppRule, AppRuleMode, GroupRecord},
         system::{AppInfo, TapMode},
     };
@@ -212,15 +210,12 @@ fn explicit_insertion_preserves_rul9_and_surfaces_typed_paste_refusal() {
         h.library.watch().get().usage.is_empty(),
         "accepting an insert is not proof of insertion"
     );
-    h.engine.state.lock().unwrap().insertion_failure =
-        Some(InsertionError::Failed(InsertFailure::PasteUnavailable));
+    h.wire_outcomes(&service);
+    h.engine.resolve_insert(0);
     assert_eq!(
-        finish(service.insert(id, Some(target.clone()), None).unwrap()),
-        Err(ExpansionError::Insertion(InsertionError::Failed(
-            InsertFailure::PasteUnavailable
-        )))
+        service.outcomes().get().as_ref().unwrap().outcome,
+        InsertionOutcome::Expanded
     );
-    h.engine.state.lock().unwrap().insertion_failure = None;
     h.settings
         .update(|s| s.denied_bundle_ids.push(target.bundle_id.clone()))
         .unwrap();
@@ -229,15 +224,22 @@ fn explicit_insertion_preserves_rul9_and_surfaces_typed_paste_refusal() {
     });
     assert_eq!(
         finish(service.insert(id, Some(target), None).unwrap()),
-        Err(ExpansionError::Insertion(InsertionError::Excluded))
+        Ok(())
+    );
+    h.engine.resolve_insert(1);
+    assert_eq!(
+        service.outcomes().get().as_ref().unwrap().outcome,
+        InsertionOutcome::Blocked
     );
     service.set_paused(true).unwrap();
     until(&service.feed(), |f| {
         f.settings == h.settings.watch().revision()
     });
+    assert_eq!(finish(service.insert(id, None, None).unwrap()), Ok(()));
+    h.engine.resolve_insert(2);
     assert_eq!(
-        finish(service.insert(id, None, None).unwrap()),
-        Err(ExpansionError::Insertion(InsertionError::Paused))
+        service.outcomes().get().as_ref().unwrap().outcome,
+        InsertionOutcome::Blocked
     );
 }
 
@@ -274,3 +276,93 @@ fn sidebar_and_tray_health_keep_reference_priority_and_wording() {
 mod events;
 
 mod recovery;
+
+#[test]
+fn resync_reloads_library_and_pause_after_restart_without_a_store_edit() {
+    let snippet = SnippetRecord::new("Fixture", vec![";f".into()], "body");
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![snippet.clone()],
+        ..Default::default()
+    });
+    h.settings.update(|s| s.paused = true).unwrap();
+    let service = h.expansion();
+    until(&service.feed(), |f| {
+        f.settings == h.settings.watch().revision()
+    });
+    {
+        let mut engine = h.engine.state.lock().unwrap();
+        engine.library = Default::default();
+        engine.status.paused = false;
+    }
+    let generation = service.resync();
+    until(&service.feed(), |f| f.generation == generation);
+    let engine = h.engine.state.lock().unwrap();
+    assert_eq!(engine.library.snippets, [snippet]);
+    assert!(engine.status.paused);
+    assert_eq!(engine.reloads, 2);
+}
+
+#[test]
+fn preview_does_not_read_unneeded_clipboard_and_read_errors_mean_empty_text() {
+    use super::testing::finish;
+    let h = Harness::new(KudzuLibrary::default());
+    let service = h.expansion();
+    *h.pasteboard.failure.lock().unwrap() = Some(crate::error::PortError::Unavailable);
+    assert_eq!(
+        finish(
+            service
+                .preview("plain text".into(), PreviewContext::default())
+                .unwrap()
+        )
+        .unwrap()
+        .text,
+        "plain text"
+    );
+    assert_eq!(
+        finish(
+            service
+                .preview("x{{clipboard}}y".into(), PreviewContext::default())
+                .unwrap()
+        )
+        .unwrap()
+        .text,
+        "xy"
+    );
+}
+
+#[test]
+fn nested_clipboard_templates_use_only_text_reads_and_escaped_tags_do_not_read() {
+    use super::testing::finish;
+    let mut nested = SnippetRecord::new("Nested", vec![], "{{clipboard}}");
+    nested.id = uuid::Uuid::from_u128(81);
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![nested],
+        ..Default::default()
+    });
+    h.pasteboard.external_copy(vec![vec![
+        ("public.png".into(), vec![0; 1024]),
+        ("public.utf8-plain-text".into(), b"clipboard text".to_vec()),
+    ]]);
+    let service = h.expansion();
+    finish(
+        service
+            .preview(r"\{{clipboard}}".into(), PreviewContext::default())
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(*h.pasteboard.text_reads.lock().unwrap(), 0);
+    let result = finish(
+        service
+            .preview(
+                "{{snippet id=00000000-0000-0000-0000-000000000051}}".into(),
+                PreviewContext::default(),
+            )
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(result.text, "clipboard text");
+    assert_eq!(*h.pasteboard.text_reads.lock().unwrap(), 1);
+    assert_eq!(*h.pasteboard.reads.lock().unwrap(), 0);
+}
+
+mod admission;
