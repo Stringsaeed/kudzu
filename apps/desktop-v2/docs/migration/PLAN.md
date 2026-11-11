@@ -513,7 +513,7 @@ The test for adopting a crate is the owner's: it gives **the same result** and l
 | 16 | Location of the System Settings window (for the permission companion) is outside any UI framework | none | `CGWindowListCopyWindowInfo` metadata only: no screen capture, no Accessibility. | `kudzu-appkit/src/settings_window.rs` |
 | 17 | Kit component metrics may not reach Kudzu's (button heights, switch sizes) | **#573** (filed 2026-11-11, consolidated from the S06 matrix); shadows on hover/press in **#360** (commented). Title pattern: "rune-kit `<Component>`: take `<metric>` from `Kit`". | Wrapper per component, only when the matrix proves the metric unreachable, and only for buttons, inputs and switches; elsewhere rune-kit's metrics are accepted (§6). | `kudzu-ui/src/widgets/kit_ext/` |
 | 18 | Colour output: at 29aacb6 `MetalSurface::configure` drops the layer's sRGB tag (#540), so colours can read more saturated on P3 displays; no Display P3 surface | **#540** (commented 2026-11-11, with the P3 request). | None in-app. Tokens are mapped to sRGB as CSS does (S04 fix). Check colour accuracy on a P3 display in S71/S73, and bump the Rune pin once #540 lands. | — |
-| 19 | An overlay in a windowless accessory app comes up as a plain winit window, not the click-through, all-Spaces overlay panel (found by S15, confirmed by its review) | **#574** (filed 2026-11-11). | **Default:** the permission guide is a native click-through `NSPanel` (`ignoresMouseEvents`, level 3, `CanJoinAllSpaces \| FullScreenAuxiliary`, spanning the union canvas) that hosts the guide drawing. Requirements are in the S15 notes, "Review findings". | `kudzu-appkit/src/guide_panel.rs` |
+| 19 | An overlay in a windowless accessory app comes up as a plain winit window, not the click-through, all-Spaces overlay panel (found by S15, confirmed by its review) | **#574** (filed 2026-11-11). | **Default:** the permission guide is a native click-through `NSPanel` (`ignoresMouseEvents`, level 3, `CanJoinAllSpaces \| FullScreenAuxiliary`) hosting the guide drawing, sized like `macos.m`: the union of companion and Settings inset by −80 pt, within the Settings screen (S38 review). Requirements are in the S15 notes, "Review findings". | `kudzu-appkit/src/guide_panel.rs` |
 
 **Not gaps** (corrections to `RUNE_FIT.md`): the permission companion's draggable app icon is `El::drag_out` with `DragItem::file(bundle)` (Rune README, "Dragging out to other apps": an app bundle can be dropped into System Settings' privacy lists); fullscreen toolbar inset is `Cx::titlebar_inset()` (0 in full screen); window corner rounding with a correct shadow is `MacWindowOptions::corner_radius`; read-only previews can draw bitmaps inline with `El::inline_icon(InlineIcon::image(..))` or as block elements; caret-anchored popups use `Cx::caret(key)`.
 
@@ -1190,6 +1190,14 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - No Screen Recording prompt appears, and the bundle is absent from that pane.
   - Keyboard-only and VoiceOver use of the icon alternative.
   - A real click through the native guide panel.
+- **Live checks deferred from S38** (run `spikes/appkit-demo`, see its README; use the bundled Dev app for reopen and granting drags):
+  - the full-screen inset and toolbar movement, without forcing a state change;
+  - the sidebar material through resize, full screen, collapse and reopen, and content-view replacement;
+  - native menus and traffic lights in every window, under forced Light, forced Dark and live System appearance changes;
+  - a real window drag;
+  - a read-only capture of the Tauri main window for comparison;
+  - the guide panel's window order above Settings, click-through, and multi-display placement;
+  - the S10 checklist against the production shell.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
