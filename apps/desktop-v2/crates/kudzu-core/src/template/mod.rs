@@ -25,19 +25,22 @@ use std::collections::HashMap;
 use std::ops::Range;
 
 use chrono::{DateTime, FixedOffset};
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Diagnostic importance for editor presentation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
+#[cfg_attr(test, serde(rename_all = "camelCase"))]
 pub enum Severity {
     Warning,
     Error,
 }
 
 /// A source-located parser or renderer observation. `range` is half-open UTF-16 offsets.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
 pub struct Diagnostic {
     pub severity: Severity,
     pub message: String,
