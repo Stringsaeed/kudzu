@@ -226,7 +226,7 @@ impl Imp {
     }
 
     pub fn reload(&self, library: EngineLibrary) {
-        let new = Library::new(&library, super::system::locale);
+        let new = Library::new(&library, super::outgoing::locale);
         let current = lock(&self.core).library.clone();
         // Usage saves after every expansion can trigger reloads. Rebuilding would clear the live
         // key buffer and undo, dropping whatever was typed since, so skip no-op reloads.

@@ -1,110 +1,65 @@
-//! The system-wide expansion engine and the OS services around it.
+//! Kudzu's system-wide expansion engine for macOS: the keyboard listener, matching, insertion,
+//! and the OS services that share its bookkeeping.
 //!
-//! PUBLIC API CONTRACT — the Tauri app compiles against these exact signatures.
-//! macOS is fully implemented; other platforms compile with inert stubs.
+//! # Public API
 //!
-//! Threading: every method is thread-safe and non-blocking for the caller except
-//! [`Engine::reload`] (builds the trigger index) and a few [`system`] calls noted below.
-//! [`EngineHost`] callbacks arrive on engine threads, never while engine locks are held, so the
-//! host may call back into the engine from them.
+//! - [`Engine`]: the running engine. [`Engine::new`] takes an [`EngineHost`], which receives
+//!   every report; [`Engine::start`] attaches the listener once permissions allow. The library
+//!   comes in through [`Engine::reload`]; pausing, suppression, forms and Quick Search inserts
+//!   through the other methods.
+//! - [`EngineHost`]: what the engine reports: status, expansions, form requests, activity, and
+//!   the one question it asks (an older clipboard item for `{{clipboard history=N}}`).
+//! - [`clipboard`]: the general pasteboard, shared with snippet pastes so that Kudzu's own
+//!   writes are recognised and a pending restore is never overwritten.
+//! - [`system`]: permissions, Secure Input, the frontmost app, the caret and the selection.
+//! - The value types come from [`kudzu_core::system`] and are re-exported here.
+//!
+//! [`outgoing`] holds what doesn't belong to the engine (app enumeration, icons, thumbnails,
+//! Settings links, the locale) until S35 moves it into `kudzu-system`.
+//!
+//! # Threading
+//!
+//! Every [`Engine`] method is thread-safe and returns without waiting on the target app:
+//! insertions and form submissions run on the engine's worker thread. [`Engine::reload`] builds
+//! the trigger index on the caller's thread, so call it off the UI thread for large libraries.
+//! [`Engine::stop`] (and dropping the engine) restores a clipboard a paste replaced.
+//!
+//! The engine runs three threads of its own: the listener (`kudzu-event-tap`), which matches
+//! keys and must never block; the worker (`kudzu-engine-worker`), which renders, deletes,
+//! pastes and types; and the poll (`kudzu-engine-poll`), which re-reads permissions and Secure
+//! Input every second and lets go of input held too long. [`EngineHost`] callbacks arrive on
+//! those threads (and on the caller's thread for [`Engine::set_paused`], [`Engine::stop`] and
+//! [`Engine::cancel_form`]), never while an engine lock is held, so a host may call back into the engine from them. A
+//! callback should return quickly: the worker waits for it.
+//!
+//! The [`clipboard`] and [`system`] functions are thread-safe; the ones that block say so.
 
-// The planning/hold helpers only have callers in the macOS engine.
-#![cfg_attr(not(target_os = "macos"), allow(dead_code))]
+#[cfg(not(target_os = "macos"))]
+compile_error!("kudzu-engine is macOS-only");
 
 mod activity;
 mod hold;
 mod input;
 mod library;
+mod macos;
 mod plan;
 mod status;
-
-#[cfg(target_os = "macos")]
-mod macos;
-#[cfg(target_os = "macos")]
-use macos as platform;
-
-#[cfg(not(target_os = "macos"))]
-mod other;
-#[cfg(not(target_os = "macos"))]
-use other as platform;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use kudzu_core::matching::MatchingConfig;
-use kudzu_core::template::FormFieldSpec;
+use kudzu_core::template::{FormFieldSpec, RenderResult};
 use kudzu_core::{GroupRecord, SnippetRecord};
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// A screen rectangle in global top-left-origin points (logical pixels).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Rect {
-    pub x: f64,
-    pub y: f64,
-    pub width: f64,
-    pub height: f64,
-}
-
-/// A running or installed application.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppInfo {
-    pub bundle_id: String,
-    pub name: String,
-    /// Process id when running.
-    pub pid: Option<i32>,
-    /// Bundle path on disk, when known.
-    pub path: Option<String>,
-}
-
-/// Privacy permissions the engine needs.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct PermissionStatus {
-    /// Accessibility (post events, read caret position, active tap).
-    pub accessibility: bool,
-    /// Input Monitoring (listen-only tap).
-    pub input_monitoring: bool,
-}
-
-/// How the keyboard tap is currently attached.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum TapMode {
-    /// Not listening (missing permissions or stopped).
-    Off,
-    /// Can observe but not swallow keystrokes.
-    ListenOnly,
-    /// Can observe and swallow keystrokes (best reliability).
-    Active,
-}
-
-/// Engine health for the tray and UI.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct EngineStatus {
-    /// Permission to insert synthetic keystrokes, independent of pause/Secure Input.
-    #[serde(default)]
-    pub can_post_events: bool,
-    /// A live listener can insert, and neither pause nor Secure Input blocks it.
-    #[serde(default)]
-    pub can_expand: bool,
-    pub paused: bool,
-    pub tap: TapMode,
-    pub permissions: PermissionStatus,
-    pub secure_input: bool,
-    /// App holding Secure Input, when known.
-    pub secure_input_owner: Option<String>,
-    /// One-line human summary ("Ready", "Paused", "Secure Input on — expansion blocked"…).
-    pub summary: String,
-}
+pub use kudzu_core::system::{AppInfo, EngineStatus, PermissionStatus, Rect, TapMode};
 
 /// The engine needs a form filled before it can insert a snippet.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FormRequest {
-    /// Pass back to `submit_form` / `cancel_form`.
+    /// Pass back to [`Engine::submit_form`], [`Engine::cancel_form`] and
+    /// [`Engine::form_panel_focused`].
     pub token: u64,
     pub snippet_id: Uuid,
     pub snippet_name: String,
@@ -115,27 +70,26 @@ pub struct FormRequest {
     /// The app the text will go into.
     pub target_app: Option<AppInfo>,
     /// The selection captured for a Quick Search insert, so the form can preview `{{selection}}`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selection: Option<String>,
 }
 
 /// One successful expansion (for usage stats). Never contains typed or inserted text.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExpansionEvent {
     pub snippet_id: Uuid,
     /// Inserted characters minus typed trigger characters (≥ 0).
     pub chars_saved: i64,
 }
 
-/// Callbacks from the engine into the host app. Called from engine threads.
+/// Callbacks from the engine into the host app. Called from engine threads (see the crate's
+/// threading notes), never while an engine lock is held.
 pub trait EngineHost: Send + Sync + 'static {
     /// Status changed (pause, permissions, Secure Input, tap mode).
     fn status_changed(&self, status: EngineStatus);
     /// A snippet expanded.
     fn expanded(&self, event: ExpansionEvent);
     /// A form snippet fired (typed trigger or palette): show the form, then call
-    /// `Engine::submit_form` or `Engine::cancel_form` with the same token.
+    /// [`Engine::submit_form`] or [`Engine::cancel_form`] with the same token.
     fn form_requested(&self, request: FormRequest);
     /// Plain text of the copy `index` before the current clipboard (1 = the previous copy), for
     /// `{{clipboard history=N}}`. `current` is the clipboard's plain text now. A host without a
@@ -155,47 +109,48 @@ pub struct EngineLibrary {
     pub snippets: Vec<SnippetRecord>,
     pub groups: Vec<GroupRecord>,
     pub config: MatchingConfig,
-    /// Locale for date tags, e.g. `en_US`.
+    /// Locale for date tags, e.g. `en_US`. Empty uses the system locale.
     pub locale: String,
 }
 
-/// The expansion engine. Cheap to clone the `Arc`; all methods are thread-safe.
+/// The expansion engine. All methods are thread-safe; dropping it stops it.
 pub struct Engine {
-    imp: Arc<platform::Imp>,
+    imp: Arc<macos::Imp>,
 }
 
 impl Engine {
-    /// Creates a stopped engine.
+    /// Creates a stopped engine on the real system.
     pub fn new(host: Arc<dyn EngineHost>) -> Arc<Engine> {
-        #[cfg(target_os = "macos")]
-        let imp = platform::Imp::new(host, platform::Platform::system());
-        #[cfg(not(target_os = "macos"))]
-        let imp = platform::Imp::new(host);
-        Arc::new(Engine { imp })
+        Arc::new(Engine {
+            imp: macos::Imp::new(host, macos::Platform::system()),
+        })
     }
 
     /// Creates a stopped engine on `platform`'s seams (the protocol tests' fakes).
-    #[cfg(all(test, target_os = "macos"))]
+    #[cfg(test)]
     pub(crate) fn with_platform(
         host: Arc<dyn EngineHost>,
         platform: macos::Platform,
     ) -> Arc<Engine> {
         Arc::new(Engine {
-            imp: platform::Imp::new(host, platform),
+            imp: macos::Imp::new(host, platform),
         })
     }
 
-    /// Starts the tap and the 1 s status poll (attaches the tap once permissions allow). Idempotent.
+    /// Starts the listener and the 1 s status poll (the listener attaches once permissions
+    /// allow). Idempotent.
     pub fn start(self: &Arc<Self>) {
         self.imp.start();
     }
 
-    /// Stops listening and restores any pending clipboard.
+    /// Stops listening, lets go of held input and restores any pending clipboard.
     pub fn stop(&self) {
         self.imp.stop();
     }
 
-    /// Replaces the library (index rebuilt off the tap thread; no-op if unchanged).
+    /// Replaces the library. Builds the trigger index on the calling thread; a reload that
+    /// changes nothing the engine matches or renders is a no-op, so typing in progress and an
+    /// armed Backspace undo survive usage-count saves.
     pub fn reload(&self, library: EngineLibrary) {
         self.imp.reload(library);
     }
@@ -205,7 +160,9 @@ impl Engine {
         self.imp.set_paused(paused);
     }
 
-    /// While true (our palette or form window has focus) typed keys never expand.
+    /// While true (one of Kudzu's own windows has focus) typed keys never expand. Suppression
+    /// stops matching only: it doesn't hide input from a pending form (see
+    /// [`Engine::form_panel_focused`]).
     pub fn set_suppressed(&self, suppressed: bool) {
         self.imp.set_suppressed(suppressed);
     }
@@ -215,7 +172,8 @@ impl Engine {
         self.imp.status()
     }
 
-    /// Fills a pending form; the engine reactivates the target app, deletes the trigger (if typed) and inserts.
+    /// Fills a pending form: the engine brings the target app back, deletes the trigger (if it
+    /// was typed) and inserts. A stale or repeated token does nothing.
     pub fn submit_form(&self, token: u64, values: HashMap<String, String>) {
         self.imp.submit_form(token, values);
     }
@@ -225,22 +183,24 @@ impl Engine {
         self.imp.cancel_form(token);
     }
 
-    /// The form panel for `token` became key (`true`) or stopped being key (`false`). Call it
-    /// whenever the panel's key status changes. While the panel is not key, any key-down or
-    /// click reaches the target app instead, so a typed form that sees one is marked
-    /// interrupted and its submission deletes nothing (FRM-4). A form starts out not key.
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). Call it as
+    /// soon as the panel's key status changes, starting when it first becomes key. While the
+    /// panel is not key, any key-down or click reaches the target app instead, so a typed form
+    /// that sees one is marked interrupted and its submission deletes nothing (FRM-4). A form
+    /// starts out not key.
     pub fn form_panel_focused(&self, token: u64, focused: bool) {
         self.imp.form_panel_focused(token, focused);
     }
 
-    /// Palette insert: reactivates `target` (the app frontmost before the palette opened), renders the
-    /// snippet (requesting a form if needed) and inserts it. Counts as an expansion.
+    /// Quick Search insert: brings `target` (the app frontmost before the palette opened) back,
+    /// renders the snippet (requesting a form if it has fields) and inserts it. Counts as an
+    /// expansion.
     pub fn insert_snippet(&self, snippet_id: Uuid, target: Option<AppInfo>) {
         self.imp.insert_snippet(snippet_id, target, None);
     }
 
-    /// [`Engine::insert_snippet`] with the text that was selected in `target` before the palette took
-    /// focus (see [`system::selection_for_insert`]); `{{selection}}` renders it.
+    /// [`Engine::insert_snippet`] with the text that was selected in `target` before the palette
+    /// took focus (see [`system::selection_for_insert`]); `{{selection}}` renders it.
     pub fn insert_snippet_with_selection(
         &self,
         snippet_id: Uuid,
@@ -260,13 +220,13 @@ impl Engine {
             .map(|r| r.text)
     }
 
-    /// Renders both clipboard flavors for explicit copy actions. Key presses and pauses are in
+    /// Renders both clipboard flavours for explicit copy actions. Key presses and pauses are in
     /// the result's `actions`, never in its text.
     pub fn render_snippet_formatted(
         &self,
         snippet_id: Uuid,
         form_values: HashMap<String, String>,
-    ) -> Option<kudzu_core::template::RenderResult> {
+    ) -> Option<RenderResult> {
         self.render_snippet_with_selection(snippet_id, form_values, None)
     }
 
@@ -276,7 +236,7 @@ impl Engine {
         snippet_id: Uuid,
         form_values: HashMap<String, String>,
         selection: Option<String>,
-    ) -> Option<kudzu_core::template::RenderResult> {
+    ) -> Option<RenderResult> {
         let library = self.imp.library();
         let snippet = library.snippets.get(&snippet_id)?;
         let values = library::with_defaults(&library.form_fields(snippet), form_values);
@@ -313,18 +273,15 @@ pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// Clipboard history plumbing (macOS; inert elsewhere). The model lives in `kudzu_core::clipboard`.
+/// The general pasteboard, as clipboard history reads and writes it. The model lives in
+/// `kudzu_core::clipboard`.
+///
+/// Snippet pastes go through the same pasteboard record, so Kudzu's own writes (restores,
+/// history picks) are recognised as such, and a write here first finishes a snippet paste that
+/// is still waiting to put the user's clipboard back.
 pub mod clipboard {
-    use super::{platform, AppInfo};
+    use super::{macos, AppInfo};
     pub use kudzu_core::clipboard::PasteItem;
-
-    /// A PNG thumbnail plus the original image's pixel size.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct Thumbnail {
-        pub png: Vec<u8>,
-        pub width: u32,
-        pub height: u32,
-    }
 
     /// Why pasting into another app didn't happen.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -337,122 +294,142 @@ pub mod clipboard {
 
     /// The general pasteboard's change count; cheap enough to poll a few times a second.
     pub fn change_count() -> i64 {
-        platform::clipboard::change_count()
+        macos::clipboard::change_count()
     }
 
-    /// Whether a change count came from Kudzu's own writes (snippet pastes, restores, history picks).
+    /// Whether a change count came from Kudzu's own writes (snippet pastes, restores, history
+    /// picks).
     pub fn is_own_change(count: i64) -> bool {
-        platform::clipboard::is_own_change(count)
+        macos::clipboard::is_own_change(count)
     }
 
-    /// Every item and type on the pasteboard. May block briefly on data a source app provides lazily.
+    /// Every item and type on the pasteboard. May block briefly on data a source app provides
+    /// lazily.
     pub fn read() -> Vec<PasteItem> {
-        platform::clipboard::read()
+        macos::clipboard::read()
     }
 
-    /// Replaces the pasteboard with `items`, recorded as Kudzu's own change. Returns the new change count.
+    /// Replaces the pasteboard with `items`, recorded as Kudzu's own change. Returns the new
+    /// change count.
     pub fn write(items: &[PasteItem]) -> i64 {
-        platform::clipboard::write(items)
+        macos::clipboard::write(items)
     }
 
     /// Whether synthetic ⌘V can reach other apps right now.
     pub fn can_paste() -> bool {
-        platform::clipboard::can_paste()
+        macos::clipboard::can_paste()
     }
 
-    /// Brings `target` forward (when given) and presses ⌘V. Blocks up to ~1 s: call off the UI thread.
+    /// Brings `target` forward (when given) and presses ⌘V. Blocks up to ~1 s: call off the UI
+    /// thread.
     pub fn paste(target: Option<&AppInfo>) -> Result<(), PasteError> {
-        platform::clipboard::paste(target)
-    }
-
-    /// Decodes image data (PNG, TIFF, JPEG, HEIC, PDF …) and renders a PNG at most `max_px` on its
-    /// longer side (never upscaled).
-    pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
-        platform::clipboard::thumbnail(data, max_px)
+        macos::clipboard::paste(target)
     }
 }
 
-/// OS services that don't need a running engine.
+/// Permissions, Secure Input, the frontmost app, the caret and the selection. None of these
+/// needs a running engine.
 pub mod system {
-    use super::{platform, AppInfo, PermissionStatus, Rect};
+    use super::{macos, AppInfo, PermissionStatus, Rect};
 
     /// Current permission grants (cheap; safe to poll).
     pub fn permissions() -> PermissionStatus {
-        platform::system::permissions()
+        macos::system::permissions()
     }
 
     /// Shows the system Accessibility prompt.
     pub fn request_accessibility() {
-        platform::system::request_accessibility()
+        macos::system::request_accessibility()
     }
 
     /// Shows the system Input Monitoring prompt.
     pub fn request_input_monitoring() {
-        platform::system::request_input_monitoring()
-    }
-
-    /// Opens System Settings at `pane`: "accessibility" | "inputMonitoring" | "loginItems".
-    pub fn open_settings(pane: &str) {
-        platform::system::open_settings(pane)
+        macos::system::request_input_monitoring()
     }
 
     /// The frontmost application.
     pub fn frontmost_app() -> Option<AppInfo> {
-        platform::system::frontmost_app()
+        macos::system::frontmost_app()
     }
 
     /// Brings `app` (by pid, else bundle id) to the front.
     pub fn activate_app(app: &AppInfo) -> bool {
-        platform::system::activate_app(app)
-    }
-
-    /// Installed apps (/Applications, ~/Applications, /System/Applications, …), sorted by name.
-    /// Reads every bundle's Info.plist: call off the UI thread.
-    pub fn installed_apps() -> Vec<AppInfo> {
-        platform::system::installed_apps()
-    }
-
-    /// PNG bytes of an app's icon at `size` px, by bundle path.
-    pub fn app_icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
-        platform::system::app_icon_png(path, size)
+        macos::system::activate_app(app)
     }
 
     /// Caret rectangle of the focused text element via Accessibility.
     pub fn caret_rect() -> Option<Rect> {
-        platform::system::caret_rect()
+        macos::system::caret_rect()
     }
 
     /// Copies the current selection in the frontmost app (⌘C, read, restore clipboard).
     /// Blocks up to ~300 ms: call off the UI thread.
     pub fn copy_selection() -> Option<String> {
-        platform::system::copy_selection()
+        macos::system::copy_selection()
     }
 
     /// The selection in the frontmost app, for `{{selection}}`: asked through Accessibility, and
-    /// copied with ⌘C only when the app doesn't report a selection at all. An app that reports an
-    /// empty selection is believed, so opening Quick Search doesn't press ⌘C (and beep) there.
-    /// Blocks up to ~300 ms: call off the UI thread.
+    /// copied with ⌘C only when the app doesn't report a selection at all. An app that reports
+    /// an empty selection is believed, so opening Quick Search doesn't press ⌘C (and beep)
+    /// there. Blocks up to ~300 ms: call off the UI thread.
     pub fn selection_for_insert() -> Option<String> {
-        platform::system::selection_for_insert()
+        macos::system::selection_for_insert()
     }
 
     /// Plain-text clipboard.
     pub fn read_clipboard() -> Option<String> {
-        platform::system::read_clipboard()
+        macos::system::read_clipboard()
     }
 
-    /// Writes plain text to the clipboard.
+    /// Writes plain text to the clipboard (as Kudzu's own change).
     pub fn write_clipboard(text: &str) -> bool {
-        platform::system::write_clipboard(text)
+        macos::system::write_clipboard(text)
     }
 
     /// Whether Secure Input is on, and the owning app's name if known.
     pub fn secure_input() -> (bool, Option<String>) {
-        platform::system::secure_input()
+        macos::system::secure_input()
+    }
+}
+
+/// Not the engine's: app enumeration, icons, image thumbnails, Settings links and the locale.
+/// S35 moves their code into `kudzu-system` and deletes this module.
+#[doc(hidden)]
+pub mod outgoing {
+    use super::{macos, AppInfo};
+
+    /// A PNG thumbnail plus the original image's pixel size.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct Thumbnail {
+        pub png: Vec<u8>,
+        pub width: u32,
+        pub height: u32,
+    }
+
+    /// Installed apps (/Applications, ~/Applications, /System/Applications, …), sorted by name.
+    /// Reads every bundle's Info.plist: call off the UI thread.
+    pub fn installed_apps() -> Vec<AppInfo> {
+        macos::outgoing::installed_apps()
+    }
+
+    /// PNG bytes of an app's icon at `size` px, by bundle path.
+    pub fn app_icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
+        macos::outgoing::app_icon_png(path, size)
+    }
+
+    /// Decodes image data (PNG, TIFF, JPEG, HEIC, PDF …) and renders a PNG at most `max_px` on
+    /// its longer side (never upscaled).
+    pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
+        macos::outgoing::thumbnail(data, max_px)
+    }
+
+    /// Opens System Settings at `pane`: "accessibility" | "inputMonitoring" | "loginItems".
+    pub fn open_settings(pane: &str) {
+        macos::outgoing::open_settings(pane)
     }
 
     /// Best-effort system locale identifier, e.g. `en_US`.
     pub fn locale() -> String {
-        platform::system::locale()
+        macos::outgoing::locale()
     }
 }

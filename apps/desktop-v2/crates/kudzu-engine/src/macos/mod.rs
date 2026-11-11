@@ -1,4 +1,6 @@
-//! macOS implementation.
+//! The engine on macOS: the coordinator (`engine`), its three seams (`events`, `pasteboard`,
+//! `observe`) and what they wrap: the event tap, synthetic keys, the input source, Accessibility
+//! and running apps.
 
 mod apps;
 mod ax;
@@ -9,6 +11,7 @@ mod ffi;
 mod input_source;
 mod keys;
 mod observe;
+pub(crate) mod outgoing;
 mod pasteboard;
 mod tap;
 #[cfg(test)]
@@ -37,12 +40,9 @@ impl Platform {
     }
 }
 
-/// OS services behind [`crate::system`].
+/// The OS services behind [`crate::system`].
 pub(crate) mod system {
     use std::time::Duration;
-
-    use objc2::rc::autoreleasepool;
-    use objc2_foundation::NSLocale;
 
     use super::events::SystemEvents;
     use super::pasteboard::Pasteboard;
@@ -61,36 +61,12 @@ pub(crate) mod system {
         ax::request_input_monitoring();
     }
 
-    pub fn open_settings(pane: &str) {
-        let url = match pane {
-            "accessibility" => {
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-            }
-            "inputMonitoring" => {
-                "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
-            }
-            "loginItems" => "x-apple.systempreferences:com.apple.LoginItems-Settings.extension",
-            _ => "x-apple.systempreferences:com.apple.preference.security",
-        };
-        if !apps::open_url(url) {
-            log::warn!("could not open System Settings pane {pane}");
-        }
-    }
-
     pub fn frontmost_app() -> Option<AppInfo> {
         apps::frontmost_app()
     }
 
     pub fn activate_app(app: &AppInfo) -> bool {
         apps::activate(app)
-    }
-
-    pub fn installed_apps() -> Vec<AppInfo> {
-        apps::installed_apps()
-    }
-
-    pub fn app_icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
-        apps::icon_png(path, size)
     }
 
     pub fn caret_rect() -> Option<Rect> {
@@ -121,23 +97,5 @@ pub(crate) mod system {
     pub fn secure_input() -> (bool, Option<String>) {
         let (on, pid) = ax::secure_input();
         (on, pid.and_then(apps::name_of))
-    }
-
-    pub fn locale() -> String {
-        autoreleasepool(|_| {
-            let identifier = NSLocale::currentLocale().localeIdentifier().to_string();
-            // Drop keyword suffixes such as `@rg=gbzzzz`.
-            let base = identifier
-                .split('@')
-                .next()
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-            if base.is_empty() {
-                "en_US".to_string()
-            } else {
-                base
-            }
-        })
     }
 }

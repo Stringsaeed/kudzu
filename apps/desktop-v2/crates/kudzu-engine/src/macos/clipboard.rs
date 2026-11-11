@@ -1,4 +1,5 @@
-//! Clipboard history plumbing: read every type, write entries back, paste, and thumbnails.
+//! Clipboard history plumbing: read every type, write entries back, paste; and image thumbnails,
+//! which S35 moves to `kudzu-system::thumbnails` with their test.
 
 use std::thread;
 use std::time::Duration;
@@ -11,7 +12,8 @@ use objc2_foundation::NSData;
 use super::events::SystemEvents;
 use super::pasteboard::Pasteboard;
 use super::{apps, keys};
-use crate::clipboard::{PasteError, Thumbnail};
+use crate::clipboard::PasteError;
+use crate::outgoing::Thumbnail;
 use crate::AppInfo;
 
 pub fn change_count() -> i64 {

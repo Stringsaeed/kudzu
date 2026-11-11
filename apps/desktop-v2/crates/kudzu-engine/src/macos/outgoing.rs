@@ -1,0 +1,58 @@
+//! The OS services behind [`crate::outgoing`]: not the engine's, and leaving it in S35 for
+//! `kudzu-system` (`apps`, `thumbnails`, `settings_panes`, `locale`). App enumeration and
+//! icons live in `apps`, thumbnails in `clipboard`; their tests move with them.
+
+use objc2::rc::autoreleasepool;
+use objc2_foundation::NSLocale;
+
+use super::{apps, clipboard};
+use crate::outgoing::Thumbnail;
+use crate::AppInfo;
+
+pub fn installed_apps() -> Vec<AppInfo> {
+    apps::installed_apps()
+}
+
+pub fn app_icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
+    apps::icon_png(path, size)
+}
+
+pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
+    clipboard::thumbnail(data, max_px)
+}
+
+pub fn open_settings(pane: &str) {
+    let url = match pane {
+        "accessibility" => {
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        }
+        "inputMonitoring" => {
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+        }
+        "loginItems" => "x-apple.systempreferences:com.apple.LoginItems-Settings.extension",
+        _ => "x-apple.systempreferences:com.apple.preference.security",
+    };
+    if !apps::open_url(url) {
+        log::warn!("could not open System Settings pane {pane}");
+    }
+}
+
+/// The system locale identifier, e.g. `en_US`; also the engine's fallback for a library
+/// without one.
+pub fn locale() -> String {
+    autoreleasepool(|_| {
+        let identifier = NSLocale::currentLocale().localeIdentifier().to_string();
+        // Drop keyword suffixes such as `@rg=gbzzzz`.
+        let base = identifier
+            .split('@')
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_string();
+        if base.is_empty() {
+            "en_US".to_string()
+        } else {
+            base
+        }
+    })
+}

@@ -1,6 +1,6 @@
-//! Protocol tests: the engine's safety contracts, pinned before S34 restructures it.
+//! Protocol tests: the engine's safety contracts, pinned by S39 before S34 restructured it.
 //!
-//! Each test drives the real coordinator (`macos/engine.rs`) through its three seams
+//! Each test drives the real coordinator (`macos/engine/`) through its three seams
 //! (`super::Platform`): the event stream, the pasteboard and observations. The fakes in
 //! `fakes.rs` play a desktop (`desk.rs`) with one target app and its text field
 //! (`document.rs`), so a test asserts the full sequence of events the engine posted and the
