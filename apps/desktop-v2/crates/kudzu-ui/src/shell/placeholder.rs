@@ -1,8 +1,8 @@
-//! Placeholder content, one view per window, until the screen steps replace them (S41,
-//! S60). Each shows the window's name, its state and the theme it resolved, so
-//! headless trees can check routing and theme without the real screens.
+//! Placeholder content for the picker window until S60 replaces it.
+//! Shows the window's name, its state and the theme it resolved, so headless trees can check
+//! routing and theme without the real screen.
 use super::theme_sync::ThemeSync;
-use super::windows::{MainState, PickerState};
+use super::windows::PickerState;
 use crate::theme::Theme;
 use rune::{col, text, Cx, El};
 
@@ -30,22 +30,6 @@ fn frame(key: &str, theme: &Theme, title: &str, detail: String, mode: &ThemeSync
                 .key(format!("{key}-theme"))
                 .color(theme.c.muted_foreground),
         )
-}
-
-pub(super) fn main(s: &MainState, cx: &mut Cx<MainState>) -> El {
-    let theme = s.model.theme.theme(cx.system_dark());
-    let detail = match &s.model.route {
-        super::Route::NewSnippet(new) if new.content.is_empty() => "New snippet".to_owned(),
-        super::Route::NewSnippet(_) => "New snippet from the selection".to_owned(),
-        route => route.label().to_owned(),
-    };
-    frame(
-        "main",
-        theme,
-        s.shell.identity().app_name,
-        detail,
-        &s.model.theme,
-    )
 }
 
 pub(super) fn picker(s: &PickerState, cx: &mut Cx<PickerState>) -> El {

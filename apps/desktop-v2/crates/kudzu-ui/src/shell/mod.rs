@@ -2,7 +2,7 @@
 //! Windows get services from their own bundles (`windows`); `Shell` holds only what
 //! coordination needs. Nothing here is global: `compose` builds one `Shell` per process.
 mod hotkeys;
-mod lifecycle;
+pub(crate) mod lifecycle;
 mod placeholder;
 pub mod routes;
 mod settle;
@@ -13,7 +13,7 @@ pub mod windows;
 
 pub(crate) use lifecycle::closes_windows;
 pub use routes::{NewSnippet, Route, SettingsPane};
-pub use windows::{build, Launch, Windows};
+pub use windows::{build, Launch, MainState, Windows};
 
 use kudzu_app::assembly::{SelectionCapture, Shutdown};
 use kudzu_app::expansion::ExpansionService;
@@ -21,7 +21,7 @@ use kudzu_app::forms::FormService;
 use kudzu_app::updates::{Trigger, UpdateState, Updates};
 use rune::AppHandle;
 use std::sync::Arc;
-use windows::{FormState, MainState, PaletteState, PermissionsState, PickerState};
+use windows::{FormState, PaletteState, PermissionsState, PickerState};
 
 /// The five windows' handles. `Clone + Send + Sync`, like `AppHandle`.
 #[derive(Clone)]

@@ -1,6 +1,7 @@
 //! `main`'s lifecycle (PLAN §1.3): close to hidden without the Dock icon, reopen to `main`,
 //! ⌘Q closes windows, and quit runs drafts → `Kudzu::shutdown` → exit, however it starts.
-//! The first poll installs the app menu, the status item, the appearance and the hotkeys.
+//! The first poll installs the app menu, the status item, the sidebar vibrancy view, the
+//! appearance and the hotkeys.
 use super::routes::{NewSnippet, Route};
 use super::theme_sync;
 use super::tray::Tray;
@@ -89,6 +90,8 @@ impl MainState {
             Ok(tray) => self.model.tray = Some(tray),
             Err(error) => log::error!("the menu-bar item could not be installed: {error}"),
         }
+        self.model.sidebar_material =
+            Some(kudzu_appkit::sidebar_material::SidebarMaterial::new(mtm));
     }
 
     /// Close Windows ⌘Q goes in as soon as Rune's menu bar exists, even before any Dock
@@ -184,6 +187,18 @@ impl MainState {
                 tray.refresh(model);
             }
         }
+        let (lib_rev, lib_snap) = self.svc.library.watch().snapshot();
+        if self.model.seen_library != Some(lib_rev) {
+            self.model.seen_library = Some(lib_rev);
+            self.model.library = lib_snap;
+            if let Some(sel) = self.frame.selected_snippet {
+                if !self.model.library.snippets.iter().any(|s| s.id == sel) {
+                    self.frame.selected_snippet = None;
+                }
+            }
+            self.observe_breadcrumbs();
+            changed = true;
+        }
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();
@@ -194,22 +209,30 @@ impl MainState {
             self.show();
             changed = true;
         }
+        changed |= self.reconcile_route();
+        changed |= crate::main::update_toast::sync_update_toast(self, self.frame.clock_secs);
+        changed |= self.frame.toasts.tick(self.frame.clock_secs);
         self.shell.drain_settled();
         changed
     }
 }
 
-pub(super) fn poll(s: &mut MainState, _: f64, _: &mut Tx) -> bool {
-    s.sync()
+pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
+    s.frame.clock_secs = tx.clock();
+    let changed = s.sync();
+    if let Some(due) = s.frame.toasts.next_due() {
+        tx.wake_at(due);
+    }
+    changed
 }
 
 /// ⌘Q reaches the app menu's Close Windows natively; this covers a run without that menu.
-pub(super) fn on_key(s: &mut MainState, key: &KeyEvent, _: &mut Tx) -> bool {
+pub(crate) fn on_key(s: &mut MainState, key: &KeyEvent, tx: &mut Tx) -> bool {
     if closes_windows(key) {
         s.shell.close_windows();
         return true;
     }
-    false
+    crate::main::handle_key(s, key, tx)
 }
 
 /// The close button (and ⌘W): `keep_running` hides the window; drafts and the Dock follow.
