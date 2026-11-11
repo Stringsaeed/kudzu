@@ -56,11 +56,13 @@ pub(super) fn remove_checkpoint(path: &Path) -> Result<(), IoFailure> {
     }
 }
 
-/// Writes only when the bytes differ. Empty bytes with no file is a no-op.
+/// Writes only when the bytes differ. Empty bytes mean "no state" and never create or truncate.
 pub(super) fn write_checkpoint(path: &Path, bytes: &[u8]) -> Result<(), IoFailure> {
+    if bytes.is_empty() {
+        return Ok(());
+    }
     match fs::read(path) {
         Ok(existing) if existing == bytes => return Ok(()),
-        Err(error) if error.kind() == ErrorKind::NotFound && bytes.is_empty() => return Ok(()),
         Err(error) if error.kind() != ErrorKind::NotFound => return Err(error.into()),
         _ => {}
     }

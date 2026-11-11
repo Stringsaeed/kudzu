@@ -13,9 +13,6 @@ pub const FETCH_INTERVAL: Duration = Duration::from_secs(3 * 60);
 /// Nominal usage period. Four fetch ticks cross it at 12 minutes.
 pub const USAGE_INTERVAL: Duration = Duration::from_secs(10 * 60);
 
-/// CloudKit container. Zone and record types live in `kudzu_core::sync`.
-pub const CONTAINER_ID: &str = "iCloud.sh.saeed.kudzu";
-
 pub const DEV_UNAVAILABLE: &str =
     "iCloud sync is unavailable in Kudzu Dev. Data stays on this Mac.";
 pub const UNENTITLED: &str = "This copy of Kudzu isn't signed for iCloud. Release builds sync; development builds stay on this Mac.";

@@ -1,38 +1,42 @@
 //! Sync lifecycle over [`CloudStore`](crate::ports::CloudStore). The adapter only translates.
 //!
-//! Merges run on this worker, inside `library.transact`, and the sync index is written in that
-//! same turn before anything is sent. Clipboard history, settings and form memory are never
-//! inputs. Kudzu Next (`production: false`) never calls `start`.
+//! Merges run on this worker, inside `library.transact`. The sync index and engine state are
+//! written on this same thread only after `library.saved().durable` covers that revision, and
+//! nothing is sent while that hold is outstanding. Clipboard history, settings and form memory
+//! are never inputs. Kudzu Next (`production: false`) never calls `start`.
 //!
-//! `account_changed` always drops server knowledge and restarts with a new generation. Sign-in
-//! is `availability(Available)` and does not reset. [`SIGNED_OUT`] is the sign-out sentence;
-//! the port has one account callback, so a switch (which must keep syncing) cannot show it.
-//! S37 calls `account_changed` for sign-out and account switch only.
-//!
-//! Shutdown stops this worker before the process drains writers. The index is not on the writer.
+//! Sign-in does not drop server knowledge. Sign-out drops it, restarts, and shows
+//! [`SIGNED_OUT`] until availability is `Available`. An account switch drops it and keeps
+//! syncing. Shutdown stops this worker, runs the caller's drain, then writes a checkpoint only
+//! if the library revision is already durable.
 
+mod apply;
 mod files;
 mod job;
 mod status;
 
+pub use kudzu_core::sync::CONTAINER_ID;
 pub use status::{
-    dev_gate, SyncStatus, CONTAINER_ID, DEV_UNAVAILABLE, FETCH_INTERVAL, NO_ACCOUNT,
-    PERMANENT_FAILURE, QUOTA, RESTRICTED, SAVE_FAILED, SIGNED_OUT, START_FAILED,
-    TEMPORARILY_UNAVAILABLE, UNENTITLED, USAGE_INTERVAL, WORKER_STOPPED,
+    dev_gate, SyncStatus, DEV_UNAVAILABLE, FETCH_INTERVAL, NO_ACCOUNT, PERMANENT_FAILURE, QUOTA,
+    RESTRICTED, SAVE_FAILED, SIGNED_OUT, START_FAILED, TEMPORARILY_UNAVAILABLE, UNENTITLED,
+    USAGE_INTERVAL, WORKER_STOPPED,
 };
 
 use crate::error::{IoFailure, PortError};
 use crate::library::LibraryService;
 use crate::persist::PersistError;
-use crate::ports::{Clock, CloudAvailability, CloudBatch, CloudEvents, CloudSend, CloudStore};
+use crate::ports::{
+    AccountChange, Clock, CloudAvailability, CloudBatch, CloudEvents, CloudSend, CloudStore,
+};
 use crate::schedule::{Scheduler, Timer};
 use crate::settings::Settings;
 use crate::watch::{Publisher, Subscription, Watch};
 use job::Job;
+use kudzu_core::sync::SyncIndex;
 use std::collections::VecDeque;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, PoisonError, Weak};
 use std::thread::JoinHandle;
 #[cfg(test)]
@@ -64,7 +68,7 @@ struct Inbox {
     events: VecDeque<Inbound>,
 }
 
-pub(super) struct Work {
+struct Work {
     enabled: Option<bool>,
     sync_now: bool,
     events: VecDeque<Inbound>,
@@ -73,43 +77,56 @@ pub(super) struct Work {
 enum Inbound {
     Fetched(u64, CloudBatch),
     Sent(u64, CloudSend),
-    Account(u64),
+    Account(u64, AccountChange),
     Availability(u64, CloudAvailability),
     Failed(u64, PortError),
     ZoneDeleted(u64),
+    State(u64, Vec<u8>),
     Tick(u64),
+    /// `library.saved()` moved. No generation: a durable library unblocks the hold.
+    Durable,
 }
 
 impl Inbound {
-    fn generation(&self) -> u64 {
+    fn generation(&self) -> Option<u64> {
         match self {
             Self::Fetched(generation, _)
             | Self::Sent(generation, _)
-            | Self::Account(generation)
+            | Self::Account(generation, _)
             | Self::Availability(generation, _)
             | Self::Failed(generation, _)
             | Self::ZoneDeleted(generation)
-            | Self::Tick(generation) => *generation,
+            | Self::State(generation, _)
+            | Self::Tick(generation) => Some(*generation),
+            Self::Durable => None,
         }
     }
 }
 
-pub(super) struct Shared {
+struct Shared {
     inbox: Mutex<Inbox>,
     changed: Condvar,
     idle: Condvar,
     status: Publisher<SyncStatus>,
     generation: AtomicU64,
-    pub(super) production: bool,
-    pub(super) device_id: String,
-    pub(super) library: Arc<LibraryService>,
-    pub(super) cloud: Arc<dyn CloudStore>,
-    pub(super) clock: Arc<dyn Clock>,
-    pub(super) scheduler: Arc<Scheduler>,
-    pub(super) timer: Mutex<Option<Timer>>,
+    production: bool,
+    device_id: String,
+    library: Arc<LibraryService>,
+    cloud: Arc<dyn CloudStore>,
+    clock: Arc<dyn Clock>,
+    scheduler: Arc<Scheduler>,
+    timer: Mutex<Option<Timer>>,
+    files: Mutex<files::SyncFiles>,
+    disk_index: Mutex<SyncIndex>,
+    hold: Mutex<Option<apply::Hold>>,
+    /// Set only after `start` returns `Ok`. `stop` is skipped otherwise, including Dev and
+    /// an unentitled `Unavailable`.
+    port_started: AtomicBool,
+    panic_turn: AtomicBool,
+    watched_sync: Mutex<bool>,
 }
 
-pub(super) fn bump(shared: &Shared) -> u64 {
+fn bump(shared: &Shared) -> u64 {
     shared.generation.fetch_add(1, Ordering::SeqCst) + 1
 }
 
@@ -120,6 +137,13 @@ fn enqueue(shared: &Shared, event: Inbound) {
     }
     inbox.events.push_back(event);
     shared.changed.notify_one();
+}
+
+/// Stops the port once. A session that never started, including Dev and unentitled, is left alone.
+fn stop_port(shared: &Shared) {
+    if shared.port_started.swap(false, Ordering::SeqCst) {
+        shared.cloud.stop();
+    }
 }
 
 fn request_enabled(shared: &Shared, enabled: bool) {
@@ -153,9 +177,9 @@ impl CloudEvents for Bridge {
             enqueue(&shared, Inbound::Sent(generation, report));
         }
     }
-    fn account_changed(&self, generation: u64) {
+    fn account_changed(&self, generation: u64, change: AccountChange) {
         if let Some(shared) = self.0.upgrade() {
-            enqueue(&shared, Inbound::Account(generation));
+            enqueue(&shared, Inbound::Account(generation, change));
         }
     }
     fn availability(&self, generation: u64, availability: CloudAvailability) {
@@ -171,6 +195,14 @@ impl CloudEvents for Bridge {
     fn zone_deleted(&self, generation: u64) {
         if let Some(shared) = self.0.upgrade() {
             enqueue(&shared, Inbound::ZoneDeleted(generation));
+        }
+    }
+    fn state(&self, generation: u64, bytes: Vec<u8>) {
+        if bytes.is_empty() {
+            return;
+        }
+        if let Some(shared) = self.0.upgrade() {
+            enqueue(&shared, Inbound::State(generation, bytes));
         }
     }
 }
@@ -210,6 +242,8 @@ fn run(shared: Arc<Shared>, mut job: Job) {
             job.turn(&shared, work);
         }
     }));
+    // The port stops before a shutdown drain. Bytes still to persist already sit in the hold.
+    stop_port(&shared);
     if panicked.is_err() {
         shared
             .status
@@ -230,8 +264,7 @@ fn run(shared: Arc<Shared>, mut job: Job) {
 pub struct SyncService {
     shared: Arc<Shared>,
     worker: Mutex<Option<JoinHandle<()>>>,
-    checkpoint: PathBuf,
-    _subscriptions: [Subscription; 2],
+    _subscriptions: [Subscription; 3],
 }
 
 impl SyncService {
@@ -244,7 +277,6 @@ impl SyncService {
         scheduler: Arc<Scheduler>,
     ) -> Result<Self, SyncError> {
         let (sync_files, index) = files::SyncFiles::open(&config.directory)?;
-        let checkpoint = sync_files.checkpoint.clone();
         let enabled = settings.get().icloud_sync;
         let initial = match (config.production, enabled) {
             (_, false) => SyncStatus::Off,
@@ -273,8 +305,14 @@ impl SyncService {
             clock,
             scheduler,
             timer: Mutex::new(None),
+            files: Mutex::new(sync_files),
+            disk_index: Mutex::new(index.clone()),
+            hold: Mutex::new(None),
+            port_started: AtomicBool::new(false),
+            panic_turn: AtomicBool::new(false),
+            watched_sync: Mutex::new(enabled),
         });
-        let job = Job::new(index, sync_files, Arc::new(Bridge(Arc::downgrade(&shared))));
+        let job = Job::new(index, Arc::new(Bridge(Arc::downgrade(&shared))));
         let worker = std::thread::Builder::new()
             .name("kudzu-sync".into())
             .spawn({
@@ -286,7 +324,6 @@ impl SyncService {
         Ok(Self {
             shared,
             worker: Mutex::new(Some(worker)),
-            checkpoint,
             _subscriptions: subscriptions,
         })
     }
@@ -295,7 +332,7 @@ impl SyncService {
         self.shared.status.watch()
     }
 
-    /// Starts or stops. The settings subscription calls this too.
+    /// Starts or stops. The settings subscription calls this too, and only when `icloud_sync` flips.
     pub fn set_enabled(&self, enabled: bool) {
         request_enabled(&self.shared, enabled);
     }
@@ -305,8 +342,8 @@ impl SyncService {
         request_sync(&self.shared);
     }
 
-    /// Idempotent. Stops the worker, then checkpoints, then stops the port.
-    pub fn shutdown(&self) {
+    /// Stops the worker, runs `drain` (S40 passes the shared writer), then checkpoints if durable.
+    pub fn shutdown_with(&self, drain: impl FnOnce()) {
         {
             let mut inbox = self
                 .shared
@@ -329,16 +366,29 @@ impl SyncService {
             .timer
             .lock()
             .unwrap_or_else(PoisonError::into_inner) = None;
-        bump(&self.shared);
-        if let Ok(bytes) = self.shared.cloud.checkpoint() {
-            let _ = files::write_checkpoint(&self.checkpoint, &bytes);
-        }
-        self.shared.cloud.stop();
+        drain();
+        let _ = apply::flush(&self.shared);
     }
 
-    /// Blocks until the worker has applied every event queued so far.
+    /// Idempotent. Does not drain the shared writer; [`Drop`] uses this path.
+    pub fn shutdown(&self) {
+        self.shutdown_with(|| {});
+    }
+
+    /// Blocks until the worker has applied every event queued so far and the durability hold is clear.
     #[cfg(test)]
     pub(crate) fn settle(&self) {
+        self.wait_idle(true);
+    }
+
+    /// Blocks until the inbox is idle. A hold that is still waiting on the library does not count.
+    #[cfg(test)]
+    pub(crate) fn settle_pending(&self) {
+        self.wait_idle(false);
+    }
+
+    #[cfg(test)]
+    fn wait_idle(&self, durable: bool) {
         let deadline = Instant::now() + Duration::from_secs(3);
         let mut inbox = self
             .shared
@@ -346,13 +396,22 @@ impl SyncService {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         loop {
+            let stopped = inbox.stopped;
             let idle = !inbox.working
-                && (inbox.stopped
+                && (stopped
                     || (inbox.enabled.is_none()
                         && !inbox.library_dirty
                         && !inbox.sync_now
                         && inbox.events.is_empty()));
-            if idle {
+            let held = durable
+                && !stopped
+                && self
+                    .shared
+                    .hold
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .is_some();
+            if idle && !held {
                 return;
             }
             let now = Instant::now();
@@ -370,6 +429,17 @@ impl SyncService {
             }
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn enqueue_tick(&self, generation: u64) {
+        enqueue(&self.shared, Inbound::Tick(generation));
+    }
+
+    #[cfg(test)]
+    pub(crate) fn panic_for_test(&self) {
+        self.shared.panic_turn.store(true, Ordering::SeqCst);
+        enqueue(&self.shared, Inbound::Tick(0));
+    }
 }
 
 impl Drop for SyncService {
@@ -382,7 +452,7 @@ fn subscribe(
     shared: &Arc<Shared>,
     library: &LibraryService,
     settings: Watch<Settings>,
-) -> [Subscription; 2] {
+) -> [Subscription; 3] {
     let library_sub = library.watch().subscribe({
         let shared = Arc::downgrade(shared);
         move || {
@@ -397,6 +467,15 @@ fn subscribe(
             shared.changed.notify_one();
         }
     });
+    let saved_sub = library.saved().subscribe({
+        let shared = Arc::downgrade(shared);
+        move || {
+            let Some(shared) = shared.upgrade() else {
+                return;
+            };
+            enqueue(&shared, Inbound::Durable);
+        }
+    });
     let settings_watch = settings.clone();
     let settings_sub = settings.subscribe({
         let shared = Arc::downgrade(shared);
@@ -404,11 +483,21 @@ fn subscribe(
             let Some(shared) = shared.upgrade() else {
                 return;
             };
-            request_enabled(&shared, settings_watch.get().icloud_sync);
+            let enabled = settings_watch.get().icloud_sync;
+            let mut watched = shared
+                .watched_sync
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            if *watched == enabled {
+                return;
+            }
+            *watched = enabled;
+            drop(watched);
+            request_enabled(&shared, enabled);
         }
     });
     request_enabled(shared, settings.get().icloud_sync);
-    [library_sub, settings_sub]
+    [library_sub, settings_sub, saved_sub]
 }
 
 #[cfg(test)]

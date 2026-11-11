@@ -1,11 +1,11 @@
 use super::*;
 use crate::error::PortError;
 use crate::fixtures::clock::FakeClock;
-use crate::fixtures::cloudkit::FakeCloud;
+use crate::fixtures::cloudkit::{CloudScript, FakeCloud};
 use crate::fixtures::ids::FixedIds;
 use crate::library::{LibraryService, SnippetDraft};
 use crate::persist::{PersistError, Revision, WriteTarget, Writer};
-use crate::ports::{CloudBatch, CloudSend, CloudSendFailure};
+use crate::ports::{AccountChange, CloudAvailability, CloudBatch, CloudSend, CloudSendFailure};
 use crate::settings::{Settings, SettingsService, Theme, Variant};
 use chrono::{TimeZone, Utc};
 use kudzu_core::library::model::KudzuLibrary;
@@ -51,12 +51,7 @@ impl Harness {
         let dir = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
         fs::create_dir_all(&dir.0).unwrap();
         let clock = Arc::new(FakeClock::default());
-        let writer = Writer::new(
-            clock.clone(),
-            Duration::from_secs(30),
-            Duration::from_secs(1),
-        )
-        .unwrap();
+        let writer = Writer::new(clock.clone(), Duration::ZERO, Duration::from_millis(1)).unwrap();
         let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
         let library = Arc::new(
             LibraryService::new(
@@ -248,11 +243,17 @@ fn dev_and_unentitled_builds_stay_unavailable() {
         }
     );
     assert!(dev.cloud.state.lock().unwrap().starts.is_empty());
+    let dev_cloud = dev.cloud.clone();
+    drop(dev);
+    assert_eq!(dev_cloud.state.lock().unwrap().stops, 0);
 
     let off = Harness::open(false, false);
     off.settle();
     assert_eq!(*off.sync.status().get(), SyncStatus::Off);
     assert!(off.cloud.state.lock().unwrap().starts.is_empty());
+    let off_cloud = off.cloud.clone();
+    drop(off);
+    assert_eq!(off_cloud.state.lock().unwrap().stops, 0);
 
     let cloud = Arc::new(FakeCloud::default());
     cloud.fail_start(Some(PortError::Unavailable));
@@ -304,6 +305,7 @@ fn dev_and_unentitled_builds_stay_unavailable() {
     );
     assert!(cloud.state.lock().unwrap().starts.is_empty());
     drop(sync);
+    assert_eq!(cloud.state.lock().unwrap().stops, 0);
     writer.shutdown().unwrap();
 }
 
@@ -348,6 +350,14 @@ fn every_status_is_reachable_and_errors_use_fixed_sentences() {
         *harness.sync.status().get(),
         SyncStatus::NoAccount {
             reason: TEMPORARILY_UNAVAILABLE.into(),
+        }
+    );
+    events.availability(generation, CloudAvailability::Unavailable);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Unavailable {
+            reason: UNENTITLED.into(),
         }
     );
     events.availability(generation, crate::ports::CloudAvailability::Available);
@@ -419,6 +429,7 @@ fn every_status_is_reachable_and_errors_use_fixed_sentences() {
         kinds,
         BTreeSet::from([
             "off",
+            "unavailable",
             "starting",
             "syncing",
             "no-account",
@@ -606,12 +617,16 @@ fn stale_generations_after_stop_restart_and_account_change_are_ignored() {
 
     snippet(&harness, ";keep", "library");
     harness.settle();
-    harness.cloud.set_engine_state(b"token".to_vec());
     harness.full_fetch();
-    assert!(harness.dir.0.join("engine-state.data").is_file());
-    let before = harness.library.watch().get().snippets.len();
     let events = harness.cloud.events(second).unwrap();
-    events.account_changed(second);
+    events.state(second, b"token".to_vec());
+    harness.settle();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"token"
+    );
+    let before = harness.library.watch().get().snippets.len();
+    events.account_changed(second, AccountChange::Switch);
     harness.settle();
     assert_eq!(harness.library.watch().get().snippets.len(), before);
     let index: SyncIndex =
@@ -648,20 +663,19 @@ fn stale_generations_after_stop_restart_and_account_change_are_ignored() {
 #[test]
 fn a_failed_checkpoint_is_reused_without_losing_the_library() {
     let harness = Harness::open(true, true);
-    harness.cloud.set_engine_state(b"token-1".to_vec());
+    harness.settle();
+    let generation = harness.generation();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .state(generation, b"token-1".to_vec());
     harness.settle();
     harness.full_fetch();
     assert_eq!(
         fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
         b"token-1"
     );
-    harness
-        .cloud
-        .fail_checkpoint(Some(PortError::Io(crate::error::IoFailure {
-            kind: std::io::ErrorKind::Other,
-        })));
-    harness.cloud.set_engine_state(b"token-2".to_vec());
-    let generation = harness.generation();
     let id = Uuid::from_u128(9);
     harness.deliver(
         generation,
@@ -670,6 +684,13 @@ fn a_failed_checkpoint_is_reused_without_losing_the_library() {
             ..CloudBatch::default()
         },
     );
+    // A fetch with no following state event must not move the token.
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .state(generation, Vec::new());
+    harness.settle();
     assert_eq!(
         fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
         b"token-1"
@@ -915,7 +936,6 @@ fn a_crash_relaunch_from_disk_does_not_delete_the_remote_snippet() {
     )
     .unwrap();
     let cloud = Arc::new(FakeCloud::default());
-    cloud.set_engine_state(b"token-1".to_vec());
     let sync_dir = root.0.join("sync");
     let sync = SyncService::open(
         SyncConfig {
@@ -941,7 +961,7 @@ fn a_crash_relaunch_from_disk_does_not_delete_the_remote_snippet() {
             ..CloudBatch::default()
         },
     );
-    sync.settle();
+    sync.settle_pending();
 
     let crash = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
     let crash_sync = crash.0.join("sync");
@@ -1175,7 +1195,6 @@ fn a_failed_start_is_retried_on_the_fetch_interval() {
 fn a_failed_index_reset_does_not_start_the_new_account() {
     let harness = Harness::open(true, true);
     harness.settle();
-    harness.cloud.set_engine_state(b"token".to_vec());
     harness.full_fetch();
     let starts = harness.cloud.state.lock().unwrap().starts.len();
     let _restore = RestorePerms(&harness.dir.0);
@@ -1185,7 +1204,7 @@ fn a_failed_index_reset_does_not_start_the_new_account() {
         .cloud
         .events(generation)
         .unwrap()
-        .account_changed(generation);
+        .account_changed(generation, AccountChange::Switch);
     harness.settle();
     assert_eq!(
         *harness.sync.status().get(),
@@ -1267,7 +1286,7 @@ fn a_crash_relaunch_from_disk_does_not_restore_a_remote_delete() {
     cloud.deliver(
         generation,
         CloudBatch {
-            records: vec![remote_snippet(id, ";keep", "on-disk", 1_700_000_000)],
+            records: vec![remote_snippet(id, ";keep", "on-disk", 2_000_000_000)],
             full_fetch: true,
             ..CloudBatch::default()
         },
@@ -1331,7 +1350,7 @@ fn a_crash_relaunch_from_disk_does_not_restore_a_remote_delete() {
             ..CloudBatch::default()
         },
     );
-    sync.settle();
+    sync.settle_pending();
 
     let crash = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
     let crash_sync = crash.0.join("sync");
@@ -1407,4 +1426,335 @@ fn snippet_on(library: &LibraryService, trigger: &str, content: &str) -> Uuid {
         .unwrap()
         .0
         .id
+}
+
+#[test]
+fn a_conflict_takes_the_newer_server_copy_and_a_requeue_sends_again() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";a", "local");
+    harness.settle();
+    harness.full_fetch();
+    let generation = harness.generation();
+    let events = harness.cloud.events(generation).unwrap();
+    events.sent(
+        generation,
+        CloudSend {
+            conflicts: vec![remote_snippet(id, ";a", "from-server", 2_000_000_000)],
+            ..CloudSend::default()
+        },
+    );
+    harness.settle();
+    let library = harness.library.watch().get();
+    let stored = library
+        .snippets
+        .iter()
+        .find(|snippet| snippet.id == id)
+        .expect("server copy");
+    assert_eq!(stored.content, "from-server");
+    drop(library);
+
+    // The conflict merged the server payload into the index, so that name is no longer pending.
+    // Requeue an unacknowledged local edit: the index still has the old payload.
+    let pending = snippet(&harness, ";b", "pending");
+    harness.settle();
+    let name = kudzu_core::sync::snippet_name(pending);
+    let once = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert_eq!(once, 1);
+    events.sent(
+        generation,
+        CloudSend {
+            requeue: vec![name.clone()],
+            ..CloudSend::default()
+        },
+    );
+    harness.settle();
+    let again = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert!(again > once, "requeue did not send {name} again");
+}
+
+#[test]
+fn a_remote_tombstone_removes_the_snippet_and_a_local_delete_is_sent() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let remote_id = Uuid::from_u128(15);
+    let generation = harness.generation();
+    harness.deliver(
+        generation,
+        CloudBatch {
+            records: vec![remote_snippet(remote_id, ";remote", "there", 30)],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    let remote_name = kudzu_core::sync::snippet_name(remote_id);
+    harness.deliver(
+        generation,
+        CloudBatch {
+            deleted: vec![remote_name],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    assert!(harness
+        .library
+        .watch()
+        .get()
+        .snippets
+        .iter()
+        .all(|snippet| snippet.id != remote_id));
+
+    let local = snippet(&harness, ";gone", "local");
+    harness.settle();
+    harness.ack();
+    harness.library.delete_snippets(&[local]).unwrap();
+    harness.settle();
+    let name = kudzu_core::sync::snippet_name(local);
+    assert!(harness
+        .cloud
+        .state
+        .lock()
+        .unwrap()
+        .sends
+        .iter()
+        .any(|(_, batch)| batch.deleted.iter().any(|deleted| deleted == &name)));
+}
+
+#[test]
+fn zone_missing_sends_an_unacknowledged_snippet_again() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let id = snippet(&harness, ";z", "again");
+    harness.settle();
+    let name = kudzu_core::sync::snippet_name(id);
+    let once = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert_eq!(once, 1);
+    let generation = harness.generation();
+    harness.cloud.events(generation).unwrap().sent(
+        generation,
+        CloudSend {
+            zone_missing: true,
+            ..CloudSend::default()
+        },
+    );
+    harness.settle();
+    let again = harness
+        .uploaded()
+        .iter()
+        .filter(|uploaded| *uploaded == &name)
+        .count();
+    assert!(again > once, "zone_missing left {name} in flight");
+}
+
+#[test]
+fn an_earlier_generations_tick_does_not_fetch_after_an_account_change() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let first = harness.generation();
+    harness
+        .cloud
+        .events(first)
+        .unwrap()
+        .account_changed(first, AccountChange::Switch);
+    harness.settle();
+    let fetches = harness.cloud.state.lock().unwrap().fetches.clone();
+    harness.sync.enqueue_tick(first);
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().fetches, fetches);
+}
+
+#[test]
+fn signed_out_stays_until_the_new_account_is_available() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let first = harness.generation();
+    harness
+        .cloud
+        .events(first)
+        .unwrap()
+        .account_changed(first, AccountChange::SignOut);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: SIGNED_OUT.into(),
+        }
+    );
+    harness.clock.advance(FETCH_INTERVAL);
+    wait_fetch(&harness);
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: SIGNED_OUT.into(),
+        }
+    );
+    let generation = harness.generation();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .availability(generation, CloudAvailability::Available);
+    harness.settle();
+    let status = harness.sync.status().get();
+    assert!(!matches!(
+        status.as_ref(),
+        SyncStatus::NoAccount { reason } if reason == SIGNED_OUT
+    ));
+}
+
+#[test]
+fn could_not_determine_leaves_the_current_status() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    assert_eq!(*harness.sync.status().get(), SyncStatus::Syncing);
+    let generation = harness.generation();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .availability(generation, CloudAvailability::CouldNotDetermine);
+    harness.settle();
+    assert_eq!(*harness.sync.status().get(), SyncStatus::Syncing);
+}
+
+#[test]
+fn state_is_ordered_behind_the_fetch_and_empty_bytes_do_not_truncate() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    harness.full_fetch();
+    assert!(!harness.dir.0.join("engine-state.data").is_file());
+    let generation = harness.generation();
+    let events = harness.cloud.events(generation).unwrap();
+    events.state(generation, b"after".to_vec());
+    harness.settle();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"after"
+    );
+    events.state(generation, Vec::new());
+    harness.settle();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"after"
+    );
+}
+
+#[test]
+fn a_state_event_from_inside_fetch_is_applied_on_the_following_turn() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    harness
+        .cloud
+        .script(vec![CloudScript::State(b"from-fetch".to_vec())]);
+    harness.sync.sync_now();
+    harness.settle();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"from-fetch"
+    );
+}
+
+#[test]
+fn a_worker_panic_stops_a_started_port_and_dev_does_not() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().stops, 0);
+    harness.sync.panic_for_test();
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Error {
+            message: WORKER_STOPPED.into(),
+        }
+    );
+    let cloud = harness.cloud.clone();
+    drop(harness);
+    assert_eq!(cloud.state.lock().unwrap().stops, 1);
+
+    let dev = Harness::open(false, true);
+    dev.settle();
+    dev.sync.panic_for_test();
+    dev.settle();
+    assert_eq!(
+        *dev.sync.status().get(),
+        SyncStatus::Error {
+            message: WORKER_STOPPED.into(),
+        }
+    );
+    let cloud = dev.cloud.clone();
+    drop(dev);
+    assert_eq!(cloud.state.lock().unwrap().stops, 0);
+}
+
+#[test]
+fn turning_sync_off_keeps_the_saved_engine_state() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let generation = harness.generation();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .state(generation, b"token".to_vec());
+    harness.settle();
+    harness.sync.set_enabled(false);
+    harness.settle();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"token"
+    );
+}
+
+/// A local delete that is still in flight, followed by a remote modify of the same record,
+/// brings the snippet back. Tauri did the same; the merge rule is unchanged.
+#[test]
+fn a_local_delete_in_flight_plus_a_remote_modify_restores_the_snippet() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";back", "original");
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    harness.library.delete_snippets(&[id]).unwrap();
+    harness.settle();
+    assert!(harness
+        .library
+        .watch()
+        .get()
+        .snippets
+        .iter()
+        .all(|snippet| snippet.id != id));
+    let generation = harness.generation();
+    harness.deliver(
+        generation,
+        CloudBatch {
+            records: vec![remote_snippet(
+                id,
+                ";back",
+                "modified-remotely",
+                2_000_000_000,
+            )],
+            ..CloudBatch::default()
+        },
+    );
+    let library = harness.library.watch().get();
+    let restored = library.snippets.iter().find(|snippet| snippet.id == id);
+    assert_eq!(
+        restored.as_ref().map(|snippet| snippet.content.as_str()),
+        Some("modified-remotely")
+    );
 }

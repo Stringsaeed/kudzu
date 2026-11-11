@@ -42,6 +42,9 @@ use crate::library::model::{GroupRecord, KudzuLibrary, SnippetRecord, UsageRecor
 /// builds would misread (not for new JSON keys, which are always safe).
 pub const SYNC_VERSION: i64 = 1;
 
+/// CloudKit container. Production builds sync this container; Kudzu Next never opens it.
+pub const CONTAINER_ID: &str = "iCloud.sh.saeed.kudzu";
+
 /// The CloudKit zone holding the library.
 pub const ZONE_NAME: &str = "Kudzu";
 /// The single field every record carries.

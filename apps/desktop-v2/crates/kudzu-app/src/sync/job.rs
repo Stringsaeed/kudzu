@@ -1,51 +1,50 @@
 //! One serialised sync turn: merge inside `library.transact`, then the index, then sends.
 //! Callbacks from an older generation are ignored. Nothing here runs on the UI thread.
+//!
+//! Availability other than [`CloudAvailability::Available`] stays on screen across ticks,
+//! Sync now, and fetch failures. [`CloudAvailability::CouldNotDetermine`] changes nothing.
+//! Sign-out keeps [`SIGNED_OUT`](super::status::SIGNED_OUT) until `Available`.
 
-use super::files::{self, SyncFiles};
+use super::apply::Flight;
+use super::files;
 use super::status::{
-    self, SyncStatus, DEV_UNAVAILABLE, PERMANENT_FAILURE, QUOTA, SAVE_FAILED, START_FAILED,
-    TEMPORARILY_UNAVAILABLE, UNENTITLED,
+    self, SyncStatus, DEV_UNAVAILABLE, START_FAILED, TEMPORARILY_UNAVAILABLE, UNENTITLED,
 };
-use super::{bump, enqueue, Shared, Work};
+use super::{bump, enqueue, stop_port, Shared, Work};
 use crate::error::PortError;
-use crate::library::LibraryError;
-use crate::ports::{CloudAvailability, CloudBatch, CloudEvents, CloudSend, CloudSendFailure};
-use kudzu_core::sync::{
-    apply_remote, encode, initial_merge, local_changes, record_deleted, record_saved, usage_name,
-    Applied, SyncIndex,
-};
+use crate::ports::{AccountChange, CloudAvailability, CloudEvents};
+use kudzu_core::sync::SyncIndex;
+use std::collections::BTreeMap;
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
 pub(super) struct Job {
-    index: SyncIndex,
-    saved: SyncIndex,
-    files: SyncFiles,
+    pub(super) index: SyncIndex,
     events: Arc<dyn CloudEvents>,
-    running: bool,
+    pub(super) running: bool,
     applied: Option<bool>,
-    generation: u64,
+    pub(super) generation: u64,
     usage_credit: Duration,
-    force_usage: bool,
-    queued_send: bool,
+    pub(super) force_usage: bool,
+    pub(super) queued_send: bool,
+    pub(super) pending_push: bool,
+    start_failed: bool,
+    permanent_unavailable: bool,
+    pub(super) signed_out: bool,
+    pub(super) availability: Option<CloudAvailability>,
+    pub(super) pending_reset: Option<AccountChange>,
+    pub(super) in_flight: BTreeMap<String, Flight>,
 }
 
-struct Merged {
-    index: SyncIndex,
-    applied: Applied,
-}
-
-enum Resume {
+pub(super) enum Resume {
     Stored,
     Fresh,
 }
 
 impl Job {
-    pub(super) fn new(index: SyncIndex, files: SyncFiles, events: Arc<dyn CloudEvents>) -> Self {
+    pub(super) fn new(index: SyncIndex, events: Arc<dyn CloudEvents>) -> Self {
         Self {
-            saved: index.clone(),
             index,
-            files,
             events,
             running: false,
             applied: None,
@@ -53,10 +52,23 @@ impl Job {
             usage_credit: Duration::ZERO,
             force_usage: false,
             queued_send: false,
+            pending_push: false,
+            start_failed: false,
+            permanent_unavailable: false,
+            signed_out: false,
+            availability: None,
+            pending_reset: None,
+            in_flight: BTreeMap::new(),
         }
     }
 
     pub(super) fn turn(&mut self, shared: &Arc<Shared>, work: Work) {
+        if shared
+            .panic_turn
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            panic!("sync worker test panic");
+        }
         if let Some(enabled) = work.enabled {
             self.apply_enabled(shared, enabled);
         }
@@ -71,6 +83,7 @@ impl Job {
 
     fn apply_enabled(&mut self, shared: &Arc<Shared>, enabled: bool) {
         if self.applied == Some(enabled) {
+            // Explicit set_enabled while running still fetches. Settings ignores unchanged values.
             if enabled && self.running {
                 self.sync_now(shared, false);
             }
@@ -78,11 +91,13 @@ impl Job {
         }
         self.applied = Some(enabled);
         if !enabled {
-            self.stop_running(shared, SyncStatus::Off);
+            self.halt(shared);
+            publish(shared, SyncStatus::Off);
             return;
         }
         if status::dev_gate(shared.production, true).is_some() {
-            self.stop_running(
+            self.halt(shared);
+            publish(
                 shared,
                 SyncStatus::Unavailable {
                     reason: DEV_UNAVAILABLE.into(),
@@ -90,63 +105,93 @@ impl Job {
             );
             return;
         }
+        self.permanent_unavailable = false;
         self.begin(shared, Resume::Stored);
     }
 
-    fn stop_running(&mut self, shared: &Arc<Shared>, status: SyncStatus) {
-        self.halt(shared);
-        publish(shared, status);
-    }
-
+    /// Stop the port. Persist engine state only when the library revision is already durable.
     fn halt(&mut self, shared: &Arc<Shared>) {
         self.disarm(shared);
         self.generation = bump(shared);
         self.running = false;
+        self.start_failed = false;
+        self.pending_reset = None;
+        self.signed_out = false;
         self.force_usage = false;
         self.queued_send = false;
-        shared.cloud.stop();
+        self.pending_push = false;
+        let _ = super::apply::flush(shared);
+        stop_port(shared);
     }
 
-    fn begin(&mut self, shared: &Arc<Shared>, resume: Resume) {
-        publish(shared, SyncStatus::Starting);
+    pub(super) fn begin(&mut self, shared: &Arc<Shared>, resume: Resume) {
+        let keep_signed_out = self.signed_out;
+        if !keep_signed_out {
+            publish(shared, SyncStatus::Starting);
+        }
         self.disarm(shared);
         self.generation = bump(shared);
         self.usage_credit = Duration::ZERO;
         self.force_usage = false;
         self.queued_send = false;
+        self.pending_push = false;
+        self.in_flight.clear();
         self.running = false;
+        self.start_failed = false;
         let checkpoint = match resume {
             Resume::Fresh => None,
-            Resume::Stored => files::read_checkpoint(&self.files.checkpoint).unwrap_or(None),
+            Resume::Stored => {
+                let stored = shared.files.lock().unwrap_or_else(PoisonError::into_inner);
+                files::read_checkpoint(&stored.checkpoint).unwrap_or(None)
+            }
         };
         match shared
             .cloud
             .start(self.generation, checkpoint, self.events.clone())
         {
-            Err(PortError::Unavailable) => publish(
-                shared,
-                SyncStatus::Unavailable {
-                    reason: UNENTITLED.into(),
-                },
-            ),
-            Err(_) => publish(
-                shared,
-                SyncStatus::Error {
-                    message: START_FAILED.into(),
-                },
-            ),
-            Ok(()) => {
-                self.running = true;
-                self.arm_timer(shared);
-                self.publish_live(
+            Err(PortError::Unavailable) => {
+                self.permanent_unavailable = true;
+                publish(
                     shared,
-                    if self.index.blocked_by_newer_format() {
-                        SyncStatus::NeedsUpdate
-                    } else {
-                        SyncStatus::Syncing
+                    SyncStatus::Unavailable {
+                        reason: UNENTITLED.into(),
                     },
                 );
-                if shared.cloud.fetch(self.generation).is_err() {
+            }
+            Err(_) => {
+                self.start_failed = true;
+                publish(
+                    shared,
+                    SyncStatus::Error {
+                        message: START_FAILED.into(),
+                    },
+                );
+                self.arm_timer(shared);
+            }
+            Ok(()) => {
+                self.running = true;
+                shared
+                    .port_started
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                self.arm_timer(shared);
+                if keep_signed_out {
+                    publish(
+                        shared,
+                        SyncStatus::NoAccount {
+                            reason: status::SIGNED_OUT.into(),
+                        },
+                    );
+                } else {
+                    self.publish_live(
+                        shared,
+                        if self.index.blocked_by_newer_format() {
+                            SyncStatus::NeedsUpdate
+                        } else {
+                            SyncStatus::Syncing
+                        },
+                    );
+                }
+                if shared.cloud.fetch(self.generation).is_err() && !keep_signed_out {
                     self.publish_live(
                         shared,
                         SyncStatus::Error {
@@ -158,7 +203,7 @@ impl Job {
         }
     }
 
-    fn arm_timer(&mut self, shared: &Arc<Shared>) {
+    pub(super) fn arm_timer(&mut self, shared: &Arc<Shared>) {
         let generation = self.generation;
         let weak = Arc::downgrade(shared);
         match shared
@@ -185,57 +230,83 @@ impl Job {
     }
 
     fn dispatch(&mut self, shared: &Arc<Shared>, event: super::Inbound) {
-        if !self.fresh(event.generation()) {
+        if matches!(event, super::Inbound::Durable) {
+            self.on_durable(shared);
+            return;
+        }
+        let Some(generation) = event.generation() else {
+            return;
+        };
+        if !self.relevant(generation) {
             return;
         }
         match event {
             super::Inbound::Fetched(_, batch) => self.on_fetched(shared, batch),
             super::Inbound::Sent(_, report) => self.on_sent(shared, report),
-            super::Inbound::Account(_) => self.on_account(shared),
+            super::Inbound::Account(_, change) => self.on_account(shared, change),
             super::Inbound::Availability(_, availability) => {
                 self.on_availability(shared, availability)
             }
             super::Inbound::Failed(_, error) => self.on_failed(shared, error),
             super::Inbound::ZoneDeleted(_) => self.on_zone_deleted(shared),
+            super::Inbound::State(_, bytes) => self.on_state(shared, bytes),
             super::Inbound::Tick(_) => self.on_tick(shared),
+            super::Inbound::Durable => {}
         }
     }
 
-    fn fresh(&self, generation: u64) -> bool {
-        self.running && generation == self.generation
+    fn relevant(&self, generation: u64) -> bool {
+        generation == self.generation
+            && (self.running || self.start_failed || self.pending_reset.is_some())
     }
 
     fn on_tick(&mut self, shared: &Arc<Shared>) {
-        self.usage_credit += status::FETCH_INTERVAL;
-        if self.usage_credit >= status::USAGE_INTERVAL {
-            self.usage_credit = Duration::ZERO;
-            self.sync_now(shared, true);
-        } else {
-            self.sync_now(shared, false);
+        if self.pending_reset.is_some() {
+            self.try_reset(shared);
+            return;
         }
+        if !self.running {
+            if self.start_failed && !self.permanent_unavailable {
+                self.begin(shared, Resume::Stored);
+            }
+            return;
+        }
+        self.usage_credit += status::FETCH_INTERVAL;
+        let include_usage = self.usage_credit >= status::USAGE_INTERVAL;
+        if include_usage {
+            self.usage_credit = Duration::ZERO;
+        }
+        self.sync_now(shared, include_usage);
     }
 
     fn sync_now(&mut self, shared: &Arc<Shared>, include_usage: bool) {
         if !self.running {
+            if self.permanent_unavailable || self.pending_reset.is_some() {
+                return;
+            }
             if self.applied == Some(true) && status::dev_gate(shared.production, true).is_none() {
                 self.begin(shared, Resume::Stored);
             }
             return;
         }
         if shared.cloud.fetch(self.generation).is_err() {
-            self.publish_live(
-                shared,
-                SyncStatus::Error {
-                    message: TEMPORARILY_UNAVAILABLE.into(),
-                },
-            );
+            if !self.blocks_progress() {
+                self.publish_live(
+                    shared,
+                    SyncStatus::Error {
+                        message: TEMPORARILY_UNAVAILABLE.into(),
+                    },
+                );
+            }
             return;
         }
         if self.index.blocked_by_newer_format() {
             publish(shared, SyncStatus::NeedsUpdate);
             return;
         }
-        publish(shared, SyncStatus::Syncing);
+        if !self.blocks_progress() {
+            publish(shared, SyncStatus::Syncing);
+        }
         if self.index.initial_merge_done {
             self.queued_send = true;
             if include_usage {
@@ -244,183 +315,66 @@ impl Job {
         }
     }
 
-    fn on_account(&mut self, shared: &Arc<Shared>) {
-        self.halt(shared);
-        self.index = SyncIndex::default();
-        let _ = self.commit_index(shared);
-        if files::remove_checkpoint(&self.files.checkpoint).is_err() {
-            self.publish_live(
-                shared,
-                SyncStatus::Error {
-                    message: SAVE_FAILED.into(),
-                },
-            );
+    fn on_account(&mut self, shared: &Arc<Shared>, change: AccountChange) {
+        if change == AccountChange::SignIn {
+            self.signed_out = false;
+            self.availability = None;
+            if self.running && !self.index.blocked_by_newer_format() {
+                publish(shared, SyncStatus::Syncing);
+                self.sync_now(shared, false);
+            }
+            return;
         }
+        self.disarm(shared);
+        self.generation = bump(shared);
+        self.running = false;
+        self.start_failed = false;
+        self.force_usage = false;
+        self.queued_send = false;
+        self.pending_push = false;
+        self.in_flight.clear();
+        stop_port(shared);
+        self.pending_reset = Some(change);
+        self.signed_out = change == AccountChange::SignOut;
         log::info!("sync: iCloud account changed; server knowledge reset");
-        self.begin(shared, Resume::Fresh);
-    }
-
-    fn on_zone_deleted(&mut self, shared: &Arc<Shared>) {
-        self.index = SyncIndex {
-            initial_merge_done: true,
-            ..SyncIndex::default()
-        };
-        if !self.commit_index(shared) {
-            return;
-        }
-        self.force_usage = true;
-        log::info!("sync: zone deleted; local library kept");
-    }
-
-    fn on_fetched(&mut self, shared: &Arc<Shared>, batch: CloudBatch) {
-        log::info!(
-            "sync: fetched {} records, {} deletions",
-            batch.records.len(),
-            batch.deleted.len()
-        );
-        let was_done = self.index.initial_merge_done;
-        let device_id = shared.device_id.clone();
-        let prior = self.index.clone();
-        let full_fetch = batch.full_fetch;
-        let records = batch.records;
-        let deleted = batch.deleted;
-        let merged = shared.library.transact(move |library| {
-            let mut index = prior;
-            let applied = apply_remote(library, &mut index, &records, &deleted, &device_id);
-            if full_fetch {
-                initial_merge(library, &mut index);
-            }
-            Ok::<_, LibraryError>(Merged { index, applied })
-        });
-        let Ok((merged, _)) = merged else {
-            self.publish_live(
-                shared,
-                SyncStatus::Error {
-                    message: SAVE_FAILED.into(),
-                },
-            );
-            return;
-        };
-        self.index = merged.index;
-        let blocked = self.index.blocked_by_newer_format() || merged.applied.needs_update;
-        if full_fetch && !was_done && !blocked {
-            self.force_usage = true;
-        }
-        if !self.commit_index(shared) {
-            return;
-        }
-        self.store_engine(shared);
-        if blocked {
-            self.force_usage = false;
-            publish(shared, SyncStatus::NeedsUpdate);
-            return;
-        }
-        if !self.will_send(shared) {
-            self.publish_live(
-                shared,
-                SyncStatus::UpToDate {
-                    last_sync: shared.clock.now(),
-                },
-            );
-        }
-    }
-
-    fn on_sent(&mut self, shared: &Arc<Shared>, report: CloudSend) {
-        for record in &report.saved {
-            record_saved(&mut self.index, record);
-        }
-        for name in &report.deleted {
-            record_deleted(&mut self.index, name);
-        }
-        if !report.conflicts.is_empty() {
-            let device_id = shared.device_id.clone();
-            let prior = self.index.clone();
-            let conflicts = report.conflicts.clone();
-            let merged = shared.library.transact(move |library| {
-                let mut index = prior;
-                apply_remote(library, &mut index, &conflicts, &[], &device_id);
-                Ok::<_, LibraryError>(index)
-            });
-            match merged {
-                Ok((index, _)) => self.index = index,
-                Err(_) => {
-                    self.publish_live(
-                        shared,
-                        SyncStatus::Error {
-                            message: SAVE_FAILED.into(),
-                        },
-                    );
-                    return;
-                }
-            }
-        }
-        if !self.commit_index(shared) {
-            return;
-        }
-        if report.zone_missing || !report.requeue.is_empty() || !report.conflicts.is_empty() {
-            self.force_usage = true;
-        }
-        self.store_engine(shared);
-        if self.index.blocked_by_newer_format() {
-            publish(shared, SyncStatus::NeedsUpdate);
-            return;
-        }
-        if let Some(failure) = report.failure {
-            let message = match failure {
-                CloudSendFailure::QuotaExceeded => QUOTA,
-                CloudSendFailure::Permanent => PERMANENT_FAILURE,
-            };
-            self.publish_live(
-                shared,
-                SyncStatus::Error {
-                    message: message.into(),
-                },
-            );
-            return;
-        }
-        if self.force_usage {
-            publish(shared, SyncStatus::Syncing);
-        } else {
-            self.publish_live(
-                shared,
-                SyncStatus::UpToDate {
-                    last_sync: shared.clock.now(),
-                },
-            );
-        }
+        self.try_reset(shared);
     }
 
     fn on_availability(&mut self, shared: &Arc<Shared>, availability: CloudAvailability) {
-        if self.index.blocked_by_newer_format() && availability == CloudAvailability::Available {
-            publish(shared, SyncStatus::NeedsUpdate);
+        if availability == CloudAvailability::CouldNotDetermine {
             return;
         }
-        let status = match availability {
-            CloudAvailability::Available => SyncStatus::Syncing,
-            CloudAvailability::NoAccount => SyncStatus::NoAccount {
-                reason: status::NO_ACCOUNT.into(),
-            },
-            CloudAvailability::Restricted => SyncStatus::NoAccount {
-                reason: status::RESTRICTED.into(),
-            },
-            CloudAvailability::TemporarilyUnavailable => SyncStatus::NoAccount {
-                reason: TEMPORARILY_UNAVAILABLE.into(),
-            },
-            CloudAvailability::Unavailable => SyncStatus::Unavailable {
-                reason: UNENTITLED.into(),
-            },
-        };
-        publish(shared, status);
+        if self.signed_out && availability == CloudAvailability::NoAccount {
+            return;
+        }
+        if availability == CloudAvailability::Available {
+            self.signed_out = false;
+            self.availability = None;
+            if self.index.blocked_by_newer_format() {
+                publish(shared, SyncStatus::NeedsUpdate);
+                return;
+            }
+            if self.running {
+                self.sync_now(shared, false);
+            }
+            return;
+        }
+        self.availability = Some(availability);
+        publish(shared, availability_status(availability));
     }
 
     fn on_failed(&mut self, shared: &Arc<Shared>, error: PortError) {
         if error == PortError::Unavailable {
+            self.permanent_unavailable = true;
             publish(
                 shared,
                 SyncStatus::Unavailable {
                     reason: UNENTITLED.into(),
                 },
             );
+            return;
+        }
+        if self.blocks_progress() {
             return;
         }
         self.publish_live(
@@ -431,94 +385,11 @@ impl Job {
         );
     }
 
-    fn finish_uploads(&mut self, shared: &Arc<Shared>) {
-        let saved_ok = self.commit_index(shared);
-        let dirty = take_dirty(shared);
-        if !saved_ok {
-            return;
-        }
-        let include_usage = self.force_usage;
-        let allow_empty = self.queued_send;
-        if !dirty && !include_usage && !allow_empty {
-            return;
-        }
-        self.force_usage = false;
-        self.queued_send = false;
-        self.push(shared, include_usage, allow_empty);
+    pub(super) fn blocks_progress(&self) -> bool {
+        self.signed_out || self.availability.is_some()
     }
 
-    fn push(&mut self, shared: &Arc<Shared>, include_usage: bool, allow_empty: bool) {
-        if !self.running || !self.index.initial_merge_done || self.index.blocked_by_newer_format() {
-            return;
-        }
-        let library = shared.library.watch().get();
-        let changes = outbound(shared, &self.index, include_usage);
-        if changes.is_empty() && !allow_empty {
-            return;
-        }
-        let records = changes
-            .saves
-            .iter()
-            .filter_map(|name| encode(name, &library, &self.index, &shared.device_id))
-            .collect::<Vec<_>>();
-        let batch = CloudBatch {
-            records,
-            deleted: changes.deletes,
-            full_fetch: false,
-        };
-        let empty = batch.records.is_empty() && batch.deleted.is_empty();
-        match shared.cloud.send(self.generation, batch) {
-            Ok(()) if empty => self.publish_live(
-                shared,
-                SyncStatus::UpToDate {
-                    last_sync: shared.clock.now(),
-                },
-            ),
-            Ok(()) => publish(shared, SyncStatus::Syncing),
-            Err(_) => self.publish_live(
-                shared,
-                SyncStatus::Error {
-                    message: TEMPORARILY_UNAVAILABLE.into(),
-                },
-            ),
-        }
-    }
-
-    fn will_send(&self, shared: &Shared) -> bool {
-        if self.queued_send {
-            return true;
-        }
-        !outbound(shared, &self.index, self.force_usage).is_empty()
-    }
-
-    fn commit_index(&mut self, shared: &Shared) -> bool {
-        if self.index == self.saved {
-            return true;
-        }
-        match self.files.write_index(&self.index) {
-            Ok(()) => {
-                self.saved = self.index.clone();
-                true
-            }
-            Err(_) => {
-                self.publish_live(
-                    shared,
-                    SyncStatus::Error {
-                        message: SAVE_FAILED.into(),
-                    },
-                );
-                false
-            }
-        }
-    }
-
-    fn store_engine(&self, shared: &Shared) {
-        if let Ok(bytes) = shared.cloud.checkpoint() {
-            let _ = files::write_checkpoint(&self.files.checkpoint, &bytes);
-        }
-    }
-
-    fn publish_live(&self, shared: &Shared, status: SyncStatus) {
+    pub(super) fn publish_live(&self, shared: &Shared, status: SyncStatus) {
         if self.index.blocked_by_newer_format()
             && matches!(
                 status,
@@ -533,9 +404,24 @@ impl Job {
         }
         publish(shared, status);
     }
+
+    pub(super) fn publish_progress(&self, shared: &Shared, status: SyncStatus) {
+        if self.blocks_progress()
+            && matches!(
+                status,
+                SyncStatus::Starting
+                    | SyncStatus::Syncing
+                    | SyncStatus::UpToDate { .. }
+                    | SyncStatus::Error { .. }
+            )
+        {
+            return;
+        }
+        self.publish_live(shared, status);
+    }
 }
 
-fn publish(shared: &Shared, status: SyncStatus) {
+pub(super) fn publish(shared: &Shared, status: SyncStatus) {
     shared
         .status
         .replace(Arc::new(status))
@@ -543,23 +429,20 @@ fn publish(shared: &Shared, status: SyncStatus) {
         .notify();
 }
 
-fn take_dirty(shared: &Shared) -> bool {
-    let mut inbox = shared.inbox.lock().unwrap_or_else(PoisonError::into_inner);
-    let dirty = inbox.library_dirty;
-    inbox.library_dirty = false;
-    dirty
-}
-
-fn outbound(
-    shared: &Shared,
-    index: &SyncIndex,
-    include_usage: bool,
-) -> kudzu_core::sync::LocalChanges {
-    let library = shared.library.watch().get();
-    let mut changes = local_changes(&library, index, &shared.device_id);
-    if !include_usage {
-        let own = usage_name(&shared.device_id);
-        changes.saves.retain(|name| name != &own);
+fn availability_status(availability: CloudAvailability) -> SyncStatus {
+    match availability {
+        CloudAvailability::NoAccount => SyncStatus::NoAccount {
+            reason: status::NO_ACCOUNT.into(),
+        },
+        CloudAvailability::Restricted => SyncStatus::NoAccount {
+            reason: status::RESTRICTED.into(),
+        },
+        CloudAvailability::TemporarilyUnavailable => SyncStatus::NoAccount {
+            reason: TEMPORARILY_UNAVAILABLE.into(),
+        },
+        CloudAvailability::Unavailable => SyncStatus::Unavailable {
+            reason: UNENTITLED.into(),
+        },
+        CloudAvailability::Available | CloudAvailability::CouldNotDetermine => SyncStatus::Syncing,
     }
-    changes
 }

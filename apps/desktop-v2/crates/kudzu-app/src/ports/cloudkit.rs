@@ -1,16 +1,38 @@
 //! Cloud transport only. The sync service owns merges, status, and generation fencing.
 //!
-//! S37 implements this on `CKSyncEngine` and must not merge the library itself.
-//! Container `iCloud.sh.saeed.kudzu`. Zone and record types come from `kudzu_core::sync`
-//! (`ZONE_NAME`, `RecordKind`). Kudzu Next never reaches `start` (the service refuses Dev).
+//! S37 implements this on `CKSyncEngine` and must not merge the library itself. Names come from
+//! [`kudzu_core::sync`](kudzu_core::sync): `CONTAINER_ID` (`iCloud.sh.saeed.kudzu`), `ZONE_NAME`
+//! (`Kudzu`), and `RecordKind`. Kudzu Next never reaches `start` (the service refuses Dev).
+//! The service also never calls the port after `start` returns [`PortError::Unavailable`].
 //!
-//! Callbacks carry the generation passed to `start`. The service drops a stale one.
-//! `checkpoint` returns the engine serialization (`engine-state.data`); `Err` leaves the
-//! previous bytes in place. `start` after `stop` builds a new engine. Zone recreation stays
-//! in the adapter: queue the zone save, then call `zone_deleted`.
+//! Port methods run on the sync worker. Events may be delivered synchronously from inside
+//! `start`, `fetch`, or `send`; the service only enqueues them. Callbacks carry the generation
+//! passed to `start`. The service drops a stale one. No events are delivered after `stop`.
 //!
-//! Account events: sign-out and an account switch call `account_changed` (the service drops
-//! server knowledge and restarts). Sign-in calls `availability(Available)` only.
+//! Only the Kudzu zone is reported, never another zone in the container. `full_fetch` is set
+//! on `DidFetchChanges`. `start(checkpoint: None)` means there is no saved state, so the adapter
+//! queues the zone save. A later start builds a new engine.
+//!
+//! `zone_deleted` comes from fetched database changes filtered to the Kudzu zone. `zone_missing`
+//! comes from a send's `ZoneNotFound`. In both cases the adapter queues the zone save. The
+//! service re-derives resends from its index; the adapter never re-adds `requeue` names itself.
+//!
+//! `CloudSend.conflicts` is only `ServerRecordChanged`. The adapter replaces its cached record
+//! (change tag) with the server copy before reporting. `UnknownItem` drops the cached record and
+//! lists the name in `requeue`.
+//!
+//! Transient codes stay inside the adapter (`NetworkUnavailable`, `NetworkFailure`,
+//! `ServiceUnavailable`, `RequestRateLimited`, `ZoneBusy`). `QuotaExceeded` maps to
+//! [`CloudSendFailure::QuotaExceeded`]. Everything else is [`CloudSendFailure::Permanent`].
+//! `Err` from `fetch` or `send` means the request could not be issued at all. Never forward
+//! `localizedDescription`.
+//!
+//! Account status after every successful `start`, and on every later change:
+//! `Available`, `NoAccount`, `Restricted`, and `TemporarilyUnavailable` are reported as
+//! [`CloudAvailability`]. `CouldNotDetermine` is reported too; the service keeps its current
+//! status (Tauri ignored that case). Sign-in is [`AccountChange::SignIn`] plus availability.
+//! Sign-out is [`AccountChange::SignOut`]. An account switch is [`AccountChange::Switch`].
+
 use crate::error::PortError;
 use kudzu_core::sync::RemoteRecord;
 use std::sync::Arc;
@@ -21,8 +43,21 @@ pub enum CloudAvailability {
     NoAccount,
     Restricted,
     TemporarilyUnavailable,
+    /// `CKAccountStatus` could not be read. The service keeps whatever it is already showing.
+    CouldNotDetermine,
     /// The process is not entitled. `start` returns [`PortError::Unavailable`] for this too.
     Unavailable,
+}
+
+/// Why the iCloud account identity changed. Availability is a separate callback.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AccountChange {
+    /// The same account became available. The service does not drop server knowledge.
+    SignIn,
+    /// The user signed out. The service drops server knowledge and shows the signed-out sentence.
+    SignOut,
+    /// A different account is signed in. The service drops server knowledge and keeps syncing.
+    Switch,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -37,6 +72,7 @@ pub struct CloudBatch {
 /// the engine retries those itself.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct CloudSend {
+    /// Server-returned payloads, not the payloads the service submitted.
     pub saved: Vec<RemoteRecord>,
     pub deleted: Vec<String>,
     /// `serverRecordChanged`: the server copies to merge, then the saves are requeued.
@@ -56,23 +92,30 @@ pub enum CloudSendFailure {
 pub trait CloudEvents: Send + Sync {
     fn fetched(&self, generation: u64, batch: CloudBatch);
     fn sent(&self, generation: u64, report: CloudSend);
-    fn account_changed(&self, generation: u64);
+    fn account_changed(&self, generation: u64, change: AccountChange);
     fn availability(&self, generation: u64, availability: CloudAvailability);
     fn failed(&self, generation: u64, error: PortError);
     /// The Kudzu zone was deleted. The adapter has already queued its recreation.
     fn zone_deleted(&self, generation: u64);
+    /// CKSyncEngine state (NSKeyedArchiver bytes), in order with the other events.
+    /// Empty bytes are never sent. The service writes them only after earlier merges are durable.
+    fn state(&self, generation: u64, bytes: Vec<u8>);
 }
 
 pub trait CloudStore: Send + Sync {
+    /// `checkpoint == None` means no saved state; queue the zone save. `Some` restores it.
     fn start(
         &self,
         generation: u64,
         checkpoint: Option<Vec<u8>>,
         events: Arc<dyn CloudEvents>,
     ) -> Result<(), PortError>;
+    /// Safe without `start`, idempotent, and must not touch CloudKit when unentitled.
+    /// No events follow `stop`.
     fn stop(&self);
     fn fetch(&self, generation: u64) -> Result<(), PortError>;
+    /// Upserts the adapter's pending set by record name. The latest payload wins, a delete
+    /// replaces a pending save, and repeating a payload is idempotent. An empty batch means
+    /// "send what is already pending"; it does not clear that set.
     fn send(&self, generation: u64, batch: CloudBatch) -> Result<(), PortError>;
-    /// Last engine serialization. `Err` means keep the previous checkpoint.
-    fn checkpoint(&self) -> Result<Vec<u8>, PortError>;
 }

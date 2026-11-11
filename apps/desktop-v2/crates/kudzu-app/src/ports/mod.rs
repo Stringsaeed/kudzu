@@ -21,7 +21,8 @@ pub mod ids;
 pub use apps::{AppCatalog, FileIcons, TargetApp};
 pub use clock::Clock;
 pub use cloudkit::{
-    CloudAvailability, CloudBatch, CloudEvents, CloudSend, CloudSendFailure, CloudStore,
+    AccountChange, CloudAvailability, CloudBatch, CloudEvents, CloudSend, CloudSendFailure,
+    CloudStore,
 };
 pub use engine::{
     EngineEvents, EngineLibrary, EventStamp, Expansion, ExpansionEngine, FormChannel, FormRequest,

@@ -365,9 +365,15 @@ mod tests {
         let cloud = super::cloudkit::FakeCloud::default();
         let events = Arc::new(super::cloudkit::FakeCloudEvents::default());
         cloud.start(1, Some(vec![1, 2]), events.clone()).unwrap();
-        assert_eq!(cloud.checkpoint().unwrap(), [1, 2]);
+        assert_eq!(
+            cloud.state.lock().unwrap().starts[0].1.as_deref(),
+            Some(&[1, 2][..])
+        );
         cloud.stop();
+        cloud.deliver(1, CloudBatch::default());
+        assert!(events.fetched.lock().unwrap().is_empty());
         cloud.start(2, None, events.clone()).unwrap();
+        assert_eq!(cloud.state.lock().unwrap().fresh_starts, 1);
         cloud.deliver(1, CloudBatch::default());
         cloud.deliver(
             2,
@@ -385,5 +391,7 @@ mod tests {
             [1, 2]
         );
         assert!(received[1].1.full_fetch);
+        cloud.stop();
+        assert_eq!(cloud.state.lock().unwrap().stops, 2);
     }
 }
