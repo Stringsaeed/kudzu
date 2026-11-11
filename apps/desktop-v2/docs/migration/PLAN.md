@@ -882,6 +882,13 @@ Every service is tested against the fakes in `kudzu_app::fixtures`. The behaviou
 #### S35 · System adapters: engine, pasteboard, apps — M
 - **Goal:** The ports that touch the expansion path and app metadata, on macOS.
 - **Owns:** `crates/kudzu-system/src/{engine,pasteboard,apps,thumbnails,settings_panes,locale}.rs`; in `crates/kudzu-engine`, the removal of the code that moves here.
+- **From S34:**
+  - Move `kudzu_engine::outgoing` (`installed_apps`, `app_icon_png`, `thumbnail`/`Thumbnail`, `open_settings`, `locale`) into `kudzu-system`, along with its tests (`macos::apps::tests::*` and `macos::clipboard::tests::thumbnails_scale_down_and_report_pixel_size`), then delete `outgoing`. The engine still reads `outgoing::locale` as the fallback for an empty `EngineLibrary.locale`, so either keep that read or have the host always pass a locale.
+  - The port's `start(events)` comes after `Engine::new(host)`, so use a forwarding host.
+  - Map `FormRequest.target_app` to `target`, `ExpansionEvent` to `Expansion`, `insert` to `insert_snippet_with_selection`, and `panel_focused` to `form_panel_focused`. The status types are core's.
+  - Forward `trigger_lost` (D17).
+  - `clipboard::write` and `system::write_clipboard` may wait a few ms for an in-flight paste, and `copy_selection` holds the pasteboard for up to 300 ms, so call them off the UI thread.
+  - The engine crate is macOS-only. Its protocol fakes are test-private, so S35's contract suite needs its own fakes.
 - **Accept:** Each adapter passes the same contract test suite as its fake (the suite is generic over the port; the real adapter runs on macOS for cases that need no permission). The engine tests that moved with the code (`apps`, thumbnails) pass here. The commit body lists what S71 must check by hand.
 - **Closes:** none alone (enables EXP, CLP and PKR live checks).
 - **Depends:** S27, S28, S30, S34 · **Parallel with:** S32, S37, S70
@@ -1056,6 +1063,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Goal:** The fill-in form panel that appears at the caret.
 - **Owns:** `crates/kudzu-ui/src/form/**`.
 - **Read first:** the "Review caveats" in `docs/migration/spikes/S11-panels.md` (what this step must re-measure or prove).
+- **From S34 (FRM-4 contract):** report `form_panel_focused(token, true)` from the panel's key-status notification on the main thread, before the panel handles the next event, and make the panel key on any click inside it. Clicks are settled by the next focus report, so a late report makes the engine conservative: some submits are refused rather than risking text deleted at the wrong caret. S71 checks where each click actually lands.
 - **Accept:** The window shows itself when `forms.pending()` appears: at caret x − 24, y + caret height + 6; above the caret when it would overflow; x clamped 8 pt inside the screen; centred at 28% without a caret. A draggable header with the snippet and target app. Text, multi-line and choice controls in first-definition order; one value per shared name. The first field is focused; ↩ submits outside a multi-line field and ⌘↩ inside one; Escape cancels and returns to the target. Preview after 50 ms with formatting, images, actions and the selection; shimmer first; at most 160 pt. Height follows content within 160–640, as today (the window itself clamps at 680). No dismissal on blur; the window reports `panel_focused` to `forms`.
 - **Closes:** FRM-2, FRM-5 (UI), FRM-6.
 - **Depends:** S07, S27, S40 · **Parallel with:** S41, S56, S66
@@ -1303,6 +1311,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D14 | **Refused paste never loses text (fix, 2026-11-11):** a paste-based expansion saves and writes the clipboard **before** sending any Backspace. If posting ⌘V still fails afterwards, the trigger is typed back. Today's engine sends the Backspaces first and leaves neither the trigger nor the snippet (found by S39). This is a fix beyond D5 and D9. | S34 (with S39's pinned test updated to the fixed behaviour) |
 | D15 | **Opening a chip's settings (2026-11-11, after S13):** Rune's text field doesn't select a chip on a single click (#128, #353), so a chip's settings open on a **double-click**, or with **Return or Space** when the caret selection is exactly that chip. This switches to a single click once Rune ships a pill press handler. The code is tagged `RUNE-GAP(#128)` in `kudzu-ui/src/main/editor/chips.rs`. | §3 gap 6, S52, S53 |
 | D16 | **Update digest:** the staged-archive integrity check between the update service and the installer uses `blake3`, which Rune already compiles, rather than adding `sha2` (decided 2026-11-11). | S31, S36 |
+| D17 | **When a refused paste can't retype the trigger** (posting permission lost too): the engine restores the user's clipboard and reports `EngineHost::trigger_lost(TriggerLost { snippet_id, trigger })`, so the UI can say the trigger was removed and offer it back. The trigger text isn't left on the clipboard, because EXP-10 must restore the user's clipboard (S34, accepted 2026-11-11). | S27 (port), S35, S56/S57 (UI notice) |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 

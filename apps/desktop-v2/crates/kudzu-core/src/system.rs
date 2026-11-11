@@ -1,8 +1,8 @@
 //! Vocabulary shared by the engine, the application layer and the UI: plain value types with
 //! no behaviour, so a status or an app can cross a layer without a mapping.
 //!
-//! The engine defines the same shapes today; S34 switches it to these types and deletes its
-//! copies. Nothing here is persisted, so nothing here derives serde.
+//! The engine uses these types directly. Nothing here is persisted, so nothing here derives
+//! serde.
 
 /// A screen rectangle in global top-left-origin points (logical pixels).
 #[derive(Debug, Clone, Copy, PartialEq)]
