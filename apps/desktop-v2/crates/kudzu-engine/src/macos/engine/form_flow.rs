@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use super::super::keys::{self, SYNTHETIC_MARKER};
 use super::super::tap::HeldEvent;
-use super::replace::TypedTrigger;
+use super::replace::{Live, TypedTrigger};
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
 use crate::interruption::Interruption;
 use crate::library;
@@ -169,19 +169,6 @@ impl Imp {
         Some(form)
     }
 
-    /// The final guard for a submitted typed form: takes it, and says whether it may still
-    /// delete its trigger (not interrupted, cancelled or replaced since).
-    pub(super) fn take_submitted_form(&self, token: u64) -> bool {
-        let mut core = lock(&self.core);
-        match core.pending_form.take() {
-            Some(form) if form.token == token => !form.input.interrupted(),
-            other => {
-                core.pending_form = other;
-                false
-            }
-        }
-    }
-
     fn submit_now(&self, form: &PendingForm, values: HashMap<String, String>) {
         if form.input.interrupted() && matches!(form.kind, FormKind::Typed(_)) {
             return;
@@ -234,9 +221,15 @@ impl Imp {
                     trigger,
                     mode: PlanMode::ListenOnly,
                     swallowed: None,
-                    form: Some(form.token),
+                    live: Live {
+                        generation,
+                        guard: Guard::Explicit,
+                        pid: self.observe().frontmost_pid(),
+                        listen_only: true,
+                        form: Some(form.token),
+                    },
                 };
-                self.insert_expansion(generation, typed, rendered, Guard::Explicit)
+                self.insert_expansion(typed, rendered)
             }
             FormKind::Palette => {
                 self.insert_rendered(generation, &library, snippet, rendered, target)

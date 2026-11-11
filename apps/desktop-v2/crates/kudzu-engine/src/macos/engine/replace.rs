@@ -7,6 +7,11 @@
 //! with the key an active listener withheld, so the document shows the trigger as typed. (The
 //! engine this was copied from deleted first, and a refused paste left neither trigger nor
 //! snippet.)
+//!
+//! **Nothing goes into a changed context.** Preparing can wait (behind a selection copy, on a
+//! slow app's promised data), so the insertion re-checks [`Live`] right after it, before each
+//! Backspace, before the delivery and before typing anything back. When the context changed it
+//! stops there; if part of the trigger is gone by then, the host hears it is lost (D17).
 
 use kudzu_core::matching::TriggerMatch;
 use kudzu_core::InsertionMethod;
@@ -15,9 +20,23 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::super::input_source;
 use super::super::keys;
 use super::super::pasteboard::{PasteError, PreparedPaste};
-use super::{Imp, InsertError};
+use super::{Guard, Imp, InsertError};
 use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
-use crate::TriggerLost;
+use crate::{lock, TriggerLost};
+
+/// What an insertion re-checks before each step that changes the document.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Live {
+    pub(super) generation: u64,
+    pub(super) guard: Guard,
+    /// The app in front when the insertion started.
+    pub(super) pid: Option<i32>,
+    /// Listen-only typing (which the listener can't withhold) stops it: true while what the
+    /// typing would land in is about to be deleted.
+    pub(super) listen_only: bool,
+    /// A submitted form that must still be uninterrupted (FRM-4).
+    pub(super) form: Option<u64>,
+}
 
 /// The typed trigger an insertion replaces.
 #[derive(Clone, Copy)]
@@ -25,9 +44,8 @@ pub(super) struct TypedTrigger<'a> {
     pub(super) trigger: &'a TriggerMatch,
     pub(super) mode: PlanMode,
     pub(super) swallowed: Option<&'a str>,
-    /// The submitted form that replaces it, which must still be uninterrupted when the first
-    /// Backspace goes out.
-    pub(super) form: Option<u64>,
+    /// The checks for this insertion.
+    pub(super) live: Live,
 }
 
 impl TypedTrigger<'_> {
@@ -91,6 +109,40 @@ pub(super) enum Delivery<'a> {
 }
 
 impl Imp {
+    /// Whether the insertion `live` describes may still change the document: the same
+    /// attempt, still allowed, the same app in front, no listen-only typing into a deletion
+    /// range, and its submitted form not interrupted.
+    pub(super) fn still_live(&self, live: &Live) -> bool {
+        let unchanged = {
+            let core = lock(&self.core);
+            core.generation == live.generation
+                && !(live.listen_only && core.listen_only_interrupted)
+                && live.form.is_none_or(|token| {
+                    core.pending_form
+                        .as_ref()
+                        .is_some_and(|f| f.token == token && !f.input.interrupted())
+                })
+        };
+        unchanged && self.allowed(live.guard) && self.observe().frontmost_pid() == live.pid
+    }
+
+    /// Delivers text by typing or pasting, unless the context changed while preparing: then
+    /// nothing goes in and the answer is `false`.
+    pub(super) fn deliver(
+        &self,
+        text: &str,
+        html: Option<&str>,
+        method: InsertionMethod,
+        live: &Live,
+    ) -> Result<bool, InsertError> {
+        let delivery = self.prepare(text, html, method)?;
+        if !self.still_live(live) {
+            return Ok(false);
+        }
+        self.complete(delivery)?;
+        Ok(true)
+    }
+
     /// Decides how `text` goes in; a paste saves and writes the clipboard now.
     pub(super) fn prepare<'a>(
         &'a self,
@@ -131,19 +183,24 @@ impl Imp {
             .inspect_err(|_| self.put_back(t, 0))
     }
 
-    /// Deletes `t`, or returns `false` with nothing deleted when its submitted form was
-    /// interrupted (the final guard, FRM-4). When a Backspace is refused partway, `prepared` is
-    /// abandoned (its clipboard comes back) and what was deleted is typed back.
+    /// Deletes `t`, checking before each Backspace that the context is unchanged (for a
+    /// submitted form, that it wasn't interrupted: the final guard, FRM-4). When it changed,
+    /// `prepared` is abandoned (its clipboard comes back) and the answer is `false`; if some of
+    /// the trigger was deleted by then, it is lost. When a Backspace is refused partway, what
+    /// was deleted is typed back.
     pub(super) fn delete_trigger(
         &self,
         t: &TypedTrigger<'_>,
         prepared: &mut Option<Delivery<'_>>,
     ) -> Result<bool, InsertError> {
-        if t.form.is_some_and(|token| !self.take_submitted_form(token)) {
-            prepared.take();
-            return Ok(false);
-        }
         for deleted in 0..t.delete_count() {
+            if !self.still_live(&t.live) {
+                prepared.take();
+                if deleted > 0 {
+                    self.lost(t);
+                }
+                return Ok(false);
+            }
             if let Err(error) = keys::delete_backward(self.events(), 1) {
                 prepared.take();
                 self.put_back(t, deleted);
@@ -153,19 +210,28 @@ impl Imp {
         Ok(true)
     }
 
-    /// [`Imp::complete`] after `t` was deleted. A paste whose ⌘V is refused has already put the
-    /// clipboard back; the trigger is typed back too, since nothing was inserted.
+    /// [`Imp::complete`] after `t` was deleted, if the context is unchanged; else nothing goes
+    /// in, the trigger is lost and the answer is `false`. A paste whose ⌘V is refused has
+    /// already put the clipboard back; the trigger is typed back too, since nothing was
+    /// inserted.
     pub(super) fn complete_or_put_back(
         &self,
         t: &TypedTrigger<'_>,
         delivery: Delivery<'_>,
-    ) -> Result<(), InsertError> {
+    ) -> Result<bool, InsertError> {
+        if !self.still_live(&t.live) {
+            drop(delivery);
+            self.lost(t);
+            return Ok(false);
+        }
         let pastes = matches!(delivery, Delivery::Paste(_));
-        self.complete(delivery).inspect_err(|_| {
-            if pastes {
-                self.put_back(t, t.delete_count());
-            }
-        })
+        self.complete(delivery)
+            .inspect_err(|_| {
+                if pastes {
+                    self.put_back(t, t.delete_count());
+                }
+            })
+            .map(|()| true)
     }
 
     /// Prepares a sequence that replaces `t`: its first step when it is text (a paste is saved
@@ -201,19 +267,29 @@ impl Imp {
         Ok(first)
     }
 
-    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14). When that is
+    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14), if the context
+    /// is unchanged: never into another app or at a moved caret. When it changed, or typing is
     /// refused too, the host hears that the trigger is lost.
     fn put_back(&self, t: &TypedTrigger<'_>, deleted: usize) {
         let text = t.restoration(deleted);
         if text.is_empty() {
             return;
         }
+        if !self.still_live(&t.live) {
+            self.lost(t);
+            return;
+        }
         if let Err(error) = keys::retype(self.events(), &text) {
             log::warn!("could not type the trigger back: {error:?}");
-            self.host.trigger_lost(TriggerLost {
-                snippet_id: t.trigger.snippet_id,
-                trigger: t.trigger.trigger.clone(),
-            });
+            self.lost(t);
         }
+    }
+
+    /// Tells the host that `t` is missing from the document (D17).
+    fn lost(&self, t: &TypedTrigger<'_>) {
+        self.host.trigger_lost(TriggerLost {
+            snippet_id: t.trigger.snippet_id,
+            trigger: t.trigger.trigger.clone(),
+        });
     }
 }

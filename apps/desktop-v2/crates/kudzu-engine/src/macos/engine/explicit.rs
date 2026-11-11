@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use super::super::keys;
 use super::form_flow::{FormKind, PendingForm};
+use super::replace::Live;
 use super::session::decode;
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
 use crate::interruption::Interruption;
@@ -129,6 +130,13 @@ impl Imp {
         rendered: RenderResult,
         target: Option<&AppInfo>,
     ) -> Result<(), InsertError> {
+        let live = Live {
+            generation,
+            guard: Guard::Explicit,
+            pid: self.observe().frontmost_pid(),
+            listen_only: false,
+            form: None,
+        };
         let method = library.insertion_for(
             snippet,
             target
@@ -142,7 +150,7 @@ impl Imp {
                 &rendered.actions,
                 rendered.cursor_offset,
             );
-            if self.insert_sequence(generation, Guard::Explicit, None, method, sequence)? {
+            if self.insert_sequence(live, None, method, sequence)? {
                 self.host.expanded(ExpansionEvent {
                     snippet_id: snippet.id,
                     chars_saved: plan::chars_saved(&rendered.text, ""),
@@ -162,7 +170,9 @@ impl Imp {
         let caret = has_images
             .then(|| self.observe().caret_snapshot())
             .flatten();
-        self.deliver(&rendered.text, html.as_deref(), method)?;
+        if !self.deliver(&rendered.text, html.as_deref(), method, &live)? {
+            return Ok(());
+        }
         if !self.is_current(generation) || !self.explicit_allowed() {
             return Ok(());
         }

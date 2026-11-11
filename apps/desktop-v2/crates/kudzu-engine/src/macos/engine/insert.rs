@@ -10,8 +10,8 @@ use kudzu_core::template::RenderResult;
 use kudzu_core::{InsertionMethod, SnippetRecord};
 
 use super::super::keys;
-use super::replace::TypedTrigger;
-use super::{Guard, Imp, InsertError, KEY_SETTLE, PAUSE_SLICE};
+use super::replace::{Live, TypedTrigger};
+use super::{Imp, InsertError, KEY_SETTLE, PAUSE_SLICE};
 use crate::library::{self, Library};
 use crate::plan::{self, InsertionPlan, Sequence, Step};
 use crate::{lock, ExpansionEvent};
@@ -64,12 +64,12 @@ impl Imp {
     ///   typed again, because the text may be spread over several fields by then.
     pub(super) fn insert_sequence(
         &self,
-        token: u64,
-        guard: Guard,
+        live: Live,
         typed: Option<TypedTrigger<'_>>,
         method: InsertionMethod,
         sequence: Sequence,
     ) -> Result<bool, InsertError> {
+        let token = live.generation;
         // D14: a first step that pastes is prepared before the trigger is deleted.
         let mut first = None;
         if let Some(t) = &typed {
@@ -78,26 +78,34 @@ impl Imp {
                 return Ok(false);
             }
         }
-        let pid = self.observe().frontmost_pid();
-        let live = |imp: &Imp| {
-            imp.is_current(token) && imp.allowed(guard) && imp.observe().frontmost_pid() == pid
+        // Once the trigger is gone, each step checks the attempt, the guard and the app in front.
+        let step = Live {
+            listen_only: false,
+            form: None,
+            ..live
         };
-        for step in &sequence.steps {
-            if !live(self) {
-                lock(&self.core).reset_matcher();
-                return Ok(false);
+        let stop = |imp: &Imp| {
+            lock(&imp.core).reset_matcher();
+            Ok(false)
+        };
+        for item in &sequence.steps {
+            if !self.still_live(&step) {
+                return stop(self);
             }
-            match step {
+            match item {
                 Step::Text { text, spans } => {
                     self.keep_holding(token, Duration::ZERO);
-                    match (first.take(), &typed) {
+                    let delivered = match (first.take(), &typed) {
                         (Some(delivery), Some(t)) => self.complete_or_put_back(t, delivery)?,
                         _ => {
                             let html = spans
                                 .as_ref()
                                 .map(|spans| kudzu_core::formatting::html(text, spans));
-                            self.deliver(text, html.as_deref(), method)?;
+                            self.deliver(text, html.as_deref(), method, &step)?
                         }
+                    };
+                    if !delivered {
+                        return stop(self);
                     }
                 }
                 Step::Key { key, count } => {
@@ -121,9 +129,8 @@ impl Imp {
             }
         }
         self.keep_holding(token, Duration::ZERO);
-        if !live(self) {
-            lock(&self.core).reset_matcher();
-            return Ok(false);
+        if !self.still_live(&step) {
+            return stop(self);
         }
         // An image's delivered length depends on the app, so the caret isn't moved by a guess.
         let mut caret_left = if sequence.has_images {
@@ -167,30 +174,19 @@ impl Imp {
         Ok(true)
     }
 
-    /// Delivers text by typing or pasting.
-    pub(super) fn deliver(
-        &self,
-        text: &str,
-        html: Option<&str>,
-        method: InsertionMethod,
-    ) -> Result<(), InsertError> {
-        let delivery = self.prepare(text, html, method)?;
-        self.complete(delivery)
-    }
-
+    /// Replaces the typed trigger `typed` with `rendered`.
     pub(super) fn insert_expansion(
         &self,
-        token: u64,
         typed: TypedTrigger<'_>,
         rendered: RenderResult,
-        guard: Guard,
     ) -> Result<(), InsertError> {
         let TypedTrigger {
             trigger,
             mode,
             swallowed,
-            ..
+            live,
         } = typed;
+        let (token, guard) = (live.generation, live.guard);
         let text = case_propagation::apply(trigger.case_style, &rendered.text);
         let offset = rendered
             .cursor_offset
@@ -203,7 +199,7 @@ impl Imp {
             let actions =
                 plan::cased_actions(trigger.case_style, &rendered.text, &rendered.actions);
             let sequence = Sequence::new(&text, spans.as_deref(), &actions, offset);
-            if self.insert_sequence(token, guard, Some(typed), trigger.insertion, sequence)? {
+            if self.insert_sequence(live, Some(typed), trigger.insertion, sequence)? {
                 self.host.expanded(ExpansionEvent {
                     snippet_id: trigger.snippet_id,
                     chars_saved: plan::chars_saved(&text, &trigger.typed_trigger),
@@ -231,7 +227,9 @@ impl Imp {
                 .then(|| self.observe().caret_snapshot())
                 .flatten();
             if let Some(delivery) = prepared.take() {
-                self.complete_or_put_back(&typed, delivery)?;
+                if !self.complete_or_put_back(&typed, delivery)? {
+                    return Ok(());
+                }
             }
             caret
         };
