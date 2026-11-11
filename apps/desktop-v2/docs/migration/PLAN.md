@@ -1363,6 +1363,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - An unsigned raised `CFBundleShortVersionString` on disk: no skip and no relaunch; a valid archive still installs.
   - A signed app on disk at or above the candidate: skip; Restart to Update relaunches only if that version is newer than the running binary, and the UI doesn't claim a swap.
   - Login item: a `Program` key is refused, the plist is gone, and `enabled()` is false.
+- **From the S40 fixes:** startup now refuses to open (logged, exit 1) if the engine feed hasn't caught up within 5 s. Launch with a large library (several thousand snippets) on the slowest supported Mac, cold, and confirm it starts; if it comes close, raise the bound in `assembly/bounds.rs`. Also check the three lock outcomes: a second copy exits quietly, an unverified lock holder and a lock error exit 1 with a message, and the lock file survives all three.
 - **Accept:** `NATIVE_SYSTEM.md` complete, with the machine, macOS version and display. Every failure fixed, or carried to S74. Every budget met, or the miss listed with its cause and upstream issue.
 - **Closes:** SHL-8, SHL-9, SYN-1–6 (live confirmation).
 - **Depends:** S40–S66, S70 · **Parallel with:** S71, S73
