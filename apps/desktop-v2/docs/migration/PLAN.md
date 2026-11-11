@@ -669,7 +669,7 @@ A spike answers questions with a throwaway binary under `spikes/<name>/` and a f
 
 #### S12 · Spike: main window chrome — S
 - **Goal:** Decide the sidebar material and how the app forces its appearance.
-- **Owns:** `spikes/chrome/**`, `docs/migration/spikes/S12-chrome.md`.
+- **Owns:** `docs/migration/spikes/S12/` (evidence), `spikes/chrome/**`, `docs/migration/spikes/S12-chrome.md`.
 - **Questions:** A transparent full-size-content window with traffic lights at (18, 22) and drag regions. The sidebar with `SystemMaterial::Popover` and Kudzu's translucent fills, photographed beside the Tauri app in light and dark, active and inactive. Does setting `NSApp.appearance` make materials, traffic lights and menus follow the app theme, and what does `Cx::system_dark()` report then? Toolbar inset in full screen. `SplitView` collapse.
 - **Accept:** Side-by-side images in the note; the images the owner decides from (§6 D3); issues filed for gaps 3 and 4.
 - **Depends:** S03 · **Parallel with:** S06, S10, S15, S21, S22, S23, S24, S25, S39
@@ -901,6 +901,7 @@ Every service is tested against the fakes in `kudzu_app::fixtures`. The behaviou
 - **Owns:** `crates/kudzu-appkit/src/**`, `spikes/appkit-demo/**`.
 - **Deliverables:** `status_item`, `app_menu`, `appearance`, `screens`, `settings_window`; `sidebar_material` and `panel_tuning` only if their spikes decided so. Each: a safe API of plain types and closures, a main-thread check, a header naming the upstream issue and what replaces the module. A window pointer is taken from Rune's `WindowHandle::with_raw_handle` inside the call and never stored.
 - **Read first:** the "Review findings" in `docs/migration/spikes/S10-menubar.md` (four required changes and the status-item API).
+- **Read first:** the "Review findings" in `docs/migration/spikes/S12-chrome.md` (sidebar-material lifecycle, appearance contract, evidence gaps).
 - **Accept:** Tests that need no window server: the menu model, the glyph with the update dot (pixel test), shortcut hint text. A demo binary that exercises each module. `check-deps` shows no `kudzu-*` or `rune` dependency.
 - **Closes:** none alone (SHL-1, SHL-2, SHL-4 with S40).
 - **Depends:** S03, S10, S12, S15 · **Parallel with:** S07, S26, S31, S34

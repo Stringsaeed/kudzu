@@ -103,3 +103,21 @@ Both work. **Recommendation: take the native sidebar material (the fallback).** 
 ## Verdict
 
 Window chrome: go. Popover material: go with a visible inactive-state difference. Fallback material: go. Appearance: go. Full-screen inset: go. Collapse: go. Not demonstrated: native menus' appearance, a real drag, the fallback under resize and full screen, a capture of the real Tauri window.
+
+## Review findings (Codex Luna review, 2026-11-11: conditional go)
+
+**Supported:** traffic-light coordinates, the measured full-screen inset values, and static `SplitView` collapse. The owner chose the native sidebar material (D3).
+
+**Not yet proven:**
+- The fallback view's lifecycle. It was framed to the whole content view, and it was off during the collapse and full-screen probes.
+- Inset changes driven by the transition itself. The probe forced a rebuild before reading the inset.
+- Appearance for native menus and traffic lights.
+- A real window drag.
+- A capture of the real Tauri window.
+
+**S38 must add:**
+- A main-thread-checked `sidebar_material` API that uses the window handle transiently and never stores a window pointer.
+- A view sized to the sidebar, under Rune's Metal content, whose frame follows resize, full-screen transitions, collapse and reopen animations, and content-view replacement. Installing and removing it are idempotent.
+- Verification of the full-screen inset and toolbar movement without forcing a state change.
+- A typed `appearance` API. **Theme-source contract:** the theme resolves from the Appearance preference (Light or Dark). Only System reads `Cx::system_dark()`. `NSApp.appearance` is set from the same preference, so native menus, traffic lights and materials match. S38 checks menus, traffic lights, every app window, and live System appearance changes.
+- The remaining evidence: a capture of the real Tauri main window when one is on screen (read-only), and a real drag of the window.
