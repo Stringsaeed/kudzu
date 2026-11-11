@@ -14,6 +14,7 @@ pub mod thumbnails;
 pub mod update_install;
 
 mod code_identity;
+pub mod launch;
 mod unavailable;
 
 use kudzu_app::assembly::Host;
@@ -33,23 +34,24 @@ pub struct Native {
     pub executable: PathBuf,
     /// The running `.app`, or `None` for an unbundled `cargo run`.
     pub bundle: Option<PathBuf>,
-    /// Runs the ordered shutdown and quits. The relaunch helper calls it from a worker.
-    pub quit: Arc<dyn Fn() + Send + Sync>,
+    /// Runs the ordered shutdown and quits. The relaunch helper fires it from a worker.
+    pub quit: Arc<launch::QuitHook>,
     /// `rune::is_headless()`. A headless run must use fixtures; this refuses it.
     pub headless: bool,
 }
 
 /// `Ports::macos` lives here because the adapters do; `kudzu-app` cannot name them.
 pub trait MacosPorts: Sized {
-    /// Panics in a headless run: no event tap, CloudKit, socket or login item there.
+    /// Panics in a headless run or under `cfg(test)`, before any adapter is built.
     fn macos(native: Native) -> Self;
 }
 
 impl MacosPorts for Ports {
     fn macos(native: Native) -> Self {
+        // Tests and headless runs use fixtures: no event tap, CloudKit, socket or login item.
         assert!(
-            !native.headless,
-            "Ports::macos is not available in a headless run"
+            !native.headless && !cfg!(test),
+            "Ports::macos is not available in a test or headless run"
         );
         // One allocator and one adapter for the process. The same adapter serves the engine,
         // form and window ports; a later adapter would retire this one (S35).
@@ -97,28 +99,6 @@ pub fn host(native: Native) -> Host {
     }
 }
 
-/// Take the single-instance lock before NSApplication starts. `None` means exit quietly:
-/// another copy owns this identity (`Secondary`, which has asked it to reopen), or the lock's
-/// owner could not be verified (`UnverifiedOwner`, logged), or the lock could not be taken.
-pub fn claim_instance(
-    data: &Path,
-    bundle_id: &str,
-    bundle: Option<&Path>,
-) -> Option<instance::InstanceGuard> {
-    match instance::Instance::acquire(data, bundle_id, bundle) {
-        Ok(instance::Instance::Primary(guard)) => Some(guard),
-        Ok(instance::Instance::Secondary) => None,
-        Ok(instance::Instance::UnverifiedOwner) => {
-            log::warn!("another process holds the instance lock and could not be verified");
-            None
-        }
-        Err(error) => {
-            log::error!("the instance lock could not be taken: {error}");
-            None
-        }
-    }
-}
-
 /// One installer shared with the login item. An unbundled binary or a failed constructor
 /// is "unavailable": never a startup failure and never a fake that pretends to succeed.
 fn installation(
@@ -147,7 +127,7 @@ fn installation(
     };
     let quit = native.quit.clone();
     let relauncher: Arc<dyn Relauncher> = match native.bundle.clone().map(|bundle| {
-        relaunch::BundleRelauncher::new(bundle, native.bundle_id.clone(), move || quit())
+        relaunch::BundleRelauncher::new(bundle, native.bundle_id.clone(), move || quit.fire())
     }) {
         Some(Ok(relauncher)) => Arc::new(relauncher),
         _ => Arc::new(unavailable::Relaunch),
@@ -194,6 +174,20 @@ mod tests {
             None
         );
         assert_eq!(bundle_of(Path::new("/x/Kudzu/Contents/MacOS/k")), None);
+    }
+
+    #[test]
+    #[should_panic(expected = "not available in a test or headless run")]
+    fn ports_macos_refuses_to_build_under_test() {
+        use kudzu_app::ports::Ports;
+        let _ = <Ports as super::MacosPorts>::macos(super::Native {
+            bundle_id: "sh.saeed.kudzu.next".into(),
+            version: "0.0.0".into(),
+            executable: "/nonexistent/Kudzu".into(),
+            bundle: None,
+            quit: Default::default(),
+            headless: false,
+        });
     }
 
     #[test]

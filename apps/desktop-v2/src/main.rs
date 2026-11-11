@@ -25,9 +25,9 @@ fn main() {
     }
     log::info!("{} {version} starting", identity.name);
     // The instance lock is taken here, before NSApplication starts; a second copy exits.
-    let Some(app) = compose::start(args.mode, args.dev, identity, &dirs) else {
-        log::info!("{} is already running", identity.name);
-        return;
+    let app = match compose::start(args.mode, args.dev, identity, &dirs) {
+        Ok(app) => app,
+        Err(refusal) => std::process::exit(refusal.report(identity.name)),
     };
     timing::mark("services_ready");
     let app = std::sync::Arc::new(app);

@@ -66,4 +66,12 @@ with tempfile.TemporaryDirectory(prefix="kudzu-headless-") as directory:
     assert shown["main"] and not shown["palette"], shown
     shown = desktop("hidden-ignored-on-first-run", [], extra=["--hidden"])
     assert shown["main"], shown
+    # A failed `Kudzu::new` (here: the data folder can't be made) is reported, status 1.
+    blocker = scratch / "not-a-folder"
+    blocker.write_text("")
+    broken = dict(env, TMPDIR=str(blocker))
+    result = subprocess.run([sandbox, "-p", profile, str(BINARY), "--list-windows"], env=broken,
+                            cwd=scratch, capture_output=True, text=True)
+    print("startup-failure", result.returncode, result.stderr.strip().splitlines()[-1:])
+    assert result.returncode == 1 and "could not start" in result.stderr, result
     print("All modes and window scripts passed under a filesystem write sandbox, on fixtures.")

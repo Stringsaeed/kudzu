@@ -41,6 +41,12 @@ pub struct Windows {
 }
 
 impl Windows {
+    /// The tray's Quit, for the relaunch helper: drafts, shutdown, then exit.
+    pub fn quitter(&self) -> impl Fn() + Send + Sync + 'static {
+        let shell = self.shell.clone();
+        move || shell.quit()
+    }
+
     /// Wake each window when a watch it reads changes. Its `poll` then pulls the snapshot.
     pub fn wake_on_changes(&self, kudzu: &Kudzu) {
         let h = self.shell.handles();

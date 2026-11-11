@@ -3,9 +3,9 @@
 use crate::{cli::LaunchMode, identity::Identity};
 use kudzu_app::assembly::{Config, Host, Kudzu};
 use kudzu_app::{fixtures::Fixtures, paths::Paths, settings::Variant};
-use kudzu_ui::shell::Shell;
+use kudzu_system::launch::{claim_instance, QuitHook, Refusal};
 use std::path::PathBuf;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Lives as long as the process: the services, the instance lock (native only), the relaunch
@@ -13,35 +13,35 @@ use std::time::Duration;
 pub struct Composed {
     pub kudzu: Arc<Kudzu>,
     _instance: Option<kudzu_system::instance::InstanceGuard>,
-    quit: Arc<OnceLock<Shell>>,
+    quit: Arc<QuitHook>,
     pub scratch: Option<PathBuf>,
 }
 
-/// `None` when another copy owns this identity: exit quietly, before NSApplication starts.
+/// A `Refusal` exits before NSApplication starts: another copy, an unverified lock owner,
+/// a lock error, or a failed `Kudzu::new`. `main` logs it and exits with its status.
 pub fn start(
     mode: LaunchMode,
     dev: bool,
     id: Identity,
     dirs: &rune::dirs::AppDirs,
-) -> Option<Composed> {
+) -> Result<Composed, Refusal> {
     let native = mode == LaunchMode::Native;
     let scratch = (!native)
         .then(|| std::env::temp_dir().join(format!("kudzu-fixtures-{}", std::process::id())));
     let data = scratch.clone().unwrap_or_else(|| dirs.data().to_path_buf());
     let bundle = kudzu_system::bundle_path().filter(|_| native);
-    let claim = || kudzu_system::claim_instance(&data, id.bundle_id, bundle.as_deref());
+    let claim = || claim_instance(&data, id.bundle_id, bundle.as_deref());
     let instance = if native { Some(claim()?) } else { None };
     let version = include_str!("../version.txt").trim().to_owned();
     let executable = std::env::current_exe().unwrap_or_default();
-    let quit: Arc<OnceLock<Shell>> = Arc::new(OnceLock::new());
+    let quit = Arc::new(QuitHook::default());
     let host = if native {
-        let hook = quit.clone();
         kudzu_system::host(kudzu_system::Native {
             bundle_id: id.bundle_id.into(),
             version: version.clone(),
             executable: executable.clone(),
             bundle: bundle.clone(),
-            quit: Arc::new(move || hook.get().into_iter().for_each(Shell::quit)),
+            quit: quit.clone(),
             headless: rune::is_headless(),
         })
     } else {
@@ -72,8 +72,8 @@ pub fn start(
         debounce: Duration::from_millis(250),
         retry: Duration::from_secs(5),
     };
-    let kudzu = Kudzu::new(config).unwrap_or_else(|error| panic!("Kudzu could not start: {error}"));
-    Some(Composed {
+    let kudzu = Kudzu::new(config).map_err(Refusal::Startup)?;
+    Ok(Composed {
         kudzu,
         _instance: instance,
         quit,
@@ -97,7 +97,7 @@ pub fn windows(
     };
     let built = kudzu_ui::shell::build(&app.kudzu, launch);
     built.wake_on_changes(&app.kudzu);
-    let _ = app.quit.set(built.shell.clone());
+    app.quit.bind(built.quitter()); // Before any window exists, so before any relaunch.
     let mut windows = built.specs;
     let asked = cfg!(debug_assertions) && rune::extra_args().iter().any(|a| a == "--gallery");
     if mode == LaunchMode::Fixtures || asked {
