@@ -1,0 +1,22 @@
+//! kudzu-app — reserved for the owning implementation steps.
+pub mod activity;
+pub mod agents;
+pub mod apps;
+pub mod assembly;
+pub mod clipboard;
+pub mod data;
+pub mod expansion;
+pub mod fixtures;
+pub mod forms;
+pub mod hotkeys;
+pub mod library;
+pub mod onboarding;
+pub mod permissions;
+pub mod persist;
+pub mod ports;
+pub mod schedule;
+pub mod settings;
+pub mod sync;
+pub mod tasks;
+pub mod updates;
+pub mod watch;

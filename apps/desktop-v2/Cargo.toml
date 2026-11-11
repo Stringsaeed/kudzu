@@ -1,0 +1,60 @@
+[package]
+name = "kudzu"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[workspace]
+resolver = "2"
+members = ["crates/*", "xtask", "spikes/*"]
+default-members = [".", "crates/*", "xtask"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+rune.workspace = true
+kudzu-ui = { path = "crates/kudzu-ui" }
+
+[workspace.dependencies]
+rune = { git = "https://github.com/anomalyco/rune", rev = "29aacb688883a9712bc27175bdafd99fc6edb421", features = ["native-file-dialog"] }
+rune-kit = { git = "https://github.com/anomalyco/rune", rev = "29aacb688883a9712bc27175bdafd99fc6edb421", features = ["markdown"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+log = "0.4"
+unicode-segmentation = "1.12"
+unicode-normalization = "0.1"
+yaml-rust2 = "0.11"
+auto-launch = "0.6"
+ureq = "3.5"
+minisign-verify = "0.3"
+minisign = "0.10"
+semver = "1"
+flexi_logger = "0.31"
+csscolorparser = "0.9.1"
+image = "0.25"
+base64 = "0.22"
+parking_lot = "0.12"
+core-foundation = "0.10"
+core-foundation-sys = "0.8"
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-cloud-kit = "0.3"
+block2 = "0.6"
+plist = "1"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "unwind"
+strip = true
+
+[profile.dev.package."*"]
+opt-level = 2

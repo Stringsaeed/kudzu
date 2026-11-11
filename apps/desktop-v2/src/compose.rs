@@ -1,0 +1,26 @@
+use crate::cli::LaunchMode;
+
+pub fn windows(mode: LaunchMode) -> Vec<rune::AnyWindowSpec> {
+    // No platform adapters exist in S01. S40 must keep native assembly in this arm.
+    match mode {
+        LaunchMode::Fixtures => placeholder(),
+        LaunchMode::Native => placeholder(),
+        LaunchMode::Bridge => unreachable!("bridge never constructs windows"),
+    }
+}
+
+fn placeholder() -> Vec<rune::AnyWindowSpec> {
+    let spec = rune::AppSpec::new(
+        "Kudzu Next",
+        (1180.0, 760.0),
+        || (),
+        |_, _| {
+            rune::col()
+                .w_full()
+                .h_full()
+                .padding(32.0)
+                .child(rune::text("Kudzu Next").key("workspace-title"))
+        },
+    );
+    vec![rune::WindowSpec::from_app("main", rune::App::new(spec)).into()]
+}

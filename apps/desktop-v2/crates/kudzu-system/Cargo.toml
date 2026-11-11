@@ -1,0 +1,10 @@
+[package]
+name = "kudzu-system"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+kudzu-app = { path = "../kudzu-app" }
+kudzu-core = { path = "../kudzu-core" }
+kudzu-engine = { path = "../kudzu-engine" }

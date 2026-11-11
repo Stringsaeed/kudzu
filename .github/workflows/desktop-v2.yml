@@ -1,0 +1,33 @@
+name: Desktop v2
+on:
+  push:
+    paths: ["apps/desktop-v2/**", ".github/workflows/desktop-v2.yml"]
+  pull_request:
+    paths: ["apps/desktop-v2/**", ".github/workflows/desktop-v2.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  workspace:
+    runs-on: xcode-27
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/desktop-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.99.1
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop-v2
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo xtask check-deps
+      - name: Headless adapter isolation
+        run: |
+          cargo build
+          python3 scripts/check-headless.py
