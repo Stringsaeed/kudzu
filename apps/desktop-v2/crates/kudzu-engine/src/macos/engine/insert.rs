@@ -54,6 +54,22 @@ impl Imp {
         }
     }
 
+    /// A `{{delay}}`: sleeps in slices, holding typing meanwhile, and ends early when the
+    /// attempt is cancelled.
+    fn pause(&self, token: u64, duration: Duration) {
+        self.keep_holding(token, duration);
+        let until = self.observe().now() + duration;
+        while let Some(left) = until
+            .checked_duration_since(self.observe().now())
+            .filter(|d| !d.is_zero())
+        {
+            self.observe().sleep(left.min(PAUSE_SLICE));
+            if !self.is_current(token) {
+                break;
+            }
+        }
+    }
+
     /// Inserts an expansion that has `{{key}}` or `{{delay}}` steps: text, key presses and pauses in
     /// template order. The rules (see docs/TEMPLATE_SYNTAX.md, "Key presses and pauses"):
     /// - every text step is typed or pasted by the same rule as a whole expansion, and a paste's
@@ -61,7 +77,9 @@ impl Imp {
     /// - the sequence stops, leaving what was already inserted, as soon as the user clicks, the
     ///   frontmost app changes, or expansion is paused or blocked;
     /// - with key presses there is no Backspace undo and a whole-word trigger's separator isn't
-    ///   typed again, because the text may be spread over several fields by then.
+    ///   typed again, because the text may be spread over several fields by then;
+    /// - pauses before the first text or key press run before a typed trigger is deleted, so a
+    ///   paste refused after them can still keep the trigger (D14).
     pub(super) fn insert_sequence(
         &self,
         live: Live,
@@ -70,10 +88,19 @@ impl Imp {
         sequence: Sequence,
     ) -> Result<bool, InsertError> {
         let token = live.generation;
+        let mut steps: &[Step] = &sequence.steps;
         // D14: a first step that pastes is prepared before the trigger is deleted.
         let mut first = None;
         if let Some(t) = &typed {
-            first = self.prepare_sequence(t, &sequence, method)?;
+            while let Some((Step::Pause(duration), rest)) = steps.split_first() {
+                if !self.still_live(&t.live) {
+                    lock(&self.core).reset_matcher();
+                    return Ok(false);
+                }
+                self.pause(token, *duration);
+                steps = rest;
+            }
+            first = self.prepare_sequence(t, steps, method)?;
             if !self.delete_trigger(t, &mut first)? {
                 return Ok(false);
             }
@@ -88,7 +115,7 @@ impl Imp {
             lock(&imp.core).reset_matcher();
             Ok(false)
         };
-        for item in &sequence.steps {
+        for item in steps {
             if !self.still_live(&step) {
                 return stop(self);
             }
@@ -113,19 +140,7 @@ impl Imp {
                     keys::press_key(self.events(), *key, *count)?;
                     self.observe().sleep(KEY_SETTLE);
                 }
-                Step::Pause(duration) => {
-                    self.keep_holding(token, *duration);
-                    let until = self.observe().now() + *duration;
-                    while let Some(left) = until
-                        .checked_duration_since(self.observe().now())
-                        .filter(|d| !d.is_zero())
-                    {
-                        self.observe().sleep(left.min(PAUSE_SLICE));
-                        if !self.is_current(token) {
-                            break;
-                        }
-                    }
-                }
+                Step::Pause(duration) => self.pause(token, *duration),
             }
         }
         self.keep_holding(token, Duration::ZERO);

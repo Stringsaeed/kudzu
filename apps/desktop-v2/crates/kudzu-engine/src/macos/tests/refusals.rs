@@ -245,3 +245,88 @@ fn a_refusal_that_typed_back_the_withheld_key_loses_nothing() {
     assert_eq!(rig.doc(), ";sig|");
     assert!(lost(&rig).is_empty());
 }
+
+// MARK: A leading delay (review finding 4)
+
+/// `{{delay}}` first: the pause runs before anything is deleted, so a refused paste after it
+/// still has the trigger to keep.
+fn delayed() -> SnippetRecord {
+    pasted(";d", "{{delay ms=100}}text")
+}
+
+fn pause() -> Vec<Ev> {
+    vec![Ev::Slept(ms(50)); 2]
+}
+
+#[test]
+fn a_refused_write_after_a_leading_delay_deletes_nothing() {
+    let rig = Rig::with(&[delayed()], |d| d.with(|s| s.transient_fails = true));
+    rig.type_(";d");
+    assert_eq!(rig.log(), [pause(), vec![restored(), typed("d")]].concat());
+    assert_eq!(rig.doc(), ";d|");
+    assert_eq!(rig.host.outcomes(), failed(InsertFailure::PasteUnavailable));
+}
+
+#[test]
+fn a_refused_paste_keystroke_after_a_leading_delay_types_the_trigger_back() {
+    let rig = Rig::with(&[delayed()], |d| d.with(|s| s.paste_refused = true));
+    rig.type_(";d");
+    let expected = [
+        pause(),
+        vec![transient("text")],
+        outs(backspaces(1)),
+        vec![restored(), typed(";d")],
+    ]
+    .concat();
+    assert_eq!(rig.log(), expected);
+    assert_eq!(rig.doc(), ";d|");
+}
+
+#[test]
+fn a_refused_whole_word_paste_after_a_leading_delay_keeps_trigger_and_separator() {
+    let snippet = SnippetRecord {
+        insertion: Some(InsertionMethod::Paste),
+        ..whole_word("dly", "{{delay ms=100}}text")
+    };
+    let rig = Rig::with(&[snippet], |d| d.with(|s| s.paste_refused = true));
+    rig.type_("dly ");
+    assert_eq!(rig.doc(), "dly |");
+    assert_eq!(rig.clipboard(), user_clipboard());
+}
+
+#[test]
+fn a_submitted_form_with_a_leading_delay_whose_write_fails_deletes_nothing() {
+    let snippet = SnippetRecord {
+        insertion: Some(InsertionMethod::Paste),
+        ..snippet(";addr", "{{delay ms=100}}Dear {{field name=who}}, hi")
+    };
+    let rig = Rig::new(&[snippet]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.engine.set_suppressed(true);
+    rig.engine.form_panel_focused(token, true);
+    rig.type_in_panel("Sam");
+    rig.with(|s| s.transient_fails = true);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";addr|");
+    assert_eq!(rig.clipboard(), user_clipboard());
+    assert_eq!(form_outcomes(&rig), failed(InsertFailure::PasteUnavailable));
+}
+
+/// Posting permission goes away with the trigger's Backspace: the ⌘V and typing back are both
+/// refused. The clipboard is the user's and the host hears what was lost (D17).
+#[test]
+fn a_leading_delay_then_lost_permission_reports_the_lost_trigger() {
+    let rig = Rig::new(&[delayed()]);
+    rig.at(At::Press(0), |d| d.set_post_event(false));
+    rig.type_(";d");
+    assert_eq!(rig.doc(), "|");
+    assert_eq!(rig.clipboard(), user_clipboard());
+    assert_eq!(
+        lost(&rig),
+        [TriggerLost {
+            snippet_id: rig.snippet_id(";d"),
+            trigger: ";d".into(),
+        }]
+    );
+}

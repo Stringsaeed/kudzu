@@ -21,7 +21,7 @@ use super::super::input_source;
 use super::super::keys;
 use super::super::pasteboard::{PasteError, PreparedPaste};
 use super::{Guard, Imp, InsertError};
-use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
+use crate::plan::{self, InsertionPlan, PlanMode, Step};
 use crate::{lock, TriggerLost};
 
 /// What an insertion re-checks before each step that changes the document.
@@ -234,17 +234,18 @@ impl Imp {
             .map(|()| true)
     }
 
-    /// Prepares a sequence that replaces `t`: its first step when it is text (a paste is saved
-    /// and written now), else nothing. When a later step pastes but the clipboard can't be
-    /// saved now, nothing is deleted. A paste refused later still stops the sequence where it
-    /// is, as any refused step does (EXP-15).
+    /// Prepares the `steps` of a sequence that replaces `t` (its leading pauses already ran):
+    /// the first one when it is text (a paste is saved and written now), else nothing. When a
+    /// later step pastes but the clipboard can't be saved now, nothing is deleted. A paste
+    /// refused after a key press still stops the sequence where it is, as any refused step does
+    /// (EXP-15).
     pub(super) fn prepare_sequence<'a>(
         &'a self,
         t: &TypedTrigger<'_>,
-        sequence: &'a Sequence,
+        steps: &'a [Step],
         method: InsertionMethod,
     ) -> Result<Option<Delivery<'a>>, InsertError> {
-        let first = match sequence.steps.first() {
+        let first = match steps.first() {
             Some(Step::Text { text, spans }) => {
                 let html = spans
                     .as_ref()
@@ -253,7 +254,7 @@ impl Imp {
             }
             _ => None,
         };
-        let later = &sequence.steps[usize::from(first.is_some())..];
+        let later = &steps[usize::from(first.is_some())..];
         let pastes_later = later.iter().any(|step| {
             matches!(step, Step::Text { text, spans }
                 if !plan::types(method, text, spans.is_some(), input_source::composing()))

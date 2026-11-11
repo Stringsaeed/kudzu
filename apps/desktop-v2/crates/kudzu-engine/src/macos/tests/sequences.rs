@@ -140,3 +140,31 @@ fn a_sequence_stops_after_a_key_press_too() {
     );
     assert_eq!(rig.doc(), "|onetwo\t");
 }
+
+/// Review finding 4 (D14): a pause before the first text runs while the trigger is still in the
+/// document; the trigger is deleted just before the text goes in. (The copied engine deleted
+/// first, so a paste refused after the pause had nothing to keep.)
+#[test]
+fn a_leading_delay_runs_before_the_trigger_is_deleted() {
+    let rig = Rig::new(&[snippet(";d", "{{delay ms=100}}text")]);
+    rig.type_(";d");
+    let expected = [
+        vec![Ev::Slept(ms(50)); 2],
+        vec![Ev::Out(Out::Backspace), Ev::Out(Out::Type("text".into()))],
+    ]
+    .concat();
+    assert_eq!(rig.log(), expected);
+    assert_eq!(rig.doc(), "text|");
+    assert_eq!(rig.host.expansions(), 1);
+}
+
+/// A click during that pause cancels with nothing deleted.
+#[test]
+fn a_click_during_a_leading_delay_deletes_nothing() {
+    let rig = Rig::new(&[snippet(";d", "{{delay ms=100}}text")]);
+    rig.at(At::Sleep(ms(50), 0), |d| d.clicks());
+    rig.type_(";d");
+    assert_eq!(rig.posted(), []);
+    assert_eq!(rig.doc(), ";|");
+    assert_eq!(rig.host.expansions(), 0);
+}
