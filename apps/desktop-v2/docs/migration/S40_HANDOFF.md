@@ -42,3 +42,13 @@ S40 (`refactor(desktop-v2): compose the services in Kudzu::new and order Kudzu::
 - Headless scripts can't deliver a system quit that runs `App::on_quit`.
 - `--tree` doesn't report Dock icon or activation-policy requests.
 - No menu-bar-ready hook; the app-menu patch retries on each poll.
+
+## From the S40 review (Grok)
+
+The review's majors (startup panic, lock outcomes, `Writer` timeout installing an update, the feed wait) and minors are being fixed in a follow-up that touches only assembly, `compose`/`main`, `kudzu-system` and `shell/`. Extra notes for the screens:
+
+- **S41.** `MainModel.draft` is a stand-in (`shell/windows/main.rs:47-49`); hide and quit commit through `library.create_snippet`. Extend `MainServices` there. The wakers already cover settings, library, expansion and updates.
+- **S56.** Opening queues `show` on the next update (the S11 same-turn fill). `dismiss` is the only hide path; dropping an in-flight capture abandons the `Task` and the session's `Drop` lifts suppression. Read the `outcomes()` baseline before inserting. The shell has no exhaustive `match` on `InsertionOutcome`, so the palette must handle `EngineStopped` itself.
+- **S57.** The form shows itself from `pending()` (`shell/windows/form.rs:86-111`); no blur dismissal. `PanelFocus.after` is always `None` (`form.rs:77-81`): fill it from `NSApp.currentEvent`. `SubmitStartError.restoration` is not settled yet; `close_windows` only settles cancel (`shell/mod.rs:103-108`). Seq starts at 1 per request. The empty `set_kudzu_windows` push already runs before any form.
+- **S60.** Hide before `PickSession::paste`, on a worker (about 850 ms). Turning recording off already hides the picker and unregisters the clipboard chord.
+- **S66.** `take_pending_restart` already runs off the UI thread (`shell/windows/permissions.rs:72-74`). `WindowList` hard-codes `passes_clicks_through: false` (`shell/window_list.rs:43-44`): the guide overlay must be pushed as click-through, or every click on it interrupts typed forms. The companion's `begin` stays off the UI thread (S30).
