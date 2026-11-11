@@ -92,6 +92,23 @@ impl MainState {
         self.apply_appearance();
     }
 
+    /// Close Windows ⌘Q goes in as soon as Rune's menu bar exists, even before any Dock
+    /// promotion (S10 review). Until then each poll tries again.
+    fn install_menu(&mut self) {
+        if self.model.menu.is_some() || !self.shell.native() {
+            return;
+        }
+        let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
+            return;
+        };
+        let shell = self.shell.clone();
+        let close = std::rc::Rc::new(move || shell.close_windows());
+        let name = self.shell.identity().app_name;
+        if let Ok(menu) = kudzu_appkit::app_menu::AppMenu::install(mtm, name, close) {
+            self.model.menu = Some(menu);
+        }
+    }
+
     fn patch_menu(&mut self) {
         if let Some(menu) = &self.model.menu {
             if let Err(error) = menu.patch() {
@@ -153,6 +170,7 @@ impl MainState {
             self.start();
             changed = true;
         }
+        self.install_menu();
         if self.model.theme.sync(&self.svc.settings.watch()) {
             self.apply_appearance();
             changed = true;
