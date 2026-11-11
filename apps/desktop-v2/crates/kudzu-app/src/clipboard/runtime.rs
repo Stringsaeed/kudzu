@@ -52,14 +52,22 @@ impl ClipboardService {
                 match receive.recv_timeout(Duration::from_millis(300)) {
                     Ok(Wake::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     Ok(Wake::Collect) => {
-                        let _ = service.collect();
+                        if let Err(error) = service.collect() {
+                            service.publish_capture_error(Some(error));
+                        }
                     }
                     Ok(Wake::Prune) => {
-                        let _ = service.prune();
+                        if let Err(error) = service.prune() {
+                            service.publish_capture_error(Some(error));
+                        }
                     }
                     Ok(Wake::Settings) | Err(mpsc::RecvTimeoutError::Timeout) => {
-                        let _ = service.poll();
-                        let _ = service.collect();
+                        if let Err(error) = service.poll() {
+                            service.publish_capture_error(Some(error));
+                        }
+                        if let Err(error) = service.collect() {
+                            service.publish_capture_error(Some(error));
+                        }
                     }
                 }
             })
@@ -73,6 +81,7 @@ impl ClipboardService {
         });
         Ok(())
     }
+    /// Stop capture. S40 must then drain the shared writer and call `finish_shutdown`.
     pub fn shutdown(&self) -> Result<(), ClipboardError> {
         let runtime = self
             .runtime

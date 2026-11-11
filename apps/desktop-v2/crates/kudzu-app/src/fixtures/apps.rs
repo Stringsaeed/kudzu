@@ -1,7 +1,7 @@
 //! Catalogue and focus fixture, with no NSWorkspace or AX access.
 use crate::{
     error::PortError,
-    ports::{AppCatalog, TargetApp},
+    ports::{AppCatalog, FileIcons, TargetApp},
 };
 use kudzu_core::system::{AppInfo, Rect};
 use std::{collections::BTreeMap, sync::Mutex};
@@ -54,5 +54,13 @@ impl TargetApp for FakeApps {
     fn caret(&self) -> Result<Option<Rect>, PortError> {
         self.check()?;
         Ok(*self.caret.lock().unwrap())
+    }
+}
+
+impl FileIcons for FakeApps {
+    fn file_icon(&self, path: &str, px: u32) -> Result<Option<Vec<u8>>, PortError> {
+        self.check()?;
+        self.icon_calls.lock().unwrap().push((path.to_string(), px));
+        Ok(self.icons.lock().unwrap().get(path).cloned())
     }
 }

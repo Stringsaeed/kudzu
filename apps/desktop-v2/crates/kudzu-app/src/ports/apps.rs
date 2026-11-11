@@ -11,3 +11,8 @@ pub trait TargetApp: Send + Sync {
     fn selection(&self) -> Result<Option<String>, PortError>;
     fn caret(&self) -> Result<Option<Rect>, PortError>;
 }
+
+/// Finder-style icons for filesystem paths. S35 implements this with NSWorkspace.
+pub trait FileIcons: Send + Sync {
+    fn file_icon(&self, path: &str, px: u32) -> Result<Option<Vec<u8>>, PortError>;
+}

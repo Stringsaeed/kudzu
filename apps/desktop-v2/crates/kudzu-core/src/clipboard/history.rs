@@ -53,7 +53,7 @@ pub const SECRET_RULES: u32 = 1;
 fn secret_of(kind: ClipKind, text: Option<&str>) -> Option<SecretKind> {
     match kind {
         ClipKind::Text | ClipKind::Code | ClipKind::Link | ClipKind::Other => {
-            text.and_then(secrets::detect)
+            text.and_then(|text| secrets::scan(text).first().map(|finding| finding.kind))
         }
         ClipKind::Color | ClipKind::Image | ClipKind::File => None,
     }

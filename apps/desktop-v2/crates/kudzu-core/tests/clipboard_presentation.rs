@@ -280,7 +280,7 @@ fn agent_scope_redacts_before_matching_and_honors_overrides() {
     };
     assert_eq!(query(&[e.clone()], SearchScope::Local, "correct-horse"), 1);
     assert_eq!(query(&[e.clone()], SearchScope::Agent, "correct-horse"), 0);
-    assert_eq!(query(&[e.clone()], SearchScope::Agent, "safe"), 1);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "safe"), 0);
     assert_eq!(
         query(&[e.clone()], SearchScope::Agent, "/Users/example/private"),
         1

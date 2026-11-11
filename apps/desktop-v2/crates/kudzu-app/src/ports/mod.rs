@@ -16,7 +16,7 @@ pub mod thumbnails;
 pub mod update_install;
 
 pub mod ids;
-pub use apps::{AppCatalog, TargetApp};
+pub use apps::{AppCatalog, FileIcons, TargetApp};
 pub use clock::Clock;
 pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
 pub use engine::{
@@ -43,6 +43,7 @@ pub struct Ports {
     pub thumbnails: std::sync::Arc<dyn Thumbnailer>,
     pub apps: std::sync::Arc<dyn AppCatalog>,
     pub target_app: std::sync::Arc<dyn TargetApp>,
+    pub file_icons: std::sync::Arc<dyn FileIcons>,
     pub settings: std::sync::Arc<dyn SystemSettings>,
     pub login_item: std::sync::Arc<dyn LoginItem>,
     pub files: std::sync::Arc<dyn FileOpener>,

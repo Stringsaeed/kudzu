@@ -175,6 +175,7 @@ impl Fixtures {
             thumbnails: self.thumbnails.clone(),
             apps: self.apps.clone(),
             target_app: self.apps.clone(),
+            file_icons: self.apps.clone(),
             settings: self.settings.clone(),
             login_item: self.login_item.clone(),
             files: self.files.clone(),

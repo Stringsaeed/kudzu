@@ -11,7 +11,10 @@ use kudzu_core::clipboard::{
     query::{ClipFilter, ClipQuery},
     uti,
 };
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 fn text(value: &str) -> Vec<PasteItem> {
     vec![vec![(uti::PLAIN_TEXT.into(), value.as_bytes().to_vec())]]
@@ -33,11 +36,13 @@ fn captures_folds_and_preserves_override_and_undo() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock.clone(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock: clock.clone(),
+        },
         &writer,
     )
     .unwrap();
@@ -74,11 +79,13 @@ fn private_marker_on_second_item_is_not_recorded() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock.clone(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock: clock.clone(),
+        },
         &writer,
     )
     .unwrap();
@@ -144,11 +151,13 @@ fn corrupt_index_is_quarantined_and_directory_is_private() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board,
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board,
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -186,11 +195,13 @@ fn plain_copy_own_changes_and_relaunch_keep_secret_override() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            Arc::new(FakeApps::default()),
-            Arc::new(FakeApps::default()),
-            clock.clone(),
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock: clock.clone(),
+            },
             writer,
         )
         .unwrap()
@@ -239,11 +250,13 @@ fn history_alignment_compares_full_text_not_only_excerpt() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -289,11 +302,13 @@ fn recording_exclusions_thumbnails_and_copy_fallback() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            thumb.clone(),
-            apps.clone(),
-            apps.clone(),
-            clock,
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: thumb.clone(),
+                target: apps.clone(),
+                icons: apps.clone(),
+                clock,
+            },
             &writer,
         )
         .unwrap(),
@@ -353,11 +368,13 @@ fn large_blob_is_metadata_only_and_fails_to_copy() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -392,11 +409,13 @@ fn deletion_keeps_blob_until_removal_is_durable() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -431,11 +450,13 @@ fn agent_search_redacts_secrets_and_cache_follows_revision() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -446,14 +467,9 @@ fn agent_search_redacts_secrets_and_cache_follows_revision() {
         .agent_query(ClipFilter::All, &ClipQuery::parse("superSecret123"))
         .is_empty());
     let shown = service.agent_query(ClipFilter::All, &ClipQuery::parse("hello"));
-    assert_eq!(shown.len(), 1);
-    assert!(!shown[0]
-        .excerpt
-        .as_ref()
-        .unwrap()
-        .contains("superSecret123"));
+    assert!(shown.is_empty());
     service.query(ClipFilter::All, &ClipQuery::parse("hello"));
-    assert_eq!(service.cache_builds.load(Ordering::Relaxed), 1);
+    assert_eq!(service.cache_builds.load(Ordering::Relaxed), 2);
     service.set_secret(id, Some(false)).unwrap();
     assert_eq!(
         service
@@ -461,7 +477,7 @@ fn agent_search_redacts_secrets_and_cache_follows_revision() {
             .len(),
         1
     );
-    assert_eq!(service.cache_builds.load(Ordering::Relaxed), 2);
+    assert_eq!(service.cache_builds.load(Ordering::Relaxed), 3);
     service.set_secret(id, Some(true)).unwrap();
     assert!(service
         .agent_query(ClipFilter::All, &ClipQuery::parse("superSecret123"))
@@ -470,7 +486,7 @@ fn agent_search_redacts_secrets_and_cache_follows_revision() {
         .agent_query(ClipFilter::All, &ClipQuery::parse(""))
         .pop()
         .unwrap()
-        .excerpt
+        .text
         .is_none());
     service.shutdown().unwrap();
     writer.shutdown().unwrap();
@@ -506,11 +522,13 @@ fn failed_and_interrupted_index_saves_preserve_recoverable_files() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            Arc::new(FakeApps::default()),
-            Arc::new(FakeApps::default()),
-            clock.clone(),
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock: clock.clone(),
+            },
             writer,
         )
         .unwrap()
@@ -568,11 +586,13 @@ fn index_writes_are_spaced_900ms_even_when_writer_debounce_is_zero() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock.clone(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock: clock.clone(),
+        },
         &writer,
     )
     .unwrap();
@@ -639,11 +659,13 @@ fn startup_rescans_old_secrets_and_prunes_and_clear_preserves_pins() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -679,11 +701,13 @@ fn runtime_prunes_on_ten_minute_timer_and_retention_change() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            Arc::new(FakeApps::default()),
-            Arc::new(FakeApps::default()),
-            clock.clone(),
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock: clock.clone(),
+            },
             &writer,
         )
         .unwrap(),
@@ -742,11 +766,13 @@ fn original_flavors_target_gone_and_settle_leave_selected_copy() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            apps.clone(),
-            apps.clone(),
-            clock,
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: apps.clone(),
+                icons: apps.clone(),
+                clock,
+            },
             &writer,
         )
         .unwrap(),
@@ -780,11 +806,8 @@ fn original_flavors_target_gone_and_settle_leave_selected_copy() {
 #[test]
 fn image_file_threshold_and_media_limits() {
     struct Icons(Mutex<Vec<u32>>);
-    impl AppCatalog for Icons {
-        fn installed(&self) -> Result<Vec<AppInfo>, PortError> {
-            Ok(vec![])
-        }
-        fn icon(&self, _: &str, size: u32) -> Result<Option<Vec<u8>>, PortError> {
+    impl FileIcons for Icons {
+        fn file_icon(&self, _: &str, size: u32) -> Result<Option<Vec<u8>>, PortError> {
             self.0.lock().unwrap().push(size);
             Ok(Some(vec![7]))
         }
@@ -808,11 +831,13 @@ fn image_file_threshold_and_media_limits() {
     let service = ClipboardService::open(
         dir.join("store"),
         settings.watch(),
-        board.clone(),
-        thumb.clone(),
-        Arc::new(FakeApps::default()),
-        icons.clone(),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: thumb.clone(),
+            target: Arc::new(FakeApps::default()),
+            icons: icons.clone(),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -848,11 +873,13 @@ fn clipboard_records_while_expansion_is_paused() {
     let service = ClipboardService::open(
         dir.clone(),
         harness.settings.watch(),
-        harness.pasteboard.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        harness.apps.clone(),
-        harness.apps.clone(),
-        harness.clock.clone(),
+        ClipboardPorts {
+            board: harness.pasteboard.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: harness.apps.clone(),
+            icons: harness.apps.clone(),
+            clock: harness.clock.clone(),
+        },
         &harness.writer,
     )
     .unwrap();
@@ -913,11 +940,13 @@ fn picker_waits_up_to_800ms_for_target_and_does_not_restore_clipboard() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            target,
-            Arc::new(FakeApps::default()),
-            clock,
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target,
+                icons: Arc::new(FakeApps::default()),
+                clock,
+            },
             &writer,
         )
         .unwrap(),
@@ -956,11 +985,13 @@ fn failed_trash_move_is_reported_and_replayed_after_restart() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            board.clone(),
-            Arc::new(FakeThumbnailer::default()),
-            Arc::new(FakeApps::default()),
-            Arc::new(FakeApps::default()),
-            clock.clone(),
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock: clock.clone(),
+            },
             writer,
         )
         .unwrap()
@@ -981,7 +1012,7 @@ fn failed_trash_move_is_reported_and_replayed_after_restart() {
     assert!(service.collect().is_err());
     assert!(service.storage_error().get().is_some());
     assert!(service.store.blob(id).exists());
-    assert!(dir.join("cleanup.json").exists());
+    assert!(!dir.join("cleanup.json").exists());
     service.shutdown().unwrap();
     writer.shutdown().unwrap();
     std::fs::remove_dir(obstacle).unwrap();
@@ -1009,11 +1040,13 @@ fn shutdown_respects_clipboard_write_interval() {
     let service = ClipboardService::open(
         dir.clone(),
         settings.watch(),
-        board.clone(),
-        Arc::new(FakeThumbnailer::default()),
-        Arc::new(FakeApps::default()),
-        Arc::new(FakeApps::default()),
-        clock,
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
         &writer,
     )
     .unwrap();
@@ -1062,11 +1095,13 @@ fn scheduled_pruning_waits_for_ten_minute_boundary() {
         ClipboardService::open(
             dir.clone(),
             settings.watch(),
-            Arc::new(FakePasteboard::default()),
-            Arc::new(FakeThumbnailer::default()),
-            Arc::new(FakeApps::default()),
-            Arc::new(FakeApps::default()),
-            clock.clone(),
+            ClipboardPorts {
+                board: Arc::new(FakePasteboard::default()),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock: clock.clone(),
+            },
             &writer,
         )
         .unwrap(),

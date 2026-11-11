@@ -9,6 +9,11 @@ pub struct PasteSnapshot {
 }
 pub trait Pasteboard: Send + Sync {
     fn change_count(&self) -> i64;
+    /// Check a change count without reading clipboard contents.
+    fn is_own(&self, change_count: i64) -> bool;
+    /// Inspect type identifiers only; never fetch item data. Fail if the count is stale.
+    fn has_private_marker(&self, change_count: i64) -> Result<bool, PortError>;
+    /// Preserve marker types for every item, even when data is empty or promised.
     fn read(&self) -> Result<PasteSnapshot, PortError>;
     fn write(&self, items: &[PasteItem]) -> Result<i64, PortError>;
     fn can_paste(&self) -> bool;

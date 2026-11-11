@@ -8,6 +8,7 @@ use std::sync::Mutex;
 #[derive(Default)]
 pub struct FakePasteboard {
     pub snapshot: Mutex<PasteSnapshot>,
+    pub reads: Mutex<usize>,
     pub paste_allowed: Mutex<bool>,
     pub pasted_into: Mutex<Vec<Option<AppInfo>>>,
     pub failure: Mutex<Option<PortError>>,
@@ -24,7 +25,19 @@ impl Pasteboard for FakePasteboard {
     fn change_count(&self) -> i64 {
         self.snapshot.lock().unwrap().change_count
     }
+    fn is_own(&self, change_count: i64) -> bool {
+        let state = self.snapshot.lock().unwrap();
+        state.change_count == change_count && state.own
+    }
+    fn has_private_marker(&self, change_count: i64) -> Result<bool, PortError> {
+        let state = self.snapshot.lock().unwrap();
+        if state.change_count != change_count {
+            return Err(PortError::Cancelled);
+        }
+        Ok(kudzu_core::clipboard::is_private(&state.items))
+    }
     fn read(&self) -> Result<PasteSnapshot, PortError> {
+        *self.reads.lock().unwrap() += 1;
         if let Some(e) = *self.failure.lock().unwrap() {
             return Err(e);
         }

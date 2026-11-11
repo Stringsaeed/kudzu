@@ -3,10 +3,10 @@
 use super::{
     facts::{basename, kind_label},
     whitespace::is_js_whitespace,
-    ClipEntry, ClipKind, TEXT_EXCERPT_LIMIT,
+    ClipEntry, ClipKind, History, TEXT_EXCERPT_LIMIT,
 };
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
+use std::{ops::Deref, sync::Arc};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -90,6 +90,7 @@ fn agent_haystack(e: &ClipEntry) -> String {
     let text = match e.secret_override {
         Some(false) => raw.to_owned(),
         Some(true) => String::new(),
+        None if e.is_secret() => String::new(),
         None => {
             let complete = e.text_len <= TEXT_EXCERPT_LIMIT;
             let raw = if complete {
@@ -108,25 +109,44 @@ fn agent_haystack(e: &ClipEntry) -> String {
     format!(
         "{}\n{}\n{}",
         text,
-        e.files.join("\n"),
+        e.files
+            .iter()
+            .map(|path| crate::secrets::redact(path).text)
+            .collect::<Vec<_>>()
+            .join("\n"),
         e.source
             .as_ref()
-            .map(|s| s.name.as_str())
+            .map(|s| crate::secrets::redact(&s.name).text)
             .unwrap_or_default()
     )
     .to_lowercase()
 }
 
+enum Entries<'a> {
+    Borrowed(&'a [ClipEntry]),
+    Owned(Vec<ClipEntry>),
+    Shared(Arc<History>),
+}
+impl Deref for Entries<'_> {
+    type Target = [ClipEntry];
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Borrowed(e) => e,
+            Self::Owned(e) => e,
+            Self::Shared(h) => &h.entries,
+        }
+    }
+}
 pub struct ClipSearch<'a> {
-    entries: Cow<'a, [ClipEntry]>,
+    entries: Entries<'a>,
     haystacks: Vec<String>,
     apps: Vec<String>,
 }
 impl<'a> ClipSearch<'a> {
     pub fn new(entries: &'a [ClipEntry], scope: SearchScope) -> Self {
-        Self::build(Cow::Borrowed(entries), scope)
+        Self::build(Entries::Borrowed(entries), scope)
     }
-    fn build(entries: Cow<'a, [ClipEntry]>, scope: SearchScope) -> Self {
+    fn build(entries: Entries<'a>, scope: SearchScope) -> Self {
         let haystacks = entries
             .iter()
             .map(|e| {
@@ -152,7 +172,14 @@ impl<'a> ClipSearch<'a> {
             .map(|e| {
                 e.source
                     .as_ref()
-                    .map(|s| format!("{}\n{}", s.name, s.bundle_id).to_lowercase())
+                    .map(|s| {
+                        let raw = format!("{}\n{}", s.name, s.bundle_id);
+                        if scope == SearchScope::Agent {
+                            crate::secrets::redact(&raw).text.to_lowercase()
+                        } else {
+                            raw.to_lowercase()
+                        }
+                    })
                     .unwrap_or_default()
             })
             .collect();
@@ -161,6 +188,22 @@ impl<'a> ClipSearch<'a> {
             haystacks,
             apps,
         }
+    }
+    /// Indices into the same immutable snapshot used to build this index.
+    pub fn indices(&self, filter: ClipFilter, query: &ClipQuery) -> Vec<usize> {
+        self.entries
+            .iter()
+            .enumerate()
+            .filter(|(i, e)| {
+                filter.contains(e)
+                    && query.kind.is_none_or(|k| e.kind == k)
+                    && query.app.as_ref().is_none_or(|a| {
+                        a.is_empty() || self.apps[*i].split('\n').any(|s| s.contains(a))
+                    })
+                    && query.terms.iter().all(|t| self.haystacks[*i].contains(t))
+            })
+            .map(|(i, _)| i)
+            .collect()
     }
     /// Matches only the text allowed by the scope chosen at construction.
     pub fn search(&self, filter: ClipFilter, query: &ClipQuery) -> Vec<&ClipEntry> {
@@ -180,9 +223,13 @@ impl<'a> ClipSearch<'a> {
     }
 }
 impl ClipSearch<'static> {
+    /// Share an immutable history without cloning its entries.
+    pub fn shared(history: Arc<History>, scope: SearchScope) -> Self {
+        Self::build(Entries::Shared(history), scope)
+    }
     /// Own an immutable snapshot so callers can retain its cached haystacks across queries.
     pub fn owned(entries: Vec<ClipEntry>, scope: SearchScope) -> Self {
-        Self::build(Cow::Owned(entries), scope)
+        Self::build(Entries::Owned(entries), scope)
     }
 }
 /// UTF-16 [start,end) offsets in the lowercased string, exactly as the TS reference.
