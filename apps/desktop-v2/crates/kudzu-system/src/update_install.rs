@@ -448,6 +448,13 @@ fn verify_signature(bundle: &Path, bundle_id: &str) -> Result<(), PortError> {
     }
 }
 
+/// S70 builds the updater archive in xtask. xtask may not depend on this crate, so the test below
+/// compiles xtask's own archiving function and feeds its output to the validator in this file.
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../../../xtask/src/archive.rs"]
+mod release_archive;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -828,13 +835,6 @@ mod tests {
     }
 
     #[test]
-    fn unpacked_bytes_and_entry_count_are_capped_even_without_a_large_archive() {
-        let fixture = Fixture::new();
-        assert_eq!(
-            validate_tar(&fixture.package.archive, 2, MAX_ENTRIES),
-            Err(PortError::TooLarge)
-        );
-    #[test]
     fn release_candidates_install_only_when_strictly_higher() {
         for (running, candidate, installs) in [
             ("0.7.0", "0.7.1-rc.1", true),
@@ -854,6 +854,13 @@ mod tests {
         }
     }
 
+    #[test]
+    fn unpacked_bytes_and_entry_count_are_capped_even_without_a_large_archive() {
+        let fixture = Fixture::new();
+        assert_eq!(
+            validate_tar(&fixture.package.archive, 2, MAX_ENTRIES),
+            Err(PortError::TooLarge)
+        );
         assert_eq!(
             validate_tar(&fixture.package.archive, MAX_EXTRACTED, 2),
             Err(PortError::TooLarge)
@@ -897,6 +904,134 @@ mod tests {
                 .probe()
                 .unwrap()
                 .needs_move
+        );
+    }
+
+    /// Entry names and type flags of an uncompressed ustar/pax stream, without libarchive's
+    /// AppleDouble merging (`tar -t` hides `._` entries).
+    fn raw_entries(tar: &[u8]) -> Vec<(String, u8)> {
+        let mut at = 0;
+        let mut out = Vec::new();
+        while at + 512 <= tar.len() && tar[at..at + 512] != [0; 512] {
+            let header = &tar[at..at + 512];
+            let text = |range: std::ops::Range<usize>| {
+                let bytes = &header[range];
+                let end = bytes.iter().position(|&b| b == 0).unwrap_or(bytes.len());
+                String::from_utf8_lossy(&bytes[..end]).into_owned()
+            };
+            let (name, prefix) = (text(0..100), text(345..500));
+            out.push((
+                if prefix.is_empty() {
+                    name
+                } else {
+                    format!("{prefix}/{name}")
+                },
+                header[156],
+            ));
+            let size = u64::from_str_radix(text(124..135).trim(), 8).unwrap() as usize;
+            at += 512 + size.div_ceil(512) * 512;
+        }
+        out
+    }
+    const XATTR: &str = "com.kudzu.s70-test";
+    fn no_apple_metadata(root: &Path) {
+        for entry in fs::read_dir(root).unwrap() {
+            let path = entry.unwrap().path();
+            assert!(
+                !path
+                    .file_name()
+                    .unwrap()
+                    .to_string_lossy()
+                    .starts_with("._"),
+                "AppleDouble file extracted: {}",
+                path.display()
+            );
+            // macOS adds its own `com.apple.provenance` to new files; only the planted one counts.
+            let planted = Command::new("/usr/bin/xattr")
+                .args(["-p", XATTR])
+                .arg(&path)
+                .output()
+                .unwrap();
+            assert!(
+                !planted.status.success(),
+                "xattr extracted onto {}",
+                path.display()
+            );
+            if path.is_dir() {
+                no_apple_metadata(&path);
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn the_archive_made_by_the_release_pipeline_passes_the_validator_and_extracts_clean() {
+        let mut fixture = Fixture::new();
+        let source = fixture.dir.0.join("release-source");
+        let app = source.join(ROOT);
+        fs::create_dir_all(app.join("Contents/MacOS")).unwrap();
+        fs::write(
+            app.join("Contents/Info.plist"),
+            &good_entries(ID, "2.0.0")[3].data,
+        )
+        .unwrap();
+        fs::write(app.join("Contents/MacOS/Kudzu"), b"new executable").unwrap();
+        // Extended attributes (as `com.apple.provenance` after a copy) are what macOS tar turns
+        // into AppleDouble entries.
+        for path in [
+            app.clone(),
+            app.join("Contents"),
+            app.join("Contents/Info.plist"),
+            app.join("Contents/MacOS/Kudzu"),
+        ] {
+            checked(
+                Command::new("/usr/bin/xattr")
+                    .args(["-w", XATTR, "value"])
+                    .arg(&path),
+            );
+        }
+        release_archive::create(&source, ROOT, &fixture.package.archive).unwrap();
+        let bytes = fs::read(&fixture.package.archive).unwrap();
+        fixture.package.digest = *blake3::hash(&bytes).as_bytes();
+
+        let tar = Command::new("/usr/bin/gzip")
+            .arg("-dc")
+            .arg(&fixture.package.archive)
+            .output()
+            .unwrap();
+        assert!(tar.status.success());
+        let entries = raw_entries(&tar.stdout);
+        assert!(entries.len() >= 4, "{entries:?}");
+        for (name, kind) in &entries {
+            assert!(
+                name.split('/').all(|part| !part.starts_with("._")),
+                "AppleDouble entry {name}"
+            );
+            assert!(matches!(kind, 0 | b'0' | b'5'), "{name}: type {kind}");
+        }
+        assert!(!tar.stdout.windows(5).any(|w| w == b"xattr"));
+
+        let normalized = fixture.dir.0.join("normalized.tar");
+        normalize_archive(&fixture.package.archive, &normalized).unwrap();
+        validate_tar(&normalized, MAX_EXTRACTED, MAX_ENTRIES).unwrap();
+        fixture
+            .installer()
+            .install_with(
+                &fixture.package,
+                |extracted, _| {
+                    no_apple_metadata(extracted);
+                    assert_eq!(
+                        fs::read(extracted.join("Contents/MacOS/Kudzu")).unwrap(),
+                        b"new executable"
+                    );
+                    Ok(())
+                },
+                |from, to| fs::rename(from, to),
+            )
+            .unwrap();
+        assert_eq!(
+            fs::read(fixture.bundle.join("Contents/MacOS/Kudzu")).unwrap(),
+            b"new executable"
         );
     }
 

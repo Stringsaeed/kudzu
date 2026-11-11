@@ -1,3 +1,4 @@
+use crate::version;
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -39,29 +40,55 @@ fn command(cmd: &mut Command) -> Result<()> {
     }
     Ok(())
 }
+/// A cargo child never inherits release credentials, whatever the caller's environment holds.
+/// Build scripts and proc macros run with the child's environment.
+fn cargo() -> Command {
+    let mut cargo = Command::new("cargo");
+    for name in crate::release::SECRET_VARS {
+        cargo.env_remove(name);
+    }
+    cargo
+}
 fn plist(variant: Variant, version: &str) -> String {
     include_str!("../../assets/Info.plist.in")
         .replace("@BUNDLE_ID@", variant.id())
         .replace("@NAME@", variant.name())
         .replace("@VERSION@", version)
 }
-pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
+/// Where the iCloud provisioning profile lives. CI writes it outside the repository and says so
+/// here; locally it is the gitignored `assets/Kudzu.provisionprofile`.
+pub fn profile_path() -> PathBuf {
+    env::var_os("KUDZU_PROVISIONING_PROFILE")
+        .filter(|p| !p.is_empty())
+        .map_or_else(
+            || root().join("assets/Kudzu.provisionprofile"),
+            PathBuf::from,
+        )
+}
+fn universal_args(arch: &'static str) -> [&'static str; 7] {
+    [
+        "build",
+        "--release",
+        "--locked",
+        "--target",
+        arch,
+        "-p",
+        "kudzu",
+    ]
+}
+
+/// Compiles and assembles the bundle without signing it, so the release pipeline can run every
+/// cargo build before any signing credential exists on the machine.
+pub fn assemble(variant: Variant, universal: bool) -> Result<PathBuf> {
     let root = root();
     let target = root.join("target");
     let archs = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
     if universal {
         for arch in archs {
-            command(Command::new("cargo").current_dir(&root).args([
-                "build",
-                "--release",
-                "--target",
-                arch,
-                "-p",
-                "kudzu",
-            ]))?;
+            command(cargo().current_dir(&root).args(universal_args(arch)))?;
         }
     } else {
-        let mut cmd = Command::new("cargo");
+        let mut cmd = cargo();
         cmd.current_dir(&root).args(build_args(variant));
         command(&mut cmd)?;
     }
@@ -91,7 +118,7 @@ pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
         contents.join("Info.plist"),
         plist(
             variant,
-            fs::read_to_string(root.join("version.txt"))?.trim(),
+            &version::canonical(&fs::read_to_string(root.join("version.txt"))?)?,
         ),
     )?;
     fs::copy(
@@ -102,18 +129,24 @@ pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
         root.join("skills/kudzu/SKILL.md"),
         contents.join("Resources/skills/kudzu/SKILL.md"),
     )?;
-    let profile = root.join("assets/Kudzu.provisionprofile");
+    let profile = profile_path();
     if matches!(variant, Variant::Prod) && profile.is_file() {
+        fs::copy(&profile, contents.join("embedded.provisionprofile"))?;
+    }
+    Ok(app)
+}
+pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
+    let app = assemble(variant, universal)?;
+    if matches!(variant, Variant::Prod) && profile_path().is_file() {
         let signer = env::var_os("KUDZU_SIGN")
             .filter(|s| !s.is_empty())
             .ok_or("KUDZU_SIGN is required when embedding a provisioning profile")?;
-        fs::copy(&profile, contents.join("embedded.provisionprofile"))?;
         command(
             Command::new("codesign")
                 .args(["--force", "--options", "runtime", "--sign"])
                 .arg(signer)
                 .arg("--entitlements")
-                .arg(root.join("assets/Kudzu.icloud.entitlements"))
+                .arg(root().join("assets/Kudzu.icloud.entitlements"))
                 .arg(&app),
         )?;
     }
@@ -174,6 +207,22 @@ mod tests {
         assert_eq!(build_args(Variant::Dev), ["build", "-p", "kudzu"]);
         assert_eq!(binary_path(Variant::Prod), "release/kudzu");
         assert_eq!(binary_path(Variant::Dev), "debug/kudzu");
+    }
+    #[test]
+    fn release_builds_are_locked_and_release_children_never_see_credentials() {
+        let args = universal_args("x86_64-apple-darwin");
+        assert!(args.contains(&"--locked"));
+        assert_eq!(args[..2], ["build", "--release"]);
+        let mut cmd = cargo();
+        cmd.arg("--version");
+        let removed: Vec<_> = cmd
+            .get_envs()
+            .filter(|(_, v)| v.is_none())
+            .map(|(k, _)| k.to_string_lossy().into_owned())
+            .collect();
+        for name in crate::release::SECRET_VARS {
+            assert!(removed.iter().any(|r| r == name), "{name} reaches cargo");
+        }
     }
     #[test]
     fn plist_has_bundle_metadata() {

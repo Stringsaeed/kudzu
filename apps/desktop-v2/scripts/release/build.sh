@@ -3,7 +3,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 export CARGO_TARGET_DIR="$PWD/target"
 export MACOSX_DEPLOYMENT_TARGET=14.0
-PROFILE=assets/Kudzu.provisionprofile
+# CI writes the profile outside the repository and points here; locally it is the gitignored default.
+PROFILE=${KUDZU_PROVISIONING_PROFILE:-assets/Kudzu.provisionprofile}
 case "${1:-}" in
   --dry-run) exec cargo xtask release --dry-run ;;
   --preflight)
@@ -53,6 +54,9 @@ PY
     if [[ $1 == --verify ]]; then
       DMG=$3
       codesign --verify --strict "$DMG"
+      if [[ ${APPLE_SIGNING_IDENTITY:-} != - ]]; then
+        codesign --verify --strict -R='=anchor apple generic and certificate leaf[subject.OU] = "V3HN8HXZYK"' "$DMG"
+      fi
       if [[ ${SKIP_NOTARIZE:-} != 1 ]]; then
         xcrun stapler validate "$APP"
         spctl --assess --type execute --verbose=2 "$APP"
@@ -61,6 +65,6 @@ PY
       fi
     fi
     exit 0 ;;
-  '') exec cargo xtask release ;;
-  *) echo 'usage: build.sh [--dry-run]' >&2; exit 2 ;;
+  '') exec cargo run --locked -p xtask -- release ;;
+  *) echo 'usage: build.sh [--dry-run] (internal, run by xtask: --preflight | --verify-app APP | --verify APP DMG)' >&2; exit 2 ;;
 esac

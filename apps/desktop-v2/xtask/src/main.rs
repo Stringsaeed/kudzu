@@ -1,3 +1,4 @@
+mod archive;
 mod bundle;
 mod check_deps;
 mod dmg;

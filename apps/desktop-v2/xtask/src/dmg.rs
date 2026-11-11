@@ -23,7 +23,10 @@ pub fn layout() -> Vec<&'static str> {
     ]
 }
 pub fn build(source: &Path, output: &Path) -> Result<()> {
-    let version = Command::new("create-dmg").arg("--version").output()?;
+    let version = Command::new("create-dmg")
+        .arg("--version")
+        .output()
+        .map_err(|_| format!("create-dmg {CREATE_DMG_VERSION} required (not found on PATH)"))?;
     if !version.status.success()
         || String::from_utf8_lossy(&version.stdout)
             .trim()
