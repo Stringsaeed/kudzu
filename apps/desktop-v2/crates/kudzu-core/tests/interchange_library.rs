@@ -1,5 +1,6 @@
-//! Kudzu JSON, backups and the import coordinator, ported from the Swift `KudzuJSONTests`,
-//! `BackupStoreTests` and `ImportCoordinatorTests`.
+//! Kudzu JSON, the backup rules and merging, ported from the Swift `KudzuJSONTests`,
+//! `BackupStoreTests` and `ImportCoordinatorTests`. The backup folder and the import, restore
+//! and export orchestration are tested in `kudzu-app` (`tests/data_*.rs`).
 
 mod interchange_support;
 
@@ -7,9 +8,9 @@ mod interchange_support;
 mod interchange {
     use crate::interchange_support::TempDir;
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
-    use kudzu_core::interchange::backup::{BackupReason, BackupStore, BackupTimeZone};
-    use kudzu_core::interchange::espanso::{self, ImportWarning};
-    use kudzu_core::interchange::{coordinator, merge, InterchangeError};
+    use kudzu_core::interchange::backup::{self, BackupInfo, BackupReason, BackupTimeZone};
+    use kudzu_core::interchange::espanso;
+    use kudzu_core::interchange::{merge, InterchangeError};
     use kudzu_core::library::json as kudzu_json;
     use kudzu_core::library::starter::{self, SAMPLE_TRIGGER};
     use kudzu_core::{
@@ -110,283 +111,123 @@ mod interchange {
         ));
     }
 
-    // MARK: - Backups
+    // MARK: - Backup rules (the folder itself is `kudzu_app::data::BackupStore`)
 
-    fn utc_store(dir: &std::path::Path) -> BackupStore {
-        BackupStore::with_time_zone(
-            dir,
-            BackupTimeZone::Fixed(FixedOffset::east_opt(0).unwrap()),
-        )
+    fn info_at(utc_time: DateTime<Utc>, reason: BackupReason) -> BackupInfo {
+        let zone = BackupTimeZone::Fixed(FixedOffset::east_opt(0).unwrap());
+        let name = backup::filename(zone.utc_to_local(utc_time), reason, 1);
+        backup::parse_info(std::path::Path::new(&name), zone).unwrap()
     }
 
     #[test]
-    fn backup_writes_expected_filename_and_loads_back() {
-        let temp = TempDir::new("backup-write");
-        let store = utc_store(temp.path());
+    fn backup_names_round_trip_and_number_same_second_copies() {
+        let zone = BackupTimeZone::Fixed(FixedOffset::east_opt(0).unwrap());
         let now = utc(2026, 11, 1, 14, 30, 5);
-        let library = library_with(vec![SnippetRecord {
-            created_at: now,
-            updated_at: now,
-            ..SnippetRecord::new("Test", vec![";t".into()], "Hello")
-        }]);
-
-        let info = store.write(&library, BackupReason::PreImport, now).unwrap();
+        let local = zone.utc_to_local(now);
         assert_eq!(
-            info.filename,
+            backup::filename(local, BackupReason::PreImport, 1),
             "kudzu-backup-2026-11-01T143005-preImport.json"
         );
-
-        let list = store.list().unwrap();
-        assert_eq!(list.len(), 1);
         assert_eq!(
-            list[0].filename,
-            "kudzu-backup-2026-11-01T143005-preImport.json"
+            backup::filename(local, BackupReason::Manual, 2),
+            "kudzu-backup-2026-11-01T143005-manual.2.json"
         );
-        assert_eq!(list[0].reason, BackupReason::PreImport);
-        assert_eq!(list[0].created_at, now);
-        assert_eq!(list[0], info);
-        assert_eq!(store.load(&list[0].path).unwrap(), library);
+        for reason in [
+            BackupReason::Daily,
+            BackupReason::PreImport,
+            BackupReason::PreRestore,
+            BackupReason::Manual,
+            BackupReason::PreUpdate,
+        ] {
+            for sequence in [1, 2, 7] {
+                let name = backup::filename(local, reason, sequence);
+                let info = backup::parse_info(std::path::Path::new(&name), zone).unwrap();
+                assert_eq!(
+                    (info.created_at, info.reason, info.filename),
+                    (now, reason, name)
+                );
+            }
+        }
     }
 
     #[test]
-    fn backup_lists_newest_first_and_prunes() {
-        let temp = TempDir::new("backup-prune");
-        let store = utc_store(temp.path());
-        for day in 1..=17 {
-            let reason = if day % 3 == 0 {
-                BackupReason::Manual
-            } else {
-                BackupReason::Daily
-            };
-            store
-                .write(
-                    &KudzuLibrary::default(),
-                    reason,
-                    utc(2026, 10, day, 9, 0, 0),
-                )
-                .unwrap();
+    fn backup_parsing_ignores_foreign_names() {
+        let zone = BackupTimeZone::Fixed(FixedOffset::east_opt(0).unwrap());
+        for name in [
+            "notes.txt",
+            "kudzu-backup-bad-daily.json",
+            "kudzu-backup-2026-11-01T120000-weird.json",
+            "kudzu-backup-2026-11-01T1200-daily.json",
+        ] {
+            assert!(
+                backup::parse_info(std::path::Path::new(name), zone).is_none(),
+                "{name}"
+            );
         }
-        let all = store.list().unwrap();
-        assert_eq!(all.len(), 17);
+    }
+
+    #[test]
+    fn backups_sort_newest_first_and_rotation_keeps_the_newest() {
+        let mut infos: Vec<BackupInfo> = (1..=17)
+            .map(|day| {
+                let reason = if day % 3 == 0 {
+                    BackupReason::Manual
+                } else {
+                    BackupReason::Daily
+                };
+                info_at(utc(2026, 10, day, 9, 0, 0), reason)
+            })
+            .collect();
+        backup::sort_newest(&mut infos);
         assert_eq!(
-            all.first().unwrap().filename,
+            infos[0].filename,
             "kudzu-backup-2026-10-17T090000-daily.json"
         );
         assert_eq!(
-            all.last().unwrap().filename,
+            infos[16].filename,
             "kudzu-backup-2026-10-01T090000-daily.json"
         );
 
-        assert_eq!(store.prune(14).unwrap().len(), 3);
-        let remaining = store.list().unwrap();
-        assert_eq!(remaining.len(), 14);
+        let doomed = backup::rotation_candidates(infos, 14);
         assert_eq!(
-            remaining.last().unwrap().filename,
-            "kudzu-backup-2026-10-04T090000-daily.json"
+            doomed
+                .iter()
+                .map(|i| i.filename.as_str())
+                .collect::<Vec<_>>(),
+            [
+                "kudzu-backup-2026-10-03T090000-manual.json",
+                "kudzu-backup-2026-10-02T090000-daily.json",
+                "kudzu-backup-2026-10-01T090000-daily.json",
+            ]
         );
     }
 
     #[test]
-    fn needs_daily_backup_uses_the_store_time_zone() {
-        let temp = TempDir::new("backup-daily");
+    fn daily_rule_uses_the_local_calendar_day_and_only_counts_daily_backups() {
         // UTC-5, like New York in November.
         let tz = FixedOffset::west_opt(5 * 3600).unwrap();
-        let store = BackupStore::with_time_zone(temp.path(), BackupTimeZone::Fixed(tz));
+        let zone = BackupTimeZone::Fixed(tz);
         let local = |d, h, m| {
             tz.with_ymd_and_hms(2026, 11, d, h, m, 0)
                 .unwrap()
                 .with_timezone(&Utc)
         };
         let (morning, evening, next_day) = (local(1, 8, 15), local(1, 21, 45), local(2, 0, 5));
+        let named = |when, reason| {
+            let name = backup::filename(zone.utc_to_local(when), reason, 1);
+            backup::parse_info(std::path::Path::new(&name), zone).unwrap()
+        };
 
-        assert!(store.needs_daily_backup(morning));
-        store
-            .write(&KudzuLibrary::default(), BackupReason::PreImport, morning)
-            .unwrap();
+        assert!(backup::needs_daily_backup(&[], morning, zone));
+        let pre_import = [named(morning, BackupReason::PreImport)];
         assert!(
-            store.needs_daily_backup(evening),
+            backup::needs_daily_backup(&pre_import, evening, zone),
             "a preImport backup doesn't count"
         );
-        let daily = store
-            .write(&KudzuLibrary::default(), BackupReason::Daily, morning)
-            .unwrap();
-        assert_eq!(daily.filename, "kudzu-backup-2026-11-01T081500-daily.json");
+        let daily = [named(morning, BackupReason::Daily)];
         // 21:45 local is already the next day in UTC.
-        assert!(!store.needs_daily_backup(evening));
-        assert!(store.needs_daily_backup(next_day));
-    }
-
-    #[test]
-    fn same_second_backups_are_never_overwritten() {
-        let temp = TempDir::new("backup-same-second");
-        let store = utc_store(temp.path());
-        let now = utc(2026, 11, 1, 12, 0, 0);
-        let first = library_with(vec![SnippetRecord::new("Original", vec![";o".into()], "o")]);
-        let second = library_with(vec![SnippetRecord::new("Restored", vec![";r".into()], "r")]);
-
-        let a = store.write(&first, BackupReason::Manual, now).unwrap();
-        let b = store.write(&second, BackupReason::Manual, now).unwrap();
-        assert_ne!(a.path, b.path);
-        assert_eq!(b.filename, "kudzu-backup-2026-11-01T120000-manual.2.json");
-        let listed = store.list().unwrap();
-        assert_eq!(listed.len(), 2);
-        assert_eq!(
-            listed[0].filename, b.filename,
-            "the later write sorts first"
-        );
-        assert_eq!(listed[0].reason, BackupReason::Manual);
-        assert_eq!(store.load(&a.path).unwrap().snippets[0].name, "Original");
-    }
-
-    #[test]
-    fn backup_list_ignores_foreign_files_and_missing_dirs() {
-        let temp = TempDir::new("backup-foreign");
-        assert!(utc_store(&temp.path().join("nope"))
-            .list()
-            .unwrap()
-            .is_empty());
-        for name in [
-            "notes.txt",
-            "kudzu-backup-bad-daily.json",
-            "kudzu-backup-2026-11-01T120000-weird.json",
-        ] {
-            std::fs::write(temp.path().join(name), "{}").unwrap();
-        }
-        assert!(utc_store(temp.path()).list().unwrap().is_empty());
-    }
-
-    // MARK: - Coordinator
-
-    #[test]
-    fn groups_warnings_by_message_most_frequent_first() {
-        let w = |file: &str, message: &str| ImportWarning {
-            file: file.into(),
-            line: Some(1),
-            match_index: None,
-            trigger: None,
-            message: message.into(),
-        };
-        let grouped = coordinator::group_warnings(&[
-            w("c.yml", "Image match skipped."),
-            w("a.yml", "Markdown match imported as plain text."),
-            w("b.yml", "Markdown match imported as plain text."),
-        ]);
-        assert_eq!(grouped.len(), 2);
-        assert_eq!(grouped[0].message, "Markdown match imported as plain text.");
-        assert_eq!(grouped[0].count, 2);
-        assert_eq!(grouped[1].message, "Image match skipped.");
-        assert_eq!(grouped[1].count, 1);
-    }
-
-    #[test]
-    fn detects_and_previews_espanso_dirs_in_home() {
-        let home = TempDir::new("coordinator-home");
-        let match_dir = home
-            .path()
-            .join("Library/Application Support/espanso/match");
-        std::fs::create_dir_all(&match_dir).unwrap();
-        std::fs::write(
-            match_dir.join("base.yml"),
-            "matches:\n  - trigger: \":hi\"\n    replace: \"Hello there\"\n  - trigger: \":bye\"\n    replace: \"Goodbye\"\n",
-        )
-        .unwrap();
-        let detected = coordinator::detect_espanso_dirs(home.path());
-        assert_eq!(detected.len(), 1);
-        assert_eq!(detected[0].snippet_count, 2);
-        assert_eq!(detected[0].group_count, 1);
-    }
-
-    #[test]
-    fn import_espanso_backs_up_merges_dedupes_and_summarizes() {
-        let temp = TempDir::new("coordinator-import");
-        let espanso_dir = temp.path().join("espanso/match");
-        std::fs::create_dir_all(&espanso_dir).unwrap();
-        std::fs::write(
-            espanso_dir.join("base.yml"),
-            "matches:\n  - trigger: \";hi\"\n    replace: \"Hello\"\n  - trigger: \";conflict\"\n    replace: \"Incoming conflict\"\n  - trigger: \";md1\"\n    markdown: \"~~Struck 1~~\"\n  - trigger: \";md2\"\n    markdown: \"~~Struck 2~~\"\n",
-        )
-        .unwrap();
-        let existing = library_with(vec![
-            SnippetRecord::new("Existing Hi", vec![";hi".into()], "Hello"),
-            SnippetRecord::new("Existing Conflict", vec![";conflict".into()], "Existing"),
-        ]);
-        let backups = utc_store(&temp.path().join("Backups"));
-
-        let result = espanso::import_dir(&espanso_dir).unwrap();
-        let (merged, summary) =
-            coordinator::import_espanso(&existing, &result, &backups, Utc::now()).unwrap();
-
-        assert_eq!(summary.imported_snippets, 4);
-        assert_eq!(summary.imported_groups, 1);
-        assert_eq!(summary.dedupe_report.merged_snippets, 1);
-        assert_eq!(
-            summary
-                .dedupe_report
-                .conflicts
-                .iter()
-                .map(|c| c.trigger.as_str())
-                .collect::<Vec<_>>(),
-            vec![";conflict"]
-        );
-        assert_eq!(summary.warnings.len(), 2);
-        assert_eq!(summary.grouped_warnings.len(), 1);
-        assert_eq!(summary.grouped_warnings[0].count, 2);
-
-        let list = backups.list().unwrap();
-        assert_eq!(list.len(), 1);
-        assert_eq!(list[0].reason, BackupReason::PreImport);
-        assert_eq!(list[0], summary.backup);
-        assert_eq!(backups.load(&list[0].path).unwrap().snippets.len(), 2);
-
-        // 2 original + 4 imported - 1 merged duplicate.
-        assert_eq!(merged.snippets.len(), 5);
-    }
-
-    #[test]
-    fn import_kudzu_json_then_restore_with_safety_backup() {
-        let temp = TempDir::new("coordinator-json");
-        let backups = utc_store(&temp.path().join("Backups"));
-        let original = library_with(vec![SnippetRecord::new(
-            "Original",
-            vec![";orig".into()],
-            "Original content",
-        )]);
-        let incoming = KudzuLibrary {
-            groups: vec![GroupRecord::new("Imported Group")],
-            snippets: vec![SnippetRecord::new(
-                "New",
-                vec![";new".into()],
-                "New content",
-            )],
-            ..KudzuLibrary::default()
-        };
-        let json = kudzu_json::encode(&incoming).unwrap();
-
-        let t1 = Utc.timestamp_opt(1_700_000_000, 0).unwrap();
-        let (merged, summary) =
-            coordinator::import_kudzu_json(&original, &json, &backups, t1).unwrap();
-        assert_eq!(summary.imported_snippets, 1);
-        assert_eq!(merged.snippets.len(), 2);
-        assert_eq!(merged.groups.len(), 1);
-
-        let before = backups.list().unwrap();
-        assert_eq!(before.len(), 1);
-        let t2 = Utc.timestamp_opt(1_700_000_100, 0).unwrap();
-        let (restored, safety) =
-            coordinator::restore_backup(&merged, &before[0].path, &backups, t2).unwrap();
-        assert_eq!(
-            restored
-                .snippets
-                .iter()
-                .map(|s| s.triggers.clone())
-                .collect::<Vec<_>>(),
-            vec![vec![";orig".to_string()]]
-        );
-        let after = backups.list().unwrap();
-        assert_eq!(after.len(), 2);
-        assert_eq!(after[0].reason, BackupReason::PreRestore);
-        assert_eq!(after[0], safety);
-        assert_eq!(backups.load(&after[0].path).unwrap().snippets.len(), 2);
+        assert!(!backup::needs_daily_backup(&daily, evening, zone));
+        assert!(backup::needs_daily_backup(&daily, next_day, zone));
     }
 
     #[test]
@@ -504,7 +345,7 @@ mod interchange {
     }
 
     #[test]
-    fn export_espanso_and_ensure_getting_started_once() {
+    fn ensure_getting_started_once_and_export_round_trips_through_espanso() {
         let temp = TempDir::new("coordinator-export");
         let mut library = KudzuLibrary::default();
         let now = Utc::now();
@@ -527,9 +368,9 @@ mod interchange {
         assert_eq!(sample.content, "Kudzu is working!");
 
         let out = temp.path().join("exported-espanso");
-        let files = coordinator::export_espanso_to_dir(&library, &out).unwrap();
-        assert_eq!(files.len(), 1);
-        assert_eq!(files[0].file_name().unwrap(), "Getting Started.yml");
+        let files = espanso::export(&library);
+        assert_eq!(files.keys().collect::<Vec<_>>(), ["Getting Started.yml"]);
+        crate::interchange_support::write_files(&out, files.iter());
         let reimported = espanso::import_dir(&out).unwrap();
         assert_eq!(reimported.library.snippets.len(), 3);
         assert!(reimported.warnings.is_empty(), "{:?}", reimported.warnings);

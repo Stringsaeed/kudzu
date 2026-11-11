@@ -39,10 +39,9 @@ is also available directly. Cross-domain calls use the owning domain's path.
 - S25 uses `system` in the application ports. S20's engine scope permits import
   and type-name changes only, so its existing status structs remain until S34
   adopts these types. S39 should keep protocol tests independent of that relocation.
-- S29 moves `interchange::coordinator` and `interchange::backup::BackupStore`
-  (implemented in `backup/store.rs`) to `kudzu-app::data`. The pure detection,
-  merge, naming, daily-backup and rotation rules stay here. Coordinator file reads
-  and the backup store's current error and pruning behaviour are preserved.
+- S29 moved `interchange::coordinator` and `BackupStore` to `kudzu-app::data`. The pure
+  detection, merge, naming, daily-backup and rotation rules stay here
+  (`interchange::{detect,merge,backup}`).
 - S32 moves `agent` to `kudzu-app::agents` and removes its declaration and this
   README entry. Form-field and diagnostic serialization remains for that protocol.
 

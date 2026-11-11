@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>groupInfo</key>
+  <dict>
+    <key>groupName</key><string>Work &amp; Co</string>
+    <key>expandAfterMode</key><integer>2</integer>
+  </dict>
+  <key>snippetsTE2</key>
+  <array>
+    <dict>
+      <key>abbreviation</key><string>sig</string>
+      <key>abbreviationMode</key><integer>0</integer>
+      <key>creationDate</key><date>2020-05-06T07:08:09Z</date>
+      <key>modificationDate</key><date>2021-05-06T07:08:09Z</date>
+      <key>label</key><string>Signature</string>
+      <key>plainText</key><string>Best regards,
+%filltext:name=Sender:default=Me%%|</string>
+      <key>snippetType</key><integer>0</integer>
+      <key>uuidString</key><string>6E4FE1E9-0000-4000-8000-000000000001</string>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string>ddate</string>
+      <key>abbreviationMode</key><integer>1</integer>
+      <key>plainText</key><string>%A, %B %e, %Y</string>
+      <key>snippetType</key><integer>0</integer>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string>both</string>
+      <key>plainText</key><string>%snippet:sig% + %snippet:missing% + %clipboard</string>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string>rich</string>
+      <key>plainText</key><string>Bold &amp; 50% done</string>
+      <key>snippetType</key><integer>1</integer>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string>script</string>
+      <key>plainText</key><string>do shell script "ls"</string>
+      <key>snippetType</key><integer>2</integer>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string></string>
+      <key>label</key><string>Loose</string>
+      <key>plainText</key><string>No trigger</string>
+    </dict>
+    <dict>
+      <key>abbreviation</key><string>broken</string>
+    </dict>
+  </array>
+</dict>
+</plist>

@@ -1,0 +1,13 @@
+[
+      { "name": "Email sign-off", "text": "Best,\n{cursor}", "keyword": "!bye" },
+      { "name": "Today", "text": "{date} / {time} / {datetime} / {day}", "keyword": "!now" },
+      { "name": "Custom date", "text": "{date format=\"yyyy-MM-dd\" offset=\"+1d\"} {date offset=\"-2M\"} {time offset=\"30m\"}", "keyword": "!d" },
+      { "name": "Paste", "text": "{clipboard} {clipboard | trim} {clipboard offset=1} {clipboard offset=2 | trim} {clipboard offset=x}", "keyword": "!p" },
+      { "name": "Reply", "text": "Hi {argument name=\"Name\" default=\"there\"},\n{argument name=\"Tone\" options=\"formal, casual\" default=\"casual\"}\n{snippet name=\"Email sign-off\"}", "keyword": "!reply" },
+      { "name": "Unsupported", "text": "{selection} {uuid} {snippet name=\"Nope\"} {argument name=\"x\" bogus}", "keyword": "!u" },
+      { "name": "Spaced offset", "text": "{date offset=\"+2y +5M\" format=\"yyyy-MM\"}", "keyword": "!so" },
+      { "name": "Code", "text": "fn main() { println!(\"{}\", 1); } \\{clipboard} {{literal}} C:\\path", "keyword": "!code" },
+      { "name": "No keyword", "text": "Only searchable" },
+      { "name": "Empty", "text": "", "keyword": "!empty" },
+      "junk"
+    ]

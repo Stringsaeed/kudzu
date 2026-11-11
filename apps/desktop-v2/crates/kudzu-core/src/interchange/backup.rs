@@ -1,6 +1,7 @@
 //! Pure backup naming, calendar-day and rotation rules.
 //!
-//! File orchestration is isolated in `store`; S29 moves [`BackupStore`] to `kudzu-app::data`.
+//! The backup folder itself (writing, listing, pruning) is `kudzu_app::data::BackupStore`; this
+//! module is the rules it follows.
 //!
 //! Files are named `kudzu-backup-<yyyy-MM-dd'T'HHmmss>-<reason>[.N].json` in local time, exactly
 //! like the Swift app, so either app can list the other's backups.
@@ -8,10 +9,6 @@
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Datelike, FixedOffset, Local, NaiveDateTime, TimeZone, Timelike, Utc};
-
-mod store;
-
-pub use store::BackupStore;
 
 const PREFIX: &str = "kudzu-backup-";
 const SUFFIX: &str = ".json";
@@ -74,14 +71,16 @@ pub enum BackupTimeZone {
 }
 
 impl BackupTimeZone {
-    fn utc_to_local(self, date: DateTime<Utc>) -> NaiveDateTime {
+    /// The wall-clock time in this zone.
+    pub fn utc_to_local(self, date: DateTime<Utc>) -> NaiveDateTime {
         match self {
             Self::Local => date.with_timezone(&Local).naive_local(),
             Self::Fixed(offset) => date.with_timezone(&offset).naive_local(),
         }
     }
 
-    fn local_to_utc(self, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
+    /// The instant a wall-clock time in this zone names (the earlier one when it repeats).
+    pub fn local_to_utc(self, naive: NaiveDateTime) -> Option<DateTime<Utc>> {
         match self {
             Self::Local => Local
                 .from_local_datetime(&naive)

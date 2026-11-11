@@ -1,7 +1,7 @@
 //! TextExpander (.textexpander property list and CSV) import.
 
 mod interchange {
-    use kudzu_core::interchange::{coordinator, detect, textexpander, ImportResult};
+    use kudzu_core::interchange::{detect, textexpander, ImportResult};
     use kudzu_core::template::{self, Severity};
     use kudzu_core::{CaseMode, FireMode, SnippetRecord};
 
@@ -231,17 +231,20 @@ mod interchange {
     }
 
     #[test]
-    fn detection_and_loading_by_extension() {
+    fn detection_by_extension() {
+        for extension in ["textexpander", "csv", "plist", "xml", "TEXTEXPANDER"] {
+            assert_eq!(
+                detect::file_format(extension, "").unwrap(),
+                detect::ImportSource::TextExpander
+            );
+        }
+        assert!(detect::file_format("txt", "x").is_err());
         let dir = std::env::temp_dir().join(format!("kudzu-te-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("Work.textexpander");
         std::fs::write(&file, PLIST).unwrap();
         assert_eq!(
-            coordinator::detect_import_source(&file).unwrap(),
-            detect::ImportSource::TextExpander
-        );
-        assert_eq!(
-            coordinator::load_import(&file)
+            textexpander::import_file(&file)
                 .unwrap()
                 .library
                 .snippets
@@ -249,9 +252,6 @@ mod interchange {
             5
         );
         assert!(textexpander::import_file(&dir).is_err());
-        let other = dir.join("notes.txt");
-        std::fs::write(&other, "x").unwrap();
-        assert!(coordinator::detect_import_source(&other).is_err());
         let _ = std::fs::remove_dir_all(dir);
     }
 }

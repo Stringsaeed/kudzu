@@ -7,9 +7,8 @@
 //! - [`strftime`]: strftime ⇄ ICU pattern and offset conversion used by the Espanso bridge.
 //! - [`detect`]: which app wrote an import file.
 //! - [`merge`]: adding an imported library to an existing one.
-//! - [`backup`]: backup file names, reasons and the daily rule, plus the on-disk store.
-//! - [`coordinator`]: import orchestration over files (preview, backup, merge, restore,
-//!   export). File orchestration moves to `kudzu-app::data` in S29.
+//! - [`backup`]: backup file names, reasons, the daily rule and rotation. The backup folder and
+//!   the import, restore and export orchestration are `kudzu_app::data`.
 //!
 //! The Kudzu JSON codec lives in `library::json`, dedupe in `library::dedupe` and usage
 //! statistics in `library::usage`: they are rules of the library, not of a foreign format.
@@ -18,7 +17,6 @@
 //! Espanso directory is part of that format.
 
 pub mod backup;
-pub mod coordinator;
 pub mod detect;
 pub mod espanso;
 pub mod merge;

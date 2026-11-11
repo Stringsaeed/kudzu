@@ -1790,6 +1790,7 @@ dependencies = [
  "blake3",
  "chrono",
  "kudzu-core",
+ "log",
  "minisign-verify",
  "semver",
  "serde",

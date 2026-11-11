@@ -1,7 +1,7 @@
 //! Raycast snippet export import.
 
 mod interchange {
-    use kudzu_core::interchange::{coordinator, detect, raycast, ImportResult};
+    use kudzu_core::interchange::{detect, raycast, ImportResult};
     use kudzu_core::template::{self, Severity};
     use kudzu_core::{CaseMode, FireMode, SnippetRecord};
 
@@ -219,30 +219,29 @@ mod interchange {
 
     #[test]
     fn detection_tells_raycast_from_kudzu_json() {
-        let dir = std::env::temp_dir().join(format!("kudzu-raycast-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let raycast_file = dir.join("snippets.json");
-        let kudzu_file = dir.join("library.json");
-        std::fs::write(&raycast_file, EXPORT).unwrap();
-        std::fs::write(
-            &kudzu_file,
-            "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}",
-        )
-        .unwrap();
         assert_eq!(
-            coordinator::detect_import_source(&raycast_file).unwrap(),
+            detect::file_format("json", EXPORT).unwrap(),
             detect::ImportSource::Raycast
         );
         assert_eq!(
-            coordinator::detect_import_source(&kudzu_file).unwrap(),
+            detect::file_format(
+                "json",
+                "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}"
+            )
+            .unwrap(),
             detect::ImportSource::Kudzu
         );
+        // A leading byte-order mark is tolerated.
         assert_eq!(
-            coordinator::load_import(&raycast_file)
-                .unwrap()
-                .library
-                .snippets
-                .len(),
+            detect::file_format("json", &format!("\u{feff}{EXPORT}")).unwrap(),
+            detect::ImportSource::Raycast
+        );
+        let dir = std::env::temp_dir().join(format!("kudzu-raycast-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("snippets.json");
+        std::fs::write(&file, EXPORT).unwrap();
+        assert_eq!(
+            raycast::import_file(&file).unwrap().library.snippets.len(),
             9
         );
         let _ = std::fs::remove_dir_all(dir);

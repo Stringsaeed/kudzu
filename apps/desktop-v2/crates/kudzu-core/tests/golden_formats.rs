@@ -14,7 +14,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use kudzu_core::clipboard::{ClipEntry, ClipKind, ClipSource, History, ImageSize, SECRET_RULES};
 use kudzu_core::formatting::{FormatSpan, FormatStyle, Formatting};
-use kudzu_core::interchange::backup::{BackupReason, BackupStore, BackupTimeZone};
+use kudzu_core::interchange::backup::{self, BackupReason, BackupTimeZone};
 use kudzu_core::library::json as kudzu_json;
 use kudzu_core::secrets::SecretKind;
 use kudzu_core::sync::{self, IndexedRecord, RecordKind, SyncIndex};
@@ -330,36 +330,32 @@ fn form_memory_is_byte_exact() {
 
 #[test]
 fn backup_names_are_byte_exact() {
-    let dir = interchange_support::TempDir::new("golden-backups");
+    // The names come from core's rules; `kudzu_app::data::BackupStore` is checked against the
+    // same fixture in its own `data_backups` suite.
     let zone = BackupTimeZone::Fixed(FixedOffset::east_opt(2 * 3600).unwrap());
-    let store = BackupStore::with_time_zone(dir.path(), zone);
     let now = at(2026, 3, 4, 23, 5, 6);
     let mut names = Vec::new();
-    for reason in [
-        BackupReason::Daily,
-        BackupReason::PreImport,
-        BackupReason::PreImport,
-        BackupReason::PreRestore,
-        BackupReason::Manual,
-        BackupReason::PreUpdate,
+    let mut infos = Vec::new();
+    for (reason, sequence) in [
+        (BackupReason::Daily, 1),
+        (BackupReason::PreImport, 1),
+        (BackupReason::PreImport, 2),
+        (BackupReason::PreRestore, 1),
+        (BackupReason::Manual, 1),
+        (BackupReason::PreUpdate, 1),
     ] {
-        let info = store.write(&library(), reason, now).unwrap();
+        let name = backup::filename(zone.utc_to_local(now), reason, sequence);
+        let info = backup::parse_info(std::path::Path::new(&name), zone).unwrap();
         assert_eq!(info.created_at, now);
         assert_eq!(info.reason, reason);
-        names.push(info.filename);
+        names.push(name);
+        infos.push(info);
     }
-    let listed: Vec<String> = store
-        .list()
-        .unwrap()
-        .into_iter()
-        .map(|i| i.filename)
-        .collect();
+    backup::sort_newest(&mut infos);
+    let listed: Vec<String> = infos.into_iter().map(|i| i.filename).collect();
     let mut out = names.join("\n");
     out.push_str("\n--\n");
     out.push_str(&listed.join("\n"));
     out.push('\n');
     assert_golden("backup-names.txt", out.as_bytes());
-
-    let json = std::fs::read_to_string(dir.path().join(&names[0])).unwrap();
-    assert_eq!(json, kudzu_json::encode(&library()).unwrap());
 }

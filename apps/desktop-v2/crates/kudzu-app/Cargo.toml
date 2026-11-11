@@ -9,6 +9,7 @@ kudzu-core = { path = "../kudzu-core" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+log.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 minisign-verify.workspace = true
