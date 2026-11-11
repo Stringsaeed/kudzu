@@ -1301,6 +1301,17 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   9. Restart to Update: no double launch.
   10. Open and reveal odd file names (spaces, `#`, `%`, `?`, emoji). Install into a folder containing `&`: the app starts, and the login item is reported unavailable.
 - **Live checks from the S33 review:** the eleven checks in `docs/migration/reviews/S33-sync.md` § "Live checks for S71/S72" (crash after a remote add or delete, sign-out and account switch, multi-batch first fetch, offline conflicts, zone reset, sync off then quit, offline burst, unsigned and Next builds, usage batching, `syncVersion` 2).
+- **Live checks from the S36 re-review:**
+  - A real Developer ID archive passes `codesign -dvvv`, `spctl` and the pinned requirement, and permission grants survive. Wrong team, wrong bundle id, a tampered archive and an equal version are refused.
+  - `kill -9` during extraction, then relaunch and install: the stale stage is swept, and none remains after success. Repeat on a filesystem that returns `ENOTSUP`, killing between the two fallback renames; the installed path comes back.
+  - With `/Applications/Kudzu.app` running, open the DMG copy, a translocated copy and a second copy: the running app comes forward. Repeat with a lock record pointing at a different `.app`; nothing else opens.
+  - Log in with and without the old `Kudzu.plist`: exactly one hidden process starts.
+  - A translocated launch reports `needs_move` and writes no login agent at a temporary path.
+  - A root-owned bundle and one owned by another user: `needs_move` or a clear error, nothing left behind.
+  - A newer signed app already on disk: no downgrade, and no relaunch of an unsigned bundle whose version string was raised.
+  - The real GitHub redirect chain, a system proxy and a custom root; TLS succeeds with managed roots.
+  - Restart to Update: no double launch, and a quiet signed skip doesn't pretend a swap happened.
+  - Odd file names and an install folder containing `&`: the app starts, and the login item is reported unavailable.
 - **Accept:** `NATIVE_SYSTEM.md` complete, with the machine, macOS version and display. Every failure fixed, or carried to S74. Every budget met, or the miss listed with its cause and upstream issue.
 - **Closes:** SHL-8, SHL-9, SYN-1–6 (live confirmation).
 - **Depends:** S40–S66, S70 · **Parallel with:** S71, S73
