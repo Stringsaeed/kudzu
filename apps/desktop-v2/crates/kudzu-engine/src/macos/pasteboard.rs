@@ -4,10 +4,11 @@
 //! paste whose old clipboard still has to come back, and the change counts of Kudzu's own
 //! writes. Snippet pastes, restores, clipboard-history writes and selection copies all go
 //! through it. The system pasteboard is one per process, so [`Pasteboard::shared`] is the one
-//! process-wide instance; [`Pasteboard::restore_pending`] is its shutdown. The raw board is a
-//! seam ([`Board`]) so the protocol tests run on a fake.
+//! process-wide instance; [`Pasteboard::restore_pending`] is its shutdown. Kudzu's own
+//! operations on it run one at a time, as transactions. The raw board is a seam ([`Board`]) so
+//! the protocol tests run on a fake.
 
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -57,19 +58,43 @@ pub(crate) enum PasteError {
 /// The pasteboard and the records that must outlive any one write.
 pub(crate) struct Pasteboard {
     board: Box<dyn Board>,
-    /// A paste whose old clipboard still has to come back: (saved items, change count after our write).
-    pending: Mutex<Option<(Items, isize)>>,
+    /// Kudzu's own transactions on the board, one at a time: a paste from its snapshot to its
+    /// ⌘V, a restore, a history write, a selection copy. Without it two could interleave, and
+    /// one would save the other's transient snippet as the user's clipboard, paste the other's
+    /// item, or overwrite its record. Lock order: this, then `records`.
+    transaction: Mutex<()>,
+    records: Mutex<Records>,
+}
+
+/// Held while a transaction runs: the methods that take one need the lock already held.
+type Transaction<'a> = MutexGuard<'a, ()>;
+
+struct Records {
+    /// The paste whose old clipboard still has to come back.
+    pending: Option<Pending>,
     /// Change counts produced by Kudzu's own writes (restores, copies), newest last. The
     /// clipboard history skips these so putting the user's clipboard back never looks like a copy.
-    own: Mutex<[isize; 8]>,
+    own: [isize; 8],
+    next_paste: u64,
+}
+
+struct Pending {
+    paste: u64,
+    saved: Items,
+    /// The change count after the paste's own write.
+    count: isize,
 }
 
 impl Pasteboard {
     pub fn new(board: Box<dyn Board>) -> Self {
         Self {
             board,
-            pending: Mutex::new(None),
-            own: Mutex::new([-1; 8]),
+            transaction: Mutex::new(()),
+            records: Mutex::new(Records {
+                pending: None,
+                own: [-1; 8],
+                next_paste: 0,
+            }),
         }
     }
 
@@ -79,16 +104,20 @@ impl Pasteboard {
         SHARED.get_or_init(|| Arc::new(Pasteboard::new(Box::new(SystemBoard))))
     }
 
-    fn note_own_change(&self) {
-        let count = self.board.change_count();
-        let mut own = lock(&self.own);
-        own.rotate_left(1);
-        own[7] = count;
+    fn begin(&self) -> Transaction<'_> {
+        lock(&self.transaction)
     }
 
-    /// Whether `count` came from one of Kudzu's own writes.
+    fn note_own_change(&self, _: &Transaction<'_>) {
+        let count = self.board.change_count();
+        let mut records = lock(&self.records);
+        records.own.rotate_left(1);
+        records.own[7] = count;
+    }
+
+    /// Whether `count` came from one of Kudzu's own writes. Never waits for a transaction.
     pub fn is_own_change(&self, count: isize) -> bool {
-        lock(&self.own).contains(&count)
+        lock(&self.records).own.contains(&count)
     }
 
     /// Current change count of the pasteboard.
@@ -105,15 +134,16 @@ impl Pasteboard {
     /// Returns the new change count. A snippet paste still waiting to restore is finished
     /// first, so it can't overwrite what the user picks now.
     pub fn write_items(&self, items: &[Item]) -> isize {
-        self.restore_pending();
+        let transaction = self.begin();
+        self.restore_pending_in(&transaction);
         self.board.write_items(items);
-        self.note_own_change();
+        self.note_own_change(&transaction);
         self.board.change_count()
     }
 
-    fn restore(&self, saved: &[Item]) {
+    fn restore(&self, transaction: &Transaction<'_>, saved: &[Item]) {
         self.board.write_items(saved);
-        self.note_own_change();
+        self.note_own_change(transaction);
     }
 
     /// Plain-text contents.
@@ -123,8 +153,9 @@ impl Pasteboard {
 
     /// Writes plain text as the only item (as Kudzu's own change).
     pub fn write_string(&self, text: &str) -> bool {
+        let transaction = self.begin();
         let ok = self.board.write_string(text);
-        self.note_own_change();
+        self.note_own_change(&transaction);
         ok
     }
 
@@ -146,39 +177,82 @@ impl Pasteboard {
     /// its place, ready for [`PreparedPaste::paste`]. Nothing is posted yet, so a caller can do
     /// this before it deletes anything (D14). Fails, leaving the user's clipboard as it was,
     /// when the clipboard can't be saved or written.
+    ///
+    /// The transaction lasts until the ⌘V is posted (or the paste is dropped): no other Kudzu
+    /// write can come between the snapshot, the write, the record and the keystroke.
     pub fn prepare_paste(
         &self,
         text: &str,
         html: Option<&str>,
     ) -> Result<PreparedPaste<'_>, PasteError> {
+        let transaction = self.begin();
         // A previous paste still pending restoration owns the "real" clipboard; put it back first.
-        self.restore_pending();
+        self.restore_pending_in(&transaction);
         let saved = self.board.snapshot().ok_or(PasteError::Unavailable)?;
         if !self.board.write_transient(text, html) {
-            self.restore(&saved);
+            self.restore(&transaction, &saved);
             return Err(PasteError::Unavailable);
         }
-        *lock(&self.pending) = Some((saved, self.board.change_count()));
+        let count = self.board.change_count();
+        let paste = {
+            let mut records = lock(&self.records);
+            records.next_paste += 1;
+            let paste = records.next_paste;
+            records.pending = Some(Pending {
+                paste,
+                saved,
+                count,
+            });
+            paste
+        };
         Ok(PreparedPaste {
             pasteboard: self,
-            open: true,
+            paste,
+            transaction: Some(transaction),
         })
     }
 
     /// Restores the clipboard a paste replaced, unless the user copied something since. Also
     /// the pasteboard's shutdown: the engine calls it when it stops.
     pub fn restore_pending(&self) {
-        let Some((saved, count)) = lock(&self.pending).take() else {
-            return;
+        let transaction = self.begin();
+        self.restore_pending_in(&transaction);
+    }
+
+    fn restore_pending_in(&self, transaction: &Transaction<'_>) {
+        let pending = lock(&self.records).pending.take();
+        self.put_back(transaction, pending);
+    }
+
+    /// Restores paste `paste`'s clipboard if it is still the pending one: a paste's late
+    /// restore never finishes a newer paste's early.
+    fn restore_paste_in(&self, transaction: &Transaction<'_>, paste: u64) {
+        let pending = {
+            let mut records = lock(&self.records);
+            match records.pending.take() {
+                Some(pending) if pending.paste == paste => Some(pending),
+                other => {
+                    records.pending = other;
+                    None
+                }
+            }
         };
-        if self.board.change_count() == count {
-            self.restore(&saved);
+        self.put_back(transaction, pending);
+    }
+
+    fn put_back(&self, transaction: &Transaction<'_>, pending: Option<Pending>) {
+        if let Some(pending) = pending {
+            if self.board.change_count() == pending.count {
+                self.restore(transaction, &pending.saved);
+            }
         }
     }
 
-    /// Copies the frontmost app's selection with ⌘C, waiting up to `timeout`; restores the clipboard.
+    /// Copies the frontmost app's selection with ⌘C, waiting up to `timeout`; restores the
+    /// clipboard. One transaction throughout, so a paste can't save the copied selection.
     pub fn copy_selection(&self, events: &dyn Events, timeout: Duration) -> Option<String> {
-        self.restore_pending();
+        let transaction = self.begin();
+        self.restore_pending_in(&transaction);
         let saved = self.board.snapshot()?;
         let original = self.board.change_count();
         keys::copy(events).ok()?;
@@ -192,38 +266,46 @@ impl Pasteboard {
             }
         }
         if self.board.change_count() != original {
-            self.restore(&saved);
+            self.restore(&transaction, &saved);
         }
         text
     }
 }
 
-/// A paste whose clipboard is saved and written, waiting for its ⌘V. Dropping it without
-/// pasting puts the user's clipboard back at once.
+/// A paste whose clipboard is saved and written, waiting for its ⌘V, inside its transaction.
+/// Dropping it without pasting puts the user's clipboard back at once.
 pub(crate) struct PreparedPaste<'a> {
     pasteboard: &'a Pasteboard,
-    open: bool,
+    paste: u64,
+    /// Held until the ⌘V is posted.
+    transaction: Option<Transaction<'a>>,
 }
 
 impl PreparedPaste<'_> {
-    /// Presses ⌘V, then restores the user's clipboard after [`RESTORE_DELAY`] (blocking, on
-    /// `clock`). When ⌘V can't be posted the clipboard comes back at once.
+    /// Presses ⌘V and ends the transaction, then restores the user's clipboard after
+    /// [`RESTORE_DELAY`] (blocking, on `clock`). When ⌘V can't be posted the clipboard comes
+    /// back at once.
     pub fn paste(mut self, events: &dyn Events, clock: &dyn Clock) -> Result<(), PasteError> {
-        self.open = false;
+        let pasteboard = self.pasteboard;
+        let Some(transaction) = self.transaction.take() else {
+            return Ok(());
+        };
         if let Err(error) = keys::paste(events) {
-            self.pasteboard.restore_pending();
+            pasteboard.restore_paste_in(&transaction, self.paste);
             return Err(PasteError::Key(error));
         }
+        drop(transaction);
         clock.sleep(RESTORE_DELAY);
-        self.pasteboard.restore_pending();
+        let transaction = pasteboard.begin();
+        pasteboard.restore_paste_in(&transaction, self.paste);
         Ok(())
     }
 }
 
 impl Drop for PreparedPaste<'_> {
     fn drop(&mut self) {
-        if self.open {
-            self.pasteboard.restore_pending();
+        if let Some(transaction) = self.transaction.take() {
+            self.pasteboard.restore_paste_in(&transaction, self.paste);
         }
     }
 }

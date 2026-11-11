@@ -101,6 +101,12 @@ pub(super) enum At {
     Held(usize),
     /// While the engine waits for its n-th app activation (0-based), once the app is in front.
     Activate(usize),
+    /// After the n-th pasteboard snapshot (0-based), on whichever thread took it.
+    Snapshot(usize),
+    /// After the n-th transient paste item was written.
+    Transient(usize),
+    /// Just before the n-th time items are written back (a restore or a history pick).
+    Writing(usize),
 }
 
 type Action = Box<dyn FnOnce(&Desk) + Send>;
@@ -122,6 +128,8 @@ pub(super) struct State {
     pub presses: usize,
     pub helds: usize,
     pub activations: usize,
+    /// Pasteboard operations so far: snapshots, transient writes, item writes.
+    pub board_ops: [usize; 3],
     pub sleeps: HashMap<Duration, usize>,
     // Pasteboard.
     pub items: Items,
@@ -213,6 +221,7 @@ impl Desk {
             presses: 0,
             helds: 0,
             activations: 0,
+            board_ops: [0; 3],
             sleeps: HashMap::new(),
             items: user_clipboard(),
             count: 100,

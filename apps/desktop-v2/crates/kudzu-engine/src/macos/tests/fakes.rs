@@ -144,7 +144,12 @@ impl Board for FakeBoard {
     }
 
     fn snapshot(&self) -> Option<Items> {
-        self.0.with(|s| (!s.unreadable).then(|| s.items.clone()))
+        let (items, n) = self.0.with(|s| {
+            s.board_ops[0] += 1;
+            ((!s.unreadable).then(|| s.items.clone()), s.board_ops[0] - 1)
+        });
+        self.0.fire(At::Snapshot(n));
+        items
     }
 
     fn read_items(&self) -> Items {
@@ -152,6 +157,11 @@ impl Board for FakeBoard {
     }
 
     fn write_items(&self, items: &[Item]) {
+        let n = self.0.with(|s| {
+            s.board_ops[2] += 1;
+            s.board_ops[2] - 1
+        });
+        self.0.fire(At::Writing(n));
         self.0.with(|s| {
             s.items = items.to_vec();
             s.count += 1;
@@ -160,9 +170,9 @@ impl Board for FakeBoard {
     }
 
     fn write_transient(&self, text: &str, html: Option<&str>) -> bool {
-        self.0.with(|s| {
+        let written = self.0.with(|s| {
             if s.transient_fails {
-                return false;
+                return None;
             }
             let mut item: Item = vec![
                 (PLAIN.into(), text.as_bytes().to_vec()),
@@ -178,8 +188,12 @@ impl Board for FakeBoard {
                 text: text.into(),
                 html: html.is_some(),
             }));
-            true
-        })
+            s.board_ops[1] += 1;
+            Some(s.board_ops[1] - 1)
+        });
+        let Some(n) = written else { return false };
+        self.0.fire(At::Transient(n));
+        true
     }
 
     fn read_string(&self) -> Option<String> {
