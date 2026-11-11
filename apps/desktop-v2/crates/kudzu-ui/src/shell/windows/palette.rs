@@ -1,13 +1,15 @@
-//! `palette`: Quick Search, a launcher panel (760×480, radius 18). S56 builds its content.
-//! The shell part (QS-1): a `QuickSearchSession` captures the target before the panel takes
-//! keys and holds suppression; every way of hiding goes through `dismiss`, which drops it.
-use super::super::{lifecycle::closes_windows, theme_sync::ThemeSync, Shell};
+//! `palette`: Quick Search, a launcher panel (760×480, radius 18).
+//! A `QuickSearchSession` captures the target before the panel takes keys and holds
+//! suppression. `dismiss` is how the panel hides, except an insert, which moves the
+//! session into the insert task before the window hides (a blur from hiding would
+//! otherwise drop the guard).
+use super::super::{theme_sync::ThemeSync, Shell};
+use crate::palette::model::SearchModel;
 use kudzu_app::assembly::Kudzu;
 use kudzu_app::expansion::{ExpansionError, ExpansionService, QuickSearchSession};
 use kudzu_app::library::LibraryService;
 use kudzu_app::settings::SettingsService;
 use kudzu_app::tasks::Task;
-use rune::{Key, KeyEvent, Tx};
 use std::sync::Arc;
 
 pub struct PaletteServices {
@@ -35,6 +37,7 @@ pub struct PaletteModel {
     /// The capture started on open; it becomes `session` in `poll`.
     pub(crate) capture: Option<Capture>,
     pub session: Option<QuickSearchSession>,
+    pub search: SearchModel,
 }
 
 pub struct PaletteState {
@@ -64,6 +67,7 @@ impl PaletteState {
     /// Start the capture (frontmost app, and the selection only when a snippet needs it),
     /// then show the panel on the next turn, after the hidden panel drew this state.
     fn open(&mut self) {
+        self.model.search.reset();
         match self.svc.expansion.begin_quick_search() {
             Ok(task) => self.model.capture = Some(task),
             Err(error) => log::warn!("Quick Search could not start: {error}"),
@@ -72,14 +76,19 @@ impl PaletteState {
         let palette = self.shell.handles().palette.clone();
         self.shell.handles().palette.update(move |s, _| {
             if s.model.open {
+                crate::palette::place(s);
                 palette.show();
             }
         });
     }
 
-    /// The one way the palette hides. `restore` returns focus to the target (Escape, the
-    /// shortcut again); a blur or `main` taking over just drops the session.
+    /// The way the palette hides, other than an insert. `restore` returns focus to the
+    /// target (Escape, the shortcut again) unless `main` is focused. A blur just drops
+    /// the session.
     pub fn dismiss(&mut self, restore: bool) {
+        let restore = restore && !self.shell.main_focused();
+        self.model.search.keys.blur();
+        self.model.search.copy_due = None;
         // Dropping an unfinished capture drops its session, and so its guard, when it lands.
         self.model.capture = None;
         if let Some(session) = self.model.session.take() {
@@ -101,7 +110,10 @@ impl PaletteState {
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             match result {
-                Ok(Ok(session)) if self.model.open => self.model.session = Some(session),
+                Ok(Ok(session)) if self.model.open => {
+                    self.model.session = Some(session);
+                    self.model.search.restart_preview = true;
+                }
                 Ok(Ok(_)) => {}
                 Ok(Err(error)) => log::warn!("Quick Search capture failed: {error}"),
                 Err(error) => log::warn!("Quick Search capture failed: {error}"),
@@ -116,35 +128,27 @@ pub(super) fn app() -> rune::App<PaletteState> {
     let spec = rune::AppSpec {
         fonts: crate::theme::fonts::FILES,
         families: crate::theme::fonts::families(),
-        poll: Some(|s: &mut PaletteState, _, _| s.sync()),
-        on_key: Some(on_key),
+        scenes: crate::palette::scenes::SCENES,
+        setup: Some(crate::palette::setup),
+        poll: Some(crate::palette::poll),
+        on_key: Some(crate::palette::on_key),
         ..rune::AppSpec::new(
             "Quick Search",
             (760.0, 480.0),
             super::unreachable_init,
-            super::super::placeholder::palette,
+            crate::palette::view::view,
         )
     };
     rune::App::new(spec)
         .windowless()
+        .modifier_keys()
         .on_focus(|s: &mut PaletteState, focused, _| {
             if !focused {
+                s.model.search.keys.blur();
                 s.dismiss(false);
             }
         })
         .on_visibility(|s: &mut PaletteState, _, _| s.shell.push_windows())
-}
-
-fn on_key(s: &mut PaletteState, key: &KeyEvent, _: &mut Tx) -> bool {
-    if closes_windows(key) {
-        s.shell.close_windows();
-        return true;
-    }
-    if key.key == Key::Escape {
-        s.dismiss(true);
-        return true;
-    }
-    false
 }
 
 pub(super) fn spec(app: rune::App<PaletteState>, state: PaletteState) -> rune::AnyWindowSpec {

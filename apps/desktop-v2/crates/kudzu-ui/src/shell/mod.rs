@@ -11,6 +11,7 @@ pub mod tray;
 mod window_list;
 pub mod windows;
 
+pub(crate) use lifecycle::closes_windows;
 pub use routes::{NewSnippet, Route, SettingsPane};
 pub use windows::{build, Launch, Windows};
 
@@ -54,6 +55,8 @@ struct Inner {
     settle: settle::Settle,
     /// Watch subscriptions that wake windows; dropped with the last window state.
     wakers: std::sync::Mutex<Vec<kudzu_app::watch::Subscription>>,
+    /// `main` reported focus. Escape then hides Quick Search without activating the target.
+    main_focused: std::sync::atomic::AtomicBool,
 }
 
 /// Cheap to clone; every window state holds one.
@@ -67,6 +70,19 @@ impl Shell {
 
     pub(crate) fn native(&self) -> bool {
         self.0.native
+    }
+
+    /// The main window's last focus report. Quick Search reads it when it hides.
+    pub(crate) fn set_main_focused(&self, focused: bool) {
+        self.0
+            .main_focused
+            .store(focused, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn main_focused(&self) -> bool {
+        self.0
+            .main_focused
+            .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub(crate) fn handles(&self) -> &Handles {

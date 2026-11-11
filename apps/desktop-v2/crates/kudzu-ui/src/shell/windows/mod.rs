@@ -61,6 +61,7 @@ impl Windows {
             kudzu.updates.state().subscribe(waker(&h.main)),
             kudzu.library.watch().subscribe(waker(&h.main)),
             kudzu.library.watch().subscribe(waker(&h.palette)),
+            kudzu.expansion.outcomes().subscribe(waker(&h.palette)),
             kudzu.clipboard.watch().subscribe(waker(&h.picker)),
             kudzu.forms.pending().subscribe(waker(&h.form)),
             kudzu.forms.outcomes().subscribe(waker(&h.form)),
@@ -146,6 +147,7 @@ pub(crate) fn parts(
         windows: WindowList::new(kudzu.windows.clone()),
         settle: Settle::default(),
         wakers: Mutex::new(Vec::new()),
+        main_focused: std::sync::atomic::AtomicBool::new(false),
     }));
     Parts {
         main: MainState::new(MainServices::from(kudzu), shell.clone(), show_main),

@@ -192,6 +192,23 @@ fn every_palette_dismissal_lifts_suppression() {
     assert!(unsuppressed(&r));
 }
 
+#[test]
+fn dismiss_does_not_restore_the_target_while_main_is_focused() {
+    let mut r = rig();
+    r.p.palette.toggle();
+    wait_for(|| {
+        r.p.palette.sync();
+        r.p.palette.model.session.is_some()
+    });
+    let queued = r.p.shell.0.settle.len();
+    r.p.shell.set_main_focused(true);
+    r.p.palette.dismiss(true);
+    assert!(r.p.palette.model.session.is_none());
+    assert!(!r.p.palette.model.open);
+    assert_eq!(r.p.shell.0.settle.len(), queued);
+    assert!(unsuppressed(&r));
+}
+
 fn emit_form(r: &Rig, native: u64) -> kudzu_app::ports::FormToken {
     let snippet = r.kudzu.library.watch().get().snippets[0].id;
     let token = r.fixtures.engine.form_token(native);
@@ -438,7 +455,8 @@ fn new_snippet_from_selection_routes_even_when_the_selection_is_empty() {
     assert_eq!(
         r.p.main.model.route,
         Route::NewSnippet(NewSnippet {
-            content: "picked text".into()
+            content: "picked text".into(),
+            ..NewSnippet::default()
         })
     );
 }

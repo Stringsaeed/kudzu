@@ -134,3 +134,11 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 Intentional differences, not closed:
 
 - **First-load preview shimmer.** Tauri animates a `background-position` sweep. Rune `Beat` has no background-position, so the first-load well is a static 14×180 bar (`RUNE-GAP` Beat). The demo scene warms the 50 ms preview so the captured state shows formatting, images and actions.
+
+## Quick Search (S56)
+
+`cargo xtask parity --window palette` passes both themes of `search` and `no-match` (28 landmark rows). These stay:
+
+- The return glyph in the footer cap is 16 pt, not the reference `size-3` (12). The landmark unions icon bounds, and a 12 pt glyph centred in the 18 pt cap starts 3 pt inside the 16 pt padding, which fails. 16 pt sits on that padding.
+- The empty search field's placeholder is not a text node in `--tree`, so the `search` combobox ink stays a review row. It is painted the capture's computed foreground. The stylesheet says `placeholder:text-faint`.
+- The card is the captured 12 pt inset with an opaque popover fill. The running window's full-bleed vibrancy (`vibrant:p-0`, `bg-popover/55`) is not drawn: the tree has no material, and that frame is an S71 check.

@@ -274,8 +274,6 @@ pub(super) const NOT_YET_BUILT: &[Pending] = &[
     ("main", "onboarding-espanso-retry", "S65"),
     ("main", "onboarding-practice", "S65"),
     ("main", "onboarding-finish-retry", "S65"),
-    ("palette", "search", "S56"),
-    ("palette", "no-match", "S56"),
     ("picker", "history", "S60"),
     ("picker", "clips-5000", "S60"),
     ("picker", "empty", "S60"),

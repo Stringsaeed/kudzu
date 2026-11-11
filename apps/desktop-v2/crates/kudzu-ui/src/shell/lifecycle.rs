@@ -187,7 +187,10 @@ impl MainState {
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();
-            self.model.route = Route::NewSnippet(NewSnippet { content });
+            self.model.route = Route::NewSnippet(NewSnippet {
+                content,
+                ..NewSnippet::default()
+            });
             self.show();
             changed = true;
         }

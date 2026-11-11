@@ -15,17 +15,21 @@ pub enum SettingsPane {
     About,
 }
 
-/// What a new snippet starts with. `content` is user text (a captured selection): it has no
-/// `Debug` output and is never logged.
+/// What a new snippet starts with. `content`, `name` and `trigger` are user text: none of
+/// them has a `Debug` output, and none is logged.
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct NewSnippet {
     pub content: String,
+    pub name: String,
+    pub trigger: String,
 }
 
 impl std::fmt::Debug for NewSnippet {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("NewSnippet")
             .field("content_len", &self.content.len())
+            .field("name_len", &self.name.len())
+            .field("trigger_len", &self.trigger.len())
             .finish()
     }
 }
@@ -65,10 +69,14 @@ mod tests {
     fn a_new_snippet_route_never_prints_its_content() {
         let route = Route::NewSnippet(NewSnippet {
             content: "secret words".into(),
+            name: "secret name".into(),
+            trigger: ";secret".into(),
         });
         let printed = format!("{route:?}");
         assert!(!printed.contains("secret"));
         assert!(printed.contains("content_len: 12"));
+        assert!(printed.contains("name_len: 11"));
+        assert!(printed.contains("trigger_len: 7"));
         assert_eq!(route.label(), "New Snippet");
     }
 }
