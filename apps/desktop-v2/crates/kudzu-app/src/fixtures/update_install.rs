@@ -12,9 +12,6 @@ pub struct FakeInstaller {
 }
 impl UpdateInstaller for FakeInstaller {
     fn probe(&self) -> Result<InstallProbe, PortError> {
-        if let Some(e) = *self.failure.lock().unwrap() {
-            return Err(e);
-        }
         Ok(*self.probe.lock().unwrap())
     }
     fn install(&self, package: &UpdatePackage) -> Result<(), PortError> {

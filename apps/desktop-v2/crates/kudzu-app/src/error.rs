@@ -28,6 +28,8 @@ pub enum PortError {
     InvalidData,
     #[error("This feature is unavailable.")]
     Unavailable,
+    #[error("The operation was cancelled.")]
+    Cancelled,
     #[error("The operation failed.")]
     Io(#[from] IoFailure),
 }

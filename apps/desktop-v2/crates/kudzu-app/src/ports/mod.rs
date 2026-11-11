@@ -18,7 +18,7 @@ pub use apps::AppDirectory;
 pub use clock::Clock;
 pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
 pub use engine::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormRequest};
-pub use fetch::{Fetch, FetchRequest};
+pub use fetch::{Cancel, Fetch, FetchRequest};
 pub use files::FileOpener;
 pub use hotkey_registrar::{HotkeyRegistrar, ShortcutSlot};
 pub use ids::IdSource;

@@ -240,12 +240,8 @@ mod tests {
         let p = f.ports();
         f.fetch
             .respond("https://example.test/feed", Ok(vec![1, 2, 3]));
-        let request = FetchRequest {
-            url: "https://example.test/feed".into(),
-            timeout: Duration::from_secs(1),
-            max_bytes: 2,
-        };
-        assert_eq!(p.fetch.get(&request), Err(PortError::TooLarge));
+        let request = FetchRequest::new("https://example.test/feed", Duration::from_secs(1), 2);
+        assert_eq!(p.fetch.get(&request, &|_, _| {}), Err(PortError::TooLarge));
         p.login_item.set_enabled(true).unwrap();
         assert!(p.login_item.enabled().unwrap());
         p.files
