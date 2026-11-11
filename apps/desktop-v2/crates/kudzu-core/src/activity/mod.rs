@@ -20,7 +20,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use explain::{explain, ActivityEntry, Explanation, Fix, Tone};
+pub use explain::{explain, ActivityEntry, Explanation, Fix, Tone, TRIGGER_LOST_MESSAGE};
 
 /// How many events the log keeps.
 pub const CAPACITY: usize = 100;
@@ -125,6 +125,8 @@ pub enum ActivityOutcome {
     InsertionFailed {
         error: InsertFailure,
     },
+    /// D17: a refused paste could not restore the trigger. No text belongs in this outcome.
+    TriggerLost,
     /// Typing, a click or an app switch got in before the insertion could start.
     Interrupted,
     /// Health: macOS disabled the keyboard tap; `reenabled` when Kudzu turned it back on.
@@ -168,7 +170,7 @@ pub struct ActivityEvent {
     /// Assigned by [`ActivityLog::push`]; increases with time.
     pub id: u64,
     pub at: DateTime<Utc>,
-    /// `None` for health events.
+    /// `None` for health events or recovery reports whose origin is not supplied by the engine.
     pub source: Option<ActivitySource>,
     pub snippet_id: Option<Uuid>,
     /// The trigger as stored on the snippet (never as typed). `None` for Quick Search.

@@ -1,5 +1,7 @@
 //! Expansion coordination. S40 owns EngineEvents routing and the engine's start/stop.
 mod feed;
+mod recovery;
+pub use recovery::{LostTriggerNotice, RecoveryId, RetypeTrigger};
 mod health;
 pub use health::{sidebar_health, tray_summary, Health, HealthCopy};
 mod render;
@@ -35,6 +37,7 @@ pub enum ExpansionError {
 }
 
 pub struct ExpansionService {
+    recovery: Mutex<recovery::Recovery>,
     library: Watch<KudzuLibrary>,
     target: Arc<dyn TargetApp>,
     engine: Arc<dyn ExpansionEngine>,
@@ -65,6 +68,7 @@ impl ExpansionService {
             environment,
         });
         Ok(Self {
+            recovery: Mutex::new(recovery::Recovery::new()),
             renderer,
             library,
             target,

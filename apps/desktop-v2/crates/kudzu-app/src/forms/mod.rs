@@ -46,6 +46,8 @@ pub struct Submission {
     pub memory_revision: Revision,
     /// Queue errors only. Asynchronous disk errors are published through saved().
     pub memory_error: Option<PersistError>,
+    /// Adapter acceptance, not proof of insertion. Native completion/failure arrives via
+    /// EngineEvents (including trigger_lost); only expanded records usage.
     pub insertion: Result<(), InsertionError>,
 }
 struct Pending {

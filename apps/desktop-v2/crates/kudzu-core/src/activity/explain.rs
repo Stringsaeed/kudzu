@@ -9,6 +9,9 @@ use super::{
     ActivityEvent, ActivityOutcome, InsertFailure, Permission, RuleLevel, TapDisabledCause,
 };
 
+/// Shared by Activity and the local recovery notice; never interpolate trigger content.
+pub const TRIGGER_LOST_MESSAGE: &str = "The trigger was removed; the snippet couldn't be inserted.";
+
 /// How an outcome reads at a glance.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(test, derive(Serialize, Deserialize))]
@@ -144,6 +147,7 @@ pub fn explain(event: &ActivityEvent) -> Explanation {
             };
             ("Failed", Tone::Failed, Some(sentence), fix)
         }
+        ActivityOutcome::TriggerLost => ("Trigger removed", Tone::Failed, Some(TRIGGER_LOST_MESSAGE.into()), None),
         ActivityOutcome::Interrupted => (
             "Interrupted",
             Tone::Info,

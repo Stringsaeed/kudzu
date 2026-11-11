@@ -255,6 +255,7 @@ fn every_outcome_retains_its_explanation_fix_and_current_state_resolution() {
             None,
             "Failed",
         ),
+        (ActivityOutcome::TriggerLost, None, "Trigger removed"),
         (ActivityOutcome::Interrupted, None, "Interrupted"),
         (
             ActivityOutcome::TapDisabled {
@@ -366,4 +367,31 @@ fn every_outcome_retains_its_explanation_fix_and_current_state_resolution() {
             entry.explanation.label
         );
     }
+}
+
+#[test]
+fn lost_trigger_activity_discards_trigger_text_even_if_it_is_stored_in_the_library() {
+    let snippet = SnippetRecord::new("Fixture", vec![";PRIVATE-TRIGGER".into()], "PRIVATE-BODY");
+    let id = snippet.id;
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![snippet],
+        ..Default::default()
+    });
+    let expansion = h.expansion();
+    let service = ActivityService::new(
+        h.library.clone(),
+        h.settings.clone(),
+        expansion.status(),
+        h.clock.clone(),
+    );
+    service.record(ActivityEvent::attempt(
+        ActivitySource::Typed,
+        id,
+        Some(";PRIVATE-TRIGGER".into()),
+        None,
+        ActivityOutcome::TriggerLost,
+    ));
+    let entries = service.watch().get();
+    assert_eq!(entries[0].event.trigger, None);
+    assert!(!format!("{entries:?}").contains("PRIVATE"));
 }

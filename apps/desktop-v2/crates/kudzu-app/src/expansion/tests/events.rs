@@ -42,6 +42,12 @@ impl EngineEvents for Router {
             forms.requested(request);
         }
     }
+    fn trigger_lost(&self, lost: crate::ports::TriggerLost) {
+        if let Some(expansion) = self.expansion.upgrade() {
+            let event = expansion.trigger_lost(lost);
+            self.activity(event);
+        }
+    }
     fn activity(&self, event: ActivityEvent) {
         if let Some(activity) = self.activity.upgrade() {
             activity.record(event);
@@ -124,4 +130,85 @@ fn typed_engine_callbacks_route_to_service_snapshots_and_post_insertion_usage() 
     expansion.stop_feed();
     h.engine.stop();
     h.writer.shutdown().unwrap();
+}
+
+#[test]
+fn lost_trigger_routes_to_a_content_free_notice_and_memory_only_activity() {
+    use crate::{fixtures::engine::FakeEngineEvents, ports::TriggerLost};
+    let mut snippet =
+        SnippetRecord::new("Fixture", vec![";PRIVATE-TRIGGER".into()], "PRIVATE-BODY");
+    snippet.id = uuid::Uuid::from_u128(27);
+    let id = snippet.id;
+    let h = Harness::new(KudzuLibrary {
+        snippets: vec![snippet],
+        ..Default::default()
+    });
+    let expansion = h.expansion();
+    let activity = Arc::new(ActivityService::new(
+        h.library.clone(),
+        h.settings.clone(),
+        expansion.status(),
+        h.clock.clone(),
+    ));
+    h.engine
+        .start(Arc::new(Router {
+            expansion: Arc::downgrade(&expansion),
+            library: Arc::downgrade(&h.library),
+            forms: Weak::new(),
+            activity: Arc::downgrade(&activity),
+        }))
+        .unwrap();
+    let library_revision = h.library.watch().revision();
+    let settings_revision = h.settings.watch().revision();
+    h.pasteboard.external_copy(vec![vec![(
+        "public.utf8-plain-text".into(),
+        b"user clipboard".to_vec(),
+    )]]);
+    let clipboard = h.pasteboard.snapshot.lock().unwrap().clone();
+    h.engine.emit_trigger_lost(TriggerLost {
+        snippet_id: id,
+        trigger: ";PRIVATE-TRIGGER".into(),
+    });
+    let notice = expansion.lost_trigger_notice().get().as_ref().unwrap();
+    assert_eq!(notice.snippet_id, id);
+    assert_eq!(
+        notice.message(),
+        "The trigger was removed; the snippet couldn't be inserted."
+    );
+    assert_eq!(notice.action_label(), "Retype trigger");
+    assert!(!format!("{notice:?}").contains("PRIVATE"));
+    let entries = activity.watch().get();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].event.outcome, ActivityOutcome::TriggerLost);
+    assert_eq!(entries[0].event.snippet_id, Some(id));
+    assert_eq!(entries[0].event.trigger, None);
+    assert_eq!(entries[0].event.source, None);
+    assert_eq!(
+        entries[0].explanation.sentence.as_deref(),
+        Some(notice.message())
+    );
+    assert!(!format!("{entries:?}").contains("PRIVATE"));
+    assert_eq!(h.library.watch().revision(), library_revision);
+    assert_eq!(h.settings.watch().revision(), settings_revision);
+    assert!(h.library.watch().get().usage.is_empty());
+    assert!(*h.pasteboard.snapshot.lock().unwrap() == clipboard);
+    let recovery = expansion.take_trigger_for_retyping(notice.id).unwrap();
+    assert_eq!(recovery.trigger(), ";PRIVATE-TRIGGER");
+    assert!(expansion.lost_trigger_notice().get().is_none());
+    assert!(expansion.take_trigger_for_retyping(notice.id).is_none());
+    assert!(h.engine.state.lock().unwrap().insertions.is_empty());
+    assert!(*h.pasteboard.snapshot.lock().unwrap() == clipboard);
+    h.engine.stop();
+
+    let collector = Arc::new(FakeEngineEvents::default());
+    h.engine.start(collector.clone()).unwrap();
+    h.engine.emit_trigger_lost(TriggerLost {
+        snippet_id: id,
+        trigger: ";fixture".into(),
+    });
+    let lost = collector.lost_triggers.lock().unwrap();
+    assert_eq!(lost.len(), 1);
+    assert_eq!(lost[0].snippet_id, id);
+    assert_eq!(lost[0].trigger, ";fixture");
+    h.engine.stop();
 }

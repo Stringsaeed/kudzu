@@ -272,3 +272,5 @@ fn sidebar_and_tray_health_keep_reference_priority_and_wording() {
 }
 
 mod events;
+
+mod recovery;

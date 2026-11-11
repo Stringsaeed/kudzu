@@ -38,6 +38,7 @@ fn every_outcome() -> Vec<ActivityOutcome> {
             permission: Permission::InputMonitoring,
         },
         ActivityOutcome::FormCancelled,
+        ActivityOutcome::TriggerLost,
         ActivityOutcome::Interrupted,
         ActivityOutcome::TapDisabled {
             cause: TapDisabledCause::Timeout,
@@ -329,4 +330,17 @@ fn a_tap_reset_is_informational_once_it_is_back() {
             permission: Permission::Accessibility
         })
     );
+}
+
+#[test]
+fn lost_trigger_has_a_content_free_failure_explanation() {
+    let explanation = explain(&typed(ActivityOutcome::TriggerLost));
+    assert_eq!(explanation.label, "Trigger removed");
+    assert_eq!(explanation.tone, Tone::Failed);
+    assert_eq!(
+        explanation.sentence.as_deref(),
+        Some("The trigger was removed; the snippet couldn't be inserted.")
+    );
+    assert_eq!(explanation.fix, None);
+    assert!(!ActivityOutcome::TriggerLost.is_health());
 }

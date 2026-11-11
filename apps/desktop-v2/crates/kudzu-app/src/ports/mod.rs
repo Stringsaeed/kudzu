@@ -20,7 +20,7 @@ pub use apps::{AppCatalog, TargetApp};
 pub use clock::Clock;
 pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
 pub use engine::{
-    EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest,
+    EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest, TriggerLost,
 };
 pub use fetch::{Cancel, Fetch, FetchRequest};
 pub use files::FileOpener;

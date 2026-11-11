@@ -2,7 +2,10 @@
 use crate::{
     error::PortError,
     ports::engine::InsertionError,
-    ports::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest},
+    ports::{
+        EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest,
+        TriggerLost,
+    },
 };
 use kudzu_core::{
     activity::ActivityEvent,
@@ -67,8 +70,9 @@ pub struct FakeEngine {
     pub before_submit: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 impl FakeEngine {
-    /// Simulates key-down or click for a typed pending form. Suppression is intentionally
-    /// not consulted: panel focus and interruption are a separate engine signal (D9).
+    /// Simulates a key-down or an outside click whose focus has already been settled.
+    /// Native click ordering is tested in the engine; this service fake only projects its
+    /// resolved interruption. Suppression must not hide this signal (D9).
     pub fn input_outside_form(&self, token: u64) {
         let mut state = self.state.lock().unwrap();
         let focused = state
@@ -83,6 +87,11 @@ impl FakeEngine {
     }
     pub fn events(&self) -> Option<Arc<dyn EngineEvents>> {
         self.events.lock().unwrap().clone()
+    }
+    pub fn emit_trigger_lost(&self, lost: TriggerLost) {
+        if let Some(events) = self.events() {
+            events.trigger_lost(lost);
+        }
     }
     pub fn emit_form(&self, request: FormRequest) {
         if let Some(events) = self.events() {
@@ -217,6 +226,7 @@ pub struct FakeEngineEvents {
     pub expansions: Mutex<Vec<Expansion>>,
     pub forms: Mutex<Vec<FormRequest>>,
     pub activity: Mutex<Vec<ActivityEvent>>,
+    pub lost_triggers: Mutex<Vec<TriggerLost>>,
     pub history: Mutex<Vec<String>>,
 }
 impl EngineEvents for FakeEngineEvents {
@@ -228,6 +238,9 @@ impl EngineEvents for FakeEngineEvents {
     }
     fn form_requested(&self, value: FormRequest) {
         self.forms.lock().unwrap().push(value);
+    }
+    fn trigger_lost(&self, lost: TriggerLost) {
+        self.lost_triggers.lock().unwrap().push(lost);
     }
     fn activity(&self, value: ActivityEvent) {
         self.activity.lock().unwrap().push(value);

@@ -7,7 +7,7 @@ use crate::{
     watch::{Publisher, Watch},
 };
 use kudzu_core::{
-    activity::{ActivityEntry, ActivityEvent, ActivityLog, ActivitySource},
+    activity::{ActivityEntry, ActivityEvent, ActivityLog, ActivityOutcome, ActivitySource},
     system::EngineStatus,
 };
 pub use remedy::{ActivityError, AppliedRemedy, Remedy, RemedyState};
@@ -59,7 +59,8 @@ impl ActivityService {
             event.source = None;
             event.snippet_id = None;
             event.trigger = None;
-        } else if event.source != Some(ActivitySource::Typed)
+        } else if event.outcome == ActivityOutcome::TriggerLost
+            || event.source != Some(ActivitySource::Typed)
             || !library.snippets.iter().any(|s| {
                 Some(s.id) == event.snippet_id
                     && event
