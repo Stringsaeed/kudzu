@@ -1,4 +1,4 @@
-//! RUNE-GAP(#16): metadata-only adapter; delete when permission guidance no longer needs it.
+//! RUNE-GAP(none; plan gap 16): delete when permission guidance no longer needs this metadata adapter.
 //! Gap 16 has no upstream issue. Only pid, layer and bounds are decoded; never log dictionaries.
 use crate::geometry::Rect;
 use objc2::{rc::Retained, runtime::AnyObject};

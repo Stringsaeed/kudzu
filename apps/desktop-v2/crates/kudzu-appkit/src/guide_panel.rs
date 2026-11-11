@@ -8,7 +8,9 @@ use objc2_app_kit::{
     NSBackingStoreType, NSBezierPath, NSColor, NSCompositingOperation, NSImage, NSPanel, NSView,
     NSWindowCollectionBehavior, NSWindowStyleMask, NSWorkspace,
 };
-use objc2_foundation::{MainThreadMarker, NSPoint, NSRect, NSString};
+use objc2_foundation::{
+    MainThreadMarker, NSInsetRect, NSIntersectionRect, NSPoint, NSRect, NSString, NSUnionRect,
+};
 use std::{cell::RefCell, path::Path};
 
 struct Drawing {
@@ -38,13 +40,13 @@ define_class!(
                 x: destination.x - 3., y: destination.y - 3., width: destination.width + 6., height: destination.height + 6.
             }.native(), 14., 14.);
             outline.setLineWidth(3.);
-            // SAFETY: the dash slice remains alive for this synchronous call.
-            unsafe { outline.setLineDash_count_phase([4., 6.].as_ptr(), 2, 0.); }
             outline.stroke();
             let (end, bend) = curve(drawing.source, destination);
             let path = NSBezierPath::bezierPath();
             path.moveToPoint(NSPoint::new(drawing.source.x, drawing.source.y));
             path.curveToPoint_controlPoint1_controlPoint2(NSPoint::new(end.x, end.y), NSPoint::new(bend.x, bend.y), NSPoint::new(bend.x, bend.y));
+            // SAFETY: the pointer addresses two initialized CGFloat values for this call;
+            // setLineDash copies the pattern and does not retain the temporary array.
             unsafe { path.setLineDash_count_phase([4., 6.].as_ptr(), 2, 0.); }
             path.setLineWidth(1.5);
             path.stroke();
@@ -78,6 +80,26 @@ fn ghost(source: Point, destination: Rect, phase: f64) -> Point {
         x: u * u * u * source.x + 3. * u * t * bend.x + t * t * t * end.x,
         y: u * u * u * source.y + 3. * u * t * bend.y + t * t * t * end.y,
     }
+}
+
+/// macos.m's 80 pt expanded union, bounded to the screen selected for Settings.
+pub fn canvas(companion: Rect, settings: Rect, screen_frame: Rect) -> Option<Rect> {
+    if [companion, settings, screen_frame]
+        .iter()
+        .any(|frame| !frame.valid())
+    {
+        return None;
+    }
+    let frame: Rect = NSIntersectionRect(
+        NSInsetRect(
+            NSUnionRect(companion.native(), settings.native()),
+            -80.,
+            -80.,
+        ),
+        screen_frame.native(),
+    )
+    .into();
+    (frame.width > 0. && frame.height > 0.).then_some(frame)
 }
 
 /// Owns only its own native panel and drawing view, never the caller's window.
@@ -126,31 +148,21 @@ impl GuidePanel {
     }
 
     /// Rects are in global AppKit points. Source MUST come from the real icon element via
-    /// `WindowRef::rect_to_screen`. Supply fresh frames for ALL displays: this module computes
-    /// their union, independently of whichever display API the host uses.
+    /// `WindowRef::rect_to_screen`. Supply the actual placed companion frame and the Settings
+    /// screen's full frame. The canvas expands the two windows' union by 80 pt, then clips it.
     pub fn show(
         &self,
-        display_frames: &[Rect],
         source: Rect,
+        companion: Rect,
         destination: Rect,
+        screen_frame: Rect,
         phase: f64,
     ) -> Result<(), &'static str> {
-        if !source.valid()
-            || !destination.valid()
-            || source.width == 0.
-            || source.height == 0.
-            || !phase.is_finite()
-        {
+        if !source.valid() || source.width == 0. || source.height == 0. || !phase.is_finite() {
             return Err("invalid guide drawing geometry");
         }
-        if display_frames.iter().any(|frame| !frame.valid()) {
-            return Err("invalid display frame");
-        }
-        let canvas = display_frames
-            .iter()
-            .copied()
-            .reduce(Rect::union)
-            .ok_or("no displays for guide panel")?;
+        let canvas = canvas(companion, destination, screen_frame)
+            .ok_or("invalid or offscreen guide canvas")?;
         self.panel.setFrame_display(canvas.native(), false);
         self.drawing.setFrame(
             Rect {
@@ -193,6 +205,70 @@ impl Drop for GuidePanel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn canvas_is_the_companion_settings_union_expanded_eighty_points() {
+        assert_eq!(
+            canvas(
+                Rect {
+                    x: 392.,
+                    y: 354.,
+                    width: 420.,
+                    height: 660.
+                },
+                Rect {
+                    x: 830.,
+                    y: 162.,
+                    width: 740.,
+                    height: 852.
+                },
+                Rect {
+                    x: 0.,
+                    y: 0.,
+                    width: 1800.,
+                    height: 1169.
+                },
+            ),
+            Some(Rect {
+                x: 312.,
+                y: 82.,
+                width: 1338.,
+                height: 1012.
+            })
+        );
+    }
+
+    #[test]
+    fn canvas_is_clipped_to_the_settings_screen_with_offset_and_negative_y() {
+        assert_eq!(
+            canvas(
+                Rect {
+                    x: 2368.,
+                    y: -860.,
+                    width: 420.,
+                    height: 660.
+                },
+                Rect {
+                    x: 1820.,
+                    y: -800.,
+                    width: 800.,
+                    height: 600.
+                },
+                Rect {
+                    x: 1800.,
+                    y: -900.,
+                    width: 1000.,
+                    height: 800.
+                },
+            ),
+            Some(Rect {
+                x: 1800.,
+                y: -900.,
+                width: 1000.,
+                height: 780.
+            })
+        );
+    }
+
     #[test]
     fn ghost_uses_the_real_source_and_ends_inside_settings() {
         let source = Point { x: 602., y: 900. };

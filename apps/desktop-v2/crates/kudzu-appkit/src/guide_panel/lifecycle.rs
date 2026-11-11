@@ -23,6 +23,8 @@ pub enum Step {
     Stop,
     WaitUntil(u64),
     Ready(Rect),
+    /// Placement is pending; this result requests no wake.
+    Placing,
     Draw(f64),
 }
 
@@ -39,9 +41,10 @@ enum State {
     Waiting {
         due: u64,
         attempt: u8,
-        companion: Rect,
     },
-    Ready,
+    Ready {
+        deadline: u64,
+    },
     Running {
         start: u64,
         settings: Rect,
@@ -50,16 +53,17 @@ enum State {
 }
 
 impl Lifecycle {
+    /// Arm one placement watchdog when Ready is returned; Placing requests no further wake.
+    pub const PLACEMENT_TIMEOUT_MS: u64 = 200;
     pub fn is_current(&self, generation: Generation) -> bool {
         self.generation == generation && !matches!(self.state, State::Idle)
     }
     /// `now` and every later timestamp use the same monotonic millisecond clock.
-    pub fn begin(&mut self, now: u64, companion: Rect) -> Generation {
+    pub fn begin(&mut self, now: u64) -> Generation {
         self.stop();
         self.state = State::Waiting {
             due: now + 450,
             attempt: 0,
-            companion,
         };
         self.generation
     }
@@ -75,32 +79,28 @@ impl Lifecycle {
         if generation != self.generation {
             return Step::Stale;
         }
-        if !input.visible
-            || !input.relevant_front_app
-            || input.dragging
-            || input.granted
-            || input.reduce_motion
-        {
+        if !input.visible || input.dragging {
             self.stop();
             return Step::Stop;
         }
         match &mut self.state {
             State::Idle => Step::Stop,
-            State::Ready => Step::WaitUntil(now),
-            State::Waiting {
-                due,
-                attempt,
-                companion,
-            } => {
-                if input.companion != *companion {
+            State::Ready { deadline } => {
+                if now >= *deadline {
                     self.stop();
-                    return Step::Stop;
+                    Step::Stop
+                } else {
+                    Step::Placing
                 }
+            }
+            State::Waiting { due, attempt } => {
                 if now < *due {
                     return Step::WaitUntil(*due);
                 }
                 if let Some(settings) = input.settings {
-                    self.state = State::Ready;
+                    self.state = State::Ready {
+                        deadline: now + Self::PLACEMENT_TIMEOUT_MS,
+                    };
                     Step::Ready(settings)
                 } else if *attempt < 12 {
                     *attempt += 1;
@@ -116,7 +116,10 @@ impl Lifecycle {
                 settings,
                 companion,
             } => {
-                if now.saturating_sub(*start) >= 4800
+                if now.saturating_sub(*start) > 4800
+                    || !input.relevant_front_app
+                    || input.granted
+                    || input.reduce_motion
                     || input.settings != Some(*settings)
                     || input.companion != *companion
                 {
@@ -137,10 +140,13 @@ impl Lifecycle {
         settings: Rect,
         companion: Rect,
     ) -> bool {
-        if generation != self.generation || !matches!(self.state, State::Ready) {
+        if generation != self.generation {
             return false;
         }
-        if settings.intersects(companion) {
+        let State::Ready { deadline } = &self.state else {
+            return false;
+        };
+        if now >= *deadline || settings.intersects(companion) {
             self.stop();
             return false;
         }

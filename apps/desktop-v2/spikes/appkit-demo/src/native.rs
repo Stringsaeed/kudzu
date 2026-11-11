@@ -215,9 +215,6 @@ pub fn inspect() {
 }
 
 pub fn begin_guide(state: &State) {
-    let Some(frame) = with_window(|window| window.frame()) else {
-        return;
-    };
     let Some(bundle) = &state.bundle else {
         eprintln!("guide requires --bundle pointing at the Dev .app");
         return;
@@ -232,7 +229,7 @@ pub fn begin_guide(state: &State) {
             native.generation = Some(
                 native
                     .lifecycle
-                    .begin(state.clock.elapsed().as_millis() as u64, frame),
+                    .begin(state.clock.elapsed().as_millis() as u64),
             );
         }
     });
@@ -324,7 +321,7 @@ pub fn poll(state: &State) -> Option<Duration> {
                 let top = screens::snapshot(mtm()).first()?.frame.max_y();
                 // The poll is outside Shared::drain: queue an update that requests placement,
                 // then a nested update for the native correction, just as for Dock promotion.
-                state.main.update(move |s, _| {
+                state.main.update(move |s, tx| {
                     let current = NATIVE.with(|slot| {
                         slot.borrow()
                             .as_ref()
@@ -351,12 +348,16 @@ pub fn poll(state: &State) -> Option<Duration> {
                         if !current {
                             return;
                         }
-                        with_window(|window| {
+                        let origin_set = with_window(|window| {
                             window.set_origin(Point {
                                 x: frame.x,
                                 y: frame.y,
                             })
                         });
+                        if !matches!(origin_set, Some(Ok(()))) {
+                            stop_guide();
+                            return;
+                        }
                         let actual =
                             with_window(|window| window.frame()).expect("companion still exists");
                         NATIVE.with(|slot| {
@@ -372,19 +373,19 @@ pub fn poll(state: &State) -> Option<Duration> {
                             }
                         });
                     });
+                    tx.wake_after(Duration::from_millis(Lifecycle::PLACEMENT_TIMEOUT_MS));
                 });
-                None
+                Some(Duration::from_millis(Lifecycle::PLACEMENT_TIMEOUT_MS))
             }
             Step::Draw(phase) => {
                 let source = with_window(|window| window.rect_to_screen(state.icon)).flatten()?;
-                let frames: Vec<_> = screens::snapshot(mtm())
-                    .iter()
-                    .map(|screen| screen.frame)
-                    .collect();
+                let screen =
+                    with_window(|window| screens::for_settings(mtm(), settings?, window.screen()))
+                        .flatten()?;
                 native
                     .guide
                     .as_ref()?
-                    .show(&frames, source, settings?, phase)
+                    .show(source, companion, settings?, screen.frame, phase)
                     .expect("guide frame");
                 Some(Duration::from_millis(33))
             }
@@ -395,7 +396,7 @@ pub fn poll(state: &State) -> Option<Duration> {
                 }
                 None
             }
-            Step::Stale => None,
+            Step::Placing | Step::Stale => None,
         }
     })
 }

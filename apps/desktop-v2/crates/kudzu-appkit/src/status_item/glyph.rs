@@ -51,17 +51,16 @@ impl Glyph {
             .map_err(|_| "invalid committed glyph")?
             .to_rgba8();
         if self.update {
+            // Port of tray.rs::with_dot: all distances are in representation pixels.
+            let (w, h) = (image.width() as i64, image.height() as i64);
+            let r = (w.min(h) as f64 * 0.17).max(2.0);
+            let (cx, cy) = (w as f64 - r - 0.5, r + 0.5);
             for (x, y, pixel) in image.enumerate_pixels_mut() {
-                let dx = (x as f64 + 0.5) / scale as f64 - 14.;
-                let dy = (y as f64 + 0.5) / scale as f64 - 14.;
-                let distance = dx.hypot(dy);
-                if distance < 4. {
-                    *pixel = Rgba([
-                        0,
-                        0,
-                        0,
-                        ((2.5 - distance).clamp(0., 1.) * 255.).round() as u8,
-                    ]);
+                let d = ((x as f64 + 0.5 - cx).powi(2) + (y as f64 + 0.5 - cy).powi(2)).sqrt();
+                if d <= r {
+                    *pixel = Rgba([0, 0, 0, 255]);
+                } else if d <= r + r * 0.45 {
+                    pixel.0[3] = 0;
                 }
             }
         }

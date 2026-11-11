@@ -1,5 +1,5 @@
 //! RUNE-GAP(#141, #561): delete the closure target when Rune owns native menu callbacks.
-use objc2::{define_class, msg_send, rc::Retained, sel, DefinedClass, MainThreadOnly};
+use objc2::{define_class, msg_send, rc::Retained, sel, DefinedClass, MainThreadOnly, Message};
 use objc2_app_kit::NSMenuItem;
 use objc2_foundation::{MainThreadMarker, NSObject, NSString};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
@@ -24,6 +24,7 @@ define_class!(
     impl Target {
         #[unsafe(method(kudzuGapAction:))]
         fn action(&self, sender: &NSMenuItem) {
+            let _alive = self.retain();
             // A callback may update or destroy its owner. Release the borrow first and
             // keep the closure alive independently of the target and menu.
             dispatch(self.ivars(), sender.tag(), sender.isEnabled());
@@ -58,6 +59,8 @@ impl Target {
             )
         };
         item.setTag(tag);
+        // SAFETY: target is a non-owning pointer. Both owners retain this Target until their
+        // items are detached/cleared (or their menu destroyed) on the main thread.
         unsafe {
             item.setTarget(Some(self));
         }

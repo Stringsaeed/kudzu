@@ -89,7 +89,9 @@ impl AppMenu {
             .itemAtIndex(0)
             .and_then(|i| i.submenu())
             .ok_or("Rune app menu is not ready")?;
-        // SAFETY: this item and its enclosing menu are only accessed on the owning UI thread.
+        // SAFETY: menu is a non-owning back-pointer, so a concurrent menu teardown could
+        // invalidate it. Menu mutation and teardown are serialized on this main thread;
+        // the getter retains the live enclosing menu before removeItem can clear the pointer.
         if let Some(previous) = unsafe { self.close.menu() } {
             previous.removeItem(&self.close);
         }
@@ -140,7 +142,8 @@ fn kind(item: &NSMenuItem, services: Option<&NSMenu>) -> Kind {
 
 impl Drop for AppMenu {
     fn drop(&mut self) {
-        // SAFETY: main-thread owner, as in patch.
+        // SAFETY: menu is a non-owning back-pointer. Main-thread teardown cannot race this
+        // read, and the getter retains the enclosing menu before removing our retained item.
         if let Some(menu) = unsafe { self.close.menu() } {
             menu.removeItem(&self.close);
         }

@@ -51,7 +51,7 @@ fn hints_match_the_mac_menu_order_and_launcher_quit_is_exact() {
 }
 
 #[test]
-fn update_dot_has_opaque_core_clear_halo_and_preserves_other_pixels() {
+fn update_dot_matches_tauri_top_right_hard_mask_at_each_scale() {
     for scale in 1..=3 {
         for kind in [
             GlyphKind::Normal,
@@ -67,14 +67,29 @@ fn update_dot_has_opaque_core_clear_halo_and_preserves_other_pixels() {
             .unwrap();
             let dotted = Glyph { kind, update: true }.pixels(scale).unwrap();
             assert_eq!(dotted.dimensions(), (18 * scale, 18 * scale));
-            assert_eq!(dotted.get_pixel(14 * scale, 14 * scale).0, [0, 0, 0, 255]);
-            assert_eq!(dotted.get_pixel(11 * scale, 14 * scale).0, [0, 0, 0, 0]);
-            for y in 0..9 * scale {
+            // Tauri's top-right badge never changes the bottom half of any representation.
+            for y in 9 * scale..18 * scale {
                 for x in 0..18 * scale {
                     assert_eq!(dotted.get_pixel(x, y), plain.get_pixel(x, y));
                 }
             }
-            assert!(plain.pixels().any(|pixel| pixel.0[3] > 0));
+            if scale == 2 {
+                // tray.rs with_dot, 36 px: r=6.12, centre=(29.38, 6.62), ring radius=8.874.
+                for (x, y) in [(29, 6), (34, 6), (29, 1)] {
+                    assert_eq!(dotted.get_pixel(x, y).0, [0, 0, 0, 255]);
+                }
+                for (x, y) in [(21, 6), (29, 0), (35, 6)] {
+                    let pixel = dotted.get_pixel(x, y).0;
+                    assert_eq!(pixel[3], 0);
+                    assert_eq!(&pixel[..3], &plain.get_pixel(x, y).0[..3]);
+                }
+                assert_eq!(dotted.get_pixel(19, 6), plain.get_pixel(19, 6));
+            }
+            for (before, after) in plain.pixels().zip(dotted.pixels()) {
+                if before != after {
+                    assert!(after.0[3] == 0 || after.0[3] == 255);
+                }
+            }
         }
     }
 }
@@ -228,6 +243,34 @@ fn both_privacy_panes_are_available() {
     assert_eq!(
         Pane::Accessibility.url(),
         "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    );
+}
+
+#[test]
+fn pointer_uses_the_inclusive_top_edge_but_settings_midpoint_stays_half_open() {
+    let screens = [
+        Screen {
+            frame: rect(0., 0., 100., 100.),
+            visible: rect(0., 0., 100., 100.),
+            scale: 2.,
+        },
+        Screen {
+            frame: rect(0., 100., 100., 100.),
+            visible: rect(0., 100., 100., 100.),
+            scale: 1.,
+        },
+    ];
+    assert_eq!(
+        screen_at(&screens, Point { x: 50., y: 100. }),
+        Some(screens[0])
+    );
+    assert_eq!(
+        screen_at(&screens, Point { x: 50., y: 200. }),
+        Some(screens[1])
+    );
+    assert_eq!(
+        crate::screens::settings_screen(&screens, rect(40., 90., 20., 20.), None),
+        Some(screens[1])
     );
 }
 

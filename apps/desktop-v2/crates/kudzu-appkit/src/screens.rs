@@ -2,7 +2,7 @@
 pub use crate::geometry::Screen;
 use crate::geometry::{Point, Rect};
 use objc2_app_kit::{NSEvent, NSScreen};
-use objc2_foundation::MainThreadMarker;
+use objc2_foundation::{MainThreadMarker, NSMouseInRect, NSPoint};
 
 /// A fresh snapshot on every call; no startup cache survives display changes.
 pub fn snapshot(mtm: MainThreadMarker) -> Vec<Screen> {
@@ -21,7 +21,7 @@ pub fn screen_at(screens: &[Screen], point: Point) -> Option<Screen> {
     screens
         .iter()
         .copied()
-        .find(|s| s.frame.contains(point))
+        .find(|s| NSMouseInRect(NSPoint::new(point.x, point.y), s.frame.native(), false))
         .or_else(|| screens.first().copied())
 }
 

@@ -9,7 +9,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{MainThreadMarker, NSPoint};
 
-/// Convert a drawn rect relative to the top-left of content bounds into native view space.
+/// Convert a drawn rect relative to the top-left of Rune's view bounds into its native space.
 pub fn material_frame(drawn: Rect, bounds: Rect, flipped: bool) -> Rect {
     drawn.in_content(bounds, flipped)
 }
@@ -48,18 +48,25 @@ impl SidebarMaterial {
         if !drawn.valid() {
             return Err("invalid sidebar frame");
         }
-        let Some(content) = window.0.contentView() else {
+        // SAFETY: superview is a non-owning back-pointer that could become stale during
+        // teardown. The scoped Rune view/window borrow and main-thread call prevent that
+        // teardown from racing this read; the getter retains the parent before mutation.
+        let Some(parent) = (unsafe { window.view.superview() }) else {
             self.remove();
-            return Err("window has no content view");
+            return Err("Rune view has no parent for sidebar material");
         };
-        let frame = material_frame(drawn, content.bounds().into(), content.isFlipped());
-        // SAFETY: both hierarchy references are read on the main thread and retained.
-        if unsafe { self.view.superview() }.as_deref() != Some(&content) {
-            self.view.removeFromSuperview();
-            content.addSubview_positioned_relativeTo(&self.view, NSWindowOrderingMode::Below, None);
-        }
-        self.view.setFrame(frame.native());
-        self.view.setHidden(frame.width == 0. || frame.height == 0.);
+        let local = material_frame(drawn, window.view.bounds().into(), window.view.isFlipped());
+        let frame = window
+            .view
+            .convertRect_toView(local.native(), Some(&parent));
+        // Repositioning an existing subview is idempotent and also repairs content replacement.
+        parent.addSubview_positioned_relativeTo(
+            &self.view,
+            NSWindowOrderingMode::Below,
+            Some(window.view),
+        );
+        self.view.setFrame(frame);
+        self.view.setHidden(local.width == 0. || local.height == 0.);
         Ok(())
     }
 
