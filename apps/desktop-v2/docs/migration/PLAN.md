@@ -741,6 +741,7 @@ S20 reshapes the copied crate. S21–S24 add the logic that runs in TypeScript i
 - **Goal:** The pure mapping between a stored snippet (template source plus `formatting`) and what an editor edits (text, atomic chips, marks, images). It stands in for `lib/template.ts`, `lib/formatting.ts` and `lib/editor-formatting.ts`.
 - **Owns:** `crates/kudzu-core/src/template/{doc,chips,presets,summary,lists,images}.rs`, tests and fixtures.
 - **Deliverables:** `EditorDoc { text, pills, marks, images }` as agreed in S13. `EditorDoc::from_template(source, formatting)` and `to_template() -> (source, Option<Formatting>)`. UTF-8 byte ↔ UTF-16 offset mapping. Escapes. Unknown and verbatim tags kept byte-exact. Chip labels and tones for all 12 tags and for unknown tags. The 11 date presets. 140-unit plain summaries. List-marker toggling (`• `, `1. `) as text operations. Image rules: data URL ≤ 196,608 characters, ≤ 524,288 per snippet, width clamps, alt text sanitising.
+- **From S21:** search takes the template summariser as a function. Once `plain_summary` exists (at 2,000 UTF-16 units, like `plainSummary(content, undefined, 2000)`), switch `tests/ts_parity_search.rs` from the injected `plain-summaries.json` to the real function and keep it green.
 - **Accept:** Property tests on the existing grammar generators: `to_template(from_template(s))` parses to the same nodes and renders the same text; canonical sources round-trip byte-identically; spans round-trip, including styles over chips and beside images. Fixture tests for labels, summaries, presets and list toggles.
 - **Closes:** EDT-5 (model), EDT-13 and EDT-14 (span and list logic), EDT-15 (budgets).
 - **Depends:** S02, S13, S20 · **Parallel with:** S06, S10, S12, S15, S21, S22, S24, S25, S39
@@ -957,6 +958,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 #### S50 · Library list — L
 - **Goal:** The snippet list: scopes, sorting, filtering, selection and bulk actions, smooth at 5,000 rows.
 - **Owns:** `crates/kudzu-ui/src/main/library/**`.
+- **From S21:** `search::index(snippets, &usage_by_id(..), &summarize)`. `rank(&index, query, limit, now)` returns hits with `position`, an index into the slice passed in; use it instead of looking up by id. `DEFAULT_LIMIT` is 200. `highlight(name, &hit.name_hits)` returns merged byte ranges; hits are UTF-16. `GroupNode<'a>` borrows; `flatten` returns `Vec<&GroupNode>`.
 - **Accept:** Model: scopes (All, Favorites, Recent, Off, a group with its descendants); sorts (Best match, Name with unnamed last, Recently edited, Most used, and the empty-query rules); the 10,000 cap; neighbour selection after a delete; anchored Shift selection, ⌘-click, ⌘A, Escape; `/` and typing focus the filter; filter arrows, Return, Escape. View: 64 pt rows, padding 4 and 8 (how many rows are mounted off screen is Rune's choice); name, first trigger plus count, summary, usage, favorite and off marks; no entrance replay on remount. The bulk bar (favorite all, toggle each, move, delete all), inert while it exits. Every empty state with its copy and actions. A drag source for S42. A scroll trace with 5,000 rows inside the budget.
 - **Closes:** LIB-1, LIB-2, LIB-3, LIB-4, LIB-5, LIB-12.
 - **Depends:** S14, S21, S26, S41 · **Parallel with:** S42, S43, S55, S58, S64, S65
@@ -1012,6 +1014,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Goal:** The Quick Search panel, from hotkey to insert.
 - **Owns:** `crates/kudzu-ui/src/palette/**`, `crates/kudzu-ui/src/actions/palette.rs`.
 - **Read first:** the "Review caveats" in `docs/migration/spikes/S11-panels.md` (what this step must re-measure or prove).
+- **From S21:** the same `search::index` / `rank` / `highlight` API as S50. The palette's old TS `Highlight` indexed by code point, while the Rust version is consistently UTF-16.
 - **Accept:** Model: reset of query, scope, active row and flash on show; scopes with Tab and Shift-Tab; `#prefix` group filter (case-insensitive prefix, directly assigned groups); empty-query ordering; limits (term 64, content 2,000, 60 results); arrows and ⌃N/⌃P wrap; Page ±7; ↩ insert; ⌘↩ copy with "Copied" and hide after 260 ms; ⌘E edit; ⌘N create; ⌘1–9; hover selects and click inserts; the modifier lights number hints and key-up or blur releases them; Escape clears a non-empty query, then dismisses and restores the target unless `main` has focus; blur hides without restoring; the create row (a prefixed single token becomes the trigger, otherwise the name). Preview: after 40 ms, keeping the old one, dimming after 150 ms, shimmer on first load, the form badge, metadata, a target-aware footer. Empty-scope copy. Layout: radius 18, search 58, list 54%, hints 40, rows 44. Search through `rune::Latest` within budget. On a Dev bundle: open latency within budget.
 - **Closes:** QS-1, QS-2, QS-3, QS-4, QS-5, QS-6, QS-7.
 - **Depends:** S07, S21, S27, S40 · **Parallel with:** S41, S57, S66
@@ -1089,6 +1092,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 #### S64 · Insights — M
 - **Goal:** The Insights screen.
 - **Owns:** `crates/kudzu-ui/src/main/insights/**`.
+- **From S21:** use `usage_by_id` and `totals` (`minutes_saved` matches `lib/stats.ts`). Duration, count and relative-time formatting come from S24's `fmt`.
 - **Accept:** Four tiles (Expansions, Characters saved, Time saved, Active snippets). Most used top 10 with relative bars; Recent 6; Never used up to 18 (enabled, with a trigger). A click goes to All with that snippet selected. Empty states. The WPM slider 10–150 in steps of 5, default 40, saved at once. Count-up over 560 ms (quartic) and bars over 480 ms with a 60 + i×40 ms stagger on arrival only; later changes are instant; Reduce Motion skips both. At most 880 wide; columns 1.4 : 1. Motion gate.
 - **Closes:** INS-2, INS-3, INS-4.
 - **Depends:** S21, S26, S41 · **Parallel with:** S42, S43, S50, S55, S58, S65
