@@ -35,6 +35,68 @@ pub struct GuideOutcome {
     pub placement: Option<PlacementPlan>,
 }
 
+trait CachedPanel {
+    fn hide(&self);
+}
+
+impl CachedPanel for GuidePanel {
+    fn hide(&self) {
+        GuidePanel::hide(self);
+    }
+}
+
+#[cfg(test)]
+impl CachedPanel for PathBuf {
+    fn hide(&self) {}
+}
+
+struct PanelSlot<P> {
+    entry: Option<(PathBuf, P)>,
+}
+
+impl<P> Default for PanelSlot<P> {
+    fn default() -> Self {
+        Self { entry: None }
+    }
+}
+
+impl<P: CachedPanel> PanelSlot<P> {
+    fn get_or_try_init(
+        &mut self,
+        bundle: &std::path::Path,
+        make: impl FnOnce(&std::path::Path) -> Result<P, &'static str>,
+    ) -> Result<&P, &'static str> {
+        if self
+            .entry
+            .as_ref()
+            .is_none_or(|(cached, _)| cached.as_path() != bundle)
+        {
+            if let Some((_, stale)) = self.entry.take() {
+                stale.hide();
+            }
+            let panel = make(bundle)?;
+            self.entry = Some((bundle.to_path_buf(), panel));
+        }
+        Ok(&self.entry.as_ref().expect("panel initialized").1)
+    }
+
+    fn sync_bundle(&mut self, bundle: Option<&std::path::Path>) {
+        if self
+            .entry
+            .as_ref()
+            .is_some_and(|(cached, _)| Some(cached.as_path()) != bundle)
+        {
+            if let Some((_, stale)) = self.entry.take() {
+                stale.hide();
+            }
+        }
+    }
+
+    fn as_ref(&self) -> Option<&P> {
+        self.entry.as_ref().map(|(_, p)| p)
+    }
+}
+
 /// Main-thread coordinator owning `Lifecycle`, the drawn app-icon rect, and `GuidePanel`.
 pub struct Guide {
     native: bool,
@@ -42,7 +104,7 @@ pub struct Guide {
     clock: Instant,
     lifecycle: Lifecycle,
     generation: Option<Generation>,
-    panel: Option<GuidePanel>,
+    panel: PanelSlot<GuidePanel>,
     icon_rect: Option<Rect>,
     dragging: bool,
 }
@@ -55,16 +117,22 @@ impl Default for Guide {
 
 impl Guide {
     pub fn new(native: bool, bundle: Option<PathBuf>) -> Self {
+        let bundle = bundle.filter(|p| app_bundle::is_app_bundle_path(p));
         Self {
             native,
             bundle,
             clock: Instant::now(),
             lifecycle: Lifecycle::default(),
             generation: None,
-            panel: None,
+            panel: PanelSlot::default(),
             icon_rect: None,
             dragging: false,
         }
+    }
+
+    pub fn set_bundle(&mut self, bundle: Option<PathBuf>) {
+        self.bundle = bundle.filter(|p| app_bundle::is_app_bundle_path(p));
+        self.panel.sync_bundle(self.bundle.as_deref());
     }
 
     pub fn is_native(&self) -> bool {
@@ -137,6 +205,9 @@ impl Guide {
             self.stop();
             return GuideOutcome::default();
         };
+        if let Some(live) = app_bundle::running_bundle(mtm) {
+            self.set_bundle(Some(live));
+        }
         let Some(handle) = companion_handle else {
             return GuideOutcome {
                 wake_after: Some(Duration::from_millis(200)),
@@ -227,24 +298,22 @@ impl Guide {
                     self.stop();
                     return GuideOutcome::default();
                 };
-                if self.panel.is_none() {
-                    match GuidePanel::new(mtm, bundle) {
-                        Ok(panel) => self.panel = Some(panel),
-                        Err(err) => {
-                            log::warn!("permission guide panel could not initialize: {err}");
-                            self.stop();
-                            return GuideOutcome::default();
-                        }
-                    }
-                }
-                if let Some(panel) = &self.panel {
-                    if let Err(err) =
-                        panel.show(source, companion, settings_rect, screen.frame, phase)
-                    {
-                        log::debug!("permission guide frame skipped: {err}");
+                let panel = match self
+                    .panel
+                    .get_or_try_init(bundle, |path| GuidePanel::new(mtm, path))
+                {
+                    Ok(panel) => panel,
+                    Err(err) => {
+                        log::warn!("permission guide panel could not initialize: {err}");
                         self.stop();
                         return GuideOutcome::default();
                     }
+                };
+                if let Err(err) = panel.show(source, companion, settings_rect, screen.frame, phase)
+                {
+                    log::debug!("permission guide frame skipped: {err}");
+                    self.stop();
+                    return GuideOutcome::default();
                 }
                 GuideOutcome {
                     wake_after: Some(FRAME_INTERVAL),
@@ -329,7 +398,7 @@ impl Guide {
     }
 
     fn hide_panel(&mut self) {
-        if let Some(panel) = &self.panel {
+        if let Some(panel) = self.panel.as_ref() {
             panel.hide();
         }
     }
@@ -358,7 +427,10 @@ fn with_window<R>(
 
 #[cfg(test)]
 mod tests {
-    use super::{Guide, GuideOutcome};
+    use std::cell::Cell;
+    use std::path::{Path, PathBuf};
+
+    use super::{Guide, GuideOutcome, PanelSlot};
 
     #[test]
     fn headless_guide_never_activates_or_schedules_wakes() {
@@ -379,5 +451,46 @@ mod tests {
         assert!(!guide.is_active());
         guide.on_drag_end();
         assert!(!guide.is_dragging());
+    }
+
+    #[test]
+    fn guide_recreates_panel_when_bundle_path_changes() {
+        let created = Cell::new(0usize);
+        let mut slot = PanelSlot::<PathBuf>::default();
+        let alpha = Path::new("/tmp/Alpha.app");
+        let beta = Path::new("/tmp/Beta.app");
+
+        let p1 = slot
+            .get_or_try_init(alpha, |b| {
+                created.set(created.get() + 1);
+                Ok(b.to_path_buf())
+            })
+            .unwrap();
+        assert_eq!(p1, alpha);
+        assert_eq!(created.get(), 1);
+
+        // Same bundle reuses the existing panel without reallocating.
+        let p1_again = slot
+            .get_or_try_init(alpha, |b| {
+                created.set(created.get() + 1);
+                Ok(b.to_path_buf())
+            })
+            .unwrap();
+        assert_eq!(p1_again, alpha);
+        assert_eq!(created.get(), 1);
+
+        // Switching to a different `.app` bundle must drop the stale panel and build a new one.
+        let p2 = slot
+            .get_or_try_init(beta, |b| {
+                created.set(created.get() + 1);
+                Ok(b.to_path_buf())
+            })
+            .unwrap();
+        assert_eq!(p2, beta);
+        assert_eq!(created.get(), 2);
+
+        // Clearing the bundle via sync_bundle drops the cached panel immediately.
+        slot.sync_bundle(None);
+        assert_eq!(slot.as_ref(), None);
     }
 }

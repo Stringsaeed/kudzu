@@ -247,6 +247,164 @@ pub(super) fn style_checks(want: &Landmark, got: &Measured, position: bool) -> V
     out
 }
 
+struct PermissionRowSpec {
+    name: &'static str,
+    rect: [f32; 4],
+    selected: bool,
+    granted: bool,
+    badge: &'static str,
+}
+
+fn permission_row_specs(r: &RefState) -> Vec<PermissionRowSpec> {
+    if r.window != "permissions" {
+        return Vec::new();
+    }
+    let two_line_detail = matches!(
+        r.scene.as_str(),
+        "missing" | "revoked" | "paused" | "secure"
+    );
+    let top_y = if two_line_detail { 295.0 } else { 274.0 };
+    let acc_granted = matches!(
+        r.scene.as_str(),
+        "allowed" | "paused" | "secure" | "restart"
+    );
+    vec![
+        PermissionRowSpec {
+            name: "Accessibility",
+            rect: [41.0, top_y, 338.0, 62.5],
+            selected: true,
+            granted: acc_granted,
+            badge: if acc_granted { "Allowed" } else { "Required" },
+        },
+        PermissionRowSpec {
+            name: "Input Monitoring",
+            rect: [41.0, top_y + 70.5, 338.0, 62.5],
+            selected: false,
+            granted: false,
+            badge: "Optional",
+        },
+    ]
+}
+
+fn permission_row_checks(
+    r: &RefState,
+    spec: &PermissionRowSpec,
+    g: &tree::Measured,
+    els: &[Element],
+) -> Vec<Check> {
+    let dark = r.theme == "dark";
+    let ink = if dark {
+        [250.0, 250.0, 249.0, 1.0]
+    } else {
+        [12.0, 10.0, 9.0, 1.0]
+    };
+    let muted = if dark {
+        [166.0, 160.0, 155.0, 1.0]
+    } else {
+        [121.0, 113.0, 107.0, 1.0]
+    };
+    let success = if dark {
+        [84.0, 204.0, 142.0, 1.0]
+    } else {
+        [0.0, 153.0, 86.0, 1.0]
+    };
+    let card_bg = match (dark, spec.selected) {
+        (false, true) => [20.0, 69.0, 226.0, 0.05],
+        (false, false) => [255.0, 255.0, 255.0, 0.5],
+        (true, true) => [44.0, 128.0, 255.0, 0.09],
+        (true, false) => [28.0, 25.0, 23.0, 0.5],
+    };
+    let media_bg = if spec.granted {
+        [success[0], success[1], success[2], 0.1]
+    } else {
+        [ink[0], ink[1], ink[2], 0.05]
+    };
+    let state_fg = if spec.granted { success } else { muted };
+
+    let prefix = format!("{}/", g.path);
+    let descendants: Vec<&Element> = els.iter().filter(|e| e.path.starts_with(&prefix)).collect();
+
+    let mut out = vec![
+        check(
+            "rect",
+            fmt_rect(spec.rect),
+            fmt_rect(g.rect),
+            max_delta(&spec.rect, &g.rect) <= TOLERANCE,
+        ),
+        check(
+            "background",
+            fmt_rgba(Some(card_bg)),
+            fmt_rgba(g.fill),
+            colour_eq(Some(card_bg), g.fill),
+        ),
+        check(
+            "text colour",
+            fmt_rgba(Some(ink)),
+            fmt_rgba(g.ink),
+            colour_eq(Some(ink), g.ink),
+        ),
+    ];
+
+    let media = descendants.iter().copied().find(|e| {
+        e.role != "icon"
+            && e.text.is_none()
+            && (e.rect[2] - 32.0).abs() <= TOLERANCE
+            && (e.rect[3] - 32.0).abs() <= TOLERANCE
+    });
+    out.push(check(
+        "media background",
+        fmt_rgba(Some(media_bg)),
+        fmt_rgba(media.and_then(|e| e.fill)),
+        colour_eq(Some(media_bg), media.and_then(|e| e.fill)),
+    ));
+
+    let glyph = descendants
+        .iter()
+        .copied()
+        .find(|e| e.role == "icon" && (e.rect[2] - 16.0).abs() <= 0.5);
+    out.push(check(
+        "icon colour",
+        fmt_rgba(Some(state_fg)),
+        fmt_rgba(glyph.and_then(|e| e.color)),
+        colour_eq(Some(state_fg), glyph.and_then(|e| e.color)),
+    ));
+
+    let check_icon = descendants
+        .iter()
+        .copied()
+        .find(|e| e.role == "icon" && (e.rect[2] - 14.0).abs() <= 0.5);
+    out.push(check(
+        "check icon",
+        if spec.granted { "drawn" } else { "absent" }.into(),
+        match check_icon {
+            Some(ic) => fmt_rgba(ic.color),
+            None => "absent".into(),
+        },
+        if spec.granted {
+            check_icon.is_some_and(|ic| colour_eq(Some(success), ic.color))
+        } else {
+            check_icon.is_none()
+        },
+    ));
+
+    let badge = descendants.iter().rev().copied().find(|e| e.text.is_some());
+    let got_badge = badge.and_then(|e| e.text.as_deref()).unwrap_or("missing");
+    out.push(check(
+        "badge",
+        spec.badge.into(),
+        got_badge.into(),
+        got_badge == spec.badge,
+    ));
+    out.push(check(
+        "badge colour",
+        fmt_rgba(Some(state_fg)),
+        fmt_rgba(badge.and_then(|e| e.color)),
+        colour_eq(Some(state_fg), badge.and_then(|e| e.color)),
+    ));
+
+    out
+}
+
 pub(super) fn screen_rows(r: &RefState, els: &[Element]) -> Vec<Row> {
     let got = tree::landmarks(els);
     let page = format!("{}/{}", r.window, r.scene);
@@ -275,10 +433,35 @@ pub(super) fn screen_rows(r: &RefState, els: &[Element]) -> Vec<Row> {
             }
         })
         .collect();
+    let perm_specs = permission_row_specs(r);
+    for spec in &perm_specs {
+        let found = got
+            .iter()
+            .find(|g| g.role == "button" && g.name == spec.name && g.occurrence == 1);
+        let checks = match found {
+            Some(g) => permission_row_checks(r, spec, g, els),
+            None => vec![check("present", "drawn".into(), "missing".into(), false)],
+        };
+        rows.push(Row {
+            page: page.clone(),
+            theme: r.theme.clone(),
+            item: format!("button “{}” #1", spec.name),
+            kind: Kind::Gated,
+            checks,
+            crop: Some(Crop {
+                file: r.file.clone(),
+                reference: Some(spec.rect),
+                rune: found.map(|g| g.rect),
+            }),
+        });
+    }
     for g in got.iter().filter(|g| {
         !r.landmarks
             .iter()
             .any(|w| w.role == g.role && w.name == g.name && w.occurrence == g.occurrence)
+            && !perm_specs
+                .iter()
+                .any(|s| g.role == "button" && g.name == s.name && g.occurrence == 1)
     }) {
         rows.push(Row {
             page: page.clone(),

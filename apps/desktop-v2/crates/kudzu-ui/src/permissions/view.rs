@@ -165,7 +165,11 @@ fn hero(s: &PermissionsState, theme: &Theme) -> El {
                 .label(format!(
                     "Show {app_name} in Finder to add it to System Settings"
                 ))
-                .help("Drag this app into System Settings")
+                .help(if s.model.drag_available || s.model.scene_frame {
+                    "Drag this app into System Settings"
+                } else {
+                    s.model.drag_hint()
+                })
                 .focusable(true)
                 .size(80.0, 80.0)
                 .radius(radius::APP_ICON)
@@ -180,9 +184,8 @@ fn hero(s: &PermissionsState, theme: &Theme) -> El {
                     tx.live_only();
                 }),
         )
-        .child(
+        .child(if s.model.drag_available || s.model.scene_frame {
             row()
-                .key("drag-hint")
                 .mt(8.0)
                 .h(16.0)
                 .gap(4.0)
@@ -190,10 +193,20 @@ fn hero(s: &PermissionsState, theme: &Theme) -> El {
                 .child(icon(&icons::MOUSE_POINTER_2, 12.0).color(c.muted_foreground))
                 .child(
                     text(s.model.drag_hint())
+                        .key("drag-hint")
                         .font(TextStyle::new(10.0, 400.0).lh(16.0))
                         .color(c.muted_foreground),
-                ),
-        )
+                )
+        } else {
+            col().mt(8.0).max_w(310.0).items_center().child(
+                text(s.model.drag_hint())
+                    .key("drag-hint")
+                    .font(TextStyle::new(10.0, 400.0).lh(15.0))
+                    .color(c.muted_foreground)
+                    .center()
+                    .wrap(),
+            )
+        })
         .child(
             text(headline)
                 .key("headline")
@@ -357,7 +370,7 @@ fn footer_actions(s: &PermissionsState, theme: &Theme) -> El {
         PrimaryAction::OpenSettings { enabled } => Button::new("Open System Settings")
             .icon_end(&icons::ARROW_UP_RIGHT)
             .disabled(!enabled)
-            .on_press_tx(actions::begin_selected)
+            .on_press(actions::begin_selected)
             .build(theme)
             .h(40.0)
             .w_full(),

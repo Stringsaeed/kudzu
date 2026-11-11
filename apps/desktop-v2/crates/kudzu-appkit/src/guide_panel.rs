@@ -111,8 +111,8 @@ pub struct GuidePanel {
 
 impl GuidePanel {
     pub fn new(mtm: MainThreadMarker, app_bundle: &Path) -> Result<Self, &'static str> {
-        if app_bundle.extension().is_none_or(|e| e != "app") {
-            return Err("guide icon requires an app bundle");
+        if !crate::app_bundle::is_existing_app_bundle(app_bundle) {
+            return Err("guide icon requires an existing .app bundle directory");
         }
         let path = app_bundle.to_str().ok_or("bundle path is not UTF-8")?;
         let icon = NSWorkspace::sharedWorkspace().iconForFile(&NSString::from_str(path));

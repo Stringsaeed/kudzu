@@ -132,8 +132,10 @@ impl PermissionsModel {
     pub fn drag_hint(&self) -> &'static str {
         if self.drag_available {
             "Drag into System Settings to add the app"
-        } else {
+        } else if self.scene_frame {
             "Your app. Your permission."
+        } else {
+            UNBUNDLED_REVEAL_NOTICE
         }
     }
 
@@ -364,9 +366,14 @@ mod tests {
     }
 
     #[test]
-    fn drag_hint_and_notice_reflect_bundle_availability() {
+    fn unbundled_drag_hint_explains_disabled_drag_before_interaction() {
         let mut m = loaded_model();
+        assert_eq!(m.drag_hint(), UNBUNDLED_REVEAL_NOTICE);
+
+        m.scene_frame = true;
         assert_eq!(m.drag_hint(), "Your app. Your permission.");
+
+        m.scene_frame = false;
         m.drag_available = true;
         assert_eq!(m.drag_hint(), "Drag into System Settings to add the app");
 

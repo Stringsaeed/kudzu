@@ -34,6 +34,37 @@ impl From<&Arc<Kudzu>> for PermissionsServices {
     }
 }
 
+struct TrackedTask<T> {
+    task: Task<T>,
+    _sub: kudzu_app::watch::Subscription,
+}
+
+impl<T: Send + 'static> TrackedTask<T> {
+    fn spawn(
+        name: &str,
+        waker: &Arc<dyn Fn() + Send + Sync>,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<Self, kudzu_app::tasks::TaskError> {
+        let task = Task::spawn(name, work)?;
+        let ready = task.ready();
+        let on_ready = waker.clone();
+        let sub = ready.subscribe(move || on_ready());
+        if *ready.get() {
+            waker();
+        }
+        Ok(Self { task, _sub: sub })
+    }
+
+    fn take(&self) -> Option<Result<T, kudzu_app::tasks::TaskError>> {
+        self.task.take()
+    }
+
+    #[cfg(test)]
+    fn ready(&self) -> kudzu_app::watch::Watch<bool> {
+        self.task.ready()
+    }
+}
+
 pub struct PermissionsState {
     pub svc: PermissionsServices,
     pub shell: Shell,
@@ -43,13 +74,14 @@ pub struct PermissionsState {
     pub revealed_paths: Vec<PathBuf>,
     seen_permissions: Option<Revision>,
     started: bool,
-    restart: Option<Task<bool>>,
-    refreshing: Option<Task<()>>,
+    restart: Option<TrackedTask<bool>>,
+    refreshing: Option<TrackedTask<()>>,
     refresh_queued: bool,
-    opening: Option<Task<(PermissionKind, Result<(), String>)>>,
-    relaunching: Option<Task<Result<(), String>>>,
+    opening: Option<TrackedTask<(PermissionKind, Result<(), String>)>>,
+    relaunching: Option<TrackedTask<Result<(), String>>>,
     pending_guide_wake: Option<Duration>,
     last_refresh: Option<Instant>,
+    waker: Arc<dyn Fn() + Send + Sync>,
 }
 
 impl PermissionsState {
@@ -65,6 +97,8 @@ impl PermissionsState {
             ..PermissionsModel::default()
         };
         let guide = Guide::new(shell.native(), bundle);
+        let handle = shell.handles().permissions.clone();
+        let waker = Arc::new(move || handle.wake());
         Self {
             svc,
             shell,
@@ -80,6 +114,7 @@ impl PermissionsState {
             relaunching: None,
             pending_guide_wake: None,
             last_refresh: None,
+            waker,
         }
     }
 
@@ -88,7 +123,14 @@ impl PermissionsState {
         self.model.drag_available = bundle
             .as_deref()
             .is_some_and(kudzu_appkit::app_bundle::is_app_bundle_path);
-        self.model.bundle_path = bundle;
+        self.model.bundle_path = bundle.clone();
+        self.guide.set_bundle(bundle);
+    }
+
+    pub fn focused(&mut self, focused: bool) {
+        if focused && self.model.open && !self.model.scene_locked {
+            self.spawn_refresh();
+        }
     }
 
     pub fn show(&mut self) {
@@ -144,10 +186,8 @@ impl PermissionsState {
         self.refresh_queued = false;
         self.last_refresh = Some(Instant::now());
         let permissions = self.svc.permissions.clone();
-        let wake = self.shell.handles().permissions.clone();
-        match Task::spawn("kudzu-permission-refresh", move || {
+        match TrackedTask::spawn("kudzu-permission-refresh", &self.waker, move || {
             permissions.refresh();
-            wake.update(|_, _| {});
         }) {
             Ok(task) => self.refreshing = Some(task),
             Err(error) => log::warn!("permission status refresh failed to spawn: {error}"),
@@ -159,10 +199,8 @@ impl PermissionsState {
             return;
         }
         let permissions = self.svc.permissions.clone();
-        let wake = self.shell.handles().permissions.clone();
-        match Task::spawn("kudzu-permission-begin", move || {
+        match TrackedTask::spawn("kudzu-permission-begin", &self.waker, move || {
             let res = permissions.begin(kind).map_err(|e| e.to_string());
-            wake.update(|_, _| {});
             (kind, res)
         }) {
             Ok(task) => self.opening = Some(task),
@@ -175,11 +213,8 @@ impl PermissionsState {
             return;
         }
         let permissions = self.svc.permissions.clone();
-        let wake = self.shell.handles().permissions.clone();
-        match Task::spawn("kudzu-permission-relaunch", move || {
-            let res = permissions.request_restart().map_err(|e| e.to_string());
-            wake.update(|_, _| {});
-            res
+        match TrackedTask::spawn("kudzu-permission-relaunch", &self.waker, move || {
+            permissions.request_restart().map_err(|e| e.to_string())
         }) {
             Ok(task) => self.relaunching = Some(task),
             Err(error) => self.model.notice = Some(error.to_string()),
@@ -192,11 +227,10 @@ impl PermissionsState {
         }
         let mut changed = self.model.theme.sync(&self.svc.settings.watch());
 
-        let watch = self.svc.permissions.watch();
-        let rev = watch.revision();
+        let (rev, snap) = self.svc.permissions.watch().snapshot();
         if self.seen_permissions != Some(rev) {
             self.seen_permissions = Some(rev);
-            self.model.snap = (*watch.get()).clone();
+            self.model.snap = (*snap).clone();
             self.model.loaded = true;
             if self.model.selected_granted() && self.guide.is_active() {
                 self.stop_guide();
@@ -207,20 +241,15 @@ impl PermissionsState {
         if !self.started {
             self.started = true;
             let permissions = self.svc.permissions.clone();
-            let wake = self.shell.handles().permissions.clone();
-            match Task::spawn("kudzu-permission-restart", move || {
-                let pending = permissions.take_pending_restart();
-                if pending {
-                    wake.update(|_, _| {});
-                }
-                pending
+            match TrackedTask::spawn("kudzu-permission-restart", &self.waker, move || {
+                permissions.take_pending_restart()
             }) {
                 Ok(task) => self.restart = Some(task),
                 Err(error) => log::warn!("the permission restart marker was not read: {error}"),
             }
         }
 
-        if let Some(result) = self.restart.as_ref().and_then(Task::take) {
+        if let Some(result) = self.restart.as_ref().and_then(TrackedTask::take) {
             self.restart = None;
             if result.unwrap_or(false) {
                 self.show();
@@ -228,7 +257,7 @@ impl PermissionsState {
             }
         }
 
-        if let Some(result) = self.refreshing.as_ref().and_then(Task::take) {
+        if let Some(result) = self.refreshing.as_ref().and_then(TrackedTask::take) {
             self.refreshing = None;
             let _ = result;
             if self.refresh_queued {
@@ -236,7 +265,7 @@ impl PermissionsState {
             }
         }
 
-        if let Some(result) = self.opening.as_ref().and_then(Task::take) {
+        if let Some(result) = self.opening.as_ref().and_then(TrackedTask::take) {
             self.opening = None;
             changed = true;
             match result {
@@ -253,7 +282,7 @@ impl PermissionsState {
             }
         }
 
-        if let Some(result) = self.relaunching.as_ref().and_then(Task::take) {
+        if let Some(result) = self.relaunching.as_ref().and_then(TrackedTask::take) {
             self.relaunching = None;
             match result {
                 Ok(Ok(())) => {}
@@ -355,6 +384,7 @@ pub(super) fn app() -> rune::App<PermissionsState> {
     rune::App::new(spec)
         .windowless()
         .keep_running()
+        .on_focus(|s: &mut PermissionsState, focused, _| s.focused(focused))
         .on_close(|s: &mut PermissionsState, _| {
             s.stop_guide();
             s.model.open = false;
@@ -410,4 +440,170 @@ pub(super) fn spec(
     super::finish("permissions", app, &shell, state)
         .configured_options(options)
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{mpsc, Arc, Mutex};
+    use std::time::Duration;
+
+    use kudzu_app::assembly::{Config, Host, Kudzu};
+    use kudzu_app::error::PortError;
+    use kudzu_app::fixtures::Fixtures;
+    use kudzu_app::paths::Paths;
+    use kudzu_app::ports::{PermissionKind, SettingsPane, SystemSettings};
+    use kudzu_app::settings::Variant;
+    use kudzu_core::system::PermissionStatus;
+
+    use super::PermissionsState;
+    use crate::shell::{Identity, Launch};
+
+    struct Scratch(PathBuf);
+    impl Scratch {
+        fn new() -> Self {
+            let path =
+                std::env::temp_dir().join(format!("kudzu-perm-task-{}", uuid::Uuid::new_v4()));
+            std::fs::create_dir_all(&path).unwrap();
+            Self(path)
+        }
+    }
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[derive(Default)]
+    struct GateSettings {
+        gate: Mutex<Option<mpsc::Receiver<()>>>,
+        panic_on_open: AtomicBool,
+    }
+
+    impl SystemSettings for GateSettings {
+        fn permissions(&self) -> PermissionStatus {
+            PermissionStatus::default()
+        }
+
+        fn request(&self, _: PermissionKind) -> Result<(), PortError> {
+            Ok(())
+        }
+
+        fn open(&self, _: SettingsPane) -> Result<(), PortError> {
+            if let Some(wait) = self.gate.lock().unwrap().take() {
+                let _ = wait.recv();
+            }
+            assert!(
+                !self.panic_on_open.load(Ordering::SeqCst),
+                "simulated open panic"
+            );
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn task_wakes_only_after_result_is_ready_and_wakes_on_panic() {
+        let scratch = Scratch::new();
+        let fixtures = Fixtures::new().unwrap();
+        let controlled = Arc::new(GateSettings::default());
+        let mut host = Host::fixtures(&fixtures, scratch.0.clone());
+        host.ports.settings = controlled.clone();
+
+        let kudzu = Kudzu::new(Config {
+            paths: Paths {
+                data: scratch.0.clone(),
+                logs: scratch.0.join("logs"),
+            },
+            host,
+            variant: Variant::Dev,
+            version: "0.7.0".into(),
+            app_name: "Kudzu".into(),
+            bundle_id: "sh.saeed.kudzu".into(),
+            os_major: 26,
+            mcp_name: "kudzu".into(),
+            executable: scratch.0.join("Kudzu"),
+            agent_args: vec!["--mcp".into()],
+            bundled_skill_dir: None,
+            production: false,
+            cloud_and_updates: false,
+            debounce: Duration::from_millis(50),
+            retry: Duration::from_millis(50),
+        })
+        .unwrap();
+
+        let (_shell, mut state) = PermissionsState::headless_for_test(
+            &kudzu,
+            Launch {
+                identity: Identity {
+                    app_name: "Kudzu",
+                    dev: true,
+                },
+                native: false,
+                hidden: false,
+            },
+        );
+        state.started = true;
+        let _ = state.sync();
+
+        // 1. Wakeup must fire strictly AFTER `Task::ready()` / `Task::take()` is populated.
+        let (release_tx, release_rx) = mpsc::channel();
+        *controlled.gate.lock().unwrap() = Some(release_rx);
+
+        let shared_watch: Arc<Mutex<Option<kudzu_app::watch::Watch<bool>>>> =
+            Arc::new(Mutex::new(None));
+        let (wake_tx, wake_rx) = mpsc::channel();
+        let watch_for_wake = shared_watch.clone();
+        state.waker = Arc::new(move || {
+            let ready = watch_for_wake
+                .lock()
+                .unwrap()
+                .as_ref()
+                .is_some_and(|w| *w.get());
+            let _ = wake_tx.send(ready);
+        });
+
+        state.spawn_begin(PermissionKind::Accessibility);
+        *shared_watch.lock().unwrap() = state.opening.as_ref().map(|t| t.ready());
+        release_tx.send(()).unwrap();
+
+        let ready_at_wake = wake_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("background task completion must wake the companion");
+        assert!(
+            ready_at_wake,
+            "wakeup fired before Task stored its result (race with Task::take())"
+        );
+        assert!(state.sync());
+        assert!(
+            !state.is_opening(),
+            "first sync() after wakeup must consume the finished task"
+        );
+
+        // 2. A panicking task must still wake the companion so `opening` never gets wedged.
+        controlled.panic_on_open.store(true, Ordering::SeqCst);
+        let (panic_tx, panic_rx) = mpsc::channel();
+        state.waker = Arc::new(move || {
+            let _ = panic_tx.send(());
+        });
+        state.spawn_begin(PermissionKind::Accessibility);
+        panic_rx
+            .recv_timeout(Duration::from_milliseconds_compat())
+            .expect("panicking background task must still wake the companion");
+        assert!(state.sync());
+        assert!(!state.is_opening());
+        assert_eq!(
+            state.model.notice.as_deref(),
+            Some("The operation stopped unexpectedly.")
+        );
+    }
+
+    trait DurationCompat {
+        fn from_milliseconds_compat() -> Duration;
+    }
+    impl DurationCompat for Duration {
+        fn from_milliseconds_compat() -> Duration {
+            Duration::from_millis(500)
+        }
+    }
 }

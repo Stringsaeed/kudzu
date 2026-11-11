@@ -581,3 +581,111 @@ fn the_report_counts_failures_pending_and_reviews() {
     assert!(md.contains("**FAIL**") && md.contains("text colour"));
     assert_eq!(report::json(&rows)[0]["verdict"], "FAIL");
 }
+
+fn permission_card_els(
+    root: &str,
+    label: &str,
+    y: f32,
+    selected: bool,
+    granted: bool,
+    badge: &str,
+) -> Vec<Element> {
+    let success = [0.0, 153.0, 86.0, 1.0];
+    let muted = [121.0, 113.0, 107.0, 1.0];
+    let mut card = el(root, "button", [41.0, y, 338.0, 62.5]);
+    card.label = Some(label.into());
+    card.fill = Some(if selected {
+        [20.0, 69.0, 226.0, 0.051]
+    } else {
+        [255.0, 255.0, 255.0, 0.5]
+    });
+
+    let mut media = el(
+        &format!("{root}/0"),
+        "container",
+        [56.0, y + 15.25, 32.0, 32.0],
+    );
+    media.fill = Some(if granted {
+        [0.0, 153.0, 86.0, 0.1]
+    } else {
+        [12.0, 10.0, 9.0, 0.05]
+    });
+
+    let mut glyph = el(
+        &format!("{root}/0/0"),
+        "icon",
+        [64.0, y + 23.25, 16.0, 16.0],
+    );
+    glyph.color = Some(if granted { success } else { muted });
+
+    let mut title = el(
+        &format!("{root}/1/0"),
+        "text",
+        [100.0, y + 13.0, 90.0, 18.0],
+    );
+    title.text = Some(label.into());
+    title.color = Some(INK);
+
+    let mut out = vec![card, media, glyph, title];
+    if granted {
+        let mut check_icon = el(
+            &format!("{root}/2/0"),
+            "icon",
+            [300.0, y + 24.0, 14.0, 14.0],
+        );
+        check_icon.color = Some(success);
+        out.push(check_icon);
+    }
+    let mut badge_el = el(
+        &format!("{root}/2/1"),
+        "text",
+        [318.0, y + 24.0, 44.0, 14.0],
+    );
+    badge_el.text = Some(badge.into());
+    badge_el.color = Some(if granted { success } else { muted });
+    out.push(badge_el);
+    out
+}
+
+#[test]
+fn permissions_row_landmarks_are_gated_and_catch_wrong_state() {
+    let st = state("permissions", "allowed", "light", vec![]);
+
+    // Valid `allowed` scene: Accessibility granted ("Allowed"), Input Monitoring ungranted ("Optional").
+    let mut ok_els = permission_card_els("0", "Accessibility", 274.0, true, true, "Allowed");
+    ok_els.extend(permission_card_els(
+        "1",
+        "Input Monitoring",
+        344.5,
+        false,
+        false,
+        "Optional",
+    ));
+    let ok_rows = compare::screen_rows(&st, &ok_els);
+    assert_eq!(ok_rows.len(), 2);
+    assert!(
+        ok_rows.iter().all(|r| r.kind == Kind::Gated && !r.failed()),
+        "both permission row cards must be Gated and pass when matching mock.ts: {ok_rows:?}"
+    );
+
+    // Wrong `Input Monitoring` state (granted = true / "Allowed" in `allowed` scene) MUST fail gated parity!
+    let mut bad_els = permission_card_els("0", "Accessibility", 274.0, true, true, "Allowed");
+    bad_els.extend(permission_card_els(
+        "1",
+        "Input Monitoring",
+        344.5,
+        false,
+        true,
+        "Allowed",
+    ));
+    let bad_rows = compare::screen_rows(&st, &bad_els);
+    let im_row = bad_rows
+        .iter()
+        .find(|r| r.item == "button “Input Monitoring” #1")
+        .expect("Input Monitoring row must exist");
+    assert_eq!(im_row.kind, Kind::Gated);
+    assert!(
+        im_row.failed(),
+        "wrong Input Monitoring grant state must fail gated parity"
+    );
+}

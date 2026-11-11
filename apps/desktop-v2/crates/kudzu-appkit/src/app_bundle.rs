@@ -14,17 +14,22 @@ pub fn is_app_bundle_path(path: &Path) -> bool {
         && path.file_stem().is_some_and(|stem| !stem.is_empty())
 }
 
+/// Returns `true` when `path` is a valid `.app` bundle path that exists on disk as a directory.
+pub fn is_existing_app_bundle(path: &Path) -> bool {
+    is_app_bundle_path(path) && path.is_dir()
+}
+
 /// Returns the `.app` bundle path when the current process launched from inside a bundle.
 pub fn running_bundle(_: MainThreadMarker) -> Option<PathBuf> {
     let url = NSBundle::mainBundle().bundleURL();
     let ns_path = url.path()?;
     let path = PathBuf::from(ns_path.to_string());
-    is_app_bundle_path(&path).then_some(path)
+    is_existing_app_bundle(&path).then_some(path)
 }
 
 /// Selects `bundle` in Finder (`NSWorkspace.activateFileViewerSelectingURLs`).
 pub fn reveal_in_finder(_: MainThreadMarker, bundle: &Path) -> Result<(), &'static str> {
-    if !is_app_bundle_path(bundle) || !bundle.exists() {
+    if !is_existing_app_bundle(bundle) {
         return Err("application bundle is not available on disk");
     }
     let text = bundle.to_str().ok_or("bundle path is not UTF-8")?;

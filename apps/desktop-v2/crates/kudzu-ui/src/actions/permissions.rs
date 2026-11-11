@@ -1,10 +1,7 @@
 //! User-initiated actions for the permission companion (`S66`).
 
-use std::time::Duration;
-
 use kudzu_app::ports::PermissionKind;
 use objc2_foundation::MainThreadMarker;
-use rune::Tx;
 
 use crate::permissions::model::UNBUNDLED_REVEAL_NOTICE;
 use crate::shell::windows::PermissionsState;
@@ -21,7 +18,7 @@ pub fn select_kind(s: &mut PermissionsState, kind: PermissionKind) {
     let _ = s.sync();
 }
 
-pub fn begin_selected(s: &mut PermissionsState, tx: &mut Tx) {
+pub fn begin_selected(s: &mut PermissionsState) {
     if !s.model.loaded || s.is_opening() {
         return;
     }
@@ -30,7 +27,6 @@ pub fn begin_selected(s: &mut PermissionsState, tx: &mut Tx) {
     let kind = s.model.snap.selected;
     s.spawn_begin(kind);
     let _ = s.sync();
-    tx.wake_after(Duration::from_millis(50));
 }
 
 pub fn press_app_icon(s: &mut PermissionsState) {
