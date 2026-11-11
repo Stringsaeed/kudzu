@@ -1,0 +1,101 @@
+{
+  "formatVersion": 1,
+  "groups": [
+    {
+      "id": "00000000-0000-0000-0000-000000000010",
+      "insertion": "paste",
+      "isEnabled": true,
+      "name": "Work",
+      "rule": {
+        "bundleIDs": [
+          "com.apple.Terminal"
+        ],
+        "mode": "deny"
+      },
+      "sortIndex": 0
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000011",
+      "isEnabled": false,
+      "name": "Mail",
+      "parentID": "00000000-0000-0000-0000-000000000010",
+      "sortIndex": 1
+    }
+  ],
+  "snippets": [
+    {
+      "caseMode": "exact",
+      "content": "Best regards,\n{{field name=\"Name\" default=\"Ada\"}}",
+      "createdAt": "2026-01-02T03:04:05Z",
+      "fireMode": "wholeWord",
+      "formatting": {
+        "source": "Best regards,\n{{field name=\"Name\" default=\"Ada\"}}",
+        "spans": [
+          {
+            "end": 4,
+            "start": 0,
+            "style": {
+              "kind": "bold"
+            }
+          },
+          {
+            "end": 13,
+            "start": 5,
+            "style": {
+              "kind": "link",
+              "url": "https://kudzu.site"
+            }
+          }
+        ]
+      },
+      "groupID": "00000000-0000-0000-0000-000000000011",
+      "id": "00000000-0000-0000-0000-000000000020",
+      "insertion": "type",
+      "isEnabled": false,
+      "isFavorite": true,
+      "name": "Signature",
+      "rule": {
+        "bundleIDs": [
+          "com.apple.mail",
+          "com.tinyspeck.slackmacgap"
+        ],
+        "insertion": "paste",
+        "mode": "allow"
+      },
+      "triggers": [
+        ";sig",
+        ";signature"
+      ],
+      "updatedAt": "2026-06-07T08:09:10Z"
+    },
+    {
+      "caseMode": "propagate",
+      "content": "{{date format=\"EEEE, d MMMM yyyy\"}}",
+      "createdAt": "2025-12-31T23:59:59Z",
+      "fireMode": "immediate",
+      "id": "00000000-0000-0000-0000-000000000021",
+      "isEnabled": true,
+      "isFavorite": false,
+      "name": "Today",
+      "triggers": [
+        ";date"
+      ],
+      "updatedAt": "2025-12-31T23:59:59Z"
+    }
+  ],
+  "usage": [
+    {
+      "charsSaved": 340,
+      "count": 12,
+      "deviceID": "device-A",
+      "lastUsedAt": "2026-06-08T09:00:00Z",
+      "snippetID": "00000000-0000-0000-0000-000000000020"
+    },
+    {
+      "charsSaved": 20,
+      "count": 1,
+      "deviceID": "device-B",
+      "snippetID": "00000000-0000-0000-0000-000000000021"
+    }
+  ]
+}
