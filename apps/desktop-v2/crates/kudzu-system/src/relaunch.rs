@@ -1,4 +1,4 @@
-//! Launch Services reopen and explicit restart, with no shell interpolation of paths.
+//! Explicit restart of the verified canonical bundle, with no shell interpolation of paths.
 use kudzu_app::{error::PortError, ports::Relauncher};
 use std::{
     path::{Path, PathBuf},
@@ -10,17 +10,24 @@ use std::{
 /// The helper waits for this process to exit before launching, so it cannot lose the flock race.
 pub struct BundleRelauncher {
     bundle: PathBuf,
+    bundle_id: String,
     quit: Arc<dyn Fn() + Send + Sync>,
 }
 
 impl BundleRelauncher {
     pub fn new(
         bundle: PathBuf,
+        bundle_id: impl Into<String>,
         quit: impl Fn() + Send + Sync + 'static,
     ) -> Result<Self, PortError> {
+        let bundle_id = bundle_id.into();
         validate_bundle(&bundle)?;
+        if !super::login_item::valid_id(&bundle_id) {
+            return Err(PortError::InvalidData);
+        }
         Ok(Self {
             bundle,
+            bundle_id,
             quit: Arc::new(quit),
         })
     }
@@ -33,24 +40,28 @@ exec /usr/bin/open -n "$bundle"
 
 impl Relauncher for BundleRelauncher {
     fn relaunch(&self) -> Result<(), PortError> {
-        self.restart_with(|cmd| {
-            // The helper outlives this process; it has no inherited stdin/stdout or UI.
-            cmd.stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .spawn()
-                .map(|_| ())
-                .map_err(|e| PortError::Io(e.into()))
-        })
+        self.restart_with(crate::code_identity::verify_bundle, spawn_helper)
     }
+}
+
+fn spawn_helper(cmd: &mut Command) -> Result<(), PortError> {
+    // The helper outlives this process; it has no inherited stdin/stdout or UI.
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| PortError::Io(e.into()))
 }
 
 impl BundleRelauncher {
     fn restart_with(
         &self,
+        verify: impl FnOnce(&Path, &str) -> Result<(), PortError>,
         spawn: impl FnOnce(&mut Command) -> Result<(), PortError>,
     ) -> Result<(), PortError> {
-        validate_bundle(&self.bundle)?;
+        let canonical = canonical_bundle(&self.bundle)?;
+        verify(&canonical, &self.bundle_id)?;
         let mut command = Command::new("/bin/sh");
         command
             .args([
@@ -59,11 +70,20 @@ impl BundleRelauncher {
                 "kudzu-restart",
                 &std::process::id().to_string(),
             ])
-            .arg(&self.bundle);
+            .arg(&canonical);
         spawn(&mut command)?;
         (self.quit)();
         Ok(())
     }
+}
+
+fn canonical_bundle(bundle: &Path) -> Result<PathBuf, PortError> {
+    let canonical = std::fs::canonicalize(bundle).map_err(|e| PortError::Io(e.into()))?;
+    validate_bundle(&canonical)?;
+    if canonical.ancestors().any(Path::is_symlink) {
+        return Err(PortError::InvalidData);
+    }
+    Ok(canonical)
 }
 
 pub(crate) fn validate_bundle(bundle: &Path) -> Result<(), PortError> {
@@ -71,22 +91,6 @@ pub(crate) fn validate_bundle(bundle: &Path) -> Result<(), PortError> {
         return Err(PortError::Unavailable);
     }
     Ok(())
-}
-
-pub(crate) fn reopen(bundle: &Path) -> Result<(), PortError> {
-    validate_bundle(bundle)?;
-    let status = Command::new("/usr/bin/open")
-        .arg(bundle)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map_err(|e| PortError::Io(e.into()))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(PortError::Unavailable)
-    }
 }
 
 #[cfg(test)]
@@ -97,29 +101,98 @@ mod tests {
     fn bundled_restart_passes_path_as_one_argument_then_requests_shutdown() {
         let bundle = std::env::temp_dir().join(format!("Kudzu ' $ {}.app", uuid::Uuid::new_v4()));
         std::fs::create_dir(&bundle).unwrap();
+        let canonical = std::fs::canonicalize(&bundle).unwrap();
         let quit = Arc::new(AtomicBool::new(false));
         let marker = quit.clone();
-        let relaunch = BundleRelauncher::new(bundle.clone(), move || {
+        let relaunch = BundleRelauncher::new(bundle.clone(), "sh.saeed.kudzu.next", move || {
             marker.store(true, Ordering::SeqCst);
         })
         .unwrap();
         relaunch
-            .restart_with(|cmd| {
-                assert_eq!(cmd.get_program(), "/bin/sh");
-                let args: Vec<_> = cmd.get_args().collect();
-                assert_eq!(args[1], RESTART);
-                assert_eq!(args.last().unwrap(), &bundle.as_os_str());
-                assert!(!quit.load(Ordering::SeqCst));
-                Ok(())
-            })
+            .restart_with(
+                |path, id| {
+                    assert_eq!(path, canonical);
+                    assert_eq!(id, "sh.saeed.kudzu.next");
+                    Ok(())
+                },
+                |cmd| {
+                    assert_eq!(cmd.get_program(), "/bin/sh");
+                    let args: Vec<_> = cmd.get_args().collect();
+                    assert_eq!(args[1], RESTART);
+                    assert_eq!(args.last().unwrap(), &canonical.as_os_str());
+                    assert!(!quit.load(Ordering::SeqCst));
+                    Ok(())
+                },
+            )
             .unwrap();
         assert!(quit.load(Ordering::SeqCst));
         quit.store(false, Ordering::SeqCst);
         assert!(relaunch
-            .restart_with(|_| Err(PortError::Unavailable))
+            .restart_with(|_, _| Ok(()), |_| Err(PortError::Unavailable))
             .is_err());
         assert!(!quit.load(Ordering::SeqCst));
         std::fs::remove_dir(bundle).unwrap();
+    }
+
+    #[test]
+    fn symlinked_bundle_is_canonicalized_before_final_signature_check_and_failed_check_refuses_open(
+    ) {
+        let root = crate::update_install::location::Scratch::beside(&std::env::temp_dir()).unwrap();
+        let real = root.0.join("Real Kudzu.app");
+        let link = root.0.join("Symlink Kudzu.app");
+        std::fs::create_dir(&real).unwrap();
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+        let canonical = std::fs::canonicalize(&real).unwrap();
+        assert!(!canonical.ancestors().any(Path::is_symlink));
+
+        let quit = Arc::new(AtomicBool::new(false));
+        let marker = quit.clone();
+        let relaunch = BundleRelauncher::new(link.clone(), "sh.saeed.kudzu.next", move || {
+            marker.store(true, Ordering::SeqCst);
+        })
+        .unwrap();
+
+        let opened = std::cell::Cell::new(false);
+        let checked = std::cell::RefCell::new(None);
+        let result = relaunch.restart_with(
+            |path, id| {
+                assert_eq!(id, "sh.saeed.kudzu.next");
+                *checked.borrow_mut() = Some(path.to_path_buf());
+                Err(PortError::InvalidData)
+            },
+            |_| {
+                opened.set(true);
+                Ok(())
+            },
+        );
+        assert_eq!(result, Err(PortError::InvalidData));
+        assert_eq!(checked.borrow().as_deref(), Some(canonical.as_path()));
+        assert!(!opened.get(), "failed final check must never open");
+        assert!(!quit.load(Ordering::SeqCst));
+
+        // Production relaunch() also refuses an unsigned bundle without spawning open or quitting.
+        assert_eq!(relaunch.relaunch(), Err(PortError::InvalidData));
+        assert!(!quit.load(Ordering::SeqCst));
+
+        let verified = std::cell::RefCell::new(None);
+        let spawned = std::cell::RefCell::new(None);
+        relaunch
+            .restart_with(
+                |path, id| {
+                    assert_eq!(id, "sh.saeed.kudzu.next");
+                    *verified.borrow_mut() = Some(path.to_path_buf());
+                    Ok(())
+                },
+                |cmd| {
+                    let args: Vec<_> = cmd.get_args().map(|a| a.to_os_string()).collect();
+                    *spawned.borrow_mut() = args.last().map(PathBuf::from);
+                    Ok(())
+                },
+            )
+            .unwrap();
+        assert_eq!(verified.borrow().as_deref(), Some(canonical.as_path()));
+        assert_eq!(spawned.borrow().as_deref(), Some(canonical.as_path()));
+        assert!(quit.load(Ordering::SeqCst));
     }
 
     #[cfg(target_os = "macos")]
@@ -177,10 +250,12 @@ mod tests {
     #[ignore = "only invoked by the isolated temporary-bundle restart test"]
     fn restart_child() {
         let bundle = std::env::var_os("KUDZU_RESTART_TEST_BUNDLE").expect("isolated child only");
-        BundleRelauncher::new(PathBuf::from(bundle), || std::process::exit(0))
-            .unwrap()
-            .relaunch()
-            .unwrap();
+        BundleRelauncher::new(PathBuf::from(bundle), "sh.saeed.kudzu.next", || {
+            std::process::exit(0)
+        })
+        .unwrap()
+        .restart_with(|_, _| Ok(()), spawn_helper)
+        .unwrap();
         panic!("quit callback must exit");
     }
 }

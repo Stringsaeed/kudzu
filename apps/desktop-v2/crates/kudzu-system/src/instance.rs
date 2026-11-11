@@ -49,16 +49,16 @@ impl Instance {
         bundle_id: &str,
         bundle: Option<&Path>,
     ) -> Result<Self, PortError> {
-        Self::acquire_with(directory, bundle_id, bundle, super::relaunch::reopen)
+        Self::acquire_with(directory, bundle_id, bundle, activate_owner)
     }
 
     fn acquire_with(
         directory: &Path,
         bundle_id: &str,
         bundle: Option<&Path>,
-        reopen: impl FnOnce(&Path) -> Result<(), PortError>,
+        activate: impl FnOnce(u32) -> Result<(), PortError>,
     ) -> Result<Self, PortError> {
-        Self::acquire_using(directory, bundle_id, bundle, authorize_owner, reopen)
+        Self::acquire_using(directory, bundle_id, bundle, authorize_owner, activate)
     }
 
     fn acquire_using(
@@ -66,7 +66,7 @@ impl Instance {
         bundle_id: &str,
         bundle: Option<&Path>,
         authorize: impl Fn(&OwnerRecord, &str) -> Result<(), PortError>,
-        reopen: impl FnOnce(&Path) -> Result<(), PortError>,
+        activate: impl FnOnce(u32) -> Result<(), PortError>,
     ) -> Result<Self, PortError> {
         if !super::login_item::valid_id(bundle_id) {
             return Err(PortError::InvalidData);
@@ -110,8 +110,8 @@ impl Instance {
         let Some(record) = record.filter(|record| authorize(record, bundle_id).is_ok()) else {
             return Ok(Self::UnverifiedOwner);
         };
-        if bundle.is_some() {
-            let _ = reopen(&record.bundle);
+        if !bundle.is_some_and(|_| activate(record.pid).is_ok()) {
+            return Ok(Self::UnverifiedOwner);
         }
         Ok(Self::Secondary)
     }
@@ -160,13 +160,12 @@ fn authorize_with(
     lookup: impl Fn(u32) -> Option<PathBuf>,
     verify_process: impl Fn(u32, &str) -> Result<(), PortError>,
 ) -> Result<(), PortError> {
-    super::update_install::verified_bundle_version(&record.bundle, id, |path, id, _version| {
+    let canonical = std::fs::canonicalize(&record.bundle).map_err(|e| PortError::Io(e.into()))?;
+    super::update_install::verified_bundle_version(&canonical, id, |path, id, _version| {
         verify_bundle(path, id)
     })?;
     let actual = lookup(record.pid).ok_or(PortError::Unavailable)?;
-    if std::fs::canonicalize(actual).map_err(|e| PortError::Io(e.into()))?
-        != std::fs::canonicalize(&record.bundle).map_err(|e| PortError::Io(e.into()))?
-    {
+    if std::fs::canonicalize(actual).map_err(|e| PortError::Io(e.into()))? != canonical {
         return Err(PortError::InvalidData);
     }
     verify_process(record.pid, id)
@@ -184,6 +183,27 @@ fn running_bundle(pid: u32) -> Option<PathBuf> {
 #[cfg(not(target_os = "macos"))]
 fn running_bundle(_: u32) -> Option<PathBuf> {
     None
+}
+
+#[cfg(target_os = "macos")]
+fn activate_owner(pid: u32) -> Result<(), PortError> {
+    objc2::rc::autoreleasepool(|_| {
+        let app = objc2_app_kit::NSRunningApplication::runningApplicationWithProcessIdentifier(
+            pid.try_into().map_err(|_| PortError::InvalidData)?,
+        )
+        .ok_or(PortError::Unavailable)?;
+        if app
+            .activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::ActivateAllWindows)
+        {
+            Ok(())
+        } else {
+            Err(PortError::Unavailable)
+        }
+    })
+}
+#[cfg(not(target_os = "macos"))]
+fn activate_owner(_: u32) -> Result<(), PortError> {
+    Err(PortError::Unavailable)
 }
 
 #[cfg(test)]
@@ -317,8 +337,8 @@ mod tests {
                     assert_eq!(id, "sh.saeed.kudzu.next");
                     Ok(())
                 },
-                |seen| {
-                    assert_eq!(seen, running);
+                |pid| {
+                    assert_eq!(pid, std::process::id());
                     Ok(())
                 }
             )
@@ -448,5 +468,58 @@ mod tests {
             Instance::acquire(&root.0, "sh.saeed.kudzu.next", None).unwrap(),
             Instance::Primary(_)
         ));
+    }
+
+    #[test]
+    fn second_launch_activates_verified_pid_without_opening_recorded_path() {
+        let root = crate::update_install::location::Scratch::beside(&std::env::temp_dir()).unwrap();
+        let running = root.0.join("Installed Kudzu.app");
+        let evil = root.0.join("Evil.app");
+        let second = root.0.join("Second Kudzu.app");
+        let link = root.0.join("Link.app");
+        std::fs::create_dir(&running).unwrap();
+        std::fs::create_dir(&evil).unwrap();
+        std::fs::create_dir(&second).unwrap();
+        std::os::unix::fs::symlink(&running, &link).unwrap();
+
+        let owner = Instance::acquire_with(&root.0, "sh.saeed.kudzu.next", Some(&link), |_| {
+            panic!("primary")
+        })
+        .unwrap();
+        let expected_pid = std::process::id();
+        let activated = std::cell::Cell::new(None);
+        let outcome = Instance::acquire_using(
+            &root.0,
+            "sh.saeed.kudzu.next",
+            Some(&second),
+            |record, id| {
+                assert_eq!(record.pid, expected_pid);
+                assert_eq!(id, "sh.saeed.kudzu.next");
+                // Simulate an attacker flipping the recorded symlink after authentication passes.
+                std::fs::remove_file(&link).unwrap();
+                std::os::unix::fs::symlink(&evil, &link).unwrap();
+                Ok(())
+            },
+            |pid| {
+                activated.set(Some(pid));
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(matches!(outcome, Instance::Secondary));
+        assert_eq!(activated.get(), Some(expected_pid));
+
+        let unactivatable = Instance::acquire_using(
+            &root.0,
+            "sh.saeed.kudzu.next",
+            Some(&second),
+            |_, _| Ok(()),
+            |_| Err(PortError::Unavailable),
+        )
+        .unwrap();
+        assert!(matches!(unactivatable, Instance::UnverifiedOwner));
+        assert_eq!(activate_owner(i32::MAX as u32), Err(PortError::Unavailable));
+        assert_eq!(activate_owner(u32::MAX), Err(PortError::InvalidData));
+        drop(owner);
     }
 }
