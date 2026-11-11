@@ -10,8 +10,15 @@ use super::input_source;
 use crate::input::{self, Retyped};
 
 /// `eventSourceUserData` on events we synthesize; the tap lets them through unmatched.
+///
+/// Threat model (D25): the markers are plain constants, so any process that can post events can
+/// stamp them on its own and slip past the listener's matching and interruption tracking. That
+/// gives it nothing: posting events at all needs Accessibility, and such a process could post
+/// the Backspaces or the text itself. The Tauri engine had the same exposure. The markers only
+/// keep Kudzu from matching its own output.
 pub(crate) const SYNTHETIC_MARKER: i64 = 0x004B_5544_5A55;
 /// `eventSourceUserData` on held physical keys we re-post; the tap matches them like real typing.
+/// The same threat model as [`SYNTHETIC_MARKER`].
 pub(crate) const REPLAY_MARKER: i64 = 0x004B_5552_504C;
 
 pub(crate) const KEY_DELETE: CGKeyCode = 51;
