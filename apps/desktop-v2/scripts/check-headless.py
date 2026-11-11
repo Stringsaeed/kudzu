@@ -31,6 +31,19 @@ with tempfile.TemporaryDirectory(prefix="kudzu-headless-") as directory:
     tree = json.loads((scratch / "tree.json").read_text())
     assert "Kudzu Next" in json.dumps(tree)
     assert (scratch / "snap.png").read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+    # `main` follows `--theme` and, on fixtures, opens past onboarding (`mock.ts:79`): the
+    # library's content card fills with each theme's background.
+    for theme, fill in [("light", "#ffffffff"), ("dark", "#0c0a09ff")]:
+        out = scratch / f"main-{theme}.json"
+        args = [sandbox, "-p", profile, str(BINARY), "--tree", str(out), "--window", "main",
+                "--theme", theme]
+        result = subprocess.run(args, env=env, cwd=scratch, capture_output=True, text=True)
+        print("main", theme, result.returncode, result.stderr.strip().splitlines()[-1:])
+        result.check_returncode()
+        elements = {e.get("key"): e for e in json.loads(out.read_text())["elements"]}
+        assert "onboarding-view-slot" not in elements, f"{theme}: fixtures opened onboarding"
+        card = elements.get("main-content")
+        assert card and card["fill"] == fill, f"{theme}: card is {card and card['fill']}"
     listed = subprocess.run([sandbox, "-p", profile, str(BINARY), "--list-windows"], env=env,
                             cwd=scratch, capture_output=True, text=True, check=True).stdout.split()
     for key in ["main", "palette", "picker", "form", "permissions"]:

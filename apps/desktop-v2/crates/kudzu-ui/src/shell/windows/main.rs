@@ -107,7 +107,7 @@ impl MainState {
         let library_snap = svc.library.watch().get();
         let model = MainModel {
             open_at_launch,
-            route: route.clone(),
+            route,
             library: library_snap,
             ..MainModel::default()
         };
@@ -115,7 +115,7 @@ impl MainState {
             svc,
             shell,
             model,
-            frame: MainFrame::new(initial_view, route),
+            frame: MainFrame::new(initial_view),
             sidebar: sidebar::State::default(),
             library: library::State::default(),
             editor: editor::State::default(),

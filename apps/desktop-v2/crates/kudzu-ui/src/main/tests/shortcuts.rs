@@ -3,6 +3,8 @@
 use rune::Ime;
 
 use super::{cmd, cmd_backspace, cmd_shift, esc, plain, Rig};
+use crate::actions::main::MainAction;
+use crate::actions::Action;
 use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView, MAX_NAV_HISTORY};
 use crate::shell::SettingsPane;
 
@@ -76,17 +78,17 @@ fn all_lib_14_shortcuts_and_history_cap_execute_through_runtime() {
     );
     assert_ne!(rig.rt.state.frame.selected_snippet, Some(created_id));
 
-    // ⌘⇧N creates a new group and navigates to it.
+    // ⌘⇧N creates a top-level "New group" and navigates to it (M4).
     let before_groups = rig.kudzu.library.watch().get().groups.len();
     rig.press(cmd_shift('n'));
+    let groups = rig.kudzu.library.watch().get().groups.clone();
+    assert_eq!(groups.len(), before_groups + 1);
+    let group = groups.last().unwrap();
+    assert_eq!((group.name.as_str(), group.parent_id), ("New group", None));
     assert_eq!(
-        rig.kudzu.library.watch().get().groups.len(),
-        before_groups + 1
-    );
-    assert!(matches!(
         rig.rt.state.frame.view,
-        MainView::Library(LibraryFilter::Group(_))
-    ));
+        MainView::Library(LibraryFilter::Group(group.id))
+    );
 
     // ⌘⇧P toggles expansion pause and resume (`Variant::Dev` starts paused).
     let initially_paused = rig.kudzu.expansion.status().get().paused;
@@ -95,7 +97,7 @@ fn all_lib_14_shortcuts_and_history_cap_execute_through_runtime() {
     rig.press(cmd_shift('p'));
     assert_eq!(rig.kudzu.expansion.status().get().paused, initially_paused);
 
-    // ⌘1–5, ⌘, toggle, ⌘[ / ⌘] back/forward + forward truncation on push.
+    // ⌘1–5, ⌘, ⌘[ / ⌘] back/forward + forward truncation on push.
     rig.press(cmd('1'));
     assert_eq!(
         rig.rt.state.frame.view,
@@ -119,7 +121,8 @@ fn all_lib_14_shortcuts_and_history_cap_execute_through_runtime() {
         MainView::Clipboard(ClipFilter::All)
     );
 
-    // ⌘, enters Settings(General) and a second ⌘, returns to Clipboard(All).
+    // ⌘, opens Settings (General), and a second ⌘, keeps it open (minor 2: this test used to
+    // lock ⌘, as a toggle back to Clipboard).
     rig.press(cmd(','));
     assert_eq!(
         rig.rt.state.frame.view,
@@ -128,19 +131,20 @@ fn all_lib_14_shortcuts_and_history_cap_execute_through_runtime() {
     rig.press(cmd(','));
     assert_eq!(
         rig.rt.state.frame.view,
-        MainView::Clipboard(ClipFilter::All)
+        MainView::Settings(SettingsPane::General)
     );
 
-    // ⌘[ steps back to Settings(General), ⌘] steps forward to Clipboard(All), then ⌘[ + new push truncates forward.
+    // ⌘[ steps back to Clipboard(All), ⌘] forward to Settings(General), then ⌘[ and a new push
+    // drop the forward entries.
     rig.press(cmd('['));
     assert_eq!(
         rig.rt.state.frame.view,
-        MainView::Settings(SettingsPane::General)
+        MainView::Clipboard(ClipFilter::All)
     );
     rig.press(cmd(']'));
     assert_eq!(
         rig.rt.state.frame.view,
-        MainView::Clipboard(ClipFilter::All)
+        MainView::Settings(SettingsPane::General)
     );
     rig.press(cmd('['));
     rig.press(cmd('1'));
@@ -234,4 +238,20 @@ fn ime_composition_text_input_and_modal_guards_protect_typing() {
         rig.rt.state.frame.view,
         MainView::Library(LibraryFilter::All)
     );
+}
+
+/// Minor 2 (S41 review): ⌘K and ⌘/ only ever open (`main-app.tsx:110`, `:129`); closing is the
+/// modal's own key. Running either action twice leaves its modal open.
+#[test]
+fn command_menu_and_shortcuts_actions_open_rather_than_toggle() {
+    let mut rig = Rig::new(true);
+    for action in [MainAction::CommandMenu, MainAction::OpenShortcuts] {
+        rig.rt.update(move |st, tx| {
+            action.run(st, tx);
+            action.run(st, tx);
+        });
+        rig.settle();
+    }
+    assert!(rig.rt.state.frame.command_open);
+    assert!(rig.rt.state.frame.shortcuts_open);
 }

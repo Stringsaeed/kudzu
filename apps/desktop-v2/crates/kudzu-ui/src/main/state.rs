@@ -42,7 +42,7 @@ pub enum ClipFilter {
 impl ClipFilter {
     pub const fn label(self) -> &'static str {
         match self {
-            Self::All => "All items",
+            Self::All => "History",
             Self::Pinned => "Pinned",
         }
     }
@@ -199,8 +199,6 @@ pub struct MainFrame<S: 'static = crate::shell::MainState> {
     pub shortcuts_open: bool,
     pub group_settings_id: Option<Uuid>,
     pub breadcrumb_overflow_open: bool,
-    /// Last view prior to entering Settings so `⌘,` / Settings close can return cleanly.
-    pub prior_non_settings: MainView,
     /// Monotonic UI clock (seconds) updated on poll for toast timers and breadcrumb burst checks.
     pub clock_secs: f64,
     /// Entrance counter for the leaf breadcrumb (`Arrivals` skips mount, renames, and `< 300ms` bursts).
@@ -210,23 +208,18 @@ pub struct MainFrame<S: 'static = crate::shell::MainState> {
     pub sidebar_material_rect: Option<[f64; 4]>,
     /// Version string of the last ready update announced as a toast (`SHL-10`).
     pub announced_update: Option<String>,
-    /// Last `Shell` route reconciled into `MainFrame`.
-    pub synced_route: Route,
+    /// A route `Shell::open_main` asked for that the next poll applies. Taken once, so the
+    /// same route sent twice applies twice.
+    pub pending_route: Option<Route>,
     /// Sonner-style toast host.
     pub toasts: Toasts<S>,
 }
 
 impl<S: 'static> MainFrame<S> {
-    pub fn new(initial: MainView, initial_route: Route) -> Self {
+    pub fn new(initial: MainView) -> Self {
         let mut focus = Focus::new(LIBRARY_PANES);
         focus.move_to(MainPane::List);
         let mut frame = Self {
-            prior_non_settings: match &initial {
-                MainView::Settings(_) | MainView::Onboarding => {
-                    MainView::Library(LibraryFilter::All)
-                }
-                other => other.clone(),
-            },
             history: NavHistory::new(initial.clone()),
             view: initial,
             sidebar_open: true,
@@ -240,7 +233,7 @@ impl<S: 'static> MainFrame<S> {
             breadcrumb_arrivals: Arrivals::default(),
             sidebar_material_rect: None,
             announced_update: None,
-            synced_route: initial_route,
+            pending_route: None,
             toasts: Toasts::new(),
         };
         frame.sync_focus_order();
@@ -295,9 +288,6 @@ impl<S: 'static> MainFrame<S> {
 
     /// Navigates to `target`, pushing onto [`NavHistory`] unless already on `target`.
     pub fn navigate(&mut self, target: MainView) -> bool {
-        if !matches!(self.view, MainView::Settings(_) | MainView::Onboarding) {
-            self.prior_non_settings = self.view.clone();
-        }
         let changed = self.history.push(target.clone());
         self.view = target;
         self.breadcrumb_overflow_open = false;
@@ -310,9 +300,6 @@ impl<S: 'static> MainFrame<S> {
 
     pub fn go_back(&mut self) -> bool {
         if let Some(prev) = self.history.go_back() {
-            if !matches!(self.view, MainView::Settings(_) | MainView::Onboarding) {
-                self.prior_non_settings = self.view.clone();
-            }
             self.view = prev;
             self.breadcrumb_overflow_open = false;
             self.sync_focus_order();
@@ -324,9 +311,6 @@ impl<S: 'static> MainFrame<S> {
 
     pub fn go_forward(&mut self) -> bool {
         if let Some(next) = self.history.go_forward() {
-            if !matches!(self.view, MainView::Settings(_) | MainView::Onboarding) {
-                self.prior_non_settings = self.view.clone();
-            }
             self.view = next;
             self.breadcrumb_overflow_open = false;
             self.sync_focus_order();

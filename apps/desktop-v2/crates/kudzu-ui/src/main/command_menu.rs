@@ -6,9 +6,10 @@ use crate::shell::MainState;
 use crate::theme::Theme;
 use crate::widgets::kit_ext::dialog::Dialog;
 
-/// `⌘K`.
-pub fn toggle(s: &mut MainState) {
-    s.frame.command_open = !s.frame.command_open;
+/// `⌘K` only opens the menu (`main-app.tsx:110`). Closing is the open menu's own ⌘K and
+/// Escape, which `keys::handle_key` routes before any action.
+pub fn open(s: &mut MainState) {
+    s.frame.command_open = true;
 }
 
 /// Placeholder command menu modal until S43 lands.

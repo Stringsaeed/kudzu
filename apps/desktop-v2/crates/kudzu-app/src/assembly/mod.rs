@@ -97,10 +97,14 @@ pub struct Host {
     pub time_zone: BackupTimeZone,
     /// Native uses `chrono::Local`. Headless passes a fixed offset so it ignores the host zone.
     pub local_time: fn(SystemTime) -> DateTime<FixedOffset>,
+    /// A new settings file starts with `onboarding_completed` set. Fixtures do, as the Tauri
+    /// mock does (`mock.ts:79`), so a fixture run opens the library; native starts onboarding.
+    pub onboarded: bool,
 }
 
 impl Host {
-    /// Fakes, the fixture locale and UTC, with `home` as the agent HOME. No host resources.
+    /// Fakes, the fixture locale and UTC, with `home` as the agent HOME, past onboarding. No
+    /// host resources.
     pub fn fixtures(fixtures: &crate::fixtures::Fixtures, home: std::path::PathBuf) -> Self {
         Self {
             ports: fixtures.ports(),
@@ -108,6 +112,7 @@ impl Host {
             home,
             time_zone: BackupTimeZone::Fixed(utc_offset()),
             local_time: utc_time,
+            onboarded: true,
         }
     }
 }
@@ -194,8 +199,10 @@ impl Kudzu {
             home,
             time_zone,
             local_time,
+            onboarded,
         } = config.host;
         prepare_directory(&config.paths.data)?;
+        let new_settings = !config.paths.settings().exists();
         let scheduler = Arc::new(Scheduler::new(ports.clock.clone())?);
         let writer = Writer::new(ports.clock.clone(), config.debounce, config.retry)?;
         let device_id = load_device_id(&config.paths.device_id())?;
@@ -204,6 +211,9 @@ impl Kudzu {
             config.variant,
             &writer,
         )?);
+        if onboarded && new_settings {
+            settings.update(|s| s.onboarding_completed = true)?;
+        }
         let (library, source) = LibraryService::open(
             config.paths.library(),
             device_id.clone(),

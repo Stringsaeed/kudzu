@@ -92,7 +92,7 @@ impl Shell {
     /// Show the main window at `route`, with the Dock icon when the user wants it.
     pub fn open_main(&self, route: Route) {
         self.0.handles.main.update(move |s, _| {
-            s.model.route = route;
+            s.open_route(route);
             s.show();
         });
     }

@@ -23,6 +23,10 @@ pub const TOOLBAR_PAD_RIGHT: f32 = 16.0;
 pub const TOOLBAR_GAP: f32 = 12.0;
 /// Width of the `"Search commands and snippets"` trigger (`w-48` = 192pt).
 pub const SEARCH_BUTTON_W: f32 = 192.0;
+/// Its width in a window narrower than [`NARROW_WINDOW_W`] (`max-[1000px]:w-36` = 144pt).
+pub const SEARCH_BUTTON_NARROW_W: f32 = 144.0;
+/// Tailwind v4's `max-[1000px]` is `width < 1000px`.
+pub const NARROW_WINDOW_W: f32 = 1000.0;
 /// Maximum visible crumbs before middle groups collapse into `"Show parent groups"`.
 pub const MAX_VISIBLE_CRUMBS: usize = 4;
 
@@ -70,8 +74,7 @@ pub fn compute_crumbs(
             crumbs.push(Crumb {
                 id: "root:clipboard".into(),
                 label: "Clipboard".into(),
-                target: (*filter != ClipFilter::All)
-                    .then_some(MainView::Clipboard(ClipFilter::All)),
+                target: Some(MainView::Clipboard(ClipFilter::All)),
             });
             crumbs.push(Crumb {
                 id: match filter {
@@ -84,22 +87,28 @@ pub fn compute_crumbs(
         }
         MainView::Library(filter) => {
             let selected = selected_snippet.and_then(|id| lib.snippets.iter().find(|s| s.id == id));
-            let has_deeper = !matches!(filter, LibraryFilter::All) || selected.is_some();
 
+            // Never the leaf: a filter, a group, a snippet or "All snippets" follows it.
             crumbs.push(Crumb {
                 id: "root:snippets".into(),
                 label: "Snippets".into(),
-                target: has_deeper.then_some(MainView::Library(LibraryFilter::All)),
+                target: Some(MainView::Library(LibraryFilter::All)),
             });
 
             match filter {
-                LibraryFilter::All => {
-                    if let Some(sn) = selected {
+                LibraryFilter::All => match selected {
+                    Some(sn) => {
                         if let Some(gid) = sn.group_id {
                             push_group_chain(&mut crumbs, gid, lib, true);
                         }
                     }
-                }
+                    // `toolbar.tsx:54`: a plain leaf, not a link.
+                    None => crumbs.push(Crumb {
+                        id: "filter:all".into(),
+                        label: "All snippets".into(),
+                        target: None,
+                    }),
+                },
                 LibraryFilter::Favorites => crumbs.push(Crumb {
                     id: "filter:favorites".into(),
                     label: "Favorites".into(),
@@ -262,13 +271,21 @@ pub fn view(s: &MainState, cx: &Cx<MainState>, theme: &Theme, overlays: &mut Vec
         .h(20.0)
         .no_window_drag();
 
+    let narrow = cx
+        .layout_with("main-toolbar", |r| r[2] < NARROW_WINDOW_W)
+        .unwrap_or(false);
+    let search_w = if narrow {
+        SEARCH_BUTTON_NARROW_W
+    } else {
+        SEARCH_BUTTON_W
+    };
     let search_trigger = row()
         .key("toolbar-search-trigger")
         .role("button")
         .label("Search commands and snippets")
         .focusable(true)
         .no_window_drag()
-        .size(SEARCH_BUTTON_W, 32.0)
+        .size(search_w, 32.0)
         .px(10.0)
         .gap(6.0)
         .center_y()

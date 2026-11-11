@@ -244,7 +244,9 @@ pub struct Arrivals {
 impl Arrivals {
     pub fn observe(&mut self, id: &str, now: f64) -> u32 {
         match &self.last {
-            None => self.last = Some((id.to_owned(), f64::NEG_INFINITY)),
+            // Mount stamps now, as `breadcrumbs.tsx` stamps the page's start (`at: 0`): an
+            // arrival right after mount is a burst too.
+            None => self.last = Some((id.to_owned(), now)),
             Some((last, at)) if last != id => {
                 let burst = now - at < BURST;
                 self.last = Some((id.to_owned(), now));

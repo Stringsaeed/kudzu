@@ -40,9 +40,20 @@ impl ThemeSync {
         self.appearance
     }
 
+    /// The Appearance a view draws with. Headless (`--snap`, `--tree`, `--scene`), Rune's
+    /// `--theme light|dark` sets the system appearance, so windows draw System and follow it;
+    /// a running app follows Settings. (Before this, `main` drew the stored Dark headless.)
+    pub fn drawn(&self, headless: bool) -> Appearance {
+        if headless {
+            Appearance::System
+        } else {
+            self.appearance
+        }
+    }
+
     /// The theme a view draws with. `system_dark` is `Cx::system_dark()`.
     pub fn theme(&self, system_dark: bool) -> &'static Theme {
-        Theme::resolve(self.appearance, system_dark)
+        Theme::resolve(self.drawn(rune::is_headless()), system_dark)
     }
 
     /// Used by `--scene` setup so `--theme light|dark` drives the scene's theme.
@@ -99,5 +110,16 @@ mod tests {
         assert!(!sync.sync(&settings.watch()));
         assert_eq!(sync.appearance(), Appearance::Light);
         assert!(!sync.theme(true).dark);
+    }
+
+    /// O2 (S41 review): headless, `--theme light|dark` is the system appearance, so a window
+    /// draws System whatever Settings stores (`main` drew the stored Dark). A running app
+    /// follows Settings.
+    #[test]
+    fn a_headless_run_draws_the_system_appearance() {
+        let sync = ThemeSync::default();
+        assert_eq!(sync.appearance(), Appearance::Dark);
+        assert_eq!(sync.drawn(true), Appearance::System);
+        assert_eq!(sync.drawn(false), Appearance::Dark);
     }
 }

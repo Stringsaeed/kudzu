@@ -4,37 +4,63 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kudzu_app::library::SnippetDraft;
-use rune::Tx;
+use kudzu_app::library::{Deleted, SnippetDraft};
+use rune::{TextEdit, Tx};
 use uuid::Uuid;
 
 use crate::main::state::{LibraryFilter, MainPane, MainView};
 use crate::main::toasts::{ToastAction, ToastSpec, UNDO_TOAST_SECS};
 use crate::main::{library, nav};
-use crate::shell::MainState;
+use crate::shell::{MainState, NewSnippet};
 
-/// `⌘N`: a new snippet in the current group, selected, with the editor focused.
-pub fn new_snippet(s: &mut MainState, tx: &mut Tx) {
-    let group_id = match s.frame.view {
-        MainView::Library(LibraryFilter::Group(gid)) => Some(gid),
-        _ => None,
+/// `store.ts` `newSnippet`, for ⌘N and for `Route::NewSnippet` (Quick Search ⌘N, "New Snippet
+/// from Selection"). Creates the snippet in the current group, a favorite on Favorites, with
+/// `seed`'s name, content and trigger (given the default prefix when it lacks it). Then it
+/// clears the filter, leaves Recent, Off, Insights, Settings and Clipboard for All, selects the
+/// snippet and focuses its name. `None` when the library refused it.
+pub fn new_snippet(s: &mut MainState, seed: NewSnippet) -> Option<Uuid> {
+    let view = s.frame.view.clone();
+    let prefix = s.svc.settings.watch().get().default_trigger_prefix.clone();
+    let triggers = match seed.trigger {
+        t if t.is_empty() => Vec::new(),
+        t if t.starts_with(&prefix) => vec![t],
+        t => vec![format!("{prefix}{t}")],
     };
-    if !s.frame.view.in_library() {
-        s.navigate_to(MainView::Library(LibraryFilter::All));
-    }
     let draft = SnippetDraft {
-        group_id,
+        name: seed.name,
+        content: seed.content,
+        triggers,
+        group_id: match view {
+            MainView::Library(LibraryFilter::Group(gid)) => Some(gid),
+            _ => None,
+        },
+        is_favorite: view == MainView::Library(LibraryFilter::Favorites),
         ..SnippetDraft::default()
     };
-    if let Ok((created, _)) = s.svc.library.create_snippet(draft) {
-        s.refresh_library_snapshot();
-        s.select_snippet(Some(created.id));
+    let created = match s.svc.library.create_snippet(draft) {
+        Ok((created, _)) => created,
+        Err(error) => {
+            log::warn!("a new snippet could not be created: {error}");
+            return None;
+        }
+    };
+    let leaves = matches!(
+        view,
+        MainView::Insights
+            | MainView::Settings(_)
+            | MainView::Clipboard(_)
+            | MainView::Library(LibraryFilter::Recent | LibraryFilter::Disabled)
+    );
+    if leaves {
+        s.navigate_to(MainView::Library(LibraryFilter::All));
     }
-    if s.frame.selected_snippet.is_some() {
-        s.blur_all_inputs();
-        s.frame.focus.move_to(MainPane::Editor);
-        s.editor.focus_content(tx);
-    }
+    s.library.filter = TextEdit::default();
+    s.refresh_library_snapshot();
+    s.select_snippet(Some(created.id));
+    s.blur_all_inputs();
+    s.frame.focus.move_to(MainPane::Editor);
+    s.editor.request_name_focus(created.id);
+    Some(created.id)
 }
 
 /// `⌘D`.
@@ -79,66 +105,93 @@ fn update_selected(s: &mut MainState, edit: impl FnOnce(&mut kudzu_core::Snippet
 }
 
 /// `⌘⌫`.
-pub fn delete_selected(s: &mut MainState) {
+pub fn delete_selected(s: &mut MainState, tx: &mut Tx) {
     if let Some(id) = s.frame.selected_snippet {
-        delete_with_undo(s, &[id]);
+        delete_with_undo(s, &[id], tx);
     }
 }
 
-/// Deletes `ids` and posts the 6-second Undo toast (`LIB-7`). Deleting the open snippet clears
-/// the selection and moves pane focus back to the list.
-pub fn delete_with_undo(s: &mut MainState, ids: &[Uuid]) -> bool {
+/// `main-app.tsx` `requestDelete`: deletes `ids`, selects the open snippet's neighbour when it
+/// was among them (`store.ts` `deleteSnippets`), focuses the list, and posts the 6-second Undo
+/// toast (`LIB-7`).
+pub fn delete_with_undo(s: &mut MainState, ids: &[Uuid], tx: &mut Tx) -> bool {
     if ids.is_empty() {
         return false;
     }
+    let neighbour = neighbour_after_delete(s, ids);
     let Ok((deleted, _)) = s.svc.library.delete_snippets(ids) else {
         return false;
     };
     if deleted.snippets.is_empty() {
         return false;
     }
-    let count = deleted.snippets.len();
-    let single_name = (count == 1).then(|| {
-        let n = deleted.snippets[0].name.trim();
-        if n.is_empty() {
-            "Untitled".to_owned()
-        } else {
-            n.to_owned()
-        }
-    });
-
-    let deleted_open = s
-        .frame
-        .selected_snippet
-        .is_some_and(|sel| ids.contains(&sel));
     s.refresh_library_snapshot();
-    if deleted_open {
-        s.frame.selected_snippet = None;
-        s.blur_all_inputs();
-        s.frame.focus.move_to(MainPane::List);
+    if let Some(next) = neighbour {
+        s.select_snippet(next);
     }
     s.observe_breadcrumbs();
+    focus_list(s, tx);
 
-    let title = match single_name {
-        Some(name) => format!("Deleted “{name}”"),
-        None => format!("Deleted {count} snippets"),
+    let count = deleted.snippets.len();
+    let title = if count == 1 {
+        match deleted.snippets[0].name.trim() {
+            "" => "Deleted “Untitled”".to_owned(),
+            name => format!("Deleted “{name}”"),
+        }
+    } else {
+        format!("Deleted {count} snippets")
     };
+    let first = deleted.snippets[0].id;
     let slot = Rc::new(RefCell::new(Some(deleted)));
-    let now = s.frame.clock_secs;
     let spec = ToastSpec::new(title)
         .duration_secs(UNDO_TOAST_SECS)
-        .action(ToastAction::new("Undo", true, move |st: &mut MainState| {
-            if let Some(batch) = slot.borrow_mut().take() {
-                if let Ok((restored, _)) = st.svc.library.restore(batch) {
-                    st.refresh_library_snapshot();
-                    if let Some(&first) = restored.first() {
-                        st.select_snippet(Some(first));
-                    }
-                }
-            }
-        }));
-    let key = format!("undo-delete:{}", ids[0]);
-    s.frame.toasts.show(key, spec, now);
+        .action(ToastAction::fallible(
+            "Undo",
+            true,
+            move |st: &mut MainState, _| undo(st, &slot, first),
+        ));
+    let now = s.frame.clock_secs;
+    s.frame
+        .toasts
+        .show(format!("undo-delete:{}", ids[0]), spec, now);
+    true
+}
+
+/// `Some(next)` when the open snippet is among `ids`: the snippet now at its place in library
+/// order, or the one before it at the end (`None` inside when nothing is left).
+fn neighbour_after_delete(s: &MainState, ids: &[Uuid]) -> Option<Option<Uuid>> {
+    let open = s.frame.selected_snippet.filter(|id| ids.contains(id))?;
+    let lib = s.svc.library.watch().get();
+    let at = lib.snippets.iter().position(|sn| sn.id == open);
+    let remaining: Vec<Uuid> = lib
+        .snippets
+        .iter()
+        .map(|sn| sn.id)
+        .filter(|id| !ids.contains(id))
+        .collect();
+    Some(at.and_then(|at| {
+        remaining
+            .get(at.min(remaining.len().checked_sub(1)?))
+            .copied()
+    }))
+}
+
+/// `store.ts` `restoreSnippets`: restores the batch and selects the first deleted snippet,
+/// also when sync already put it back. The batch is taken only once the restore is accepted;
+/// a failed one keeps the batch and its toast, so Undo can run again. True closes the toast.
+fn undo(st: &mut MainState, slot: &RefCell<Option<Deleted>>, first: Uuid) -> bool {
+    let Some(batch) = slot.borrow().clone() else {
+        return true;
+    };
+    if let Err(error) = st.svc.library.restore(batch) {
+        log::warn!("the deleted snippets could not be restored: {error}");
+        return false;
+    }
+    slot.borrow_mut().take();
+    st.refresh_library_snapshot();
+    if st.model.library.snippets.iter().any(|sn| sn.id == first) {
+        st.select_snippet(Some(first));
+    }
     true
 }
 
@@ -152,7 +205,7 @@ pub fn focus_filter(s: &mut MainState, tx: &mut Tx) {
     s.library.focus_filter(tx);
 }
 
-/// `⌘L`, and Escape from the editor.
+/// `⌘L`, Escape from the editor, and after a delete.
 pub fn focus_list(s: &mut MainState, tx: &mut Tx) {
     nav::focus_list_pane(s, library::LIST_KEY, tx);
 }

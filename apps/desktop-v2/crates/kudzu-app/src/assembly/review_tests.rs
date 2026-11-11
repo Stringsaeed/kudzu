@@ -213,3 +213,32 @@ fn final_collection_is_bounded_in_time() {
     assert_eq!(bounded(Duration::from_secs(1), || 2), Some(2));
     let _ = utc_time;
 }
+
+/// S41 review O3: a fixture host starts past onboarding, as the Tauri mock does
+/// (`mock.ts:79`), while a native first run starts at it. The seed applies only to a new
+/// settings file, so a stored choice is kept on the next launch.
+#[test]
+fn a_fixture_host_starts_past_onboarding_once() {
+    let scratch = Scratch::new();
+    let fixtures = Fixtures::new().unwrap();
+    let fixture_config = || {
+        let mut config = config(&scratch, &fixtures, false, Duration::ZERO);
+        config.host = Host::fixtures(&fixtures, scratch.0.clone());
+        config
+    };
+    let app = Kudzu::new(fixture_config()).unwrap();
+    assert!(app.settings.watch().get().onboarding_completed);
+    app.settings
+        .update(|s| s.onboarding_completed = false)
+        .unwrap();
+    assert_eq!(app.shutdown().durable, Ok(()));
+    drop(app);
+    let again = Kudzu::new(fixture_config()).unwrap();
+    assert!(!again.settings.watch().get().onboarding_completed);
+    let _ = again.shutdown();
+
+    let native = Scratch::new();
+    let app = Kudzu::new(config(&native, &fixtures, false, Duration::ZERO)).unwrap();
+    assert!(!app.settings.watch().get().onboarding_completed);
+    let _ = app.shutdown();
+}

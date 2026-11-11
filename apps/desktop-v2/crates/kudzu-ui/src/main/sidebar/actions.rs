@@ -4,21 +4,15 @@
 use crate::main::state::{LibraryFilter, MainView};
 use crate::shell::MainState;
 
-/// `⌘⇧N`.
+/// `⌘⇧N`: `createGroup("New group", null)` (`main-app.tsx:112`), a top-level group with the
+/// same name every time, then that group's view. Subgroups are the sidebar's own action (S42).
 pub fn new_group(s: &mut MainState) {
-    let parent_id = match s.frame.view {
-        MainView::Library(LibraryFilter::Group(gid)) => Some(gid),
-        _ => None,
-    };
-    let existing = s.model.library.groups.len();
-    let name = if existing == 0 {
-        "New group".to_owned()
-    } else {
-        format!("New group {}", existing + 1)
-    };
-    if let Ok((group, _)) = s.svc.library.create_group(name, parent_id) {
-        s.refresh_library_snapshot();
-        s.navigate_to(MainView::Library(LibraryFilter::Group(group.id)));
+    match s.svc.library.create_group("New group".to_owned(), None) {
+        Ok((group, _)) => {
+            s.refresh_library_snapshot();
+            s.navigate_to(MainView::Library(LibraryFilter::Group(group.id)));
+        }
+        Err(error) => log::warn!("a new group could not be created: {error}"),
     }
 }
 

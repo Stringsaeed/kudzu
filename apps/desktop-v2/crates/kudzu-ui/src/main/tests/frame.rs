@@ -2,8 +2,10 @@
 
 use kudzu_app::library::SnippetDraft;
 
+use kudzu_core::KudzuLibrary;
+
 use super::{cmd, Rig};
-use crate::main::state::{LibraryFilter, MainPane, MainView};
+use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
 use crate::main::toolbar::{collapse_crumbs, compute_crumbs, VisibleCrumb};
 use crate::shell::Route;
 
@@ -226,4 +228,58 @@ fn onboarding_route_renders_chromeless_and_transitions_to_library_when_completed
     assert_eq!(rig.rt.state.model.route, Route::Library);
     assert!(rig.rect("main-toolbar").is_some());
     assert_eq!(rig.rect("main-sidebar"), Some([0.0, 42.0, 224.0, 718.0]));
+}
+
+/// Minor 1 (S41 review): All with nothing selected ends in a plain "All snippets" leaf
+/// (`toolbar.tsx:54`), and the clipboard's all-items leaf is "History" (`toolbar.tsx:36`).
+#[test]
+fn breadcrumbs_end_in_all_snippets_and_history() {
+    let lib = KudzuLibrary::default();
+    let labels = |view: MainView| -> Vec<(String, bool)> {
+        compute_crumbs(&view, None, &lib)
+            .into_iter()
+            .map(|c| (c.label, c.target.is_some()))
+            .collect()
+    };
+    assert_eq!(
+        labels(MainView::Library(LibraryFilter::All)),
+        [("Snippets".into(), true), ("All snippets".into(), false)]
+    );
+    assert_eq!(
+        labels(MainView::Clipboard(ClipFilter::All)),
+        [("Clipboard".into(), true), ("History".into(), false)]
+    );
+    assert_eq!(
+        labels(MainView::Clipboard(ClipFilter::Pinned)),
+        [("Clipboard".into(), true), ("Pinned".into(), false)]
+    );
+}
+
+/// Minor 4 (S41 review): mount stamps the current time, so a navigation within 300 ms of mount
+/// is a burst (`breadcrumbs.tsx` starts `at: 0`, the page's start); later ones still arrive.
+#[test]
+fn a_navigation_right_after_mount_is_a_burst() {
+    let mut arrivals = crate::motion::Arrivals::default();
+    assert_eq!(arrivals.observe("root:snippets", 10.0), 0);
+    assert_eq!(arrivals.observe("filter:favorites", 10.1), 0);
+    assert_eq!(arrivals.observe("filter:recent", 10.6), 1);
+}
+
+/// Minor 5 (S41 review): Search is 192 pt wide, and 144 pt below a 1000 pt window
+/// (`w-48 max-[1000px]:w-36`).
+#[test]
+fn search_narrows_below_a_thousand_points() {
+    let mut rig = Rig::new(true);
+    let width = |rig: &Rig| rig.rect("toolbar-search-trigger").unwrap()[2];
+    assert_eq!(width(&rig), 192.0);
+    rig.rt.set_viewport((999.0, 760.0), 1.0);
+    rig.settle();
+    rig.settle();
+    assert_eq!(width(&rig), 144.0);
+    let r = rig.rect("toolbar-search-trigger").unwrap();
+    assert!((r[0] + r[2] - (999.0 - 16.0)).abs() < 0.5, "{r:?}");
+    rig.rt.set_viewport((1000.0, 760.0), 1.0);
+    rig.settle();
+    rig.settle();
+    assert_eq!(width(&rig), 192.0);
 }

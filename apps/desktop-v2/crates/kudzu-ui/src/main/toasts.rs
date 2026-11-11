@@ -17,8 +17,8 @@ pub const UNDO_TOAST_SECS: f64 = 6.0;
 /// Auto-dismiss duration for Update-ready toasts (`SHL-10`: `15000ms`).
 pub const UPDATE_TOAST_SECS: f64 = 15.0;
 
-/// Shared callback invoked when a toast action button is pressed.
-pub type ToastHandler<S> = Rc<dyn Fn(&mut S, &mut Tx)>;
+/// Shared callback invoked when a toast action button is pressed. True closes the toast.
+pub type ToastHandler<S> = Rc<dyn Fn(&mut S, &mut Tx) -> bool>;
 
 /// Action button specification attached to a [`ToastSpec`].
 pub struct ToastAction<S: 'static> {
@@ -48,17 +48,29 @@ impl<S: 'static> std::fmt::Debug for ToastAction<S> {
 
 impl<S: 'static> ToastAction<S> {
     pub fn new(label: impl Into<String>, primary: bool, f: impl Fn(&mut S) + 'static) -> Self {
-        Self {
-            label: label.into(),
-            primary,
-            handler: Rc::new(move |s, _| f(s)),
-        }
+        Self::fallible(label, primary, move |s, _| {
+            f(s);
+            true
+        })
     }
 
     pub fn with_tx(
         label: impl Into<String>,
         primary: bool,
         f: impl Fn(&mut S, &mut Tx) + 'static,
+    ) -> Self {
+        Self::fallible(label, primary, move |s, tx| {
+            f(s, tx);
+            true
+        })
+    }
+
+    /// An action that can fail: the toast closes only when `f` returns true, so a failed
+    /// Undo stays on screen to be tried again (failed work stays open, PLAN S26).
+    pub fn fallible(
+        label: impl Into<String>,
+        primary: bool,
+        f: impl Fn(&mut S, &mut Tx) -> bool + 'static,
     ) -> Self {
         Self {
             label: label.into(),
@@ -244,14 +256,21 @@ impl<S: 'static> Toasts<S> {
         self.stack.entries()
     }
 
-    /// Invokes the primary action of the frontmost toast (useful in headless tests and keyboard
-    /// activation) and dismisses that toast.
-    pub fn trigger_front_action(&self, state: &mut S, tx: &mut Tx, now_secs: f64) -> Option<u64> {
-        let front = self.stack.front()?;
+    /// Runs the frontmost toast's action, as its button does (keyboard activation), and closes
+    /// the toast when the action succeeds. `access` reaches the host inside `state`.
+    pub fn trigger_front_action(
+        state: &mut S,
+        tx: &mut Tx,
+        access: impl Fn(&mut S) -> (&mut Toasts<S>, f64),
+    ) -> Option<u64> {
+        let (toasts, _) = access(state);
+        let front = toasts.stack.front()?;
         let id = front.id;
         let handler = front.options.action.as_ref()?.handler.clone();
-        handler(state, tx);
-        let _ = now_secs;
+        if handler(state, tx) {
+            let (toasts, now) = access(state);
+            toasts.dismiss(id, now);
+        }
         Some(id)
     }
 
@@ -277,18 +296,20 @@ impl<S: 'static> Toasts<S> {
                 let handler = cancel.handler.clone();
                 let access_cl = access.clone();
                 toast = toast.action(kit, &cancel.label, cancel.primary, move |s: &mut S, tx| {
-                    handler(s, tx);
-                    let (toasts, now) = access_cl(s);
-                    toasts.dismiss(id, now);
+                    if handler(s, tx) {
+                        let (toasts, now) = access_cl(s);
+                        toasts.dismiss(id, now);
+                    }
                 });
             }
             if let Some(action) = &spec.action {
                 let handler = action.handler.clone();
                 let access_cl = access.clone();
                 toast = toast.action(kit, &action.label, action.primary, move |s: &mut S, tx| {
-                    handler(s, tx);
-                    let (toasts, now) = access_cl(s);
-                    toasts.dismiss(id, now);
+                    if handler(s, tx) {
+                        let (toasts, now) = access_cl(s);
+                        toasts.dismiss(id, now);
+                    }
                 });
             }
             if spec.closable {
@@ -320,9 +341,10 @@ impl<S: 'static> Toasts<S> {
             .children(cards);
 
         Some(
+            // `pin` is (left, top, right, bottom): full width, 16 pt above the bottom edge.
             col()
                 .key("toast-overlay")
-                .pin(None, Some(0.0), Some(16.0), Some(0.0))
+                .pin(Some(0.0), None, Some(0.0), Some(16.0))
                 .items_center()
                 .child(region),
         )

@@ -96,6 +96,7 @@ pub fn host(native: Native) -> Host {
             .unwrap_or_default(),
         time_zone: BackupTimeZone::Local,
         local_time: kudzu_app::assembly::local_time,
+        onboarded: false,
     }
 }
 

@@ -11,7 +11,7 @@ use crate::actions::main::{ActionContext, MainAction};
 use crate::actions::Action;
 use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
 use crate::main::{cheatsheet, clipboard, command_menu, editor, library, nav, sidebar};
-use crate::shell::MainState;
+use crate::shell::{MainState, NewSnippet};
 
 /// Window-level `on_key` handler wired into `AppSpec::on_key` for `main`.
 pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
@@ -84,8 +84,10 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
 pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
     s.frame.clock_secs = tx.clock();
     match action {
-        MainAction::CommandMenu => command_menu::toggle(s),
-        MainAction::NewSnippet => library::actions::new_snippet(s, tx),
+        MainAction::CommandMenu => command_menu::open(s),
+        MainAction::NewSnippet => {
+            let _ = library::actions::new_snippet(s, NewSnippet::default());
+        }
         MainAction::NewGroup => sidebar::actions::new_group(s),
         MainAction::FocusFilter => match s.frame.view {
             MainView::Clipboard(_) => clipboard::focus_search(s, tx),
@@ -99,7 +101,7 @@ pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
         MainAction::DuplicateSnippet => library::actions::duplicate_selected(s),
         MainAction::ToggleFavorite => library::actions::toggle_favorite(s),
         MainAction::ToggleEnabled => library::actions::toggle_enabled(s),
-        MainAction::DeleteSnippet => library::actions::delete_selected(s),
+        MainAction::DeleteSnippet => library::actions::delete_selected(s, tx),
         MainAction::TogglePause => sidebar::actions::toggle_pause(s),
         MainAction::ViewAll => nav::view(s, MainView::Library(LibraryFilter::All), tx),
         MainAction::ViewFavorites => {
@@ -109,7 +111,7 @@ pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
         MainAction::ViewInsights => nav::view(s, MainView::Insights, tx),
         MainAction::ViewClipboard => nav::view(s, MainView::Clipboard(ClipFilter::All), tx),
         MainAction::OpenSettings => nav::open_settings(s, tx),
-        MainAction::OpenShortcuts => cheatsheet::toggle(s),
+        MainAction::OpenShortcuts => cheatsheet::open(s),
         MainAction::Back => nav::back(s, tx),
         MainAction::Forward => nav::forward(s, tx),
         MainAction::ToggleSidebar => s.toggle_sidebar(),

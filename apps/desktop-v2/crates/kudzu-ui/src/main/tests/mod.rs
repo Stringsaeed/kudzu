@@ -3,6 +3,7 @@
 //! screen step adds its own file rather than editing a shared one.
 
 mod frame;
+mod landmarks;
 mod library;
 mod routes;
 mod shortcuts;
@@ -15,7 +16,7 @@ use kudzu_app::assembly::{Config, Host, Kudzu};
 use kudzu_app::fixtures::{hotkey_registrar::FakeHotkeys, Fixtures};
 use kudzu_app::paths::Paths;
 use kudzu_app::ports::HotkeyRegistrar;
-use kudzu_app::settings::Variant;
+use kudzu_app::settings::{Theme, Variant};
 use rune::{Env, Key, KeyEvent, Mods, Runtime};
 use uuid::Uuid;
 
@@ -71,12 +72,20 @@ pub(super) struct Rig {
 
 impl Rig {
     pub(super) fn new(onboarded: bool) -> Self {
+        Self::themed(onboarded, Theme::Dark)
+    }
+
+    /// A rig whose stored Appearance is `theme` before the first poll.
+    pub(super) fn themed(onboarded: bool, theme: Theme) -> Self {
         let scratch = Scratch::new();
         let fixtures = Fixtures::new().unwrap();
         let kudzu = build_kudzu(&scratch.0, &fixtures);
         kudzu
             .settings
-            .update(|s| s.onboarding_completed = onboarded)
+            .update(|s| {
+                s.onboarding_completed = onboarded;
+                s.theme = theme;
+            })
             .unwrap();
         let hotkeys: Arc<dyn HotkeyRegistrar> = Arc::new(FakeHotkeys::default());
         let p = parts(
@@ -108,6 +117,32 @@ impl Rig {
             kudzu,
             rt,
         }
+    }
+
+    /// The key of the element holding Rune's keyboard focus.
+    pub(super) fn focused_key(&self) -> Option<String> {
+        self.rt
+            .elements()
+            .into_iter()
+            .find(|e| e.focused)
+            .and_then(|e| e.key)
+    }
+
+    /// Asks for `route` the way `Shell::open_main` does, then lets the poll apply it.
+    pub(super) fn open_route(&mut self, route: crate::shell::Route) {
+        self.rt.update(move |st, _| st.open_route(route));
+        self.settle();
+    }
+
+    pub(super) fn settle(&mut self) {
+        self.rt.settle_all();
+        self.rt.frame(0.016);
+        self.rt.frame(0.0);
+    }
+
+    /// The library as the service holds it now.
+    pub(super) fn library(&self) -> Arc<kudzu_core::KudzuLibrary> {
+        self.kudzu.library.watch().get()
     }
 
     pub(super) fn rect(&self, key: &str) -> Option<[f32; 4]> {

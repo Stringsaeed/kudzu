@@ -51,7 +51,7 @@ impl MainState {
             Ok(task) => self.model.capture = Some(task),
             Err(error) => {
                 log::warn!("selection capture failed to start: {error}");
-                self.model.route = Route::NewSnippet(NewSnippet::default());
+                self.open_route(Route::NewSnippet(NewSnippet::default()));
                 self.show();
             }
         }
@@ -202,10 +202,10 @@ impl MainState {
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();
-            self.model.route = Route::NewSnippet(NewSnippet {
+            self.open_route(Route::NewSnippet(NewSnippet {
                 content,
                 ..NewSnippet::default()
-            });
+            }));
             self.show();
             changed = true;
         }

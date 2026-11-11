@@ -7,9 +7,9 @@ use crate::shell::MainState;
 use crate::theme::Theme;
 use crate::widgets::kit_ext::dialog::Dialog;
 
-/// `⌘/` and `?`.
-pub fn toggle(s: &mut MainState) {
-    s.frame.shortcuts_open = !s.frame.shortcuts_open;
+/// `⌘/` and `?` only open the sheet (`main-app.tsx`). Its own ⌘/ and Escape close it.
+pub fn open(s: &mut MainState) {
+    s.frame.shortcuts_open = true;
 }
 
 /// Placeholder shortcuts cheat sheet modal until S43 lands.

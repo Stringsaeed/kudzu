@@ -171,6 +171,16 @@ impl MainAction {
         }
     }
 
+    /// Whether this action can run now: no composition or modal, enabled on this screen, and
+    /// allowed in the focused text field if one is. `resolve_in_context` and `Action::enabled`
+    /// both use it, so a menu or cheat sheet built from `enabled` matches the keys.
+    pub fn available(self, ctx: ActionContext) -> bool {
+        !ctx.composing
+            && !ctx.modal_open
+            && self.enabled_in(ctx)
+            && (!ctx.in_text_input || self.allow_in_input())
+    }
+
     /// Resolves a key event against all guards (`composing`, `modal_open`, `in_text_input`, and
     /// per-screen enablement).
     pub fn resolve_in_context(ev: &KeyEvent, ctx: ActionContext) -> Option<MainAction> {
@@ -185,10 +195,7 @@ impl MainAction {
             return action.enabled_in(ctx).then_some(action);
         }
         for &action in Self::ALL {
-            if !action.enabled_in(ctx) {
-                continue;
-            }
-            if ctx.in_text_input && !action.allow_in_input() {
+            if !action.available(ctx) {
                 continue;
             }
             if action.keys().matches(ev) {
@@ -263,7 +270,7 @@ impl Action<MainState> for MainAction {
             modal_open: s.frame.any_modal_open(),
             composing: s.is_composing(),
         };
-        !ctx.composing && !ctx.modal_open && self.enabled_in(ctx)
+        self.available(ctx)
     }
 
     fn run(self, s: &mut MainState, tx: &mut Tx) {

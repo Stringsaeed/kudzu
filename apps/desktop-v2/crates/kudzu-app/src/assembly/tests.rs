@@ -58,6 +58,7 @@ pub(super) fn config(
             home: scratch.0.clone(),
             time_zone: BackupTimeZone::Fixed(FixedOffset::east_opt(0).unwrap()),
             local_time: utc_time,
+            onboarded: false,
         },
         variant: Variant::Dev,
         version: "0.7.0".into(),

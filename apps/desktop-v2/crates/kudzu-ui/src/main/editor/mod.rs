@@ -1,6 +1,8 @@
 //! Snippet editor screen stub. Owned and filled out by S51–S54 (`crates/kudzu-ui/src/main/editor/**`).
 
-use rune::{col, text, text_input, El, Key, KeyEvent, TextEdit, Tx};
+use kudzu_core::SnippetRecord;
+use rune::{col, text_input, El, Key, KeyEvent, TextEdit, Tx};
+use uuid::Uuid;
 
 use crate::main::library;
 use crate::main::state::MainPane;
@@ -9,21 +11,45 @@ use crate::theme::{icons, radius, Theme};
 use crate::widgets::empty_state::EmptyState;
 
 pub const CONTENT_KEY: &str = "editor-content";
+pub const NAME_KEY: &str = "editor-name";
 pub const PANE_KEY: &str = "editor-pane-slot";
 
 /// Per-screen state owned by the snippet editor module (S51–S54).
 #[derive(Clone, Debug, Default)]
 pub struct State {
+    pub name: TextEdit,
     pub content: TextEdit,
+    /// Tauri's `focusNameOf`: a new or duplicated snippet whose name field takes focus once it
+    /// shows. It outlives the route that asked for it; S51 takes it with [`State::take_name_focus`].
+    pub focus_name_of: Option<Uuid>,
 }
 
 impl State {
     pub fn is_composing(&self) -> bool {
-        self.content.is_composing()
+        self.name.is_composing() || self.content.is_composing()
     }
 
     pub fn is_editing_text(&self) -> bool {
-        self.content.focused
+        self.name.focused || self.content.focused
+    }
+
+    /// Loads the fields from the snippet that just opened.
+    pub fn show(&mut self, snippet: &SnippetRecord) {
+        self.name = TextEdit::new(&snippet.name);
+        self.content = TextEdit::new(&snippet.content);
+    }
+
+    /// Focuses `id`'s name once it shows (`store.ts` `newSnippet`). The field is focused through
+    /// its model, so this needs no `Tx` and works from a route applied in `poll`.
+    pub fn request_name_focus(&mut self, id: Uuid) {
+        self.blur_inputs();
+        self.focus_name_of = Some(id);
+        self.name.focused = true;
+    }
+
+    /// Tauri's `consumeFocusName`.
+    pub fn take_name_focus(&mut self) -> Option<Uuid> {
+        self.focus_name_of.take()
     }
 
     pub fn focus_content(&mut self, tx: &mut Tx) {
@@ -32,8 +58,19 @@ impl State {
     }
 
     pub fn blur_inputs(&mut self) {
+        self.name.focused = false;
         self.content.focused = false;
     }
+}
+
+/// Escape in an editor field returns to the list (`main-app.tsx:146-156`).
+fn escape_to_list(st: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
+    let bare = !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt && !ev.mods.shift;
+    if ev.key == Key::Escape && bare && !st.is_composing() && !st.frame.any_modal_open() {
+        library::actions::focus_list(st, tx);
+        return true;
+    }
+    false
 }
 
 /// `⌘E`: focus the open snippet's content.
@@ -58,11 +95,15 @@ pub fn view(s: &MainState, theme: &Theme, pane_focused: bool) -> El {
 
     let body = match selected {
         Some(sn) => {
-            let name = if sn.name.is_empty() {
-                "Untitled"
-            } else {
-                sn.name.as_str()
-            };
+            let name = text_input(&s.editor.name, ty.title)
+                .key(NAME_KEY)
+                .w_full()
+                .label("Snippet name")
+                .color(c.foreground)
+                .placeholder("Untitled", c.muted_foreground)
+                .caret(c.foreground, theme.kit().selection())
+                .on_edit(|st: &mut MainState| &mut st.editor.name)
+                .on_input_key(escape_to_list);
             let field = text_input(&s.editor.content, ty.input)
                 .key(CONTENT_KEY)
                 .w_full()
@@ -71,20 +112,7 @@ pub fn view(s: &MainState, theme: &Theme, pane_focused: bool) -> El {
                 .placeholder("Type snippet content…", c.muted_foreground)
                 .caret(c.foreground, theme.kit().selection())
                 .on_edit(|st: &mut MainState| &mut st.editor.content)
-                .on_input_key(|st: &mut MainState, ev: &KeyEvent, tx: &mut Tx| {
-                    if ev.key == Key::Escape
-                        && !ev.mods.cmd
-                        && !ev.mods.ctrl
-                        && !ev.mods.alt
-                        && !ev.mods.shift
-                        && !st.is_composing()
-                        && !st.frame.any_modal_open()
-                    {
-                        library::actions::focus_list(st, tx);
-                        return true;
-                    }
-                    false
-                });
+                .on_input_key(escape_to_list);
             let editor_box = col()
                 .role("textbox")
                 .w_full()
@@ -109,7 +137,7 @@ pub fn view(s: &MainState, theme: &Theme, pane_focused: bool) -> El {
                 .grow(1.0)
                 .padding(24.0)
                 .gap(12.0)
-                .child(text(name).font(ty.title).color(c.foreground))
+                .child(name)
                 .child(editor_box)
         }
         None => EmptyState::new(&icons::FILE_TEXT, "Select a snippet")

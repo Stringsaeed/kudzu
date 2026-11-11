@@ -131,8 +131,9 @@ fn build_main_card(s: &MainState, theme: &Theme) -> El {
             .min_h(0.0)
             .radius(radius::XL2)
             .clip_rounded(radius::XL2)
-            .fill(c.card)
-            .border(1.0, c.hairline)
+            // `bg-background shadow-card` (`main-app.tsx:190`): `depth.card` already draws the
+            // 1 pt ring, so no border.
+            .fill(c.background)
             .child(screen),
         |el, shadow| el.box_shadow(*shadow),
     );

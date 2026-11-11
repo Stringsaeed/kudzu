@@ -6,6 +6,7 @@ use kudzu_core::KudzuLibrary;
 use rune::Tx;
 use uuid::Uuid;
 
+use crate::main::library;
 use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
 use crate::main::toolbar::compute_crumbs;
 use crate::shell::{MainState, Route, SettingsPane};
@@ -62,7 +63,7 @@ impl MainState {
         self.frame.selected_snippet = snippet_id;
         if let Some(id) = snippet_id {
             if let Some(sn) = self.model.library.snippets.iter().find(|s| s.id == id) {
-                self.editor.content = rune::TextEdit::new(&sn.content);
+                self.editor.show(sn);
             }
         }
         self.observe_breadcrumbs();
@@ -73,6 +74,13 @@ impl MainState {
     pub fn toggle_sidebar(&mut self) {
         self.frame.sidebar_open = !self.frame.sidebar_open;
         self.frame.sync_focus_order();
+    }
+
+    /// Asks for `route`, as `Shell::open_main` does. The next poll applies it once, so the
+    /// same route sent twice applies twice. `model.route` keeps the last one asked for.
+    pub fn open_route(&mut self, route: Route) {
+        self.model.route = route.clone();
+        self.frame.pending_route = Some(route);
     }
 
     /// Applies a route `Shell::open_main` or a selection capture sent, and leaves Onboarding
@@ -89,24 +97,21 @@ impl MainState {
             self.frame.sync_focus_order();
             if matches!(self.model.route, Route::Onboarding) {
                 self.model.route = Route::Library;
-                self.frame.synced_route = Route::Library;
             }
             self.observe_breadcrumbs();
             changed = true;
         }
 
-        if self.frame.synced_route != self.model.route {
-            let route = self.model.route.clone();
-            self.frame.synced_route = route.clone();
+        if let Some(route) = self.frame.pending_route.take() {
             match route {
                 Route::Library => self.navigate_to(MainView::Library(LibraryFilter::All)),
                 Route::Snippet(id) => {
                     self.navigate_to(MainView::Library(LibraryFilter::All));
                     self.select_snippet(Some(id));
                 }
-                Route::NewSnippet(ns) => {
-                    self.navigate_to(MainView::Library(LibraryFilter::All));
-                    self.editor.content = rune::TextEdit::new(&ns.content);
+                // Tauri's `newSnippet` event: the snippet exists before the window shows it.
+                Route::NewSnippet(seed) => {
+                    let _ = library::actions::new_snippet(self, seed);
                 }
                 Route::Settings(pane) => self.navigate_to(MainView::Settings(pane)),
                 Route::Clipboard => self.navigate_to(MainView::Clipboard(ClipFilter::All)),
@@ -126,13 +131,9 @@ pub fn view(s: &mut MainState, target: MainView, tx: &mut Tx) {
     tx.blur();
 }
 
-/// `⌘,`.
+/// `⌘,` always opens Settings at General (`main-app.tsx:129`); it never toggles back.
 pub fn open_settings(s: &mut MainState, tx: &mut Tx) {
-    let target = match s.frame.view {
-        MainView::Settings(_) => s.frame.prior_non_settings.clone(),
-        _ => MainView::Settings(SettingsPane::General),
-    };
-    view(s, target, tx);
+    view(s, MainView::Settings(SettingsPane::General), tx);
 }
 
 /// `⌘[`.
