@@ -1316,6 +1316,15 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - The clipboard-history poll may block for about 400 ms during a paste restore; it runs off the main thread and the UI doesn't stall.
   - A trigger typed right after pressing Submit doesn't expand; triggers work again right after the form inserts; if the engine stops mid-form, triggers resume within 10 s.
   - A Return-submit with the panel resigning key as it hides still expands.
+- **Live checks from the S57 review:**
+  - On a **debug** build, a real event reaches `current_event()` without a panic, and `NSEvent.CGEvent` timestamps equal the tap's `CGEventGetTimestamp` for Return, ⌘Return and an Insert click.
+  - Return-submit of a typed form doesn't interrupt; at the resign report `NSApp.currentEvent` is the Return or later, never nil.
+  - Typing in the target after clicking away interrupts; also clicking the form then typing, and typing in another Kudzu panel.
+  - A click anywhere on the non-activating form (header, Select popup) makes it key, and the panel is in the Kudzu window list before the first click.
+  - The first-show report (seq 1) and a form replaced while open.
+  - Rapid click-away and click-back: no missed focus reports (Rune drops a `Focused` that disagrees with `is_key()`).
+  - Return in a single-line field, Return in multiline (newline), ⌘↩ in multiline, Return on a Choice field, and Escape with a Select open.
+  - Multi-display placement, and dragging the header while the preview updates.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
