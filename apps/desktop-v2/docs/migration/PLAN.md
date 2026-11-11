@@ -1234,7 +1234,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 |---|---|---|
 | D1 | **Dependencies:** everything §2 marks *approved* may be used. Keep-ours stands for secret detection, the MCP server (no `rmcp`, no tokio), fuzzy ranking and date formatting. | §2 |
 | D2 | **Inline images in the editor:** a chip with a preview popover until Rune ships inline images. Comment on #350 with the snippet-editor case. If Rune has not shipped them by cut-over, S76 builds them, contained in `kudzu-ui/src/main/editor/images.rs`. | §3 gap 5, S13, S54, S76 |
-| D3 | **Sidebar material:** the owner decides from S12's side-by-side. | §3 gap 3, S12, S42 |
+| D3 | **Sidebar material:** decided 2026-11-11 from S12's side-by-side: the **native sidebar material** (`NSVisualEffectMaterialSidebar`, behind-window, follows the window's active state), as the Tauri app uses. It flattens when the window is inactive, as macOS sidebars do. About 35 lines in `kudzu-appkit/src/sidebar_material.rs`, deleted once Rune ships #562. | §3 gap 3, S12, S38, S42 |
 | D4 | **Secret detection:** keep `kudzu_core::secrets`; trial `secrets_scanner` as an extra token source after the audit. | §2 row 2, S74 follow-ups |
 | D5 | **Known quirks of the Tauri app** (FEATURES §7) are built as they are. Three exceptions, all about failed saves: the editor's "Saved" state (S51), the group dialog's Save (S55), and disk write errors (§1.6). | S27 (RUL-9), S29 (backup pruning), S53 (date example), and the rest of FEATURES §7 |
 | D6 | **Component metrics:** exact for buttons, inputs and switches; rune-kit's own elsewhere. | S06, §3 gap 17 |
@@ -1248,7 +1248,6 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
 - Images in the editor are chips with a preview (D2), until S76 or Rune.
-- The sidebar material, if the owner accepts Popover from S12 (D3).
 - rune-kit's own metrics outside buttons, inputs and switches (D6).
 - The three save-failure fixes (D5).
 - No data migration: the copy from `sh.saeed.kudzu.desktop` is not built (no users).
