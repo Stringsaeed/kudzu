@@ -1,0 +1,277 @@
+//! The tap callback, and the worker's half of a typed match: an expansion, an undo, or a form.
+
+use std::collections::HashMap;
+use std::sync::atomic::Ordering;
+
+use kudzu_core::matching::{KeyInput, MatcherEvent};
+
+use super::super::ffi::{
+    kCGEventKeyDown, kCGEventKeyUp, kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput,
+    CGEventRef, CGEventType,
+};
+use super::super::input_source;
+use super::super::keys::{self, REPLAY_MARKER, SYNTHETIC_MARKER};
+use super::super::tap::{self, HeldEvent};
+use super::session::Core;
+use super::{activity, Guard, Imp, InsertError, Job, LISTEN_ONLY_SETTLE};
+use crate::hold::HoldState;
+use crate::input::{self, Follow};
+use crate::lock;
+use crate::plan::PlanMode;
+use crate::TapMode;
+
+pub(super) struct Matched {
+    pub(super) generation: u64,
+    pub(super) event: MatcherEvent,
+    pub(super) mode: PlanMode,
+    pub(super) undo_caret: usize,
+    pub(super) swallowed: Option<String>,
+    pub(super) pid: Option<i32>,
+}
+
+/// Effects of a tap callback, performed after `core` is unlocked.
+#[derive(Default)]
+struct Effects {
+    post_unmatched: Vec<HeldEvent>,
+    job: Option<Job>,
+    replay: bool,
+    note: Option<activity::Note>,
+}
+
+impl Imp {
+    // MARK: - Tap callback
+
+    pub(super) fn receive(&self, kind: CGEventType, event: CGEventRef, mode: TapMode) -> bool {
+        let mut effects = Effects::default();
+        let swallow = {
+            let mut core = lock(&self.core);
+            self.receive_locked(&mut core, kind, event, mode, &mut effects)
+        };
+        for held in effects.post_unmatched {
+            self.events().post_held(held, SYNTHETIC_MARKER);
+        }
+        if let Some(job) = effects.job {
+            self.send(job);
+        }
+        if effects.replay {
+            self.send(Job::Replay);
+        }
+        if let Some(note) = effects.note {
+            self.send(Job::Note(note));
+        }
+        swallow
+    }
+
+    fn receive_locked(
+        &self,
+        core: &mut Core,
+        kind: CGEventType,
+        event: CGEventRef,
+        mode: TapMode,
+        effects: &mut Effects,
+    ) -> bool {
+        if kind == kCGEventTapDisabledByTimeout || kind == kCGEventTapDisabledByUserInput {
+            effects.post_unmatched = core.invalidate();
+            effects.note = activity::Note::tap_disabled(kind);
+            return false;
+        }
+        let marker = tap::marker(event);
+        if marker == SYNTHETIC_MARKER {
+            return false;
+        }
+        if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
+            core.note_form_input();
+            // A click moves the caret or focus: the typed context is gone. Clicks in our own
+            // focused windows (form, palette) don't affect the target document.
+            if !self.flags.suppressed.load(Ordering::SeqCst) {
+                effects.post_unmatched = core.invalidate();
+            }
+            return false;
+        }
+        let replay = marker == REPLAY_MARKER;
+        let key_down = kind == kCGEventKeyDown;
+        if core.hold_expired(self.observe().now()) {
+            effects.post_unmatched = core.invalidate();
+        }
+        // Holding comes first: typing during an insertion is replayed after it rather than
+        // landing inside the text we're about to delete or insert.
+        if !replay && mode == TapMode::Active && core.held.state() == HoldState::Inserting {
+            if let Some(copy) = HeldEvent::copy(event, key_down) {
+                if core.held.enqueue(copy).is_ok() {
+                    return true;
+                }
+            }
+        }
+        if core.preparing_form {
+            core.preparing_interrupted |= key_down;
+            effects.replay = replay;
+            return false;
+        }
+        // Typing that reaches another app while a form is open changes the document the
+        // trigger sits in. Typing into the form panel itself doesn't. (The engine this was copied
+        // from skipped this check while suppressed, which is the whole time a form is open; D9.)
+        if key_down {
+            core.note_form_input();
+        }
+        // Listen-only can't withhold keys. Anything typed before our backspaces go out would
+        // land inside the deletion range, so the pending insertion is abandoned instead.
+        if !replay && mode == TapMode::ListenOnly && core.busy {
+            if key_down {
+                core.listen_only_interrupted = true;
+            }
+            return false;
+        }
+        if !self.typed_allowed() {
+            effects.note = self.observe_blocked(core, key_down, event);
+            effects.replay = replay;
+            return false;
+        }
+        if !key_down {
+            effects.replay = replay;
+            return false;
+        }
+        // Text typed under another input source says nothing about what comes next.
+        let epoch = input_source::epoch();
+        if epoch != core.input_epoch {
+            core.input_epoch = epoch;
+            core.reset_matcher();
+            core.keys.clear();
+        }
+        // An input method is composing: the keys go to it, not to the document. Matching them
+        // would fire inside a composition and delete composed text.
+        if input_source::composing() {
+            core.reset_matcher();
+            core.keys.clear();
+            effects.replay = replay;
+            return false;
+        }
+        // A held key either repeats or opens the accent popup; neither is typed context.
+        if tap::is_autorepeat(event) {
+            core.reset_matcher();
+            if matches!(tap::classify(event), Some(KeyInput::Character(text)) if input::can_open_accent_popup(&text))
+            {
+                core.keys.repeated();
+            }
+            effects.replay = replay;
+            return false;
+        }
+        let Some(input) = tap::classify(event) else {
+            if input::could_be_dead_key(tap::key_code(event)) {
+                core.keys.silent();
+            }
+            effects.replay = replay;
+            return false;
+        };
+        let follow = core.keys.next(matches!(input, KeyInput::Character(_)));
+        let input = if follow == Follow::Broken {
+            KeyInput::Reset
+        } else {
+            input
+        };
+        let pid = self.observe().frontmost_pid();
+        if pid != core.frontmost_pid {
+            core.frontmost_pid = pid;
+            core.frontmost_bundle = pid.and_then(|pid| self.observe().bundle_id_of(pid));
+            core.reset_matcher();
+        }
+        if pid == Some(self.own_pid) {
+            core.reset_matcher();
+            effects.replay = replay;
+            return false;
+        }
+        let swallowed = match &input {
+            KeyInput::Character(text) => Some(text.clone()),
+            _ => None,
+        };
+        let undo_caret = std::mem::take(&mut core.undo_caret_left);
+        let bundle = core.frontmost_bundle.clone();
+        let Some(event) = core.matcher.handle(input, bundle.as_deref()) else {
+            effects.note = activity::Note::skipped(core.matcher.skipped(bundle.as_deref()), pid);
+            effects.replay = replay;
+            return false;
+        };
+        if core.busy {
+            core.reset_matcher();
+            effects.note = activity::Note::dropped(&event, pid);
+            return false;
+        }
+        core.busy = true;
+        core.listen_only_interrupted = false;
+        if mode == TapMode::Active {
+            core.start_hold(self.observe().now());
+        }
+        core.generation += 1;
+        // The app commits a dead-key accent only when it sees the key that completes it, so that
+        // key goes through and the whole trigger is deleted afterwards, as in listen-only mode.
+        let withhold = mode == TapMode::Active && follow != Follow::Composed;
+        let plan_mode = if withhold {
+            PlanMode::Active
+        } else {
+            PlanMode::ListenOnly
+        };
+        effects.job = Some(Job::Matched(Matched {
+            generation: core.generation,
+            event,
+            mode: plan_mode,
+            undo_caret,
+            swallowed,
+            pid,
+        }));
+        withhold
+    }
+
+    pub(super) fn perform_matched(&self, m: Matched) -> Result<(), InsertError> {
+        let token = m.generation;
+        if m.mode == PlanMode::ListenOnly {
+            // Listen-only can't hold input: let the final key reach the app before deleting.
+            self.observe().sleep(LISTEN_ONLY_SETTLE);
+        }
+        if !self.is_current(token)
+            || !self.allowed(Guard::Typed)
+            || self.observe().frontmost_pid() != m.pid
+        {
+            return Ok(());
+        }
+        if m.mode == PlanMode::ListenOnly && lock(&self.core).listen_only_interrupted {
+            lock(&self.core).reset_matcher();
+            return Ok(());
+        }
+        match m.event {
+            MatcherEvent::Expand(trigger) => {
+                let library = self.library();
+                let Some(snippet) = library.snippets.get(&trigger.snippet_id) else {
+                    return Ok(());
+                };
+                let fields = library.form_fields(snippet);
+                if !fields.is_empty() {
+                    return self.request_typed_form(
+                        token,
+                        trigger,
+                        snippet,
+                        fields,
+                        m.mode,
+                        m.swallowed,
+                    );
+                }
+                // Typing the trigger replaced whatever was selected, so there is no selection.
+                let rendered = self.render(&library, snippet, HashMap::new(), None);
+                let swallowed = if m.mode == PlanMode::Active {
+                    m.swallowed.as_deref()
+                } else {
+                    None
+                };
+                self.insert_expansion(token, &trigger, rendered, m.mode, swallowed, Guard::Typed)
+            }
+            MatcherEvent::Undo(undo) => {
+                let events = self.events();
+                keys::move_right(events, m.undo_caret)?;
+                // A listen-only backspace already reached the document.
+                let already = usize::from(m.mode == PlanMode::ListenOnly);
+                keys::delete_backward(events, undo.delete_count.saturating_sub(already))?;
+                keys::retype(events, &undo.retype)?;
+                self.recorder.undone();
+                Ok(())
+            }
+        }
+    }
+}

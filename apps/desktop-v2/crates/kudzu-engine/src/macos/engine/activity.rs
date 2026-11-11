@@ -13,10 +13,16 @@ use kudzu_core::activity::{
 use kudzu_core::matching::{MatcherEvent, MatchingConfig, SkipReason, SkippedMatch};
 use uuid::Uuid;
 
-use super::{kCGEventTapDisabledByTimeout, AppInfo};
-use super::{tap, CGEventRef, CGEventType, Core, Imp, InsertError, KeyError, Matched, PasteError};
+use super::super::ffi::{kCGEventTapDisabledByTimeout, CGEventRef, CGEventType};
+use super::super::keys::KeyError;
+use super::super::pasteboard::PasteError;
+use super::super::tap;
+use super::match_flow::Matched;
+use super::session::Core;
+use super::{Imp, InsertError};
 use crate::activity::{activity_app, Subject};
 use crate::library::Library;
+use crate::AppInfo;
 
 /// Something worth reporting that the tap callback saw. Built under the `core` lock, so it holds
 /// only ids; the app is looked up when it is emitted on the worker.

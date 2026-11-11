@@ -1,0 +1,196 @@
+//! Forms: a typed trigger's form from the request to the submission, and the panel's focus.
+
+use std::collections::HashMap;
+
+use kudzu_core::matching::TriggerMatch;
+use kudzu_core::SnippetRecord;
+use uuid::Uuid;
+
+use super::super::keys::{self, SYNTHETIC_MARKER};
+use super::super::tap::HeldEvent;
+use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
+use crate::library;
+use crate::plan::PlanMode;
+use crate::{lock, AppInfo, FormRequest};
+
+#[derive(Debug, Clone)]
+pub(super) enum FormKind {
+    /// Typed trigger, still in the document (as typed, with any separator).
+    Typed(TriggerMatch),
+    /// Palette insert: nothing to delete.
+    Palette,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct PendingForm {
+    pub(super) token: u64,
+    pub(super) snippet_id: Uuid,
+    pub(super) kind: FormKind,
+    pub(super) target: Option<AppInfo>,
+    /// Typing reached the target after the trigger; deleting it now would delete the wrong text.
+    pub(super) interrupted: bool,
+    /// The form panel is key, so keys and clicks go to it rather than the target (FRM-4).
+    pub(super) panel_focused: bool,
+    /// Selection captured before a palette insert (never set for a typed trigger).
+    pub(super) selection: Option<String>,
+}
+
+impl Imp {
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). While it
+    /// is not key, a key-down or click reaches the target app and interrupts a typed form.
+    pub fn form_panel_focused(&self, token: u64, focused: bool) {
+        let mut core = lock(&self.core);
+        if let Some(form) = core.pending_form.as_mut().filter(|f| f.token == token) {
+            form.panel_focused = focused;
+        }
+    }
+
+    pub fn cancel_form(&self, token: u64) {
+        {
+            let mut core = lock(&self.core);
+            if core.pending_form.as_ref().is_some_and(|f| f.token == token) {
+                core.pending_form = None;
+            }
+        }
+        self.recorder.form_cancelled(token);
+    }
+
+    pub(super) fn request_typed_form(
+        &self,
+        token: u64,
+        trigger: TriggerMatch,
+        snippet: &SnippetRecord,
+        fields: Vec<kudzu_core::template::FormFieldSpec>,
+        mode: PlanMode,
+        swallowed: Option<String>,
+    ) -> Result<(), InsertError> {
+        // Put the withheld key back so the document shows the whole trigger (and separator);
+        // the form submission then deletes it like listen-only would.
+        if mode == PlanMode::Active {
+            if let Some(text) = &swallowed {
+                keys::retype(self.events(), text)?;
+            }
+        }
+        let queued = {
+            let mut core = lock(&self.core);
+            core.preparing_form = true;
+            core.preparing_interrupted = false;
+            core.hold_since = None;
+            core.reset_matcher();
+            core.held.drain()
+        };
+        let interrupted = queued.iter().any(HeldEvent::is_key_down);
+        for held in queued {
+            self.events().post_held(held, SYNTHETIC_MARKER);
+        }
+        self.observe().sleep(SETTLE);
+        let target = self.observe().frontmost_app();
+        let form_token = {
+            let mut core = lock(&self.core);
+            core.preparing_form = false;
+            let interrupted = interrupted || core.preparing_interrupted;
+            // Typing already reached the document after the trigger, so deleting it would be
+            // wrong. Leave the trigger rather than show a form we'd discard.
+            if core.generation != token || interrupted {
+                return Ok(());
+            }
+            let form_token = core.next_form_token;
+            core.next_form_token += 1;
+            core.pending_form = Some(PendingForm {
+                token: form_token,
+                snippet_id: snippet.id,
+                kind: FormKind::Typed(trigger),
+                target: target.clone(),
+                interrupted: false,
+                panel_focused: false,
+                selection: None,
+            });
+            form_token
+        };
+        if !self.allowed(Guard::Typed) {
+            lock(&self.core).pending_form = None;
+            return Ok(());
+        }
+        self.host.form_requested(FormRequest {
+            token: form_token,
+            snippet_id: snippet.id,
+            snippet_name: snippet.name.clone(),
+            fields,
+            caret: self.observe().caret_rect(),
+            target_app: target,
+            selection: None,
+        });
+        Ok(())
+    }
+
+    pub(super) fn submit(&self, token: u64, values: HashMap<String, String>) {
+        let form = {
+            let mut core = lock(&self.core);
+            match core.pending_form.take() {
+                Some(form) if form.token == token => form,
+                other => {
+                    core.pending_form = other;
+                    return;
+                }
+            }
+        };
+        if form.interrupted && matches!(form.kind, FormKind::Typed(_)) {
+            return;
+        }
+        if !self.explicit_allowed() {
+            return;
+        }
+        let target = form
+            .target
+            .clone()
+            .or_else(|| self.observe().frontmost_app());
+        if let Some(app) = &target {
+            if !self.observe().activate_and_wait(app, ACTIVATION_TIMEOUT) {
+                log::warn!("form target {} did not come to the front", app.bundle_id);
+                self.recorder.resolve(activity::target_gone());
+                return;
+            }
+        }
+        let generation = self.begin_explicit();
+        self.observe().sleep(SETTLE);
+        let result = self.insert_submitted(generation, &form, target.as_ref(), values);
+        if let Err(error) = result {
+            log::warn!("form insertion failed: {error}");
+            self.recorder.resolve(activity::failed(&error));
+        }
+        self.finish(generation);
+    }
+
+    fn insert_submitted(
+        &self,
+        generation: u64,
+        form: &PendingForm,
+        target: Option<&AppInfo>,
+        values: HashMap<String, String>,
+    ) -> Result<(), InsertError> {
+        if !self.is_current(generation) || !self.explicit_allowed() || !self.target_is_front(target)
+        {
+            return Ok(());
+        }
+        let library = self.library();
+        let Some(snippet) = library.snippets.get(&form.snippet_id) else {
+            return Ok(());
+        };
+        let values = library::with_defaults(&library.form_fields(snippet), values);
+        let rendered = self.render(&library, snippet, values, form.selection.clone());
+        match &form.kind {
+            // The trigger and any separator are in the document as typed.
+            FormKind::Typed(trigger) => self.insert_expansion(
+                generation,
+                trigger,
+                rendered,
+                PlanMode::ListenOnly,
+                None,
+                Guard::Explicit,
+            ),
+            FormKind::Palette => {
+                self.insert_rendered(generation, &library, snippet, rendered, target)
+            }
+        }
+    }
+}
