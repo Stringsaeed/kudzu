@@ -1,5 +1,6 @@
 //! Expansion coordination. S40 owns EngineEvents routing and the engine's start/stop.
 mod feed;
+pub(crate) mod hold;
 mod outcomes;
 pub use outcomes::{InsertionOutcome, OutcomeNotice};
 mod recovery;

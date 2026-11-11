@@ -14,8 +14,15 @@ pub enum InsertionOutcome {
     TriggerLost,
     Cancelled,
     Blocked,
-    FormRejected { token: FormToken },
-    SubmitStartFailed { token: FormToken },
+    FormRejected {
+        token: FormToken,
+    },
+    SubmitStartFailed {
+        token: FormToken,
+    },
+    /// The engine stopped: nothing admitted before this notice will report. No source or
+    /// snippet; windows filtering by them ignore it.
+    EngineStopped,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OutcomeNotice {
@@ -43,7 +50,8 @@ impl ExpansionService {
             | A::AppRule { .. }
             | A::SecureInput { .. }
             | A::MissingPermission { .. } => InsertionOutcome::Blocked,
-            A::TapDisabled { .. } | A::ListenerLost | A::EngineStopped => return,
+            A::EngineStopped => InsertionOutcome::EngineStopped,
+            A::TapDisabled { .. } | A::ListenerLost => return,
         };
         self.publish_outcome(event.snippet_id, event.source, outcome);
     }

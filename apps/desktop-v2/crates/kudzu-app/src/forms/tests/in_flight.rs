@@ -236,3 +236,34 @@ fn dropping_the_form_service_releases_a_submitted_forms_guard() {
     drop(forms);
     assert!(h.engine.type_trigger());
 }
+
+/// S34 follow-up. When the adapter stops, the engine reports it stopped and nothing in flight
+/// will report after that: the hold goes then, not at the deadline.
+#[test]
+fn an_engine_stop_releases_a_submitted_forms_guard_at_once() {
+    let (h, id) = form_harness();
+    let forms = forms(&h, FormMemory::default());
+    assert_eq!(submit(&forms, 1, id).admission, Ok(()));
+    assert!(!h.engine.type_trigger());
+    h.engine
+        .emit_activity(ActivityEvent::health(ActivityOutcome::EngineStopped));
+    assert!(
+        h.engine.wait_unsuppressed(Duration::from_secs(2)),
+        "the stopped engine's form held triggers until the deadline"
+    );
+}
+
+/// S34 follow-up. A newer adapter retires this one (its own stop report is dropped as
+/// retired); the composition resyncs the services after starting it, and the hold goes then.
+#[test]
+fn a_newer_engine_releases_a_submitted_forms_guard_at_once() {
+    let (h, id) = form_harness();
+    let forms = forms(&h, FormMemory::default());
+    assert_eq!(submit(&forms, 1, id).admission, Ok(()));
+    h.engine.restart_instance();
+    h.wire_outcomes(&forms.expansion);
+    assert!(
+        h.engine.wait_unsuppressed(Duration::from_secs(2)),
+        "the retired engine's form held triggers until the deadline"
+    );
+}

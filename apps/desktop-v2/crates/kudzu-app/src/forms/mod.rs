@@ -1,15 +1,17 @@
 //! Pending forms belong to this service, not to the panel. Tokens are consumed exactly once.
-mod hold;
 mod memory;
 mod submission;
 use crate::{
-    expansion::{ExpansionService, SuppressionGuard},
+    expansion::{
+        hold::{self, Holds},
+        ExpansionService, SuppressionGuard,
+    },
     persist::{PersistError, Persisted, Revision, SaveState},
     ports::{
         FormChannel, FormRequest as EngineRequest, FormSubmission, FormToken, PanelFocus, TargetApp,
     },
     tasks::{Task, TaskError},
-    watch::{Publisher, Subscription, Watch},
+    watch::{Publisher, Watch},
 };
 use kudzu_core::{
     library::model::KudzuLibrary,
@@ -65,9 +67,8 @@ pub struct FormService {
     submit_worker: Arc<dyn SubmissionWorker>,
     target: Arc<dyn TargetApp>,
     /// Submitted forms still keeping triggers suppressed, waiting for their outcome.
-    holds: Arc<hold::Holds>,
+    holds: Arc<Holds>,
     outcome_deadline: Duration,
-    _outcomes: Subscription,
 }
 impl FormService {
     /// Startup I/O only. This file is local product data and is never handed to sync or agents.
@@ -103,8 +104,7 @@ impl FormService {
         channel: Arc<dyn FormChannel>,
         target: Arc<dyn TargetApp>,
     ) -> Result<Self, FormError> {
-        let holds = Arc::new(hold::Holds::default());
-        let outcomes = holds.watch(expansion.outcomes());
+        let holds = Holds::new(expansion.outcomes(), expansion.feed());
         Ok(Self {
             state: Mutex::new(State {
                 pending: None,
@@ -118,7 +118,6 @@ impl FormService {
             target,
             holds,
             outcome_deadline: hold::OUTCOME_DEADLINE,
-            _outcomes: outcomes,
         })
     }
     pub fn with_submission_worker(mut self, worker: Arc<dyn SubmissionWorker>) -> Self {
@@ -223,8 +222,9 @@ impl FormService {
     /// Hide the panel before calling. Memory is accepted before engine submission; disk I/O
     /// never blocks insertion. EngineEvents::expanded, not this result, records usage.
     /// `submission` comes from NSApp.currentEvent in the submitting handler (S57).
-    /// Typed triggers stay suppressed until the form's outcome arrives (see `hold`): the engine
-    /// activates the target before it holds input, and a trigger typed then mustn't expand.
+    /// Typed triggers stay suppressed until the form's outcome arrives (`expansion::hold`):
+    /// the engine activates the target before it holds input, and a trigger typed then
+    /// mustn't expand.
     pub fn submit(
         &self,
         token: FormToken,
@@ -237,16 +237,19 @@ impl FormService {
         let (memory_revision, memory_error) = self
             .memory
             .record(pending.request.snippet_id, values.clone());
-        let after = self.expansion.outcomes().revision().0;
         let snippet = pending.request.snippet_id;
-        self.holds
-            .hold(token, snippet, after, pending.guard, self.outcome_deadline);
+        let hold = self.holds.hold(
+            kudzu_core::activity::ActivitySource::Form,
+            snippet,
+            pending.guard,
+            self.outcome_deadline,
+        );
         let (channel, holds) = (self.channel.clone(), self.holds.clone());
         match self.submit_worker.spawn(Box::new(move || {
             let admission = channel.submit_form(token, values, submission);
             if admission.is_err() {
                 channel.cancel_form(token);
-                holds.release(token);
+                holds.release(hold);
             }
             Submission {
                 memory_revision,
@@ -256,7 +259,7 @@ impl FormService {
         })) {
             Ok(task) => Ok(Some(task)),
             Err(start) => {
-                self.holds.release(token);
+                self.holds.release(hold);
                 let restoration = self.cancel_request(pending.request, true);
                 self.expansion.publish_outcome(
                     Some(snippet),
