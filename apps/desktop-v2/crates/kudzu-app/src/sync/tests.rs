@@ -1,0 +1,884 @@
+use super::*;
+use crate::error::PortError;
+use crate::fixtures::clock::FakeClock;
+use crate::fixtures::cloudkit::FakeCloud;
+use crate::fixtures::ids::FixedIds;
+use crate::library::{LibraryService, SnippetDraft};
+use crate::persist::{PersistError, Revision, WriteTarget, Writer};
+use crate::ports::{CloudBatch, CloudSend, CloudSendFailure};
+use crate::settings::{Settings, SettingsService, Variant};
+use chrono::{TimeZone, Utc};
+use kudzu_core::library::model::KudzuLibrary;
+use kudzu_core::library::starter::ensure_getting_started_snippets;
+use kudzu_core::sync::{RecordKind, RemoteRecord, SyncIndex, META_RECORD};
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{mpsc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
+use uuid::Uuid;
+
+struct Memory;
+impl<T: Send + Sync> WriteTarget<T> for Memory {
+    fn write(&self, _: &T) -> Result<(), PersistError> {
+        Ok(())
+    }
+}
+
+struct TempDir(PathBuf);
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+struct Harness {
+    sync: SyncService,
+    library: Arc<LibraryService>,
+    settings: SettingsService,
+    cloud: Arc<FakeCloud>,
+    clock: Arc<FakeClock>,
+    scheduler: Arc<Scheduler>,
+    /// Kept alive so library and settings registrations outlive the sync worker.
+    _writer: Writer,
+    dir: TempDir,
+}
+
+impl Harness {
+    fn open(production: bool, enabled: bool) -> Self {
+        let dir = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+        fs::create_dir_all(&dir.0).unwrap();
+        let clock = Arc::new(FakeClock::default());
+        let writer = Writer::new(
+            clock.clone(),
+            Duration::from_secs(30),
+            Duration::from_secs(1),
+        )
+        .unwrap();
+        let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+        let library = Arc::new(
+            LibraryService::new(
+                KudzuLibrary::default(),
+                "device-a".into(),
+                clock.clone(),
+                Arc::new(FixedIds::new(100)),
+                writer.register(Memory, Revision(0)).unwrap(),
+                scheduler.clone(),
+            )
+            .unwrap(),
+        );
+        let settings = SettingsService::new(
+            Settings {
+                icloud_sync: enabled,
+                ..Settings::for_variant(Variant::Production)
+            },
+            writer.register(Memory, Revision(0)).unwrap(),
+        )
+        .unwrap();
+        let cloud = Arc::new(FakeCloud::default());
+        let sync = SyncService::open(
+            SyncConfig {
+                production,
+                device_id: "device-a".into(),
+                directory: dir.0.clone(),
+            },
+            library.clone(),
+            settings.watch(),
+            cloud.clone(),
+            clock.clone(),
+            scheduler.clone(),
+        )
+        .unwrap();
+        Self {
+            sync,
+            library,
+            settings,
+            cloud,
+            clock,
+            scheduler,
+            _writer: writer,
+            dir,
+        }
+    }
+
+    fn settle(&self) {
+        self.sync.settle();
+    }
+
+    fn generation(&self) -> u64 {
+        self.cloud
+            .state
+            .lock()
+            .unwrap()
+            .active
+            .expect("sync is running")
+    }
+
+    fn deliver(&self, generation: u64, batch: CloudBatch) {
+        self.cloud.deliver(generation, batch);
+        self.settle();
+    }
+
+    fn ack(&self) {
+        let generation = self.generation();
+        let pending = {
+            let mut state = self.cloud.state.lock().unwrap();
+            std::mem::take(&mut state.sends)
+        };
+        let events = self.cloud.events(generation).expect("callback");
+        for (_, batch) in pending {
+            events.sent(
+                generation,
+                CloudSend {
+                    saved: batch.records,
+                    deleted: batch.deleted,
+                    ..CloudSend::default()
+                },
+            );
+        }
+        self.settle();
+    }
+
+    fn full_fetch(&self) {
+        let generation = self.generation();
+        self.deliver(
+            generation,
+            CloudBatch {
+                full_fetch: true,
+                ..CloudBatch::default()
+            },
+        );
+    }
+
+    fn uploaded(&self) -> Vec<String> {
+        self.cloud
+            .state
+            .lock()
+            .unwrap()
+            .sends
+            .iter()
+            .flat_map(|(_, batch)| {
+                batch
+                    .records
+                    .iter()
+                    .map(|record| record.name.clone())
+                    .chain(batch.deleted.clone())
+            })
+            .collect()
+    }
+}
+
+fn snippet(harness: &Harness, trigger: &str, content: &str) -> Uuid {
+    harness
+        .library
+        .create_snippet(SnippetDraft {
+            triggers: vec![trigger.into()],
+            content: content.into(),
+            ..SnippetDraft::default()
+        })
+        .unwrap()
+        .0
+        .id
+}
+
+fn remote_snippet(id: Uuid, trigger: &str, content: &str, updated: i64) -> RemoteRecord {
+    let mut record =
+        kudzu_core::library::model::SnippetRecord::new("", vec![trigger.into()], content);
+    record.id = id;
+    record.updated_at = Utc.timestamp_opt(updated, 0).unwrap();
+    record.created_at = record.updated_at;
+    RemoteRecord {
+        kind: RecordKind::Snippet,
+        name: kudzu_core::sync::snippet_name(id),
+        payload: serde_json::to_string(&record).unwrap(),
+    }
+}
+
+fn wait_fetch(harness: &Harness) {
+    let before = harness.cloud.state.lock().unwrap().fetches.len();
+    let start = Instant::now();
+    loop {
+        harness.settle();
+        if harness.cloud.state.lock().unwrap().fetches.len() > before {
+            return;
+        }
+        if start.elapsed() > Duration::from_secs(3) {
+            panic!("fetch tick did not run");
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn kind(status: &SyncStatus) -> &'static str {
+    match status {
+        SyncStatus::Off => "off",
+        SyncStatus::Unavailable { .. } => "unavailable",
+        SyncStatus::NoAccount { .. } => "no-account",
+        SyncStatus::Starting => "starting",
+        SyncStatus::Syncing => "syncing",
+        SyncStatus::UpToDate { .. } => "up-to-date",
+        SyncStatus::NeedsUpdate => "needs-update",
+        SyncStatus::Error { .. } => "error",
+    }
+}
+
+#[test]
+fn dev_gate_matches_the_shipped_wording() {
+    assert_eq!(
+        dev_gate(false, true),
+        Some(SyncStatus::Unavailable {
+            reason: DEV_UNAVAILABLE.into(),
+        })
+    );
+    assert_eq!(dev_gate(false, false), Some(SyncStatus::Off));
+    assert_eq!(dev_gate(true, true), None);
+    assert_eq!(dev_gate(true, false), None);
+}
+
+#[test]
+fn dev_and_unentitled_builds_stay_unavailable() {
+    let dev = Harness::open(false, true);
+    dev.settle();
+    assert_eq!(
+        *dev.sync.status().get(),
+        SyncStatus::Unavailable {
+            reason: DEV_UNAVAILABLE.into(),
+        }
+    );
+    assert!(dev.cloud.state.lock().unwrap().starts.is_empty());
+
+    let off = Harness::open(false, false);
+    off.settle();
+    assert_eq!(*off.sync.status().get(), SyncStatus::Off);
+    assert!(off.cloud.state.lock().unwrap().starts.is_empty());
+
+    let cloud = Arc::new(FakeCloud::default());
+    cloud.fail_start(Some(PortError::Unavailable));
+    let dir = TempDir(std::env::temp_dir().join(format!("kudzu-sync-{}", Uuid::new_v4())));
+    fs::create_dir_all(&dir.0).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(30),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let scheduler = Arc::new(Scheduler::new(clock.clone()).unwrap());
+    let library = Arc::new(
+        LibraryService::new(
+            KudzuLibrary::default(),
+            "device-a".into(),
+            clock.clone(),
+            Arc::new(FixedIds::new(1)),
+            writer.register(Memory, Revision(0)).unwrap(),
+            scheduler.clone(),
+        )
+        .unwrap(),
+    );
+    let settings = SettingsService::new(
+        Settings::for_variant(Variant::Production),
+        writer.register(Memory, Revision(0)).unwrap(),
+    )
+    .unwrap();
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory: dir.0.clone(),
+        },
+        library,
+        settings.watch(),
+        cloud.clone(),
+        clock,
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    assert_eq!(
+        *sync.status().get(),
+        SyncStatus::Unavailable {
+            reason: UNENTITLED.into(),
+        }
+    );
+    assert!(cloud.state.lock().unwrap().starts.is_empty());
+    drop(sync);
+    writer.shutdown().unwrap();
+}
+
+#[test]
+fn every_status_is_reachable_and_errors_use_fixed_sentences() {
+    let harness = Harness::open(true, false);
+    harness.settle();
+    assert_eq!(*harness.sync.status().get(), SyncStatus::Off);
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let status = harness.sync.status();
+    let _subscription = status.subscribe({
+        let seen = seen.clone();
+        let status = status.clone();
+        move || seen.lock().unwrap().push((*status.get()).clone())
+    });
+    harness.sync.set_enabled(true);
+    harness.settle();
+    let generation = harness.generation();
+    let events = harness.cloud.events(generation).unwrap();
+    events.availability(generation, crate::ports::CloudAvailability::NoAccount);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: NO_ACCOUNT.into(),
+        }
+    );
+    events.availability(generation, crate::ports::CloudAvailability::Restricted);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: RESTRICTED.into(),
+        }
+    );
+    events.availability(
+        generation,
+        crate::ports::CloudAvailability::TemporarilyUnavailable,
+    );
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::NoAccount {
+            reason: TEMPORARILY_UNAVAILABLE.into(),
+        }
+    );
+    events.availability(generation, crate::ports::CloudAvailability::Available);
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    assert!(matches!(
+        *harness.sync.status().get(),
+        SyncStatus::UpToDate { .. }
+    ));
+    if let SyncStatus::UpToDate { last_sync } = *harness.sync.status().get() {
+        assert_eq!(last_sync, harness.clock.now());
+    }
+    events.sent(
+        generation,
+        CloudSend {
+            failure: Some(CloudSendFailure::QuotaExceeded),
+            ..CloudSend::default()
+        },
+    );
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Error {
+            message: QUOTA.into(),
+        }
+    );
+    events.sent(
+        generation,
+        CloudSend {
+            failure: Some(CloudSendFailure::Permanent),
+            ..CloudSend::default()
+        },
+    );
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Error {
+            message: PERMANENT_FAILURE.into(),
+        }
+    );
+    events.failed(generation, PortError::TimedOut);
+    harness.settle();
+    assert_eq!(
+        *harness.sync.status().get(),
+        SyncStatus::Error {
+            message: TEMPORARILY_UNAVAILABLE.into(),
+        }
+    );
+    events.fetched(
+        generation,
+        CloudBatch {
+            records: vec![RemoteRecord {
+                kind: RecordKind::Meta,
+                name: META_RECORD.into(),
+                payload: r#"{"syncVersion":2}"#.into(),
+            }],
+            ..CloudBatch::default()
+        },
+    );
+    harness.settle();
+    assert_eq!(*harness.sync.status().get(), SyncStatus::NeedsUpdate);
+
+    let mut kinds = BTreeSet::from(["off"]);
+    for status in seen.lock().unwrap().iter() {
+        kinds.insert(kind(status));
+    }
+    assert_eq!(
+        kinds,
+        BTreeSet::from([
+            "off",
+            "starting",
+            "syncing",
+            "no-account",
+            "up-to-date",
+            "error",
+            "needs-update",
+        ])
+    );
+}
+
+#[test]
+fn edits_queue_without_usage_and_usage_waits_for_the_twelfth_minute() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";a", "local");
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let before = harness.uploaded().len();
+    harness
+        .library
+        .update_snippet({
+            let mut record = harness
+                .library
+                .watch()
+                .get()
+                .snippets
+                .iter()
+                .find(|snippet| snippet.id == id)
+                .unwrap()
+                .clone();
+            record.content = "edited".into();
+            record
+        })
+        .unwrap();
+    harness.library.record_expansion(id, 4).unwrap();
+    harness.settle();
+    let names = harness.uploaded();
+    let queued = &names[before..];
+    assert!(queued.iter().any(|name| name.starts_with("snippet-")));
+    assert!(queued.iter().all(|name| !name.starts_with("usage-")));
+
+    harness.ack();
+    let usage = kudzu_core::sync::usage_name("device-a");
+    for tick in 1..=4 {
+        let start = harness.cloud.state.lock().unwrap().sends.len();
+        harness.clock.advance(FETCH_INTERVAL);
+        wait_fetch(&harness);
+        let sends = harness.cloud.state.lock().unwrap().sends.clone();
+        let fresh = &sends[start..];
+        let has_usage = fresh.iter().any(|(_, batch)| {
+            batch.records.iter().any(|record| record.name == usage)
+                || batch.deleted.iter().any(|name| name == &usage)
+        });
+        assert_eq!(has_usage, tick == 4, "tick {tick}");
+    }
+}
+
+#[test]
+fn a_merge_keeps_a_local_edit_and_does_not_echo_the_server_copy() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";a", "local");
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let generation = harness.generation();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let library = harness.library.clone();
+    let editor = thread::spawn(move || {
+        library
+            .transact(move |library| {
+                entered_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+                let snippet = library
+                    .snippets
+                    .iter_mut()
+                    .find(|snippet| snippet.id == id)
+                    .unwrap();
+                snippet.content = "during".into();
+                snippet.updated_at = Utc.timestamp_opt(1_900_000_000, 0).unwrap();
+                Ok(())
+            })
+            .unwrap();
+    });
+    entered_rx.recv_timeout(Duration::from_secs(3)).unwrap();
+    let marker = harness.cloud.state.lock().unwrap().sends.len();
+    let server_b = Uuid::from_u128(50);
+    harness.cloud.deliver(
+        generation,
+        CloudBatch {
+            records: vec![
+                remote_snippet(id, ";a", "server", 1_700_000_000),
+                remote_snippet(server_b, ";b", "remote", 1_700_000_000),
+            ],
+            ..CloudBatch::default()
+        },
+    );
+    thread::sleep(Duration::from_millis(50));
+    release_tx.send(()).unwrap();
+    editor.join().unwrap();
+    harness.settle();
+
+    let library = harness.library.watch().get();
+    assert_eq!(
+        library
+            .snippets
+            .iter()
+            .find(|snippet| snippet.id == id)
+            .unwrap()
+            .content,
+        "during"
+    );
+    assert!(library
+        .snippets
+        .iter()
+        .any(|snippet| snippet.id == server_b));
+    let sent = harness.cloud.state.lock().unwrap().sends.clone();
+    let names: Vec<String> = sent
+        .iter()
+        .skip(marker)
+        .flat_map(|(_, batch)| batch.records.iter().map(|record| record.name.clone()))
+        .collect();
+    assert!(names
+        .iter()
+        .all(|name| name != &kudzu_core::sync::snippet_name(server_b)));
+    let echoed = sent.iter().skip(marker).any(|(_, batch)| {
+        batch.records.iter().any(|record| {
+            record.name == kudzu_core::sync::snippet_name(id) && !record.payload.contains("during")
+        })
+    });
+    assert!(!echoed);
+    assert!(sent.iter().skip(marker).any(|(_, batch)| {
+        batch
+            .records
+            .iter()
+            .any(|record| record.payload.contains("during"))
+    }));
+    let index: SyncIndex =
+        serde_json::from_slice(&fs::read(harness.dir.0.join("index.json")).unwrap()).unwrap();
+    assert!(index
+        .records
+        .contains_key(&kudzu_core::sync::snippet_name(server_b)));
+    assert!(index.initial_merge_done);
+}
+
+#[test]
+fn stale_generations_after_stop_restart_and_account_change_are_ignored() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let first = harness.generation();
+    harness.sync.set_enabled(false);
+    harness.settle();
+    harness.deliver(
+        first,
+        CloudBatch {
+            records: vec![remote_snippet(Uuid::from_u128(7), ";old", "nope", 10)],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    assert!(harness.library.watch().get().snippets.is_empty());
+    let fetches = harness.cloud.state.lock().unwrap().fetches.clone();
+    harness.clock.advance(FETCH_INTERVAL);
+    thread::sleep(Duration::from_millis(30));
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().fetches, fetches);
+
+    harness.sync.set_enabled(true);
+    harness.settle();
+    let second = harness.generation();
+    assert_ne!(first, second);
+    harness.clock.advance(FETCH_INTERVAL);
+    wait_fetch(&harness);
+    assert!(harness
+        .cloud
+        .state
+        .lock()
+        .unwrap()
+        .fetches
+        .iter()
+        .skip(fetches.len())
+        .all(|generation| *generation == second));
+
+    snippet(&harness, ";keep", "library");
+    harness.settle();
+    harness.cloud.set_engine_state(b"token".to_vec());
+    harness.full_fetch();
+    assert!(harness.dir.0.join("engine-state.data").is_file());
+    let before = harness.library.watch().get().snippets.len();
+    let events = harness.cloud.events(second).unwrap();
+    events.account_changed(second);
+    harness.settle();
+    assert_eq!(harness.library.watch().get().snippets.len(), before);
+    let index: SyncIndex =
+        serde_json::from_slice(&fs::read(harness.dir.0.join("index.json")).unwrap()).unwrap();
+    assert!(!index.initial_merge_done);
+    assert!(index.records.is_empty());
+    assert!(!harness.dir.0.join("engine-state.data").exists());
+    let third = harness.generation();
+    let marker = harness.uploaded().len();
+    harness.deliver(
+        second,
+        CloudBatch {
+            records: vec![remote_snippet(Uuid::from_u128(8), ";stale", "nope", 10)],
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    assert_eq!(harness.library.watch().get().snippets.len(), before);
+    assert!(harness.uploaded()[marker..]
+        .iter()
+        .all(|name| !name.starts_with("snippet-")));
+    harness.deliver(
+        third,
+        CloudBatch {
+            full_fetch: true,
+            ..CloudBatch::default()
+        },
+    );
+    assert!(harness.uploaded()[marker..]
+        .iter()
+        .any(|name| name.starts_with("snippet-")));
+}
+
+#[test]
+fn a_failed_checkpoint_is_reused_without_losing_the_library() {
+    let harness = Harness::open(true, true);
+    harness.cloud.set_engine_state(b"token-1".to_vec());
+    harness.settle();
+    harness.full_fetch();
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"token-1"
+    );
+    harness
+        .cloud
+        .fail_checkpoint(Some(PortError::Io(crate::error::IoFailure {
+            kind: std::io::ErrorKind::Other,
+        })));
+    harness.cloud.set_engine_state(b"token-2".to_vec());
+    let generation = harness.generation();
+    let id = Uuid::from_u128(9);
+    harness.deliver(
+        generation,
+        CloudBatch {
+            records: vec![remote_snippet(id, ";c", "kept", 20)],
+            ..CloudBatch::default()
+        },
+    );
+    assert_eq!(
+        fs::read(harness.dir.0.join("engine-state.data")).unwrap(),
+        b"token-1"
+    );
+    assert!(harness
+        .library
+        .watch()
+        .get()
+        .snippets
+        .iter()
+        .any(|s| s.id == id));
+    let index: SyncIndex =
+        serde_json::from_slice(&fs::read(harness.dir.0.join("index.json")).unwrap()).unwrap();
+    assert!(index
+        .records
+        .contains_key(&kudzu_core::sync::snippet_name(id)));
+
+    let directory = harness.dir.0.clone();
+    let library = harness.library.clone();
+    let cloud = harness.cloud.clone();
+    let clock = harness.clock.clone();
+    let scheduler = harness.scheduler.clone();
+    let settings = harness.settings.watch();
+    drop(harness.sync);
+    let sync = SyncService::open(
+        SyncConfig {
+            production: true,
+            device_id: "device-a".into(),
+            directory,
+        },
+        library,
+        settings,
+        cloud.clone(),
+        clock,
+        scheduler,
+    )
+    .unwrap();
+    sync.settle();
+    let starts = cloud.state.lock().unwrap().starts.clone();
+    assert_eq!(starts.last().unwrap().1, Some(b"token-1".to_vec()));
+    drop(sync);
+}
+
+#[test]
+fn starters_wait_for_the_first_full_fetch_and_dedupe_runs_once() {
+    let harness = Harness::open(true, true);
+    harness
+        .library
+        .transact(|library| {
+            ensure_getting_started_snippets(library, Utc::now());
+            Ok(())
+        })
+        .unwrap();
+    harness.settle();
+    assert!(harness
+        .uploaded()
+        .iter()
+        .all(|name| !name.starts_with("snippet-") && !name.starts_with("group-")));
+    harness.full_fetch();
+    assert!(harness
+        .uploaded()
+        .iter()
+        .any(|name| name.starts_with("snippet-")));
+    assert!(harness
+        .uploaded()
+        .iter()
+        .any(|name| name.starts_with("group-")));
+
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let (first, _) = harness
+        .library
+        .create_snippet(SnippetDraft {
+            triggers: vec![";kudzu".into()],
+            content: "Kudzu is working!".into(),
+            ..SnippetDraft::default()
+        })
+        .unwrap();
+    harness
+        .library
+        .transact({
+            let first = first.clone();
+            move |library| {
+                let mut copy = first;
+                copy.id = Uuid::from_u128(400);
+                library.snippets.push(copy);
+                Ok(())
+            }
+        })
+        .unwrap();
+    harness.settle();
+    harness.full_fetch();
+    assert_eq!(harness.library.watch().get().snippets.len(), 1);
+    harness
+        .library
+        .transact(|library| {
+            let mut copy = library.snippets[0].clone();
+            copy.id = Uuid::from_u128(401);
+            library.snippets.push(copy);
+            Ok(())
+        })
+        .unwrap();
+    harness.full_fetch();
+    assert_eq!(harness.library.watch().get().snippets.len(), 2);
+}
+
+#[test]
+fn needs_update_stops_sends_and_an_account_change_keeps_the_library() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";a", "stay");
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let generation = harness.generation();
+    harness.cloud.events(generation).unwrap().fetched(
+        generation,
+        CloudBatch {
+            records: vec![RemoteRecord {
+                kind: RecordKind::Meta,
+                name: META_RECORD.into(),
+                payload: r#"{"syncVersion":2}"#.into(),
+            }],
+            ..CloudBatch::default()
+        },
+    );
+    harness.settle();
+    assert_eq!(*harness.sync.status().get(), SyncStatus::NeedsUpdate);
+    assert!(harness
+        .library
+        .watch()
+        .get()
+        .snippets
+        .iter()
+        .any(|s| s.id == id));
+    let sends = harness.cloud.state.lock().unwrap().sends.len();
+    let fetches = harness.cloud.state.lock().unwrap().fetches.len();
+    harness
+        .library
+        .update_snippet({
+            let mut record = harness.library.watch().get().snippets[0].clone();
+            record.content = "local edit".into();
+            record
+        })
+        .unwrap();
+    harness.settle();
+    harness.sync.sync_now();
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().sends.len(), sends);
+    assert!(harness.cloud.state.lock().unwrap().fetches.len() > fetches);
+    assert_eq!(*harness.sync.status().get(), SyncStatus::NeedsUpdate);
+}
+
+#[test]
+fn sync_now_fetches_and_sends_and_zone_deletion_requeues_the_library() {
+    let harness = Harness::open(true, true);
+    harness.settle();
+    let id = snippet(&harness, ";a", "body");
+    harness.settle();
+    harness.full_fetch();
+    harness.ack();
+    let fetches = harness.cloud.state.lock().unwrap().fetches.len();
+    let sends = harness.cloud.state.lock().unwrap().sends.len();
+    harness.sync.sync_now();
+    harness.settle();
+    assert!(harness.cloud.state.lock().unwrap().fetches.len() > fetches);
+    assert!(harness.cloud.state.lock().unwrap().sends.len() > sends);
+
+    let marker = harness.uploaded().len();
+    harness
+        .library
+        .update_snippet({
+            let mut record = harness.library.watch().get().snippets[0].clone();
+            record.content = "queued".into();
+            record
+        })
+        .unwrap();
+    harness.settle();
+    assert!(harness.uploaded()[marker..]
+        .iter()
+        .any(|name| name.contains(&id.to_string())));
+
+    let generation = harness.generation();
+    let before = harness.library.watch().get().snippets.len();
+    let marker = harness.uploaded().len();
+    harness
+        .cloud
+        .events(generation)
+        .unwrap()
+        .zone_deleted(generation);
+    harness.settle();
+    assert_eq!(harness.library.watch().get().snippets.len(), before);
+    assert!(harness.uploaded()[marker..]
+        .iter()
+        .any(|name| name.starts_with("snippet-")));
+    let index: SyncIndex =
+        serde_json::from_slice(&fs::read(harness.dir.0.join("index.json")).unwrap()).unwrap();
+    assert!(index.initial_merge_done);
+    assert!(index.records.is_empty());
+}
+
+#[test]
+fn settings_turn_sync_on_without_a_second_subscription() {
+    let harness = Harness::open(true, false);
+    harness.settle();
+    assert!(harness.cloud.state.lock().unwrap().starts.is_empty());
+    harness
+        .settings
+        .update(|settings| settings.icloud_sync = true)
+        .unwrap();
+    harness.settle();
+    assert_eq!(harness.cloud.state.lock().unwrap().starts.len(), 1);
+}
