@@ -1,5 +1,5 @@
-//! RUNE-GAP(gap 17, issue proposed in S06: "rune-kit `Switch`: take the track and knob size
-//! from `Kit`"): delete this module and use `rune_kit::Switch` once its sizes are tokens.
+//! RUNE-GAP(#573, gap 17: rune-kit `Switch` sizes from `Kit`): delete this module and use
+//! `rune_kit::Switch` once its sizes are tokens.
 //!
 //! shadcn's `Switch` (`components/ui/switch.tsx`), built from Rune core. Verdict in
 //! `PARITY_MATRIX.md`: **wrapper**. rune-kit's switch is an `NSSwitch` (36 × 16 and up, a pill

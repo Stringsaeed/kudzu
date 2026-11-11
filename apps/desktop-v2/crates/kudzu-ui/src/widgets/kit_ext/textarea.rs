@@ -1,5 +1,5 @@
-//! RUNE-GAP(gap 17, issue proposed in S06: "rune-kit `TextArea`: take the text style from
-//! `Kit`"): delete this module and use `rune_kit::TextArea` once it takes a text style and
+//! RUNE-GAP(#573, gap 17: rune-kit `TextArea` text style from `Kit`): delete this module and
+//! use `rune_kit::TextArea` once it takes a text style and
 //! padding, as `TextInput::text_style` does.
 //!
 //! shadcn's `Textarea` (`components/ui/textarea.tsx`), built from Rune core's `text_input`.
