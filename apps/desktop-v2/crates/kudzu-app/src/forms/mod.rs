@@ -150,7 +150,15 @@ impl FormService {
         self.memory.saved()
     }
     /// EngineRouter qualifies native tokens with its EngineInstance before forwarding here.
+    /// A Quick Search pick of this snippet stops holding suppression once this returns: an
+    /// accepted form holds its own guard, and a rejected one leaves nothing on screen.
     pub fn requested(&self, request: EngineRequest) -> bool {
+        let snippet = request.snippet_id;
+        let accepted = self.request(request);
+        self.expansion.hand_off_to_form(snippet);
+        accepted
+    }
+    fn request(&self, request: EngineRequest) -> bool {
         let rejected = !request.token.is_valid()
             || request.token
                 <= self

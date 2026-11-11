@@ -1,5 +1,5 @@
-//! An insertion started from one of Kudzu's windows (a submitted form) keeps typed triggers
-//! suppressed until the engine reports its outcome.
+//! An insertion started from one of Kudzu's windows (a submitted form, a Quick Search pick)
+//! keeps typed triggers suppressed until the engine reports its outcome.
 //!
 //! Hiding the window gives the target back, and the engine then activates it and lets it
 //! settle (and, for a typed form, deletes the trigger); it holds input only from then on. A
@@ -7,6 +7,7 @@
 //! suppression guard moves here, and goes with the first of:
 //! - the insertion's outcome: any final report for its snippet from its source, or D17's
 //!   notice that its snippet's trigger was lost;
+//! - its hand-off: a pick whose snippet opens a form, once the form holds its own guard;
 //! - an admission error, or the work failing to start (no outcome will come);
 //! - the engine stopping, or a newer engine starting (S40 resyncs the services after every
 //!   start): nothing in flight on the old one will report;
@@ -167,6 +168,12 @@ impl Holds {
     /// Releases hold `id` now: its admission was refused or its work never started.
     pub(crate) fn release(&self, id: HoldId) {
         self.take(|h| h.id == id);
+    }
+
+    /// The oldest hold for `snippet` from `source` hands over to something that holds its own
+    /// guard (a pick's form): it goes now.
+    pub(crate) fn hand_off(&self, source: ActivitySource, snippet: Uuid) {
+        self.take(|h| !h.settled && h.source == source && h.snippet == snippet);
     }
 
     /// Releases every hold (the owner is going away).

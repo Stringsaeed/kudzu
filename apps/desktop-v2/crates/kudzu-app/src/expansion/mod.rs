@@ -48,6 +48,9 @@ pub struct ExpansionService {
     suppression: Arc<Suppression>,
     status: Arc<Mutex<Publisher<EngineStatus>>>,
     feed: feed::Feed,
+    /// Quick Search picks still keeping triggers suppressed, waiting for their outcome.
+    holds: Arc<hold::Holds>,
+    outcome_deadline: std::time::Duration,
 }
 impl ExpansionService {
     pub fn new(
@@ -69,9 +72,11 @@ impl ExpansionService {
             library: library.clone(),
             environment,
         });
+        let outcomes = Publisher::new(None);
+        let holds = hold::Holds::new(outcomes.watch(), feed.watch());
         Ok(Self {
             recovery: Mutex::new(recovery::Recovery::new()),
-            outcomes: Mutex::new(Publisher::new(None)),
+            outcomes: Mutex::new(outcomes),
             renderer,
             library,
             target,
@@ -80,6 +85,8 @@ impl ExpansionService {
             suppression: Suppression::new(engine),
             status,
             feed,
+            holds,
+            outcome_deadline: hold::OUTCOME_DEADLINE,
         })
     }
     pub fn status(&self) -> Watch<EngineStatus> {
@@ -101,6 +108,17 @@ impl ExpansionService {
     pub fn set_paused(&self, paused: bool) -> Result<Revision, ExpansionError> {
         Ok(self.settings.update(|s| s.paused = paused)?)
     }
+    /// How long a Quick Search pick may keep triggers suppressed while no outcome arrives.
+    pub fn with_outcome_deadline(mut self, deadline: std::time::Duration) -> Self {
+        self.outcome_deadline = deadline;
+        self
+    }
+    /// The forms service received the form for `snippet` and holds its own guard: a pick of
+    /// that snippet, which opens the form instead of reporting, stops holding its own.
+    pub(crate) fn hand_off_to_form(&self, snippet: uuid::Uuid) {
+        self.holds
+            .hand_off(kudzu_core::activity::ActivitySource::QuickSearch, snippet);
+    }
     pub fn suppress(&self) -> SuppressionGuard {
         self.suppression.acquire()
     }
@@ -117,6 +135,11 @@ impl ExpansionService {
     /// Stop this producer before stopping the engine and draining persistence.
     pub fn stop_feed(&self) {
         self.feed.stop();
+    }
+}
+impl Drop for ExpansionService {
+    fn drop(&mut self) {
+        self.holds.clear();
     }
 }
 #[cfg(test)]

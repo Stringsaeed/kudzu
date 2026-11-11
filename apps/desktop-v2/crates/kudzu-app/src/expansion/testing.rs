@@ -64,7 +64,10 @@ impl Harness {
         until(&expansion.feed(), |f| f.generation == generation);
     }
     pub fn expansion(&self) -> Arc<super::ExpansionService> {
-        Arc::new(
+        Arc::new(self.expansion_service())
+    }
+    pub fn expansion_service(&self) -> super::ExpansionService {
+        {
             super::ExpansionService::new(
                 self.library.watch(),
                 self.settings.clone(),
@@ -83,8 +86,8 @@ impl Harness {
                     }),
                 },
             )
-            .unwrap(),
-        )
+            .unwrap()
+        }
     }
     pub fn new(initial: KudzuLibrary) -> Self {
         let clock = Arc::new(FakeClock::default());

@@ -366,3 +366,4 @@ fn nested_clipboard_templates_use_only_text_reads_and_escaped_tags_do_not_read()
 }
 
 mod admission;
+mod quick_search;
