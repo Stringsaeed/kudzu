@@ -1,6 +1,7 @@
 //! Controllable engine and callback collector. All callbacks run outside fake locks.
 use crate::{
     error::PortError,
+    ports::engine::InsertionError,
     ports::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest},
 };
 use kudzu_core::{
@@ -29,6 +30,8 @@ pub struct EngineState {
     pub cancelled: Vec<u64>,
     pub focus: Vec<(u64, bool)>,
     pub failure: Option<PortError>,
+    pub insertion_failure: Option<InsertionError>,
+    pub interrupted_forms: std::collections::HashSet<u64>,
 }
 impl Default for EngineState {
     fn default() -> Self {
@@ -52,6 +55,8 @@ impl Default for EngineState {
             cancelled: Vec::new(),
             focus: Vec::new(),
             failure: None,
+            insertion_failure: None,
+            interrupted_forms: Default::default(),
         }
     }
 }
@@ -59,8 +64,23 @@ impl Default for EngineState {
 pub struct FakeEngine {
     pub state: Mutex<EngineState>,
     events: Mutex<Option<Arc<dyn EngineEvents>>>,
+    pub before_submit: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
 impl FakeEngine {
+    /// Simulates key-down or click for a typed pending form. Suppression is intentionally
+    /// not consulted: panel focus and interruption are a separate engine signal (D9).
+    pub fn input_outside_form(&self, token: u64) {
+        let mut state = self.state.lock().unwrap();
+        let focused = state
+            .focus
+            .iter()
+            .rev()
+            .find(|(t, _)| *t == token)
+            .is_some_and(|(_, focused)| *focused);
+        if !focused {
+            state.interrupted_forms.insert(token);
+        }
+    }
     pub fn events(&self) -> Option<Arc<dyn EngineEvents>> {
         self.events.lock().unwrap().clone()
     }
@@ -118,10 +138,40 @@ impl ExpansionEngine for FakeEngine {
         snippet: Uuid,
         target: Option<AppInfo>,
         selection: Option<String>,
-    ) -> Result<(), PortError> {
+    ) -> Result<(), InsertionError> {
         let mut state = self.state.lock().unwrap();
         if let Some(e) = state.failure {
+            return Err(e.into());
+        }
+        if let Some(e) = state.insertion_failure {
             return Err(e);
+        }
+        if state.status.paused {
+            return Err(InsertionError::Paused);
+        }
+        if state.status.secure_input {
+            return Err(InsertionError::SecureInput);
+        }
+        if !state.status.can_post_events {
+            return Err(InsertionError::Failed(
+                kudzu_core::activity::InsertFailure::NotAllowed,
+            ));
+        }
+        if !state.library.snippets.iter().any(|s| s.id == snippet) {
+            return Err(InsertionError::MissingSnippet);
+        }
+        let Some(app) = target.as_ref() else {
+            return Err(InsertionError::Failed(
+                kudzu_core::activity::InsertFailure::TargetGone,
+            ));
+        };
+        if state
+            .library
+            .config
+            .denied_bundle_ids
+            .contains(&app.bundle_id)
+        {
+            return Err(InsertionError::Excluded);
         }
         state.insertions.push(InsertRequest {
             snippet,
@@ -132,10 +182,24 @@ impl ExpansionEngine for FakeEngine {
     }
 }
 impl FormChannel for FakeEngine {
-    fn submit_form(&self, token: u64, values: HashMap<String, String>) -> Result<(), PortError> {
+    fn submit_form(
+        &self,
+        token: u64,
+        values: HashMap<String, String>,
+    ) -> Result<(), InsertionError> {
+        let observer = self.before_submit.lock().unwrap().clone();
+        if let Some(observer) = observer {
+            observer();
+        }
         let mut state = self.state.lock().unwrap();
         if let Some(e) = state.failure {
+            return Err(e.into());
+        }
+        if let Some(e) = state.insertion_failure {
             return Err(e);
+        }
+        if state.interrupted_forms.remove(&token) {
+            return Err(InsertionError::Interrupted);
         }
         state.submissions.push((token, values));
         Ok(())

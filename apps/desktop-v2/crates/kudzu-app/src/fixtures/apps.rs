@@ -11,6 +11,8 @@ pub struct FakeApps {
     pub icons: Mutex<BTreeMap<String, Vec<u8>>>,
     pub frontmost: Mutex<Option<AppInfo>>,
     pub selection: Mutex<Option<String>>,
+    pub selection_reads: Mutex<usize>,
+    pub activations: Mutex<Vec<AppInfo>>,
     pub caret: Mutex<Option<Rect>>,
     pub failure: Mutex<Option<PortError>>,
 }
@@ -36,10 +38,12 @@ impl TargetApp for FakeApps {
     }
     fn activate(&self, app: &AppInfo) -> Result<(), PortError> {
         self.check()?;
+        self.activations.lock().unwrap().push(app.clone());
         *self.frontmost.lock().unwrap() = Some(app.clone());
         Ok(())
     }
     fn selection(&self) -> Result<Option<String>, PortError> {
+        *self.selection_reads.lock().unwrap() += 1;
         self.check()?;
         Ok(self.selection.lock().unwrap().clone())
     }
