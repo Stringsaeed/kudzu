@@ -1,0 +1,18 @@
+diff --git a/apps/desktop-v2/Cargo.lock b/apps/desktop-v2/Cargo.lock
+index 1f5820bf..df9a223c 100644
+--- a/apps/desktop-v2/Cargo.lock
++++ b/apps/desktop-v2/Cargo.lock
+@@ -1605,6 +1605,13 @@ version = "0.12.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
+ 
++[[package]]
++name = "lists-spike"
++version = "0.1.0"
++dependencies = [
++ "rune",
++]
++
+ [[package]]
+ name = "litemap"
+ version = "0.8.3"

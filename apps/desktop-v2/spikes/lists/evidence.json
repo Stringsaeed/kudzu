@@ -1,0 +1,128 @@
+[
+  {
+    "scene": "library",
+    "run": 0,
+    "frames": 600,
+    "median_ms": 0.148875,
+    "p95_ms": 0.269042,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 1,
+    "frames": 600,
+    "median_ms": 0.147771,
+    "p95_ms": 0.28375,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 2,
+    "frames": 600,
+    "median_ms": 0.14864549999999999,
+    "p95_ms": 0.265166,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 3,
+    "frames": 600,
+    "median_ms": 0.14908349999999998,
+    "p95_ms": 0.262084,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 4,
+    "frames": 600,
+    "median_ms": 0.15024949999999998,
+    "p95_ms": 0.269792,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 5,
+    "frames": 600,
+    "median_ms": 0.1454585,
+    "p95_ms": 0.273875,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "library",
+    "run": 6,
+    "frames": 600,
+    "median_ms": 0.14779150000000002,
+    "p95_ms": 0.27225,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 0,
+    "frames": 600,
+    "median_ms": 0.17064600000000002,
+    "p95_ms": 0.3015,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 1,
+    "frames": 600,
+    "median_ms": 0.1665415,
+    "p95_ms": 0.30287499999999995,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 2,
+    "frames": 600,
+    "median_ms": 0.16891699999999998,
+    "p95_ms": 0.30370800000000003,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 3,
+    "frames": 600,
+    "median_ms": 0.172333,
+    "p95_ms": 0.309625,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 4,
+    "frames": 600,
+    "median_ms": 0.175792,
+    "p95_ms": 0.296125,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 5,
+    "frames": 600,
+    "median_ms": 0.16668750000000002,
+    "p95_ms": 0.298334,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  },
+  {
+    "scene": "clips",
+    "run": 6,
+    "frames": 600,
+    "median_ms": 0.167521,
+    "p95_ms": 0.287042,
+    "view_runs": 1,
+    "budget_commit_lines": 1
+  }
+]

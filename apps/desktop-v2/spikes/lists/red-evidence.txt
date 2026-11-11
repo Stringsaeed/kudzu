@@ -1,0 +1,56 @@
+Pinned Rune red evidence, before the corresponding repairs.
+
+#551 inside-source drag:
+   Compiling lists-spike v0.1.0 (/Users/saeed/.t3/worktrees/text-expander/t3-06802a3b-250a507c297b3a46/apps/desktop-v2/spikes/lists)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.28s
+     Running unittests src/main.rs (target/debug/deps/lists_spike-4b12af994fc61773)
+
+running 1 test
+PASS unbuilt reveal; replace/reorder + version; bounded mount
+PASS End reveals unbuilt row; Shift-Up extends selection
+S14 views=5 row_builds=142
+
+thread 'proof::tests::runtime_contract' (2814579) panicked at spikes/lists/src/proof.rs:121:5:
+assertion `left == right` failed: a drag released inside its own source is not a click (#551)
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+S14 views=12 row_builds=336
+S14 views=5 row_builds=167
+test proof::tests::runtime_contract ... FAILED
+
+failures:
+
+failures:
+    proof::tests::runtime_contract
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p lists-spike --bin lists-spike`
+
+Repeated Shift-Up cursor:
+   Compiling lists-spike v0.1.0 (/Users/saeed/.t3/worktrees/text-expander/t3-06802a3b-250a507c297b3a46/apps/desktop-v2/spikes/lists)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.92s
+     Running unittests src/main.rs (target/debug/deps/lists_spike-4b12af994fc61773)
+
+running 2 tests
+test model::tests::range_uses_visible_order_and_command_toggles ... ok
+PASS unbuilt reveal; replace/reorder + version; bounded mount
+
+thread 'proof::tests::runtime_contract' (2820207) panicked at spikes/lists/src/proof.rs:159:5:
+assertion `left == right` failed
+  left: {4998, 4999}
+ right: {4997, 4998, 4999}
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+S14 views=6 row_builds=171
+S14 views=5 row_builds=167
+test proof::tests::runtime_contract ... FAILED
+
+failures:
+
+failures:
+    proof::tests::runtime_contract
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+error: test failed, to rerun pass `-p lists-spike --bin lists-spike`
