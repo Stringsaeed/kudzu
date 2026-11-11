@@ -1923,6 +1923,8 @@ version = "0.1.0"
 dependencies = [
  "core-foundation 0.10.1",
  "flexi_logger",
+ "kudzu-app",
+ "kudzu-system",
  "kudzu-ui",
  "log",
  "rune",
@@ -2018,8 +2020,11 @@ dependencies = [
  "kudzu-app",
  "kudzu-appkit",
  "kudzu-core",
+ "log",
+ "objc2-foundation 0.3.2",
  "rune",
  "rune-kit",
+ "uuid",
 ]
 
 [[package]]

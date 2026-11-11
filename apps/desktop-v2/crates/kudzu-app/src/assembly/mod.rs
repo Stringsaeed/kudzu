@@ -82,20 +82,39 @@ impl From<std::io::Error> for AssemblyError {
     }
 }
 
+/// What the host provides: the ports and the facts that differ between a real Mac and a
+/// fixture run. `kudzu_system::host` builds the native one, [`Host::fixtures`] the other.
+pub struct Host {
+    pub ports: Ports,
+    pub locale: String,
+    pub home: std::path::PathBuf,
+    pub time_zone: BackupTimeZone,
+    /// Native uses `chrono::Local`. Headless passes a fixed offset so it ignores the host zone.
+    pub local_time: fn(SystemTime) -> DateTime<FixedOffset>,
+}
+
+impl Host {
+    /// Fakes, the fixture locale and UTC, with `home` as the agent HOME. No host resources.
+    pub fn fixtures(fixtures: &crate::fixtures::Fixtures, home: std::path::PathBuf) -> Self {
+        Self {
+            ports: fixtures.ports(),
+            locale: fixtures.sample.locale.clone(),
+            home,
+            time_zone: BackupTimeZone::Fixed(utc_offset()),
+            local_time: utc_time,
+        }
+    }
+}
+
 /// What the shell and the windows need in order to build the process.
 pub struct Config {
     pub paths: Paths,
-    pub ports: Ports,
+    pub host: Host,
     pub variant: Variant,
     pub version: String,
     pub app_name: String,
     pub bundle_id: String,
     pub os_major: u32,
-    pub home: std::path::PathBuf,
-    pub time_zone: BackupTimeZone,
-    pub locale: String,
-    /// Native uses `chrono::Local`. Headless passes a fixed offset so it ignores the host zone.
-    pub local_time: fn(SystemTime) -> DateTime<FixedOffset>,
     pub mcp_name: String,
     pub executable: std::path::PathBuf,
     pub agent_args: Vec<String>,
@@ -156,9 +175,16 @@ impl Kudzu {
     /// Open stores, start producers, and block until the engine feed has caught the new engine.
     /// The block is intentional and happens before the UI loop.
     pub fn new(config: Config) -> Result<Arc<Self>, AssemblyError> {
+        let Host {
+            ports,
+            locale,
+            home,
+            time_zone,
+            local_time,
+        } = config.host;
         prepare_directory(&config.paths.data)?;
-        let scheduler = Arc::new(Scheduler::new(config.ports.clock.clone())?);
-        let writer = Writer::new(config.ports.clock.clone(), config.debounce, config.retry)?;
+        let scheduler = Arc::new(Scheduler::new(ports.clock.clone())?);
+        let writer = Writer::new(ports.clock.clone(), config.debounce, config.retry)?;
         let device_id = load_device_id(&config.paths.device_id())?;
         let settings = Arc::new(SettingsService::open(
             config.paths.settings(),
@@ -168,8 +194,8 @@ impl Kudzu {
         let (library, source) = LibraryService::open(
             config.paths.library(),
             device_id.clone(),
-            config.ports.clock.clone(),
-            config.ports.ids.clone(),
+            ports.clock.clone(),
+            ports.ids.clone(),
             &writer,
             scheduler.clone(),
         )?;
@@ -178,23 +204,23 @@ impl Kudzu {
             config.paths.clipboard(),
             settings.watch(),
             ClipboardPorts {
-                board: config.ports.pasteboard.clone(),
-                thumbnails: config.ports.thumbnails.clone(),
-                target: config.ports.target_app.clone(),
-                icons: config.ports.file_icons.clone(),
-                clock: config.ports.clock.clone(),
+                board: ports.pasteboard.clone(),
+                thumbnails: ports.thumbnails.clone(),
+                target: ports.target_app.clone(),
+                icons: ports.file_icons.clone(),
+                clock: ports.clock.clone(),
             },
             &writer,
         )?);
         let data = DataService::new(
             DataConfig {
                 backups: config.paths.backups(),
-                home: config.home.clone(),
-                time_zone: config.time_zone,
+                home: home.clone(),
+                time_zone,
             },
             library.clone(),
             settings.clone(),
-            config.ports.clock.clone(),
+            ports.clock.clone(),
         );
         if let Err(error) = data.note_app_version(&config.version) {
             log::warn!("recording the app version failed; the next launch retries ({error})");
@@ -204,13 +230,13 @@ impl Kudzu {
         let expansion = Arc::new(ExpansionService::new(
             library.watch(),
             settings.clone(),
-            config.ports.engine.clone(),
-            config.ports.target_app.clone(),
+            ports.engine.clone(),
+            ports.target_app.clone(),
             RenderEnvironment {
-                clock: config.ports.clock.clone(),
-                pasteboard: config.ports.pasteboard.clone(),
-                locale: config.locale.clone(),
-                local_time: config.local_time,
+                clock: ports.clock.clone(),
+                pasteboard: ports.pasteboard.clone(),
+                locale: locale.clone(),
+                local_time,
                 history,
             },
         )?);
@@ -219,20 +245,20 @@ impl Kudzu {
             &writer,
             library.watch(),
             expansion.clone(),
-            config.ports.forms.clone(),
-            config.ports.target_app.clone(),
+            ports.forms.clone(),
+            ports.target_app.clone(),
         )?);
         let activity = Arc::new(ActivityService::new(
             library.clone(),
             settings.clone(),
             expansion.status(),
-            config.ports.clock.clone(),
+            ports.clock.clone(),
         ));
         let router = EngineRouter::new(&expansion, &library, &forms, &activity, &clipboard);
         // Stop a previous adapter before this one starts. The adapter also stops its engine.
-        config.ports.engine.stop();
-        config.ports.engine.start(router)?;
-        config.ports.windows.set_kudzu_windows(&[]);
+        ports.engine.stop();
+        ports.engine.start(router)?;
+        ports.windows.set_kudzu_windows(&[]);
         let generation = expansion.resync();
         wait_for_feed(&expansion.feed(), generation);
         clipboard.start(&scheduler)?;
@@ -244,8 +270,8 @@ impl Kudzu {
             },
             library.clone(),
             settings.watch(),
-            config.ports.cloud.clone(),
-            config.ports.clock.clone(),
+            ports.cloud.clone(),
+            ports.clock.clone(),
             scheduler.clone(),
         )?);
         let prefs = Arc::new(Publisher::new(prefs_of(&settings.watch().get())));
@@ -259,10 +285,10 @@ impl Kudzu {
             update_config,
             prefs.watch(),
             updates::UpdatePorts {
-                fetch: config.ports.fetch.clone(),
-                installer: config.ports.installer.clone(),
-                relauncher: config.ports.relauncher.clone(),
-                clock: config.ports.clock.clone(),
+                fetch: ports.fetch.clone(),
+                installer: ports.installer.clone(),
+                relauncher: ports.relauncher.clone(),
+                clock: ports.clock.clone(),
                 scheduler: scheduler.clone(),
             },
         )?;
@@ -270,25 +296,25 @@ impl Kudzu {
             AgentConfig {
                 socket: config.paths.agent_socket(),
                 executable: config.executable,
-                home: config.home,
+                home,
                 name: config.mcp_name,
                 args: config.agent_args,
                 version: config.version,
-                locale: config.locale,
+                locale,
                 bundled_skill_dir: config.bundled_skill_dir,
             },
             library.clone(),
             clipboard.clone(),
             settings.watch(),
-            config.ports.clock.clone(),
-            config.ports.ids.clone(),
+            ports.clock.clone(),
+            ports.ids.clone(),
         ));
-        let apps = Arc::new(Apps::new(config.ports.apps.clone()));
-        let selection = Arc::new(SelectionCapture::new(config.ports.target_app.clone()));
+        let apps = Arc::new(Apps::new(ports.apps.clone()));
+        let selection = Arc::new(SelectionCapture::new(ports.target_app.clone()));
         let permissions = Arc::new(Permissions::new(
-            config.ports.engine.clone(),
-            config.ports.settings.clone(),
-            config.ports.relauncher.clone(),
+            ports.engine.clone(),
+            ports.settings.clone(),
+            ports.relauncher.clone(),
             scheduler.clone(),
             PermissionsConfig {
                 app_name: config.app_name,
@@ -296,16 +322,13 @@ impl Kudzu {
                 marker: config.paths.permission_restart(),
             },
         ));
-        let onboarding = Arc::new(Onboarding::new(
-            settings.clone(),
-            config.ports.engine.clone(),
-        ));
+        let onboarding = Arc::new(Onboarding::new(settings.clone(), ports.engine.clone()));
         let hotkeys = Arc::new(HotkeySlots::new(settings.clone()));
         let login_notice: Arc<Publisher<Option<String>>> = Arc::new(Publisher::new(None));
         let reactions = Reactions::start(
             settings.clone(),
             agents.clone(),
-            config.ports.login_item.clone(),
+            ports.login_item.clone(),
             updates.clone(),
             sync.status(),
             prefs,
@@ -327,12 +350,12 @@ impl Kudzu {
             sync,
             agents,
             selection,
-            windows: config.ports.windows.clone(),
+            windows: ports.windows.clone(),
             login_notice: login_notice.watch(),
             first_run: source == LoadSource::Missing,
             writer,
             scheduler,
-            engine: config.ports.engine,
+            engine: ports.engine,
             reactions,
             data_timer: Mutex::new(Some(data_timer)),
             outcome: Mutex::new(None),

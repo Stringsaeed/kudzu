@@ -20,6 +20,8 @@ flexi_logger.workspace = true
 log.workspace = true
 core-foundation.workspace = true
 kudzu-ui = { path = "crates/kudzu-ui" }
+kudzu-app = { path = "crates/kudzu-app" }
+kudzu-system = { path = "crates/kudzu-system" }
 
 [workspace.dependencies]
 rune = { git = "https://github.com/anomalyco/rune", rev = "29aacb688883a9712bc27175bdafd99fc6edb421", features = ["native-file-dialog"] }

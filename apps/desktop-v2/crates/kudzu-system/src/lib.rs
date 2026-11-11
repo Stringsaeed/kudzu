@@ -16,10 +16,12 @@ pub mod update_install;
 mod code_identity;
 mod unavailable;
 
+use kudzu_app::assembly::Host;
 use kudzu_app::ports::{
     clock::SystemClock, ids::RandomIds, AppCatalog, CloudStore, EngineInstances, ExpansionEngine,
     FileIcons, FormChannel, KudzuWindows, LoginItem, Ports, Relauncher, TargetApp, UpdateInstaller,
 };
+use kudzu_core::interchange::backup::BackupTimeZone;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -78,6 +80,41 @@ impl MacosPorts for Ports {
             // The shell is the registrar (it owns Rune's shortcuts); nothing reads this slot.
             hotkeys: Arc::new(unavailable::Hotkeys),
             ids: Arc::new(RandomIds),
+        }
+    }
+}
+
+/// The native host for `Kudzu::new`: `Ports::macos`, the system locale, HOME and local time.
+pub fn host(native: Native) -> Host {
+    Host {
+        ports: Ports::macos(native),
+        locale: locale::current(),
+        home: std::env::var_os("HOME")
+            .map(PathBuf::from)
+            .unwrap_or_default(),
+        time_zone: BackupTimeZone::Local,
+        local_time: kudzu_app::assembly::local_time,
+    }
+}
+
+/// Take the single-instance lock before NSApplication starts. `None` means exit quietly:
+/// another copy owns this identity (`Secondary`, which has asked it to reopen), or the lock's
+/// owner could not be verified (`UnverifiedOwner`, logged), or the lock could not be taken.
+pub fn claim_instance(
+    data: &Path,
+    bundle_id: &str,
+    bundle: Option<&Path>,
+) -> Option<instance::InstanceGuard> {
+    match instance::Instance::acquire(data, bundle_id, bundle) {
+        Ok(instance::Instance::Primary(guard)) => Some(guard),
+        Ok(instance::Instance::Secondary) => None,
+        Ok(instance::Instance::UnverifiedOwner) => {
+            log::warn!("another process holds the instance lock and could not be verified");
+            None
+        }
+        Err(error) => {
+            log::error!("the instance lock could not be taken: {error}");
+            None
         }
     }
 }
