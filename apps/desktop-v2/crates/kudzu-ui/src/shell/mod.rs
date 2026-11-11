@@ -189,8 +189,23 @@ impl Shell {
         self.0.handles.main.wake();
     }
 
+    /// Keep a started task whose value nobody reads (a form submission).
+    pub(crate) fn settle_value<T: Send + 'static>(
+        &self,
+        what: &'static str,
+        task: kudzu_app::tasks::Task<T>,
+    ) {
+        self.0.settle.add_value(what, task);
+        self.0.handles.main.wake();
+    }
+
     pub(crate) fn drain_settled(&self) {
         self.0.settle.drain();
+    }
+
+    #[cfg(test)]
+    pub(crate) fn settling(&self) -> usize {
+        self.0.settle.len()
     }
 }
 

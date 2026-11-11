@@ -1,8 +1,8 @@
 //! Placeholder content, one view per window, until the screen steps replace them (S41, S56,
-//! S57, S60, S66). Each shows the window's name, its state and the theme it resolved, so
+//! S60, S66). Each shows the window's name, its state and the theme it resolved, so
 //! headless trees can check routing and theme without the real screens.
 use super::theme_sync::ThemeSync;
-use super::windows::{FormState, MainState, PaletteState, PermissionsState, PickerState};
+use super::windows::{MainState, PaletteState, PermissionsState, PickerState};
 use crate::theme::Theme;
 use rune::{col, text, Cx, El};
 
@@ -70,17 +70,6 @@ pub(super) fn picker(s: &PickerState, cx: &mut Cx<PickerState>) -> El {
         detail.into(),
         &s.model.theme,
     )
-}
-
-pub(super) fn form(s: &FormState, cx: &mut Cx<FormState>) -> El {
-    let theme = s.model.theme.theme(cx.system_dark());
-    // The snippet's name only: field values are user content.
-    let detail = s
-        .model
-        .request
-        .as_ref()
-        .map_or_else(|| "No form".to_owned(), |r| r.snippet_name.clone());
-    frame("form", theme, "Fill In", detail, &s.model.theme)
 }
 
 pub(super) fn permissions(s: &PermissionsState, cx: &mut Cx<PermissionsState>) -> El {

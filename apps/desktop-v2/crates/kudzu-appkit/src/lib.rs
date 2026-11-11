@@ -2,6 +2,7 @@
 //! Isolated, main-thread AppKit adapters. No framework or application dependencies.
 pub mod app_menu;
 pub mod appearance;
+pub mod current_event;
 pub mod geometry;
 pub mod guide_panel;
 mod menu_action;

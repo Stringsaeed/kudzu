@@ -126,3 +126,11 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 - Press: shadcn scales a pressed control to 0.97 and swaps to `shadow-pressed`; the decorated button does both, for the pointer and for Space until its key-up (D21). Return passes a focused button by in Rune, as in AppKit, so it shows no press.
 
 - The toast's action sits under the text (rune-kit's layout) rather than inline at the end as a dark Sonner button; the dialog wrapper has no `bg-muted/50` footer band yet (S55 builds the group dialog).
+
+## Screens (S57 fill-in form)
+
+`form` / `demo` (`/form?demo`, 440 × content). `cargo xtask parity --window form --scene demo`: 10 rows, 0 fail (52 properties need side-by-side review). Form fields use Tauri's `h-9` (36); S07 gallery inputs stay 32 (`h-8`).
+
+Intentional differences, not closed:
+
+- **First-load preview shimmer.** Tauri animates a `background-position` sweep. Rune `Beat` has no background-position, so the first-load well is a static 14×180 bar (`RUNE-GAP` Beat). The demo scene warms the 50 ms preview so the captured state shows formatting, images and actions.

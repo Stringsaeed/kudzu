@@ -244,6 +244,123 @@ fn form_dismissals_and_close_windows_cancel_once_and_lift_suppression() {
 }
 
 #[test]
+fn form_focus_reports_number_from_one_and_carry_the_current_event() {
+    let mut r = rig();
+    r.p.form.current_event = crate::form::events::fake::current;
+    let token = emit_form(&r, 1);
+    assert!(r.p.form.sync());
+    crate::form::events::fake::set(9_001, Some(36));
+    r.p.form.report_focus(true);
+    crate::form::events::fake::set(9_002, None);
+    r.p.form.report_focus(false);
+    crate::form::events::fake::set(9_003, Some(36));
+    r.p.form.report_focus(true);
+    let focus = r.fixtures.engine.state.lock().unwrap().focus.clone();
+    assert_eq!(focus.len(), 3);
+    assert_eq!(focus[0].0, token);
+    assert_eq!(focus[0].1.seq, 1);
+    assert!(focus[0].1.key);
+    assert_eq!(focus[0].1.after.unwrap().stamp.cg_event_timestamp(), 9_001);
+    assert_eq!(focus[0].1.after.unwrap().key_code, Some(36));
+    assert_eq!(focus[1].1.seq, 2);
+    assert!(!focus[1].1.key);
+    assert_eq!(focus[1].1.after.unwrap().key_code, None);
+    assert_eq!(focus[2].1.seq, 3);
+    crate::form::events::fake::clear();
+}
+
+#[test]
+fn form_submit_sends_the_latest_seq_and_the_current_event() {
+    let mut r = rig();
+    r.p.form.current_event = crate::form::events::fake::current;
+    let token = emit_form(&r, 1);
+    assert!(r.p.form.sync());
+    crate::form::events::fake::set(4_100, Some(36));
+    r.p.form.report_focus(true);
+    crate::form::events::fake::set(4_200, Some(36));
+    r.p.form.submit();
+    wait_for(|| {
+        r.p.shell.drain_settled();
+        !r.fixtures
+            .engine
+            .state
+            .lock()
+            .unwrap()
+            .submissions
+            .is_empty()
+    });
+    let submissions = r.fixtures.engine.state.lock().unwrap().submissions.clone();
+    assert_eq!(submissions.len(), 1);
+    assert_eq!(submissions[0].0, token);
+    assert_eq!(submissions[0].2.focus_seq, 1);
+    let event = submissions[0].2.event.expect("submit stamp");
+    assert_eq!(event.stamp.cg_event_timestamp(), 4_200);
+    assert_eq!(event.key_code, Some(36));
+    crate::form::events::fake::clear();
+}
+
+#[test]
+fn form_submit_without_a_native_event_passes_none() {
+    let mut r = rig();
+    r.p.form.current_event = crate::form::events::fake::current;
+    crate::form::events::fake::clear();
+    emit_form(&r, 1);
+    assert!(r.p.form.sync());
+    r.p.form.submit();
+    wait_for(|| {
+        r.p.shell.drain_settled();
+        !r.fixtures
+            .engine
+            .state
+            .lock()
+            .unwrap()
+            .submissions
+            .is_empty()
+    });
+    let submission = r.fixtures.engine.state.lock().unwrap().submissions[0].2;
+    assert!(submission.event.is_none());
+    assert_eq!(submission.focus_seq, 0);
+}
+
+#[test]
+fn a_refused_submit_settles_restoration_like_cancel() {
+    let mut r = rig();
+    emit_form(&r, 1);
+    assert!(r.p.form.sync());
+    r.p.form
+        .settle_restoration(kudzu_app::forms::SubmitStartError {
+            start: kudzu_app::tasks::TaskError::Panicked,
+            restoration: Ok(kudzu_app::tasks::Task::done(Ok(()))),
+        });
+    assert!(r.p.shell.settling() >= 1);
+    r.p.shell.drain_settled();
+    assert_eq!(r.p.shell.settling(), 0);
+}
+
+#[test]
+fn the_form_stays_open_on_blur() {
+    let mut r = rig();
+    emit_form(&r, 1);
+    assert!(r.p.form.sync());
+    r.p.form.report_focus(false);
+    assert!(r.p.form.model.request.is_some());
+    r.p.form.sync();
+    assert!(r.p.form.model.request.is_some());
+}
+
+#[test]
+fn demo_scene_follows_system_appearance_and_has_a_preview() {
+    let mut r = rig();
+    r.p.form.play_scene(crate::form::scenes::demo_request());
+    assert_eq!(
+        r.p.form.model.theme.appearance(),
+        crate::theme::Appearance::System
+    );
+    let panel = r.p.form.model.panel.as_ref().expect("demo panel");
+    assert!(panel.preview_result.is_some());
+}
+
+#[test]
 fn picker_needs_recording_and_hides_when_it_turns_off() {
     let mut r = rig();
     r.p.main.sync();

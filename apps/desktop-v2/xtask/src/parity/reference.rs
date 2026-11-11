@@ -279,7 +279,6 @@ pub(super) const NOT_YET_BUILT: &[Pending] = &[
     ("picker", "history", "S60"),
     ("picker", "clips-5000", "S60"),
     ("picker", "empty", "S60"),
-    ("form", "demo", "S57"),
     ("permissions", "missing", "S66"),
     ("permissions", "allowed", "S66"),
     ("permissions", "revoked", "S66"),
