@@ -107,6 +107,8 @@ pub(super) enum At {
     Transient(usize),
     /// Just before the n-th time items are written back (a restore or a history pick).
     Writing(usize),
+    /// Just after the n-th items write, before Kudzu records it as its own change.
+    Wrote(usize),
     /// While the n-th plain-text read of the clipboard waits (rendering `{{clipboard}}`).
     ReadClipboard(usize),
 }

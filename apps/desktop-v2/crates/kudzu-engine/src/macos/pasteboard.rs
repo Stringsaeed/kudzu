@@ -115,8 +115,12 @@ impl Pasteboard {
         records.own[7] = count;
     }
 
-    /// Whether `count` came from one of Kudzu's own writes. Never waits for a transaction.
+    /// Whether `count` came from one of Kudzu's own writes. Waits for a transaction in
+    /// progress (a restore, a history write, a paste up to its ⌘V, a selection copy), which
+    /// records its write only once it is made: a clipboard-history poll that read the new count
+    /// mid-restore must still see the restore as Kudzu's, not as a copy.
     pub fn is_own_change(&self, count: isize) -> bool {
+        let _transaction = self.begin();
         lock(&self.records).own.contains(&count)
     }
 

@@ -227,3 +227,31 @@ fn a_late_restore_leaves_a_newer_paste_alone() {
     assert_eq!(rig.doc(), "Best, Samsecond|");
     assert_eq!(rig.clipboard(), user_clipboard());
 }
+
+/// The clipboard history polls the change count on its own thread (third review, addendum).
+/// A poll that lands between a restore's write and Kudzu recording it as its own change must
+/// still see the restore as Kudzu's, so the user's clipboard put back never looks like a copy:
+/// `is_own_change` waits for the restore to finish.
+#[test]
+fn a_capture_poll_during_a_restore_sees_it_as_kudzus_own_change() {
+    let rig = Rig::new(&[pasted(";sig", "Best, Sam")]);
+    let pasteboard = rig.pasteboard.clone();
+    let seen: Arc<Mutex<Option<bool>>> = Arc::default();
+    let poll = Other::default();
+    let (seen_by_poll, slot) = (seen.clone(), poll.0.clone());
+    rig.at(At::Wrote(0), move |d| {
+        let count = d.with(|s| s.count);
+        let (done, finished) = mpsc::channel();
+        let handle = thread::spawn(move || {
+            *seen_by_poll.lock().unwrap() = Some(pasteboard.is_own_change(count));
+            done.send(()).ok();
+        });
+        // A poll that doesn't wait answers at once; one that waits for the restore can't,
+        // while the restore is still in progress here.
+        let _ = finished.recv_timeout(std::time::Duration::from_millis(100));
+        *slot.lock().unwrap() = Some(handle);
+    });
+    rig.type_(";sig");
+    poll.join();
+    assert_eq!(*seen.lock().unwrap(), Some(true));
+}

@@ -179,6 +179,7 @@ impl Board for FakeBoard {
             s.count += 1;
             s.log.push(Ev::Board(BoardOp::Wrote(plain(&s.items))));
         });
+        self.0.fire(At::Wrote(n));
     }
 
     fn write_transient(&self, text: &str, html: Option<&str>) -> bool {

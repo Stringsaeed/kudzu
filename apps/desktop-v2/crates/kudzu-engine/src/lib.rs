@@ -379,7 +379,8 @@ pub mod clipboard {
     }
 
     /// Whether a change count came from Kudzu's own writes (snippet pastes, restores, history
-    /// picks).
+    /// picks). Waits for one in progress (at most a paste up to its ⌘V, or a selection copy's
+    /// ~300 ms), so a count read mid-restore is still recognised: call it off the UI thread.
     pub fn is_own_change(count: i64) -> bool {
         macos::clipboard::is_own_change(count)
     }
