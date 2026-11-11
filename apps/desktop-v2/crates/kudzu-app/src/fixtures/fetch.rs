@@ -25,6 +25,8 @@ pub struct FakeFetch {
     /// `None` delivers the body in one progress event.
     pub chunk: Mutex<Option<usize>>,
     pub unknown_total: Mutex<bool>,
+    /// When set, `get` returns a body larger than `max_bytes` so callers can test their own cap.
+    pub skip_max_bytes: Mutex<bool>,
     block: Mutex<Option<Block>>,
     pause: Mutex<Option<Pause>>,
 }
@@ -93,7 +95,7 @@ impl Fetch for FakeFetch {
             .get(&request.url)
             .cloned()
             .unwrap_or(Err(PortError::Unavailable))?;
-        if response.len() > request.max_bytes {
+        if !*self.skip_max_bytes.lock().unwrap() && response.len() > request.max_bytes {
             return Err(PortError::TooLarge);
         }
         let unknown = *self.unknown_total.lock().unwrap();

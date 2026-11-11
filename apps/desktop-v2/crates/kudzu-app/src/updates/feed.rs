@@ -1,7 +1,9 @@
 use super::error::UpdateError;
+use super::verify;
 use super::{Channel, BETA_FEED, STABLE_FEED};
 use semver::Version;
 use serde::Deserialize;
+use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
 pub fn url(channel: Channel) -> &'static str {
@@ -30,7 +32,7 @@ pub fn parse(bytes: &[u8]) -> Result<Feed, UpdateError> {
 }
 
 pub fn is_newer(feed: &str, current: &str) -> Result<bool, UpdateError> {
-    Ok(version(feed)? > version(current)?)
+    Ok(version(feed)?.cmp_precedence(&version(current)?) == Ordering::Greater)
 }
 
 fn version(raw: &str) -> Result<Version, UpdateError> {
@@ -48,4 +50,50 @@ pub fn platform(feed: &Feed) -> Result<&Platform, UpdateError> {
         .or_else(|| feed.platforms.get("darwin-aarch64"))
         .or_else(|| feed.platforms.get("darwin-x86_64"))
         .ok_or(UpdateError::Feed)
+}
+
+pub fn check_archive_url(url: &str, feed_version: &str) -> Result<(), UpdateError> {
+    if !url.starts_with("https://github.com/") {
+        return Err(UpdateError::Feed);
+    }
+    let name = verify::url_file_name(url).ok_or(UpdateError::Feed)?;
+    if name != verify::expected_archive_name(feed_version) {
+        return Err(UpdateError::Signature);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_metadata_does_not_count_as_newer() {
+        assert!(!is_newer("1.0.0+bbb", "1.0.0+aaa").unwrap());
+        assert!(!is_newer("1.0.0+build", "1.0.0").unwrap());
+        assert!(is_newer("1.0.1+aaa", "1.0.0+zzz").unwrap());
+    }
+
+    #[test]
+    fn archive_url_must_be_https_github() {
+        assert_eq!(
+            check_archive_url(
+                "http://github.com/Stringsaeed/kudzu/releases/download/v9.9.9/Kudzu_9.9.9_universal.app.tar.gz",
+                "9.9.9"
+            ),
+            Err(UpdateError::Feed)
+        );
+        assert_eq!(
+            check_archive_url(
+                "https://evil.example/Kudzu_9.9.9_universal.app.tar.gz",
+                "9.9.9"
+            ),
+            Err(UpdateError::Feed)
+        );
+        assert!(check_archive_url(
+            "https://github.com/Stringsaeed/kudzu/releases/download/v9.9.9/Kudzu_9.9.9_universal.app.tar.gz",
+            "9.9.9"
+        )
+        .is_ok());
+    }
 }

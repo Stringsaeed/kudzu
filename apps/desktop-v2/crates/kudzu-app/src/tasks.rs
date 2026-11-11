@@ -45,6 +45,13 @@ impl<T: Send + 'static> Task<T> {
             .map_err(IoFailure::from)?;
         Ok(Self(slot))
     }
+    /// A task that is already complete. Used when the worker thread cannot start.
+    pub fn done(value: T) -> Self {
+        Self(Arc::new(Slot {
+            result: Mutex::new(Some(Ok(value))),
+            ready: Publisher::new(true),
+        }))
+    }
     pub fn ready(&self) -> Watch<bool> {
         self.0.ready.watch()
     }

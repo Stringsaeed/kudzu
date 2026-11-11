@@ -1,18 +1,20 @@
 //! Update checks, signed downloads, and install-on-quit / restart-to-update.
 mod error;
 mod feed;
+mod stage;
 mod state;
 mod verify;
 
 #[cfg(test)]
 mod tests;
 
-use crate::error::{IoFailure, PortError};
+use crate::error::PortError;
 use crate::ports::{Clock, Fetch, FetchRequest, Relauncher, UpdateInstaller, UpdatePackage};
 use crate::schedule::{Scheduler, Timer};
 use crate::tasks::Task;
 use crate::watch::{Publisher, Watch};
 use minisign_verify::PublicKey;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -21,6 +23,7 @@ pub use error::UpdateError;
 pub use state::{display_percent, UpdateState, UNKNOWN_TOTAL_PERCENT};
 pub use verify::{PRODUCTION_PUBKEY, PRODUCTION_PUBKEY_TAURI_B64};
 
+pub const PRODUCTION_BUNDLE_ID: &str = "sh.saeed.kudzu";
 pub const STABLE_FEED: &str =
     "https://github.com/Stringsaeed/kudzu/releases/latest/download/latest.json";
 pub const BETA_FEED: &str =
@@ -56,27 +59,28 @@ pub struct Config {
     pub bundle_id: String,
     pub updates_allowed: bool,
     pub release_build: bool,
-    pub public_key: PublicKey,
+    /// Directory beside the running bundle; the staged archive is created here.
+    pub stage_dir: PathBuf,
+    pub(crate) public_key: PublicKey,
 }
 
 impl Config {
-    pub fn production(version: impl Into<String>) -> Self {
+    pub fn for_identity(
+        bundle_id: impl Into<String>,
+        cloud_and_updates: bool,
+        version: impl Into<String>,
+    ) -> Self {
+        let bundle_id = bundle_id.into();
+        let updates_allowed = cloud_and_updates && bundle_id == PRODUCTION_BUNDLE_ID;
         Self {
             current_version: version.into(),
-            bundle_id: "sh.saeed.kudzu".into(),
-            updates_allowed: true,
+            bundle_id,
+            updates_allowed,
             release_build: !cfg!(debug_assertions),
+            stage_dir: PathBuf::new(),
             public_key: PublicKey::decode(PRODUCTION_PUBKEY)
                 .expect("compiled-in updater public key"),
         }
-    }
-}
-
-pub fn update_allowed(identifier: &str) -> Result<(), &'static str> {
-    if identifier == "sh.saeed.kudzu" {
-        Ok(())
-    } else {
-        Err("Updates are unavailable in Kudzu Dev.")
     }
 }
 
@@ -165,14 +169,21 @@ impl Updates {
 
     pub fn check(&self, trigger: Trigger) -> Task<UpdateState> {
         let this = self.clone();
-        Task::spawn("kudzu-update-check", move || this.run_check(trigger))
-            .expect("update check thread")
+        match Task::spawn("kudzu-update-check", move || this.run_check(trigger)) {
+            Ok(task) => task,
+            Err(_) => Task::done(self.fail_start()),
+        }
     }
 
     pub fn restart_to_update(&self) -> Task<()> {
         let this = self.clone();
-        Task::spawn("kudzu-update-restart", move || this.run_restart())
-            .expect("update restart thread")
+        match Task::spawn("kudzu-update-restart", move || this.run_restart()) {
+            Ok(task) => task,
+            Err(_) => {
+                self.fail_start();
+                Task::done(())
+            }
+        }
     }
 
     pub fn install_on_quit(&self) {
@@ -189,6 +200,15 @@ impl Updates {
 
     fn current(&self) -> UpdateState {
         (*self.inner.publisher.watch().get()).clone()
+    }
+
+    fn fail_start(&self) -> UpdateState {
+        let next = UpdateState::Error {
+            message: UpdateError::Check.to_string(),
+            needs_move: false,
+        };
+        self.publish(next.clone());
+        next
     }
 
     fn run_check(&self, trigger: Trigger) -> UpdateState {
@@ -236,8 +256,11 @@ impl Updates {
                     notes: pending.notes.clone(),
                     date: pending.date.clone(),
                 };
-                *self.inner.pending.lock().unwrap() = Some(pending);
-                self.publish(next.clone());
+                {
+                    let mut slot = self.inner.pending.lock().unwrap();
+                    *slot = Some(pending);
+                    self.publish(next.clone());
+                }
                 next
             }
             Ok(None) => {
@@ -247,6 +270,7 @@ impl Updates {
                 self.publish(next.clone());
                 next
             }
+            Err(CheckFail::Cancelled) => self.fail_cancel(quiet),
             Err(CheckFail::Check(error)) => self.fail_check(quiet, error),
             Err(CheckFail::Download(error)) => {
                 if quiet {
@@ -258,6 +282,15 @@ impl Updates {
                 }
             }
         }
+    }
+
+    fn fail_cancel(&self, quiet: bool) -> UpdateState {
+        if quiet {
+            return self.current();
+        }
+        let next = UpdateState::Idle;
+        self.publish(next.clone());
+        next
     }
 
     fn fail_check(&self, quiet: bool, error: UpdateError) -> UpdateState {
@@ -284,7 +317,10 @@ impl Updates {
             .inner
             .fetch
             .get(&feed_req, &|_, _| {})
-            .map_err(|error| CheckFail::Check(map_fetch(error, UpdateError::Check)))?;
+            .map_err(|error| map_fetch(error, UpdateError::Check))?;
+        if feed_bytes.len() > FEED_MAX_BYTES {
+            return Err(CheckFail::Check(UpdateError::Check));
+        }
         let parsed = feed::parse(&feed_bytes).map_err(CheckFail::Check)?;
         if !feed::is_newer(&parsed.version, &self.inner.config.current_version)
             .map_err(CheckFail::Check)?
@@ -292,11 +328,14 @@ impl Updates {
             return Ok(None);
         }
         let platform = feed::platform(&parsed).map_err(CheckFail::Check)?;
-        minisign_verify::Signature::decode(&platform.signature)
+        feed::check_archive_url(&platform.url, &parsed.version).map_err(CheckFail::Check)?;
+        let signature = verify::decode_signature(&platform.signature)
             .map_err(|_| CheckFail::Check(UpdateError::Signature))?;
-        let version = parsed.version.clone();
+        verify::bind_archive(signature.trusted_comment(), &parsed.version, &platform.url)
+            .map_err(CheckFail::Check)?;
+        let feed_version = parsed.version.clone();
         self.publish(UpdateState::Downloading {
-            version: version.clone(),
+            version: feed_version.clone(),
             downloaded: 0,
             total: None,
         });
@@ -308,7 +347,7 @@ impl Updates {
             cancel: self.inner.cancel.clone(),
         };
         let this = self.clone();
-        let progress_version = version.clone();
+        let progress_version = feed_version.clone();
         let bytes = this
             .inner
             .fetch
@@ -325,9 +364,18 @@ impl Updates {
                     });
                 }
             })
-            .map_err(|error| CheckFail::Download(map_fetch(error, UpdateError::Download)))?;
-        verify::verify(&self.inner.config.public_key, &bytes, &platform.signature)
-            .map_err(CheckFail::Download)?;
+            .map_err(|error| map_fetch(error, UpdateError::Download))?;
+        if bytes.len() > ARCHIVE_MAX_BYTES {
+            return Err(CheckFail::Download(UpdateError::Download));
+        }
+        let version = verify::verify(
+            &self.inner.config.public_key,
+            &bytes,
+            &platform.signature,
+            &feed_version,
+            &platform.url,
+        )
+        .map_err(CheckFail::Download)?;
         Ok(Some(Pending {
             version,
             notes: parsed.notes,
@@ -355,6 +403,9 @@ impl Updates {
         if !self.inner.config.updates_allowed {
             return false;
         }
+        let Some(_busy) = BusyGuard::try_acquire(&self.inner.busy) else {
+            return false;
+        };
         self.cancel();
         let Some(pending) = self.inner.pending.lock().unwrap().take() else {
             return false;
@@ -362,20 +413,18 @@ impl Updates {
         self.publish(UpdateState::Restarting {
             version: pending.version.clone(),
         });
-        let temp = match stage_archive(&pending.bytes) {
-            Ok(temp) => temp,
+        let staged = match stage::archive(&self.inner.config.stage_dir, &pending.bytes) {
+            Ok(staged) => staged,
             Err(_) => {
-                self.publish(UpdateState::Error {
-                    message: UpdateError::Install.to_string(),
-                    needs_move: false,
-                });
+                self.restore_pending(pending, false);
                 return false;
             }
         };
         let package = UpdatePackage {
-            archive: temp.path.clone(),
+            archive: staged.path.clone(),
             bundle_id: self.inner.config.bundle_id.clone(),
             version: pending.version.clone(),
+            sha256: staged.sha256,
         };
         match self.inner.installer.install(&package) {
             Ok(()) => true,
@@ -386,51 +435,48 @@ impl Updates {
                     .probe()
                     .map(|probe| probe.needs_move)
                     .unwrap_or(false);
-                self.publish(UpdateState::Error {
-                    message: if needs_move {
-                        UpdateError::NeedsMove.to_string()
-                    } else {
-                        UpdateError::Install.to_string()
-                    },
-                    needs_move,
-                });
+                self.restore_pending(pending, needs_move);
                 false
             }
         }
+    }
+
+    fn restore_pending(&self, pending: Pending, needs_move: bool) {
+        let message = if needs_move {
+            UpdateError::NeedsMove.to_string()
+        } else {
+            UpdateError::Install.to_string()
+        };
+        *self.inner.pending.lock().unwrap() = Some(pending);
+        self.publish(UpdateState::Error {
+            message,
+            needs_move,
+        });
     }
 }
 
 enum CheckFail {
     Check(UpdateError),
     Download(UpdateError),
+    Cancelled,
 }
 
-fn map_fetch(error: PortError, fallback: UpdateError) -> UpdateError {
+fn map_fetch(error: PortError, fallback: UpdateError) -> CheckFail {
     match error {
-        PortError::InvalidData => UpdateError::Feed,
-        PortError::Cancelled => UpdateError::Download,
-        _ => fallback,
+        PortError::Cancelled => CheckFail::Cancelled,
+        PortError::InvalidData => CheckFail::Check(UpdateError::Feed),
+        _ => {
+            if matches!(fallback, UpdateError::Download) {
+                CheckFail::Download(fallback)
+            } else {
+                CheckFail::Check(fallback)
+            }
+        }
     }
 }
 
 fn rfc3339(time: SystemTime) -> String {
     chrono::DateTime::<chrono::Utc>::from(time).to_rfc3339()
-}
-
-struct TempFile {
-    path: std::path::PathBuf,
-}
-
-impl Drop for TempFile {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
-    }
-}
-
-fn stage_archive(bytes: &[u8]) -> Result<TempFile, IoFailure> {
-    let path = std::env::temp_dir().join(format!("kudzu-update-{}.tar.gz", uuid::Uuid::new_v4()));
-    std::fs::write(&path, bytes)?;
-    Ok(TempFile { path })
 }
 
 struct BusyGuard<'a>(&'a AtomicBool);

@@ -8,12 +8,14 @@ use crate::schedule::Scheduler;
 use crate::tasks::{Task, TaskError};
 use crate::watch::{Publisher, Watch};
 use minisign_verify::PublicKey;
+use sha2::{Digest, Sha256};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
 const TEST_PUB: &str = include_str!("fixtures/test.pub");
 const ARCHIVE: &[u8] = include_bytes!("fixtures/archive.bin");
 const ARCHIVE_SIG: &str = include_str!("fixtures/archive.bin.minisig");
+const ARCHIVE_SIG_B64: &str = include_str!("fixtures/archive.bin.sig");
 const ARCHIVE_URL: &str =
     "https://github.com/Stringsaeed/kudzu/releases/download/v9.9.9/Kudzu_9.9.9_universal.app.tar.gz";
 
@@ -34,9 +36,10 @@ fn test_key() -> PublicKey {
 fn test_config(release_build: bool, updates_allowed: bool) -> Config {
     Config {
         current_version: "0.7.0".into(),
-        bundle_id: "sh.saeed.kudzu".into(),
+        bundle_id: PRODUCTION_BUNDLE_ID.into(),
         updates_allowed,
         release_build,
+        stage_dir: std::env::temp_dir().join(format!("kudzu-s31-{}", uuid::Uuid::new_v4())),
         public_key: test_key(),
     }
 }
@@ -127,14 +130,21 @@ fn wait_relaunch(relauncher: &FakeRelauncher) {
 }
 
 #[test]
-fn development_variant_cannot_use_production_updates() {
-    assert!(update_allowed("sh.saeed.kudzu").is_ok());
-    assert!(update_allowed("sh.saeed.kudzu.dev").is_err());
+fn for_identity_gates_updates_on_the_production_bundle() {
+    let prod = Config::for_identity(PRODUCTION_BUNDLE_ID, true, "0.7.0");
+    assert!(prod.updates_allowed);
+    assert_eq!(prod.bundle_id, PRODUCTION_BUNDLE_ID);
+    let next = Config::for_identity("sh.saeed.kudzu.next", true, "0.7.0");
+    assert!(!next.updates_allowed);
+    let unbundled = Config::for_identity("org.example.other", true, "0.7.0");
+    assert!(!unbundled.updates_allowed);
+    let cloud_off = Config::for_identity(PRODUCTION_BUNDLE_ID, false, "0.7.0");
+    assert!(!cloud_off.updates_allowed);
 }
 
 #[test]
 fn minisign_cli_fixture_verifies_with_minisign_verify() {
-    verify::verify(&test_key(), ARCHIVE, ARCHIVE_SIG).unwrap();
+    verify::verify(&test_key(), ARCHIVE, ARCHIVE_SIG, "9.9.9", ARCHIVE_URL).unwrap();
 }
 
 #[test]
@@ -360,7 +370,9 @@ fn install_on_quit_swaps_without_relaunch() {
     let installed = h.installer.installed.lock().unwrap();
     assert_eq!(installed.len(), 1);
     assert_eq!(installed[0].version, "9.9.9");
-    assert_eq!(installed[0].bundle_id, "sh.saeed.kudzu");
+    assert_eq!(installed[0].bundle_id, PRODUCTION_BUNDLE_ID);
+    let hash: [u8; 32] = Sha256::digest(ARCHIVE).into();
+    assert_eq!(installed[0].sha256, hash);
     assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
     assert!(matches!(
         *h.updates.state().get(),
@@ -436,7 +448,7 @@ fn cancel_mid_download_drops_the_package() {
     h.updates.cancel();
     resume.send(()).unwrap();
     let state = wait_task(&task);
-    assert!(!matches!(state, UpdateState::Ready { .. }), "{state:?}");
+    assert_eq!(state, UpdateState::Idle);
     h.updates.install_on_quit();
     assert!(h.installer.installed.lock().unwrap().is_empty());
 }
@@ -452,6 +464,141 @@ fn dev_identity_reports_the_unavailable_error() {
             if message == "Updates are unavailable in Kudzu Dev."
     ));
     assert!(h.fetch.requests.lock().unwrap().is_empty());
+}
+
+#[test]
+fn next_and_unbundled_identities_do_not_schedule() {
+    for id in ["sh.saeed.kudzu.next", "org.example.other"] {
+        let mut config = Config::for_identity(id, true, "0.7.0");
+        assert!(!config.updates_allowed, "{id}");
+        config.release_build = true;
+        config.public_key = test_key();
+        let h = harness(config, prefs(true, Channel::Stable));
+        offer_signed(&h, STABLE_FEED);
+        h.clock.advance(FIRST_CHECK_DELAY + Duration::from_secs(1));
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(h.fetch.requests.lock().unwrap().is_empty(), "{id}");
+    }
+}
+
+#[test]
+fn tauri_wrapped_signature_reaches_ready() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    h.fetch.respond(
+        STABLE_FEED,
+        Ok(feed_json("9.9.9", ARCHIVE_URL, ARCHIVE_SIG_B64.trim())),
+    );
+    h.fetch.respond(ARCHIVE_URL, Ok(ARCHIVE.to_vec()));
+    let state = wait_task(&h.updates.check(Trigger::User));
+    assert!(matches!(
+        state,
+        UpdateState::Ready { ref version, .. } if version == "9.9.9"
+    ));
+}
+
+#[test]
+fn rejects_archive_url_that_does_not_match_the_signed_name() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    let url = "https://github.com/Stringsaeed/kudzu/releases/download/v9.9.9/evil.tar.gz";
+    h.fetch
+        .respond(STABLE_FEED, Ok(feed_json("9.9.9", url, ARCHIVE_SIG)));
+    h.fetch.respond(url, Ok(ARCHIVE.to_vec()));
+    let state = wait_task(&h.updates.check(Trigger::User));
+    assert!(matches!(
+        state,
+        UpdateState::Error { ref message, needs_move: false }
+            if *message == UpdateError::Signature.to_string()
+    ));
+    assert!(h
+        .fetch
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|r| r.url != url));
+}
+
+#[test]
+fn rejects_feed_version_that_does_not_match_the_signed_file() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    let url = "https://github.com/Stringsaeed/kudzu/releases/download/v8.8.8/Kudzu_8.8.8_universal.app.tar.gz";
+    h.fetch
+        .respond(STABLE_FEED, Ok(feed_json("8.8.8", url, ARCHIVE_SIG)));
+    h.fetch.respond(url, Ok(ARCHIVE.to_vec()));
+    let state = wait_task(&h.updates.check(Trigger::User));
+    assert!(matches!(
+        state,
+        UpdateState::Error { ref message, needs_move: false }
+            if *message == UpdateError::Signature.to_string()
+    ));
+    assert!(h
+        .fetch
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|r| r.url != url));
+}
+
+#[test]
+fn cancel_during_feed_returns_to_idle() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    offer_signed(&h, STABLE_FEED);
+    let (progressed, resume) = h.fetch.pause_after_progress_url(Some(STABLE_FEED));
+    let task = h.updates.check(Trigger::User);
+    progressed
+        .recv_timeout(Duration::from_secs(2))
+        .expect("feed progress");
+    h.updates.cancel();
+    resume.send(()).unwrap();
+    assert_eq!(wait_task(&task), UpdateState::Idle);
+    h.updates.install_on_quit();
+    assert!(h.installer.installed.lock().unwrap().is_empty());
+}
+
+#[test]
+fn oversized_feed_is_rejected_after_the_adapter_returns() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    *h.fetch.skip_max_bytes.lock().unwrap() = true;
+    h.fetch
+        .respond(STABLE_FEED, Ok(vec![0; FEED_MAX_BYTES + 1]));
+    let state = wait_task(&h.updates.check(Trigger::User));
+    assert!(matches!(
+        state,
+        UpdateState::Error {
+            needs_move: false,
+            ..
+        }
+    ));
+    assert!(h
+        .fetch
+        .requests
+        .lock()
+        .unwrap()
+        .iter()
+        .all(|r| r.url != ARCHIVE_URL));
+}
+
+#[test]
+fn install_failure_puts_pending_back() {
+    let h = harness(test_config(false, true), prefs(true, Channel::Stable));
+    offer_signed(&h, STABLE_FEED);
+    wait_task(&h.updates.check(Trigger::User));
+    *h.installer.failure.lock().unwrap() = Some(PortError::Io(crate::error::IoFailure {
+        kind: std::io::ErrorKind::PermissionDenied,
+    }));
+    h.updates.install_on_quit();
+    assert!(h.installer.installed.lock().unwrap().is_empty());
+    assert!(matches!(
+        *h.updates.state().get(),
+        UpdateState::Error {
+            needs_move: false,
+            ..
+        }
+    ));
+    *h.installer.failure.lock().unwrap() = None;
+    h.updates.install_on_quit();
+    assert_eq!(h.installer.installed.lock().unwrap().len(), 1);
 }
 
 fn wait_state(
