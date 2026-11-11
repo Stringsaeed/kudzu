@@ -1,59 +1,40 @@
 //! Inline image data: base64, data URLs, and PNG/JPEG dimensions.
 
+use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig};
+use base64::engine::{DecodePaddingMode, Engine};
+
 use super::Dropped;
 
-const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/// Whitespace-tolerant base64 with optional padding, as the hand-written codec accepted.
+const BASE64: GeneralPurpose = GeneralPurpose::new(
+    &base64::alphabet::STANDARD,
+    GeneralPurposeConfig::new()
+        .with_decode_padding_mode(DecodePaddingMode::Indifferent)
+        .with_decode_allow_trailing_bits(true),
+);
 
 pub(super) fn encode_base64(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
-    for chunk in bytes.chunks(3) {
-        let n = (u32::from(chunk[0]) << 16)
-            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
-            | u32::from(*chunk.get(2).unwrap_or(&0));
-        for k in 0..4 {
-            if k <= chunk.len() {
-                out.push(ALPHABET[(n >> (18 - 6 * k)) as usize & 63] as char);
-            } else {
-                out.push('=');
-            }
-        }
-    }
-    out
+    BASE64.encode(bytes)
 }
 
 /// Strict base64 (ASCII whitespace ignored, padding optional).
 pub(super) fn decode_base64(text: &str) -> Option<Vec<u8>> {
-    let mut out = Vec::with_capacity(text.len() / 4 * 3);
-    let (mut acc, mut bits) = (0u32, 0u32);
-    let mut padding = false;
-    for b in text.bytes() {
-        if b.is_ascii_whitespace() {
-            continue;
-        }
-        if b == b'=' {
-            padding = true;
-            continue;
-        }
-        if padding {
-            return None;
-        }
-        let v = match b {
-            b'A'..=b'Z' => b - b'A',
-            b'a'..=b'z' => b - b'a' + 26,
-            b'0'..=b'9' => b - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            _ => return None,
-        };
-        acc = (acc << 6) | u32::from(v);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((acc >> bits) as u8);
-            acc &= (1 << bits) - 1;
-        }
+    let mut compact: Vec<u8> = text.bytes().filter(|b| !b.is_ascii_whitespace()).collect();
+    // The original reader accepted any amount of terminal padding, even padding alone.
+    while compact.last() == Some(&b'=') {
+        compact.pop();
     }
-    Some(out)
+    // A lone final sextet contributed no bytes. Complete it so the crate validates that
+    // symbol too, then discard the three bytes introduced by completing the quartet.
+    let incomplete = compact.len() % 4 == 1;
+    if incomplete {
+        compact.extend_from_slice(b"AAA");
+    }
+    let mut decoded = BASE64.decode(compact).ok()?;
+    if incomplete {
+        decoded.truncate(decoded.len() - 3);
+    }
+    Some(decoded)
 }
 
 /// The bytes of a base64 `data:` URL. Only raster types Kudzu can embed are accepted here; the
@@ -130,6 +111,32 @@ pub(super) fn sniff(bytes: &[u8]) -> Option<(&'static str, u32, u32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base64_preserves_legacy_decode_acceptance() {
+        for (encoded, decoded) in [
+            ("", &b""[..]),
+            ("=", &b""[..]),
+            ("=====", &b""[..]),
+            ("A", &b""[..]),
+            ("A===", &b""[..]),
+            ("YWJjZ", &b"abc"[..]),
+            ("YWJjZ====", &b"abc"[..]),
+            ("YWI", &b"ab"[..]),
+            ("YWI=====", &b"ab"[..]),
+            ("YWJ", &b"ab"[..]),
+            (" Y W\nI\t=\r= ", &b"ab"[..]),
+        ] {
+            assert_eq!(
+                decode_base64(encoded).as_deref(),
+                Some(decoded),
+                "{encoded:?}"
+            );
+        }
+        for encoded in ["=A", "YW=I", "YWJj*", "YWJjé", "YWI=Z", "YW\u{a0}I"] {
+            assert_eq!(decode_base64(encoded), None, "{encoded:?}");
+        }
+    }
 
     #[test]
     fn base64_round_trips() {

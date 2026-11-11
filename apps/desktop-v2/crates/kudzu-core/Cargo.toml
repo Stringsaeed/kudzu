@@ -14,3 +14,4 @@ thiserror.workspace = true
 unicode-segmentation.workspace = true
 unicode-normalization.workspace = true
 yaml-rust2.workspace = true
+base64.workspace = true

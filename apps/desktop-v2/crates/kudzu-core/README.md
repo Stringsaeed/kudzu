@@ -57,6 +57,10 @@ test-only: the copied assertions still run, without a production serialization A
 The two copied suites that need these derives live in `tests/unit/` and are included
 only by the library's unit-test target.
 
+The `base64` crate handles image encoding and decoding. Input normalization retains
+the original reader's whitespace, unlimited terminal padding, nonzero trailing bits
+and dangling-sextet acceptance; symbols after padding and invalid symbols still fail.
+
 From the workspace root, compare copied test names, tokenized bodies, all fixture
 bytes and production file lengths against the golden-fixture commit:
 
