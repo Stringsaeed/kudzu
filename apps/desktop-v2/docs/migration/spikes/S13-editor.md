@@ -140,3 +140,7 @@ range.
 - `cargo clippy --workspace --all-targets -- -D warnings`: **pass**.
 - `cargo test --workspace`: **pass**, 515 tests, including this spike's 11.
 - `cargo xtask check-deps`: **pass**. The `editor-spike` lock entry is in this commit.
+
+## Owner decision (2026-11-11)
+
+D15: a chip's settings open on a double-click, or with Return or Space when the selection is exactly that chip, until Rune ships a pill press handler (#128). Then it becomes a single click. Everything else in this spike is a go and feeds S23 (the `EditorDoc` with a source map, above), S52, S53 and S54.
