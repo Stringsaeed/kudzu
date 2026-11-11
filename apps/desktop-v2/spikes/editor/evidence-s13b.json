@@ -1,0 +1,217 @@
+{
+  "double_click_zone": {
+    "afterEdge": {
+      "opened": false,
+      "selection": [
+        22,
+        23
+      ]
+    },
+    "beforeEdge": {
+      "opened": false,
+      "selection": [
+        5,
+        6
+      ]
+    },
+    "left": {
+      "opened": true,
+      "selection": [
+        6,
+        22
+      ]
+    },
+    "pill": [
+      6,
+      22
+    ],
+    "right": {
+      "opened": true,
+      "selection": [
+        6,
+        22
+      ]
+    },
+    "wordAfter": {
+      "opened": false,
+      "selection": [
+        23,
+        28
+      ]
+    },
+    "wordBefore": {
+      "opened": false,
+      "selection": [
+        0,
+        5
+      ]
+    },
+    "zoneX": [
+      59.0,
+      200.0
+    ]
+  },
+  "drag_and_keyboard": {
+    "across": [
+      2,
+      26
+    ],
+    "acrossOpened": false,
+    "exactDragOpened": false,
+    "exactDragSelection": [
+      6,
+      22
+    ],
+    "returnAfterShiftArrow": true,
+    "shiftArrowOpenedByItself": false,
+    "slowDragOpened": false,
+    "slowDragSelection": [
+      6,
+      22
+    ],
+    "twoPointDragsThatOpenedIt": 0,
+    "twoPointDragsThatSelectExactlyTheChip": [
+      121.0,
+      122.0
+    ]
+  },
+  "known_limit_nudge": {
+    "opened": false,
+    "selection": [
+      6,
+      22
+    ]
+  },
+  "kudzu_copy": {
+    "all": {
+      "html": "<p>Hello <span data-pill=\"time:{{date}}\">Date \u00b7 ISO date</span> there</p>",
+      "text": "Hello {{date}} there"
+    },
+    "chipAndNextLetter": "{{date}} th",
+    "chipOnly": "{{date}}",
+    "tailAndChip": "lo {{date}}"
+  },
+  "note": "headless Runtime with a MemoryClipboard; written by spikes/editor followup tests",
+  "pointer_handler_cost": {
+    "moves": 200,
+    "viewRuns": 7
+  },
+  "repeated_move_events": {
+    "repeatsThenOpened": [
+      [
+        0,
+        false
+      ],
+      [
+        1,
+        false
+      ],
+      [
+        2,
+        false
+      ],
+      [
+        5,
+        false
+      ]
+    ]
+  },
+  "rune": "29aacb688883a9712bc27175bdafd99fc6edb421",
+  "rune_default_copy": {
+    "html": "<p>Hello <span data-pill=\"time:{{date}}\">Date \u00b7 ISO date</span> there</p>",
+    "text": "Hello Date \u00b7 ISO date there"
+  },
+  "single_click": {
+    "opened": 0
+  },
+  "slash_keyboard": {
+    "chipId": "time:{{date}}",
+    "source": "Say {{date}}",
+    "text": "Say Date \u00b7 ISO date",
+    "then": "Return",
+    "typed": "/da"
+  },
+  "touching_word": {
+    "chipOpened": true,
+    "pill": [
+      5,
+      21
+    ],
+    "wordOpened": false,
+    "wordSelection": [
+      0,
+      21
+    ]
+  },
+  "wrapped_chip": {
+    "fieldLeft": 0.0,
+    "fieldWidth": 130.0,
+    "rows": [
+      {
+        "xFrom": 6.0,
+        "xTo": 122.0,
+        "y": 28.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 122.0,
+        "y": 32.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 122.0,
+        "y": 36.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 122.0,
+        "y": 40.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 44.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 48.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 52.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 56.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 60.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 64.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 68.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 72.0
+      },
+      {
+        "xFrom": 6.0,
+        "xTo": 46.0,
+        "y": 76.0
+      }
+    ]
+  }
+}

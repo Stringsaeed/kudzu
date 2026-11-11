@@ -1,5 +1,8 @@
+mod chips;
 mod doc;
 mod field;
+#[cfg(test)]
+mod followup;
 mod labels;
 mod proof;
 

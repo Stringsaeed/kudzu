@@ -110,7 +110,7 @@ pub fn exercise() -> Report {
     }
 }
 
-fn runtime(state: State) -> Runtime<State> {
+pub(crate) fn runtime(state: State) -> Runtime<State> {
     let mut rt = Runtime::new(state, field::view, (720.0, 280.0), Env::new(true, 1.0));
     rt.set_font_families("System Font, Figtree", "Paper Mono, ui-monospace");
     for _ in 0..4 {
@@ -119,28 +119,28 @@ fn runtime(state: State) -> Runtime<State> {
     rt
 }
 
-fn settle(rt: &mut Runtime<State>) {
+pub(crate) fn settle(rt: &mut Runtime<State>) {
     rt.frame(rt.double_click_interval + 0.05);
 }
 
-fn click(rt: &mut Runtime<State>, x: f32, y: f32) {
+pub(crate) fn click(rt: &mut Runtime<State>, x: f32, y: f32) {
     rt.pointer_down(x, y);
     rt.pointer_up(x, y);
     rt.frame(1.0 / 60.0);
 }
 
-fn focus_field(rt: &mut Runtime<State>) {
+pub(crate) fn focus_field(rt: &mut Runtime<State>) {
     let rect = rect_of(rt, "field");
     click(rt, rect[0] + 12.0, line_y(rt));
     settle(rt);
 }
 
-fn line_y(rt: &Runtime<State>) -> f32 {
+pub(crate) fn line_y(rt: &Runtime<State>) -> f32 {
     let rect = rect_of(rt, "field");
     rect[1] + 8.0 + 9.0
 }
 
-fn rect_of(rt: &Runtime<State>, key: &str) -> [f32; 4] {
+pub(crate) fn rect_of(rt: &Runtime<State>, key: &str) -> [f32; 4] {
     rt.elements()
         .into_iter()
         .find(|e| e.key.as_deref() == Some(key))
@@ -243,7 +243,7 @@ fn slash(rt: &mut Runtime<State>) -> (bool, bool, bool) {
         rt.frame(1.0 / 60.0);
     }
     let inserted = rt.state.chosen.as_deref() == Some("date")
-        && rt.state.edit.pills().any(|(_, id)| id == "time:date");
+        && rt.state.edit.pills().any(|(_, id)| id == "time:{{date}}");
     rt.state.edit = TextEdit::new("hello/x").rich();
     rt.state.edit.set_caret(rt.state.edit.text.len());
     for _ in 0..12 {
