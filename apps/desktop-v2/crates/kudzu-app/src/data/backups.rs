@@ -110,9 +110,21 @@ impl BackupStore {
         Ok(infos)
     }
 
-    /// Loads and decodes a backup file.
+    /// Loads and decodes a backup. Only a file in this folder with a backup's name is read:
+    /// the name is taken from `path` and looked up in the folder, so a path elsewhere (or a
+    /// name that isn't a backup's) is refused.
     pub fn load(&self, path: &Path) -> Result<KudzuLibrary, DataError> {
-        let json = fs::read_to_string(path).map_err(|e| DataError::Read(e.into()))?;
+        let name = path
+            .file_name()
+            .filter(|name| parse_info(Path::new(name), self.time_zone).is_some())
+            .ok_or(DataError::BackupMissing)?;
+        let json = fs::read_to_string(self.dir.join(name)).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                DataError::BackupMissing
+            } else {
+                DataError::Read(e.into())
+            }
+        })?;
         json::decode(&json).map_err(|_| DataError::BackupUnreadable)
     }
 

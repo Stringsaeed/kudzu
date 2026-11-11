@@ -2,7 +2,7 @@
 //! carries a path, a parser message or file contents, so nothing that reaches the log can leak
 //! snippet text.
 
-use kudzu_core::interchange::InterchangeError;
+use kudzu_core::interchange::{raycast, textexpander, InterchangeError};
 
 use crate::error::IoFailure;
 use crate::library::LibraryError;
@@ -17,6 +17,9 @@ pub enum DataError {
     /// The file is not what its type says. The name is the format, never anything from the file.
     #[error("This isn't a valid {0} file.")]
     Invalid(&'static str),
+    /// A fixed instruction for a known mistake, such as exporting from TextExpander as CSV.
+    #[error("{0}")]
+    Advice(&'static str),
     #[error("Unsupported Kudzu library format version {found}. Maximum supported version is {max_supported}.")]
     UnsupportedVersion { found: i64, max_supported: i64 },
     #[error("Couldn't read that file or folder.")]
@@ -36,9 +39,9 @@ pub enum DataError {
     BackupMissing,
     #[error("That backup couldn't be read.")]
     BackupUnreadable,
-    #[error("Another import or backup is still running.")]
+    #[error("Another import, backup or restore is still running.")]
     Busy,
-    #[error("Your library kept changing during the import. Try again.")]
+    #[error("Your library kept changing. Try again.")]
     LibraryBusy,
     #[error(transparent)]
     Library(#[from] LibraryError),
@@ -61,11 +64,26 @@ impl DataError {
                 found,
                 max_supported,
             },
-            InterchangeError::InvalidSource(_) | InterchangeError::Decoding(_) => {
-                Self::Invalid(format)
+            // Only fixed sentences pass through. Anything else may quote the file.
+            InterchangeError::InvalidSource(message) => {
+                advice(&message).map_or(Self::Invalid(format), Self::Advice)
             }
+            InterchangeError::Decoding(_) => Self::Invalid(format),
             InterchangeError::Encoding(_) => Self::Encode,
             InterchangeError::Io { source, .. } => Self::Read(source.into()),
         }
     }
+}
+
+/// The path-free sentences core's readers use for known mistakes.
+fn advice(message: &str) -> Option<&'static str> {
+    [
+        textexpander::FOLDER_MESSAGE,
+        textexpander::BINARY_MESSAGE,
+        textexpander::COMPRESSED_MESSAGE,
+        textexpander::NO_SNIPPETS_MESSAGE,
+        raycast::NOT_RAYCAST_MESSAGE,
+    ]
+    .into_iter()
+    .find(|known| *known == message)
 }

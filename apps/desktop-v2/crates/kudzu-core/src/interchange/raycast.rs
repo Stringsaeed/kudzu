@@ -166,11 +166,11 @@ pub fn import_json(json: &str, file_name: &str) -> Result<ImportResult, Intercha
     })
 }
 
+/// Path-free advice for a JSON file that isn't a Raycast export.
+pub const NOT_RAYCAST_MESSAGE: &str = "This isn't a Raycast snippet export. In Raycast, run “Export Snippets” and choose the JSON file it saves.";
+
 fn not_raycast() -> InterchangeError {
-    InterchangeError::InvalidSource(
-        "This isn't a Raycast snippet export. In Raycast, run “Export Snippets” and choose the JSON file it saves."
-            .into(),
-    )
+    InterchangeError::InvalidSource(NOT_RAYCAST_MESSAGE.into())
 }
 
 fn first_line(text: &str) -> String {

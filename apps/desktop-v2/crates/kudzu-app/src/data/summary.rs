@@ -46,7 +46,8 @@ pub struct ImportSummary {
     pub imported_snippets: usize,
     /// Groups in the source, before deduplication.
     pub imported_groups: usize,
-    /// Snippets the library gained once duplicates merged. Onboarding continues only on a gain.
+    /// Snippets in the file that were not merged into existing ones (`imported - merged`). A
+    /// same-ID update counts. Onboarding continues only on a gain.
     pub added_snippets: usize,
     pub added_groups: usize,
     /// The `preImport` backup of the library as it was before merging.

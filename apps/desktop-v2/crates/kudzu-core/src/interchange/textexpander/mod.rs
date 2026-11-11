@@ -27,12 +27,17 @@ use crate::library::model::{
 
 use plist::Value;
 
+/// Path-free advice shown for a folder, a binary or compressed file, or a file without snippets.
+/// Public so callers can show these sentences while dropping parser-built messages.
+pub const FOLDER_MESSAGE: &str = "Choose the exported .textexpander or .csv file, not a folder.";
+pub const BINARY_MESSAGE: &str = "This is a binary TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead.";
+pub const COMPRESSED_MESSAGE: &str = "This is a compressed TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead.";
+pub const NO_SNIPPETS_MESSAGE: &str = "No TextExpander snippets were found in this file. Export a group from TextExpander as .textexpander or CSV.";
+
 /// Reads a TextExpander export (`.textexpander` property list or CSV) from `path`.
 pub fn import_file(path: &Path) -> Result<ImportResult, InterchangeError> {
     if path.is_dir() {
-        return Err(InterchangeError::InvalidSource(
-            "Choose the exported .textexpander or .csv file, not a folder.".into(),
-        ));
+        return Err(InterchangeError::InvalidSource(FOLDER_MESSAGE.into()));
     }
     let data = fs::read(path)
         .map_err(|e| InterchangeError::io(format!("Couldn't read {}", path.display()), e))?;
@@ -47,16 +52,10 @@ pub fn import_file(path: &Path) -> Result<ImportResult, InterchangeError> {
 pub fn import_data(data: &[u8], file_name: &str) -> Result<ImportResult, InterchangeError> {
     let data = data.strip_prefix(&[0xEF, 0xBB, 0xBF]).unwrap_or(data);
     if data.starts_with(b"bplist") {
-        return Err(InterchangeError::InvalidSource(
-            "This is a binary TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead."
-                .into(),
-        ));
+        return Err(InterchangeError::InvalidSource(BINARY_MESSAGE.into()));
     }
     if data.starts_with(b"PK\x03\x04") {
-        return Err(InterchangeError::InvalidSource(
-            "This is a compressed TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead."
-                .into(),
-        ));
+        return Err(InterchangeError::InvalidSource(COMPRESSED_MESSAGE.into()));
     }
     let text = String::from_utf8_lossy(data);
     let stem = Path::new(file_name)
@@ -119,10 +118,7 @@ fn warning(file: &str, index: usize, trigger: Option<&str>, message: String) -> 
 }
 
 fn not_textexpander() -> InterchangeError {
-    InterchangeError::InvalidSource(
-        "No TextExpander snippets were found in this file. Export a group from TextExpander as .textexpander or CSV."
-            .into(),
-    )
+    InterchangeError::InvalidSource(NO_SNIPPETS_MESSAGE.into())
 }
 
 // MARK: - Property list

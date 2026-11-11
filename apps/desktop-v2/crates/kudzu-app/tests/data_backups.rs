@@ -244,3 +244,45 @@ fn store_errors_say_what_happened_without_naming_paths_or_content() {
     let shown = format!("{error} {error:?}");
     assert!(!shown.contains("secret"), "{shown}");
 }
+
+#[test]
+fn load_reads_only_backups_in_the_store_folder() {
+    let temp = TempDir::new("backup-load-scope");
+    let store = utc_store(&temp.path().join("backups"));
+    let now = utc(2026, 11, 1, 12, 0, 0);
+    let mine = library_with(vec![SnippetRecord::new("Mine", vec![";m".into()], "m")]);
+    let info = store.write(&mine, BackupReason::Manual, now).unwrap();
+
+    // A well-named file elsewhere is never read, even with the same name as a listed one.
+    let elsewhere = temp.path().join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let outside = elsewhere.join(&info.filename);
+    std::fs::write(
+        &outside,
+        "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}",
+    )
+    .unwrap();
+    assert_eq!(store.load(&outside).unwrap().snippets[0].name, "Mine");
+
+    // Not in the folder at all: refused, not read.
+    let stray = elsewhere.join("kudzu-backup-2026-01-01T000000-daily.json");
+    std::fs::write(
+        &stray,
+        "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}",
+    )
+    .unwrap();
+    assert_eq!(store.load(&stray).unwrap_err(), DataError::BackupMissing);
+
+    // Names that aren't a backup's are refused, including traversal and arbitrary files.
+    for path in [
+        temp.path().join("backups/../elsewhere/notes.txt"),
+        std::path::PathBuf::from("/etc/hosts"),
+        std::path::PathBuf::from(".."),
+    ] {
+        assert_eq!(
+            store.load(&path).unwrap_err(),
+            DataError::BackupMissing,
+            "{path:?}"
+        );
+    }
+}

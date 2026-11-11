@@ -17,18 +17,13 @@ impl Inner {
         let source = detect_import_source(path)?;
         let parsed = load_as(path, source)?;
         let incoming = &parsed.library;
-        let (backup, (dedupe_report, added_snippets, added_groups)) = self.run_backed_up(
+        let (backup, dedupe_report) = self.run_backed_up(
             BackupReason::PreImport,
             |_| {},
             |library| {
-                let (snippets, groups) = (library.snippets.len(), library.groups.len());
                 let (merged, report) = merge_library(library, incoming);
-                let added = (
-                    merged.snippets.len().saturating_sub(snippets),
-                    merged.groups.len().saturating_sub(groups),
-                );
                 *library = merged;
-                (report, added.0, added.1)
+                report
             },
         )?;
         self.refresh_backups();
@@ -36,8 +31,16 @@ impl Inner {
             source,
             imported_snippets: incoming.snippets.len(),
             imported_groups: incoming.groups.len(),
-            added_snippets,
-            added_groups,
+            // What the import added, as the Tauri app counts it: everything in the file that
+            // was not folded into an existing record. A same-ID update still counts.
+            added_snippets: incoming
+                .snippets
+                .len()
+                .saturating_sub(dedupe_report.merged_snippets),
+            added_groups: incoming
+                .groups
+                .len()
+                .saturating_sub(dedupe_report.merged_groups),
             backup,
             dedupe_report,
             grouped_warnings: group_warnings(&parsed.warnings),

@@ -409,3 +409,116 @@ fn imports_do_not_prune_backups() {
         "only daily and manual prune"
     );
 }
+
+// MARK: - Messages the user can act on
+
+fn import_text(name: &str, bytes: &[u8]) -> DataError {
+    let rig = Rig::new(KudzuLibrary::default());
+    let file = rig.dir.path().join(name);
+    std::fs::write(&file, bytes).unwrap();
+    import(&rig.data, file).unwrap_err()
+}
+
+#[test]
+fn a_binary_text_expander_file_says_to_export_as_csv() {
+    let error = import_text("Work.textexpander", b"bplist00\x00\x01");
+    assert_eq!(
+        error.to_string(),
+        "This is a binary TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead."
+    );
+}
+
+#[test]
+fn a_compressed_text_expander_file_says_to_export_as_csv() {
+    let error = import_text("Work.textexpander", b"PK\x03\x04rest");
+    assert_eq!(
+        error.to_string(),
+        "This is a compressed TextExpander file Kudzu can't read. In TextExpander, choose File ▸ Export and pick CSV instead."
+    );
+}
+
+#[test]
+fn a_text_expander_file_without_snippets_says_what_to_export() {
+    let error = import_text(
+        "Empty.textexpander",
+        b"<?xml version=\"1.0\"?><plist version=\"1.0\"><dict></dict></plist>",
+    );
+    assert_eq!(
+        error.to_string(),
+        "No TextExpander snippets were found in this file. Export a group from TextExpander as .textexpander or CSV."
+    );
+    // An empty CSV takes the same advice.
+    assert_eq!(import_text("Empty.csv", b"").to_string(), error.to_string());
+}
+
+#[test]
+fn a_json_array_that_is_not_a_raycast_export_says_how_to_export() {
+    let error = import_text("snippets.json", b"[1, 2, 3]");
+    assert_eq!(
+        error.to_string(),
+        "This isn't a Raycast snippet export. In Raycast, run \u{201c}Export Snippets\u{201d} and choose the JSON file it saves."
+    );
+}
+
+#[test]
+fn messages_built_from_the_file_are_replaced_by_a_fixed_sentence() {
+    for (name, bytes, expected) in [
+        (
+            "snippets.json",
+            &b"[ \"SECRET-BODY\" "[..],
+            "This isn't a valid Raycast snippet export file.",
+        ),
+        (
+            "Work.textexpander",
+            &b"<plist version=\"1.0\"><dict><key>SECRET-BODY</key>"[..],
+            "This isn't a valid TextExpander file.",
+        ),
+    ] {
+        let error = import_text(name, bytes);
+        assert_eq!(error.to_string(), expected);
+        assert!(!format!("{error:?}").contains("SECRET-BODY"), "{error:?}");
+    }
+}
+
+#[test]
+fn busy_messages_cover_restores_too() {
+    assert_eq!(
+        DataError::Busy.to_string(),
+        "Another import, backup or restore is still running."
+    );
+    assert_eq!(
+        DataError::LibraryBusy.to_string(),
+        "Your library kept changing. Try again."
+    );
+}
+
+#[test]
+fn added_counts_are_imported_minus_merged_so_a_same_id_update_counts() {
+    let old = chrono::TimeZone::with_ymd_and_hms(&chrono::Utc, 2026, 1, 1, 0, 0, 0).unwrap();
+    let newer = chrono::TimeZone::with_ymd_and_hms(&chrono::Utc, 2026, 2, 1, 0, 0, 0).unwrap();
+    let original = SnippetRecord {
+        created_at: old,
+        updated_at: old,
+        ..SnippetRecord::new("Old name", vec![";same".into()], "body")
+    };
+    let rig = Rig::new(library_with(vec![original.clone()]));
+    let incoming = library_with(vec![SnippetRecord {
+        name: "New name".into(),
+        updated_at: newer,
+        ..original
+    }]);
+    let file = rig.dir.path().join("update.json");
+    std::fs::write(&file, kudzu_json::encode(&incoming).unwrap()).unwrap();
+
+    let summary = import(&rig.data, file).unwrap();
+
+    let (_, library) = rig.library.snapshot();
+    assert_eq!(library.snippets.len(), 1, "an update adds no record");
+    assert_eq!(library.snippets[0].name, "New name");
+    assert_eq!(summary.imported_snippets, 1);
+    assert_eq!(summary.dedupe_report.merged_snippets, 0);
+    assert_eq!(
+        summary.added_snippets, 1,
+        "the Tauri count: imported - merged"
+    );
+}
