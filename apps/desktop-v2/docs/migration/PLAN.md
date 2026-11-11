@@ -1325,6 +1325,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Rapid click-away and click-back: no missed focus reports (Rune drops a `Focused` that disagrees with `is_key()`).
   - Return in a single-line field, Return in multiline (newline), ⌘↩ in multiline, Return on a Choice field, and Escape with a Select open.
   - Multi-display placement, and dragging the header while the preview updates.
+- **Live checks from the S66 review:** the real drag into the permission list and a cancelled drag; keyboard and Finder reveal, including paths with spaces and a translocated copy; the guide panel's click-through with a typed form open; window ordering and placement across Spaces and displays; Reduce Motion; grant and revoke; the five-second restart and reopen. Record the Screen Recording preflight state and confirm the guide's window lookup works without that permission.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
