@@ -1,5 +1,6 @@
 //! RUNE-GAP(#141, #561, #562, #563, #146, #574): delete each adapter with its upstream fix.
 //! Isolated, main-thread AppKit adapters. No framework or application dependencies.
+pub mod app_bundle;
 pub mod app_menu;
 pub mod appearance;
 pub mod current_event;

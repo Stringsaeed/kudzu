@@ -1,8 +1,8 @@
 //! Placeholder content, one view per window, until the screen steps replace them (S41, S56,
-//! S60, S66). Each shows the window's name, its state and the theme it resolved, so
+//! S60). Each shows the window's name, its state and the theme it resolved, so
 //! headless trees can check routing and theme without the real screens.
 use super::theme_sync::ThemeSync;
-use super::windows::{MainState, PaletteState, PermissionsState, PickerState};
+use super::windows::{MainState, PaletteState, PickerState};
 use crate::theme::Theme;
 use rune::{col, text, Cx, El};
 
@@ -67,18 +67,6 @@ pub(super) fn picker(s: &PickerState, cx: &mut Cx<PickerState>) -> El {
         "picker",
         theme,
         "Clipboard History",
-        detail.into(),
-        &s.model.theme,
-    )
-}
-
-pub(super) fn permissions(s: &PermissionsState, cx: &mut Cx<PermissionsState>) -> El {
-    let theme = s.model.theme.theme(cx.system_dark());
-    let detail = if s.model.open { "Open" } else { "Hidden" };
-    frame(
-        "permissions",
-        theme,
-        "Permissions",
         detail.into(),
         &s.model.theme,
     )

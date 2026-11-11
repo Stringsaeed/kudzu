@@ -44,6 +44,11 @@ impl ThemeSync {
     pub fn theme(&self, system_dark: bool) -> &'static Theme {
         Theme::resolve(self.appearance, system_dark)
     }
+
+    /// Used by `--scene` setup so `--theme light|dark` drives the scene's theme.
+    pub(crate) fn set_for_scene(&mut self, appearance: Appearance) {
+        self.appearance = appearance;
+    }
 }
 
 pub fn appearance(preference: Preference) -> Appearance {

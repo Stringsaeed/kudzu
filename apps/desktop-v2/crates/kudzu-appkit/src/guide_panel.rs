@@ -193,6 +193,16 @@ impl GuidePanel {
     pub fn hide(&self) {
         self.panel.orderOut(None);
     }
+
+    /// Positive CGWindowID when the panel has a window-server backing store and is ordered in.
+    pub fn window_number(&self) -> Option<u32> {
+        if !self.panel.isVisible() {
+            return None;
+        }
+        u32::try_from(self.panel.windowNumber())
+            .ok()
+            .filter(|&n| n > 0)
+    }
 }
 
 impl Drop for GuidePanel {

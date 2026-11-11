@@ -98,6 +98,14 @@ impl Shell {
         self.0.handles.permissions.update(|s, _| s.show());
     }
 
+    /// Open the permission companion with `kind` pre-selected.
+    pub fn open_permissions_for(&self, kind: kudzu_app::ports::PermissionKind) {
+        self.0
+            .handles
+            .permissions
+            .update(move |s, _| s.show_for(kind));
+    }
+
     /// ⌘Q and the app menu's Close Windows: cancel a pending form (lifting its suppression),
     /// dismiss every panel, commit drafts and hide `main`. The app keeps running.
     pub fn close_windows(&self) {
@@ -177,6 +185,14 @@ impl Shell {
 
     pub(crate) fn track_window(&self, handle: &rune::WindowHandle) {
         self.0.windows.track(handle);
+    }
+
+    pub(crate) fn window(&self, key: &str) -> Option<rune::WindowHandle> {
+        self.0.windows.window(key)
+    }
+
+    pub(crate) fn set_guide_window(&self, number: Option<u32>) {
+        self.0.windows.set_guide(number);
     }
 
     /// Keep a started task until it finishes, then log a failure. Drained by `main`'s poll.

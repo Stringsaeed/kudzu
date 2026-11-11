@@ -10,6 +10,7 @@ kudzu-core = { path = "../kudzu-core" }
 kudzu-appkit = { path = "../kudzu-appkit" }
 rune.workspace = true
 rune-kit.workspace = true
+image.workspace = true
 uuid.workspace = true
 objc2-foundation.workspace = true
 log.workspace = true

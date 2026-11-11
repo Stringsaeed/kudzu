@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 pub(crate) struct WindowList {
     port: Arc<dyn KudzuWindows>,
     handles: Mutex<Vec<rune::WindowHandle>>,
+    guide: Mutex<Option<u32>>,
 }
 
 impl WindowList {
@@ -14,6 +15,7 @@ impl WindowList {
         Self {
             port,
             handles: Mutex::new(Vec::new()),
+            guide: Mutex::new(None),
         }
     }
 
@@ -25,6 +27,26 @@ impl WindowList {
             handles.push(handle.clone());
         }
         self.push();
+    }
+
+    /// Look up a tracked Rune window handle by its window key.
+    pub(crate) fn window(&self, key: &str) -> Option<rune::WindowHandle> {
+        let handles = self.handles.lock().unwrap_or_else(PoisonError::into_inner);
+        handles.iter().find(|h| h.key() == key).cloned()
+    }
+
+    /// Register or clear the click-through permission guide overlay's `CGWindowID`.
+    pub(crate) fn set_guide(&self, number: Option<u32>) {
+        let changed = {
+            let mut guide = self.guide.lock().unwrap_or_else(PoisonError::into_inner);
+            let next = number.filter(|&n| n > 0);
+            let changed = *guide != next;
+            *guide = next;
+            changed
+        };
+        if changed {
+            self.push();
+        }
     }
 
     /// Cheap and non-blocking; safe on the UI thread.
@@ -42,10 +64,17 @@ impl WindowList {
             .filter_map(|handle| handle.window_number())
             .map(|number| KudzuWindow {
                 number,
-                // None of the five windows passes clicks through; S66's guide overlay does.
                 passes_clicks_through: false,
             })
             .collect();
+        if let Some(number) = *self.guide.lock().unwrap_or_else(PoisonError::into_inner) {
+            if !windows.iter().any(|w| w.number == number) {
+                windows.push(KudzuWindow {
+                    number,
+                    passes_clicks_through: true,
+                });
+            }
+        }
         windows.sort_by_key(|window| window.number);
         windows.dedup();
         windows
@@ -56,7 +85,17 @@ impl WindowList {
 mod tests {
     use super::WindowList;
     use kudzu_app::fixtures::engine::FakeEngine;
-    use std::sync::Arc;
+    use kudzu_app::ports::{KudzuWindow, KudzuWindows};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Default)]
+    struct Recorded(Mutex<Vec<KudzuWindow>>);
+
+    impl KudzuWindows for Recorded {
+        fn set_kudzu_windows(&self, windows: &[KudzuWindow]) {
+            *self.0.lock().unwrap() = windows.to_vec();
+        }
+    }
 
     #[test]
     fn a_handle_without_a_window_number_is_dropped() {
@@ -82,5 +121,23 @@ mod tests {
             engine.state.lock().unwrap().windows.last(),
             Some(&Vec::new())
         );
+    }
+
+    #[test]
+    fn guide_panel_is_tracked_as_click_through_and_removed_on_hide() {
+        let port = Arc::new(Recorded::default());
+        let list = WindowList::new(port.clone());
+
+        list.set_guide(Some(4242));
+        assert_eq!(
+            *port.0.lock().unwrap(),
+            vec![KudzuWindow {
+                number: 4242,
+                passes_clicks_through: true,
+            }]
+        );
+
+        list.set_guide(None);
+        assert!(port.0.lock().unwrap().is_empty());
     }
 }

@@ -2017,6 +2017,7 @@ dependencies = [
 name = "kudzu-ui"
 version = "0.1.0"
 dependencies = [
+ "image",
  "kudzu-app",
  "kudzu-appkit",
  "kudzu-core",
