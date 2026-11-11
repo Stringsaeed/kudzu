@@ -558,6 +558,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - `Cargo.lock` conflicts: take either side, run `cargo check`, commit the result. Never hand-edit it.
 - A screen step builds against `kudzu_app::fixtures`, so it does not wait for real adapters.
 - The orchestrator re-runs the gate of rule 8 after every merge.
+- **Integration edits outside Owns are allowed** (added 2026-11-11 after S03): `<crate> = { workspace = true }` lines for approved dependencies in any crate's `Cargo.toml`; `Cargo.lock` as cargo generates it; one-line `mod` declarations, scene or window registrations, and subcommand dispatch entries in a parent module (`lib.rs`, `mod.rs`, `xtask/src/main.rs`, `src/compose.rs`). Nothing more. The step report lists each such edit. They resolve by union at merge.
 
 **Step fields.** *Owns* is the scope. *Deliverables* is given where it adds something; where a step has none, the deliverable is the modules in *Owns*, behaving as *Accept* lists. *Accept* lists what must be true beyond the gate. *Closes* names the FEATURES checks the step satisfies (a check split across steps appears in each; S74 confirms them all).
 
