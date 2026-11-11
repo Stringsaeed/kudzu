@@ -1,0 +1,227 @@
+{
+  "after_rune_place": {
+    "alpha": 1.0,
+    "behavior": 257,
+    "behavior_names": [
+      "CanJoinAllSpaces",
+      "FullScreenAuxiliary"
+    ],
+    "class": "NSKVONotifying_WinitWindow",
+    "found": true,
+    "frame": [
+      392.0,
+      354.0,
+      420.0,
+      660.0
+    ],
+    "ignores_mouse": false,
+    "level": 3,
+    "number": 3725,
+    "on_space": true,
+    "radius": 18.0,
+    "shadow": true,
+    "style": 4,
+    "visible": true
+  },
+  "available": [
+    0.0,
+    65.0,
+    1800.0,
+    1065.0
+  ],
+  "before": {
+    "alpha": 1.0,
+    "behavior": 257,
+    "behavior_names": [
+      "CanJoinAllSpaces",
+      "FullScreenAuxiliary"
+    ],
+    "class": "NSKVONotifying_WinitWindow",
+    "found": true,
+    "frame": [
+      690.0,
+      368.0,
+      420.0,
+      660.0
+    ],
+    "ignores_mouse": false,
+    "level": 3,
+    "number": 3725,
+    "on_space": true,
+    "radius": 18.0,
+    "shadow": true,
+    "style": 4,
+    "visible": true
+  },
+  "bundle": "/Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu Permissions Spike.app",
+  "bundle_id": "sh.saeed.kudzu.next.permissions-spike",
+  "bundled": true,
+  "canvas": [
+    312.0,
+    82.0,
+    1338.0,
+    1012.0
+  ],
+  "companion_collection": [
+    "CanJoinAllSpaces",
+    "FullScreenAuxiliary"
+  ],
+  "companion_level": 3,
+  "companion_on_space": true,
+  "companion_visible_with_settings": true,
+  "destination": [
+    830.0,
+    162.0,
+    740.0,
+    852.0
+  ],
+  "drag": {
+    "bundle": "/Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu Permissions Spike.app",
+    "can_post_events": true,
+    "live_session": true,
+    "never_over_settings": true,
+    "offered": true,
+    "on_drag_end": [],
+    "pasteboard_path": "/Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu Permissions Spike.app",
+    "pasteboard_url": "file:///Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu%20Permissions%20Spike.app/",
+    "private_pasteboard": {
+      "matches": true,
+      "read_file_url": "file:///Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu%20Permissions%20Spike.app/",
+      "read_path": "/Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu Permissions Spike.app",
+      "wrote_file_url": "file:///Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu%20Permissions%20Spike.app/",
+      "wrote_ok": true
+    },
+    "released_on_companion": true
+  },
+  "drag_end_count": 0,
+  "expected": [
+    392.0,
+    354.0,
+    420.0,
+    660.0
+  ],
+  "front_while_settings": {
+    "app_active": false,
+    "bundle": "com.apple.systempreferences",
+    "pid": 82751
+  },
+  "guide": {
+    "animate": true,
+    "decision": "overlay",
+    "native": null,
+    "overlay": {
+      "alpha": 1.0,
+      "behavior": 0,
+      "behavior_names": [],
+      "class": "NSKVONotifying_WinitWindow",
+      "found": true,
+      "frame": [
+        312.0,
+        82.0,
+        1338.0,
+        1012.0
+      ],
+      "ignores_mouse": false,
+      "level": 3,
+      "number": 3733,
+      "on_space": true,
+      "radius": 0.0,
+      "shadow": false,
+      "style": 4,
+      "visible": true
+    },
+    "overlay_live": {
+      "alpha": 1.0,
+      "behavior": 0,
+      "behavior_names": [],
+      "class": "NSKVONotifying_WinitWindow",
+      "found": true,
+      "frame": [
+        312.0,
+        82.0,
+        1338.0,
+        1012.0
+      ],
+      "ignores_mouse": false,
+      "level": 3,
+      "number": 3733,
+      "on_space": true,
+      "radius": 0.0,
+      "shadow": false,
+      "style": 4,
+      "visible": true
+    }
+  },
+  "host": {
+    "arch": "aarch64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "sw_vers": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B123\n"
+  },
+  "notes": [
+    "closed the Finder window this reveal opened",
+    "quit System Settings because this probe opened it"
+  ],
+  "nsbundle_id": "sh.saeed.kudzu.next.permissions-spike",
+  "opened_settings_url": true,
+  "origin_set": true,
+  "place_delta": [
+    0.0,
+    0.0
+  ],
+  "placed": {
+    "alpha": 1.0,
+    "behavior": 257,
+    "behavior_names": [
+      "CanJoinAllSpaces",
+      "FullScreenAuxiliary"
+    ],
+    "class": "NSKVONotifying_WinitWindow",
+    "found": true,
+    "frame": [
+      392.0,
+      354.0,
+      420.0,
+      660.0
+    ],
+    "ignores_mouse": false,
+    "level": 3,
+    "number": 3725,
+    "on_space": true,
+    "radius": 18.0,
+    "shadow": true,
+    "style": 4,
+    "visible": true
+  },
+  "presses": 0,
+  "ready": true,
+  "reduce_motion": false,
+  "reveal": {
+    "bundle": "/Users/saeed/.t3/worktrees/text-expander/t3-9d8f27ac-b40898457aa28044/apps/desktop-v2/target/bundle/Kudzu Permissions Spike.app",
+    "finder_was_running": true,
+    "revealed": true
+  },
+  "rune": "29aacb688883a9712bc27175bdafd99fc6edb421",
+  "settings_url": "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+  "settings_was_running": false,
+  "shown_via": "show",
+  "window_error": null,
+  "windows": [
+    {
+      "alpha": 1.0,
+      "behavior": 257,
+      "class": "NSKVONotifying_WinitWindow",
+      "frame": [
+        690.0,
+        368.0,
+        420.0,
+        660.0
+      ],
+      "has_view": true,
+      "level": 3,
+      "on_space": true,
+      "style": 4,
+      "title": "kudzu-spike-permissions",
+      "visible": true
+    }
+  ]
+}
