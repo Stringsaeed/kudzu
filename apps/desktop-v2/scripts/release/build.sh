@@ -55,7 +55,8 @@ PY
       DMG=$3
       codesign --verify --strict "$DMG"
       if [[ ${APPLE_SIGNING_IDENTITY:-} != - ]]; then
-        codesign --verify --strict -R='=anchor apple generic and certificate leaf[subject.OU] = "V3HN8HXZYK"' "$DMG"
+        # -R=<text> takes the requirement inline; a second '=' after it is a parse error.
+        codesign --verify --strict -R='anchor apple generic and certificate leaf[subject.OU] = "V3HN8HXZYK"' "$DMG"
       fi
       if [[ ${SKIP_NOTARIZE:-} != 1 ]]; then
         xcrun stapler validate "$APP"
