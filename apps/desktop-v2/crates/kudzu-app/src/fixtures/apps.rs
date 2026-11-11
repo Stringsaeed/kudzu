@@ -15,6 +15,8 @@ pub struct FakeApps {
     pub activations: Mutex<Vec<AppInfo>>,
     pub caret: Mutex<Option<Rect>>,
     pub failure: Mutex<Option<PortError>>,
+    pub installed_calls: Mutex<usize>,
+    pub icon_calls: Mutex<Vec<(String, u32)>>,
 }
 impl FakeApps {
     fn check(&self) -> Result<(), PortError> {
@@ -24,10 +26,12 @@ impl FakeApps {
 impl AppCatalog for FakeApps {
     fn installed(&self) -> Result<Vec<AppInfo>, PortError> {
         self.check()?;
+        *self.installed_calls.lock().unwrap() += 1;
         Ok(self.installed.lock().unwrap().clone())
     }
-    fn icon(&self, id: &str, _: u32) -> Result<Option<Vec<u8>>, PortError> {
+    fn icon(&self, id: &str, size: u32) -> Result<Option<Vec<u8>>, PortError> {
         self.check()?;
+        self.icon_calls.lock().unwrap().push((id.into(), size));
         Ok(self.icons.lock().unwrap().get(id).cloned())
     }
 }
