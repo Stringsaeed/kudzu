@@ -8,7 +8,6 @@ use crate::schedule::Scheduler;
 use crate::tasks::{Task, TaskError};
 use crate::watch::{Publisher, Watch};
 use minisign_verify::PublicKey;
-use sha2::{Digest, Sha256};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
@@ -371,8 +370,8 @@ fn install_on_quit_swaps_without_relaunch() {
     assert_eq!(installed.len(), 1);
     assert_eq!(installed[0].version, "9.9.9");
     assert_eq!(installed[0].bundle_id, PRODUCTION_BUNDLE_ID);
-    let hash: [u8; 32] = Sha256::digest(ARCHIVE).into();
-    assert_eq!(installed[0].sha256, hash);
+    let hash: [u8; 32] = *blake3::hash(ARCHIVE).as_bytes();
+    assert_eq!(installed[0].digest, hash);
     assert_eq!(*h.relauncher.calls.lock().unwrap(), 0);
     assert!(matches!(
         *h.updates.state().get(),

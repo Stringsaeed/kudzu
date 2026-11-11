@@ -7,7 +7,7 @@
 //! - `CFBundleIdentifier` equals `UpdatePackage.bundle_id`.
 //! - `codesign --verify --deep --strict` passes against a designated requirement
 //!   pinned to team `V3HN8HXZYK` and that bundle id.
-//! - The staged archive's SHA-256 matches `UpdatePackage.sha256`.
+//! - The staged archive's BLAKE3 digest matches `UpdatePackage.digest`.
 //! - The archive contains no symlinks or hardlinks escaping the bundle, no device
 //!   files, and no setuid/setgid bits.
 //! - Total extracted size and entry count are capped.
@@ -27,7 +27,7 @@ pub struct UpdatePackage {
     /// Signed version from the minisign trusted comment (`file:Kudzu_<version>_…`).
     pub version: String,
     /// SHA-256 of the staged archive bytes.
-    pub sha256: [u8; 32],
+    pub digest: [u8; 32],
 }
 pub trait UpdateInstaller: Send + Sync {
     fn probe(&self) -> Result<InstallProbe, PortError>;

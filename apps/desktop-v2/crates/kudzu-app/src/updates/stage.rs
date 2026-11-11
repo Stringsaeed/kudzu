@@ -1,5 +1,4 @@
 use crate::error::IoFailure;
-use sha2::{Digest, Sha256};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::fs::OpenOptionsExt;
@@ -7,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 pub struct Staged {
     pub path: PathBuf,
-    pub sha256: [u8; 32],
+    pub digest: [u8; 32],
 }
 
 impl Drop for Staged {
@@ -31,6 +30,6 @@ pub fn archive(dir: &Path, bytes: &[u8]) -> Result<Staged, IoFailure> {
     }
     Ok(Staged {
         path,
-        sha256: Sha256::digest(bytes).into(),
+        digest: *blake3::hash(bytes).as_bytes(),
     })
 }

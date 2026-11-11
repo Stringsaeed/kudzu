@@ -896,7 +896,7 @@ Every service is tested against the fakes in `kudzu_app::fixtures`. The behaviou
   - The extracted `CFBundleShortVersionString` equals the **signed** version from `UpdatePackage`, and it must be strictly greater than the **running** bundle's version.
   - `CFBundleIdentifier` equals the expected bundle id.
   - `codesign --verify --deep --strict` passes against a designated requirement pinned to team `V3HN8HXZYK` and the bundle id.
-  - The staged archive's SHA-256 matches.
+  - The staged archive's BLAKE3 digest (`UpdatePackage.digest`) matches.
   - The archive contains no symlinks or hardlinks escaping the bundle, no device files and no setuid/setgid bits.
   - Total extracted size and entry count are capped.
   - Extraction happens on the same volume, and the swap is a `rename`.
@@ -1302,6 +1302,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D13 | **Collation:** `icu_collator` (ICU4X) is approved (2026-11-11) for `localeCompare`-compatible sorting of snippet and group names, replacing S21's hand-written approximation. Pin the version and data, check against browser-recorded orderings, and report the binary-size cost. | §2, S21 |
 | D14 | **Refused paste never loses text (fix, 2026-11-11):** a paste-based expansion saves and writes the clipboard **before** sending any Backspace. If posting ⌘V still fails afterwards, the trigger is typed back. Today's engine sends the Backspaces first and leaves neither the trigger nor the snippet (found by S39). This is a fix beyond D5 and D9. | S34 (with S39's pinned test updated to the fixed behaviour) |
 | D15 | **Opening a chip's settings (2026-11-11, after S13):** Rune's text field doesn't select a chip on a single click (#128, #353), so a chip's settings open on a **double-click**, or with **Return or Space** when the caret selection is exactly that chip. This switches to a single click once Rune ships a pill press handler. The code is tagged `RUNE-GAP(#128)` in `kudzu-ui/src/main/editor/chips.rs`. | §3 gap 6, S52, S53 |
+| D16 | **Update digest:** the staged-archive integrity check between the update service and the installer uses `blake3`, which Rune already compiles, rather than adding `sha2` (decided 2026-11-11). | S31, S36 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 

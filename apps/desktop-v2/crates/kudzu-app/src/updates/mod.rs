@@ -424,7 +424,7 @@ impl Updates {
             archive: staged.path.clone(),
             bundle_id: self.inner.config.bundle_id.clone(),
             version: pending.version.clone(),
-            sha256: staged.sha256,
+            digest: staged.digest,
         };
         match self.inner.installer.install(&package) {
             Ok(()) => true,
