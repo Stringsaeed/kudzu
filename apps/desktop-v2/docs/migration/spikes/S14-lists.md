@@ -93,9 +93,8 @@ proposed text; upstream publication remains the orchestrator's job.
 
 ## Integration and evidence limits
 
-The root workspace lock needs the seven-line new local-package entry supplied in
-`spikes/lists/workspace-lock.patch`. It is outside S14 ownership, so it is not in
-this commit. Gates can pass after Cargo generates this entry; a clean checkout's
+The root workspace lock needed a seven-line local-package entry outside S14's ownership;
+the orchestrator integrated it in a follow-up commit (`build(desktop-v2): lock the lists spike crate`). Gates can pass after Cargo generates this entry; a clean checkout's
 `cargo metadata --locked` cannot pass until that entry is generated or integrated. This is a scope
 conflict, not a new third-party dependency. No source from earlier Rune ports was
 read or reused. Production type-to-filter/search ranking and clipboard actions are
