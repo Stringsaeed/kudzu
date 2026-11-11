@@ -136,3 +136,38 @@ fn a_click_while_the_undo_moves_the_caret_stops_it() {
     rig.type_("⌫");
     assert_eq!(rig.posted(), [Out::Right]);
 }
+
+// MARK: A stopped undo is reported (third review, minor)
+
+/// The undo stops after its first press: the user's Backspace did only part of its job, so the
+/// activity log says the undo of that expansion was interrupted.
+#[test]
+fn a_stopped_undo_is_reported_as_interrupted() {
+    let rig = expanded();
+    rig.at(super::desk::At::Press(9), |d| d.clicks());
+    rig.type_("⌫");
+    assert_eq!(
+        rig.host.outcomes(),
+        [ActivityOutcome::Expanded, ActivityOutcome::Interrupted]
+    );
+}
+
+/// Listen-only: the undo is cancelled before its first press (a click while the Backspace
+/// settles). It is reported, not silently dropped.
+#[test]
+fn an_undo_cancelled_before_its_first_press_is_reported() {
+    let rig = Rig::with(&cursor_snippet(), |d| {
+        d.with(|s| s.refuse = vec![crate::TapMode::Active])
+    });
+    rig.type_(";sig");
+    rig.at(super::desk::At::Sleep(super::rig::ms(30), 1), |d| {
+        d.clicks()
+    });
+    rig.clear_log();
+    rig.type_("⌫");
+    assert_eq!(rig.posted(), []);
+    assert_eq!(
+        rig.host.outcomes(),
+        [ActivityOutcome::Expanded, ActivityOutcome::Interrupted]
+    );
+}

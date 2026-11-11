@@ -149,6 +149,17 @@ impl Recorder {
         }
     }
 
+    /// An undo of the last expansion stopped before it finished (the context changed): the
+    /// user's Backspace did none or only part of its job, so the log says so rather than
+    /// dropping it silently. Nothing is typed in its place.
+    pub fn undo_interrupted(&self) {
+        let last = lock(&self.state).last_expansion.take();
+        if let Some(subject) = last {
+            self.host
+                .activity(subject.event(ActivityOutcome::Interrupted));
+        }
+    }
+
     /// The form `token` was dismissed without inserting.
     pub fn form_cancelled(&self, token: u64) {
         let form = lock(&self.state).forms.remove(&token);

@@ -279,13 +279,17 @@ impl Imp {
             || !self.allowed(Guard::Typed)
             || self.observe().frontmost_pid() != m.pid
         {
-            if let MatcherEvent::Expand(trigger) = &m.event {
-                cancelled(self, trigger);
+            match &m.event {
+                MatcherEvent::Expand(trigger) => cancelled(self, trigger),
+                MatcherEvent::Undo(_) => self.recorder.undo_interrupted(),
             }
             return Ok(());
         }
         if m.mode == PlanMode::ListenOnly && lock(&self.core).listen_only_interrupted {
             lock(&self.core).reset_matcher();
+            if matches!(m.event, MatcherEvent::Undo(_)) {
+                self.recorder.undo_interrupted();
+            }
             return Ok(());
         }
         match &m.event {
@@ -335,6 +339,8 @@ impl Imp {
                 // stops the undo where it is, never deleting or typing at the new place.
                 if self.post_checked(&typed_live, &presses)? {
                     self.recorder.undone();
+                } else {
+                    self.recorder.undo_interrupted();
                 }
                 Ok(())
             }
