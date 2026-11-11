@@ -895,6 +895,19 @@ Every service is tested against the fakes in `kudzu_app::fixtures`. The behaviou
   - Clicks are judged by their window-under-pointer and its owner pid, so the engine needs Kudzu's pid and window list.
 - **From the S28 fixes:** implement `Pasteboard::is_own`, `Pasteboard::has_private_marker` and the new `FileIcons::file_icon` (looked up by filesystem path, 64 px) with NSWorkspace. `read()` must keep the marker types of every item, including empty or promised data, because the service checks markers before it reads any data.
 - **From the S27 fixes (`docs/migration/S27-review-fixes.md` § "API and integration hand-off"):** `insert` and `submit_form(token, values, EventStamp)` return admission results only (D20). Route every call through the current `EngineInstance` from the shared `EngineInstances` allocator: `native_token` mismatch is `StaleToken` for submit and a no-op for cancel and focus; never pass a retired token to a new engine. Implement `Pasteboard::read_text` as a text-only native read. The S34 blocker fixes are changing the engine's submit and focus inputs again; map to whatever S34 lands with.
+- **Engine interface after the S34 re-review fixes** (replaces the earlier S34 notes on `submit_form`/`form_panel_focused_after`):
+  ```rust
+  pub struct EventStamp(pub u64);                    // 0 = unknown
+  pub struct InputEvent { pub stamp: EventStamp, pub key_code: Option<u16> }
+  pub struct PanelFocus { pub key: bool, pub seq: u64, pub after: Option<InputEvent> }
+  pub struct Submission { pub event: Option<InputEvent>, pub focus_seq: u64 }
+  pub struct KudzuWindow { pub number: u32, pub passes_clicks_through: bool }
+  Engine::form_panel_focused(&self, token: u64, focus: PanelFocus)
+  Engine::submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission)
+  Engine::set_kudzu_windows(&self, windows: &[KudzuWindow])
+  ```
+  S27's `FormChannel` port currently carries a bare `EventStamp`; widen it to `Submission` and `PanelFocus` here.
+- **Kudzu's windows:** push the window numbers and click-through flags with `set_kudzu_windows` whenever a Kudzu window opens, closes or changes. Until the first push every click interrupts typed forms.
 - **Accept:** Each adapter passes the same contract test suite as its fake (the suite is generic over the port; the real adapter runs on macOS for cases that need no permission). The engine tests that moved with the code (`apps`, thumbnails) pass here. The commit body lists what S71 must check by hand.
 - **Closes:** none alone (enables EXP, CLP and PKR live checks).
 - **Depends:** S27, S28, S30, S34 · **Parallel with:** S32, S37, S70
@@ -962,6 +975,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **From the S28 fixes:** at shutdown, stop capture, drain the shared writer, then call the clipboard service's `finish_shutdown()` for the final collection.
 - **From the S27 fixes (`docs/migration/S27-review-fixes.md` § "API and integration hand-off"):** route `EngineEvents::activity` to both `expansion.activity_outcome` and `activity.record`; `expanded` goes only to `library.record_expansion`. Keep one `EngineInstances` allocator for the router's lifetime and stop the old engine before `next_engine()`. After every engine start, call `expansion.resync()` and wait for its generation before admitting insertion. Settle `SubmitStartError.restoration` like an explicit-cancel task.
 - **From the S36 fixes (`docs/migration/S36_REVIEW_FIXES.md` § "S40 integration requirements"):** take and keep `InstanceGuard` before NSApplication starts, so a second copy exits before it registers with Launch Services or eats the owner's reopen event. Build one bundle installer and pass its `Arc<dyn UpdateInstaller>` to `LaunchAgent::new(bundle_id, executable, installer)`. A failed login-item constructor means the login item is unavailable, not a startup failure; never substitute a fake. A quiet skip (the bundle on disk is already newer) does not authorise an automatic restart.
+- **From the S34 re-review fixes:** wire window open, close and change events to `Engine::set_kudzu_windows` (through the S35 adapter) before any form can open.
 - **Accept:** On fakes, without Rune: every row of the reactions table, end to end; the shutdown order of §1.2 with a slow writer, run once however quit starts. Headless: `--list-windows` prints `main`, `palette`, `picker`, `form`, `permissions`; a scripted shortcut opens the palette and Escape hides it; `{"reopen": true}` opens `main`; scripts that cross windows run with `--desktop`. With fixtures on a real temp folder, an edited draft is on disk after an immediate relaunch following each of: the tray's Quit, ⌘Q, the close button, a scripted system quit. After every way of dismissing the palette, the picker or a form, nothing is suppressed. Turning recording off hides an open picker. Tray model tests: item order and labels (with Dev names), the status line, glyph priority pause → Secure Input → permission, update label states, Clipboard History disabled while recording is off. New Snippet from Selection captures, then routes to a new snippet even when the selection is empty. Closing `main` hides it and drops the Dock icon. ⌘Q closes every window, cancels a pending form and lifts suppression. `shutdown()` runs once however quit starts. `--hidden` is ignored on first run. A theme change reaches every window in one turn. On a Dev bundle: the status item appears and works; a hotkey conflict rolls back.
 - **Closes:** SHL-1, SHL-2, SHL-3, SHL-4, SHL-5, SHL-6, SHL-7, WIN-1, QS-1 and PKR-1 (shell parts).
 - **Depends:** S04, S11, S26–S33, S35–S38 · **Parallel with:** none
@@ -1084,6 +1098,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **From S34 (FRM-4 contract):** report `form_panel_focused(token, true)` from the panel's key-status notification on the main thread, before the panel handles the next event, and make the panel key on any click inside it. Clicks are settled by the next focus report, so a late report makes the engine conservative: some submits are refused rather than risking text deleted at the wrong caret. S71 checks where each click actually lands.
 - **From the S34 safety fixes:** submit with `EventStamp` = `CGEventGetTimestamp` of `NSApp.currentEvent`'s CGEvent, and report focus changes with the stamp of the event that caused them (`form_panel_focused_after`). Typing in another Kudzu panel, or right after clicking the form before its report arrives, interrupts conservatively.
 - **From the S27 fixes (`docs/migration/S27-review-fixes.md` § "API and integration hand-off"):** `FormService::submit` returns `Result<Option<Task<Submission>>, SubmitStartError>`; read outcomes from the `outcomes()` Watch (baseline first) and settle `SubmitStartError.restoration`.
+- **From the S34 re-review fixes:** number each panel key-status change from 1 per form (`PanelFocus.seq`). Pass the stamp and key code of `NSApp.currentEvent`'s CGEvent as `PanelFocus.after` and as `Submission.event`, and the latest `seq` as `Submission.focus_seq`.
 - **Accept:** The window shows itself when `forms.pending()` appears: at caret x − 24, y + caret height + 6; above the caret when it would overflow; x clamped 8 pt inside the screen; centred at 28% without a caret. A draggable header with the snippet and target app. Text, multi-line and choice controls in first-definition order; one value per shared name. The first field is focused; ↩ submits outside a multi-line field and ⌘↩ inside one; Escape cancels and returns to the target. Preview after 50 ms with formatting, images, actions and the selection; shimmer first; at most 160 pt. Height follows content within 160–640, as today (the window itself clamps at 680). No dismissal on blur; the window reports `panel_focused` to `forms`.
 - **Closes:** FRM-2, FRM-5 (UI), FRM-6.
 - **Depends:** S07, S27, S40 · **Parallel with:** S41, S56, S66
@@ -1243,6 +1258,13 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - `FileIcons::file_icon` matches Finder's icon at 64 px for a real file path.
   - 1Password and Bitwarden copies are skipped (ignored bundle or concealed type), including while another app is frontmost.
   - Picker paste: the panel hides and the paste runs on a worker; 800 ms activate plus 40 ms settle; no clipboard restore.
+- **Live checks from the S34 re-review fixes:**
+  - The "can handle" window field is filled in at the session tap and names the form panel and other Kudzu panels by `windowNumber`.
+  - Whether field 41 (target PID) is filled in at the session tap. If it is, check that it names Kudzu's process for keys typed into the non-activating form panel; if it names the target instead, every form key interrupts.
+  - `NSApp.currentEvent` CGEvent stamps equal the tap's stamps for the same event, in the same units on Apple Silicon.
+  - Late or missing focus reports and submissions on real hardware, including a programmatic refocus.
+  - Interrupt a multi-press undo, a recovery and a submitted-form sequence by clicking between presses.
+  - The release-build latency step holds on the CI runner.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
@@ -1388,6 +1410,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D22 | **Update downloads use macOS trust and the system proxy (2026-11-11):** ureq's `platform-verifier` feature (adds `rustls-platform-verifier`) and the system proxy, matching today's updater on managed networks. Archives are fetched byte for byte, with no `Accept-Encoding`. | S36 |
 | D23 | **Old Tauri login agent at cut-over:** S75 removes `~/Library/LaunchAgents/Kudzu.plist` (Label `Kudzu`, written by tauri-plugin-autostart), but only when its program path is this bundle's executable, so one agent starts Kudzu at login (S36 review). | S75 |
 | D24 | **A sequence that starts with `{{delay}}` keeps its trigger visible during that delay** and deletes it just before the first delivery, so a refused first paste can't lose it (follows from D14; S34 safety fixes, 2026-11-11). This is a visible difference from the Tauri engine. | S34, S71 |
+| D25 | **The synthetic-event marker is trusted.** An event that carries Kudzu's marker in its source user data is treated as Kudzu's own. Another app could forge it, but an app that can post events already holds Accessibility and could post the Backspaces itself, so the forgery gains it nothing. The Tauri engine had the same exposure (S34 re-review, 2026-11-11). | S34 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
