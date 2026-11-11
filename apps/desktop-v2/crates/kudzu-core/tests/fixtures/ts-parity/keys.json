@@ -1,6 +1,159 @@
 {
   "labels": [
     {
+      "input": "mod",
+      "keys": [
+        "⌘"
+      ],
+      "accelerator": [
+        "⌘"
+      ]
+    },
+    {
+      "input": "cmd",
+      "keys": [
+        "⌘"
+      ],
+      "accelerator": [
+        "⌘"
+      ]
+    },
+    {
+      "input": "ctrl",
+      "keys": [
+        "⌃"
+      ],
+      "accelerator": [
+        "⌃"
+      ]
+    },
+    {
+      "input": "control",
+      "keys": [
+        "⌃"
+      ],
+      "accelerator": [
+        "⌃"
+      ]
+    },
+    {
+      "input": "alt",
+      "keys": [
+        "⌥"
+      ],
+      "accelerator": [
+        "⌥"
+      ]
+    },
+    {
+      "input": "option",
+      "keys": [
+        "⌥"
+      ],
+      "accelerator": [
+        "⌥"
+      ]
+    },
+    {
+      "input": "shift",
+      "keys": [
+        "⇧"
+      ],
+      "accelerator": [
+        "⇧"
+      ]
+    },
+    {
+      "input": "enter",
+      "keys": [
+        "↵"
+      ],
+      "accelerator": [
+        "↵"
+      ]
+    },
+    {
+      "input": "backspace",
+      "keys": [
+        "⌫"
+      ],
+      "accelerator": [
+        "⌫"
+      ]
+    },
+    {
+      "input": "delete",
+      "keys": [
+        "⌫"
+      ],
+      "accelerator": [
+        "⌫"
+      ]
+    },
+    {
+      "input": "escape",
+      "keys": [
+        "esc"
+      ],
+      "accelerator": [
+        "esc"
+      ]
+    },
+    {
+      "input": "up",
+      "keys": [
+        "↑"
+      ],
+      "accelerator": [
+        "↑"
+      ]
+    },
+    {
+      "input": "down",
+      "keys": [
+        "↓"
+      ],
+      "accelerator": [
+        "↓"
+      ]
+    },
+    {
+      "input": "left",
+      "keys": [
+        "←"
+      ],
+      "accelerator": [
+        "←"
+      ]
+    },
+    {
+      "input": "right",
+      "keys": [
+        "→"
+      ],
+      "accelerator": [
+        "→"
+      ]
+    },
+    {
+      "input": "tab",
+      "keys": [
+        "⇥"
+      ],
+      "accelerator": [
+        "⇥"
+      ]
+    },
+    {
+      "input": "space",
+      "keys": [
+        "Space"
+      ],
+      "accelerator": [
+        "Space"
+      ]
+    },
+    {
       "input": "mod+k",
       "keys": [
         "⌘",
@@ -62,12 +215,817 @@
         "⌥",
         "V"
       ]
+    },
+    {
+      "input": "mod+enter",
+      "keys": [
+        "⌘",
+        "↵"
+      ],
+      "accelerator": [
+        "⌘",
+        "↵"
+      ]
+    },
+    {
+      "input": "mod+esc",
+      "keys": [
+        "⌘",
+        "esc"
+      ],
+      "accelerator": [
+        "⌘",
+        "esc"
+      ]
+    },
+    {
+      "input": "cmd+backspace",
+      "keys": [
+        "⌘",
+        "⌫"
+      ],
+      "accelerator": [
+        "⌘",
+        "⌫"
+      ]
+    },
+    {
+      "input": "option+up",
+      "keys": [
+        "⌥",
+        "↑"
+      ],
+      "accelerator": [
+        "⌥",
+        "↑"
+      ]
+    },
+    {
+      "input": "control+tab",
+      "keys": [
+        "⌃",
+        "⇥"
+      ],
+      "accelerator": [
+        "⌃",
+        "⇥"
+      ]
+    },
+    {
+      "input": "shift+space",
+      "keys": [
+        "⇧",
+        "Space"
+      ],
+      "accelerator": [
+        "⇧",
+        "Space"
+      ]
+    },
+    {
+      "input": "Command+Shift+F12",
+      "keys": [
+        "Command",
+        "⇧",
+        "F12"
+      ],
+      "accelerator": [
+        "⌘",
+        "⇧",
+        "F12"
+      ]
+    },
+    {
+      "input": "Super+A",
+      "keys": [
+        "Super",
+        "A"
+      ],
+      "accelerator": [
+        "⌘",
+        "A"
+      ]
+    },
+    {
+      "input": "Meta+K",
+      "keys": [
+        "Meta",
+        "K"
+      ],
+      "accelerator": [
+        "⌘",
+        "K"
+      ]
+    },
+    {
+      "input": "CmdOrCtrl+P",
+      "keys": [
+        "CmdOrCtrl",
+        "P"
+      ],
+      "accelerator": [
+        "⌘",
+        "P"
+      ]
+    }
+  ],
+  "spoken": [
+    {
+      "input": "mod",
+      "spoken": "Command"
+    },
+    {
+      "input": "ctrl",
+      "spoken": "Control"
+    },
+    {
+      "input": "shift",
+      "spoken": "Shift"
+    },
+    {
+      "input": "alt",
+      "spoken": "Option"
+    },
+    {
+      "input": "enter",
+      "spoken": "Return"
+    },
+    {
+      "input": "escape",
+      "spoken": "Escape"
+    },
+    {
+      "input": "esc",
+      "spoken": "Escape"
+    },
+    {
+      "input": "tab",
+      "spoken": "Tab"
+    },
+    {
+      "input": "space",
+      "spoken": "Space"
+    },
+    {
+      "input": "backspace",
+      "spoken": "Delete"
+    },
+    {
+      "input": "up",
+      "spoken": "Up Arrow"
+    },
+    {
+      "input": "down",
+      "spoken": "Down Arrow"
+    },
+    {
+      "input": "left",
+      "spoken": "Left Arrow"
+    },
+    {
+      "input": "right",
+      "spoken": "Right Arrow"
+    },
+    {
+      "input": "mod+enter",
+      "spoken": "Command Return"
+    },
+    {
+      "input": "mod+shift+p",
+      "spoken": "Command Shift P"
+    },
+    {
+      "input": "alt+up",
+      "spoken": "Option Up Arrow"
+    },
+    {
+      "input": "mod+esc",
+      "spoken": "Command Escape"
+    },
+    {
+      "input": "ctrl+alt+space",
+      "spoken": "Control Option Space"
     }
   ],
   "recorder": [
     {
       "event": {
         "key": "a",
+        "code": "KeyA",
+        "metaKey": true
+      },
+      "result": "Command+A"
+    },
+    {
+      "event": {
+        "key": "b",
+        "code": "KeyB",
+        "metaKey": true
+      },
+      "result": "Command+B"
+    },
+    {
+      "event": {
+        "key": "c",
+        "code": "KeyC",
+        "metaKey": true
+      },
+      "result": "Command+C"
+    },
+    {
+      "event": {
+        "key": "d",
+        "code": "KeyD",
+        "metaKey": true
+      },
+      "result": "Command+D"
+    },
+    {
+      "event": {
+        "key": "e",
+        "code": "KeyE",
+        "metaKey": true
+      },
+      "result": "Command+E"
+    },
+    {
+      "event": {
+        "key": "f",
+        "code": "KeyF",
+        "metaKey": true
+      },
+      "result": "Command+F"
+    },
+    {
+      "event": {
+        "key": "g",
+        "code": "KeyG",
+        "metaKey": true
+      },
+      "result": "Command+G"
+    },
+    {
+      "event": {
+        "key": "h",
+        "code": "KeyH",
+        "metaKey": true
+      },
+      "result": "Command+H"
+    },
+    {
+      "event": {
+        "key": "i",
+        "code": "KeyI",
+        "metaKey": true
+      },
+      "result": "Command+I"
+    },
+    {
+      "event": {
+        "key": "j",
+        "code": "KeyJ",
+        "metaKey": true
+      },
+      "result": "Command+J"
+    },
+    {
+      "event": {
+        "key": "k",
+        "code": "KeyK",
+        "metaKey": true
+      },
+      "result": "Command+K"
+    },
+    {
+      "event": {
+        "key": "l",
+        "code": "KeyL",
+        "metaKey": true
+      },
+      "result": "Command+L"
+    },
+    {
+      "event": {
+        "key": "m",
+        "code": "KeyM",
+        "metaKey": true
+      },
+      "result": "Command+M"
+    },
+    {
+      "event": {
+        "key": "n",
+        "code": "KeyN",
+        "metaKey": true
+      },
+      "result": "Command+N"
+    },
+    {
+      "event": {
+        "key": "o",
+        "code": "KeyO",
+        "metaKey": true
+      },
+      "result": "Command+O"
+    },
+    {
+      "event": {
+        "key": "p",
+        "code": "KeyP",
+        "metaKey": true
+      },
+      "result": "Command+P"
+    },
+    {
+      "event": {
+        "key": "q",
+        "code": "KeyQ",
+        "metaKey": true
+      },
+      "result": "Command+Q"
+    },
+    {
+      "event": {
+        "key": "r",
+        "code": "KeyR",
+        "metaKey": true
+      },
+      "result": "Command+R"
+    },
+    {
+      "event": {
+        "key": "s",
+        "code": "KeyS",
+        "metaKey": true
+      },
+      "result": "Command+S"
+    },
+    {
+      "event": {
+        "key": "t",
+        "code": "KeyT",
+        "metaKey": true
+      },
+      "result": "Command+T"
+    },
+    {
+      "event": {
+        "key": "u",
+        "code": "KeyU",
+        "metaKey": true
+      },
+      "result": "Command+U"
+    },
+    {
+      "event": {
+        "key": "v",
+        "code": "KeyV",
+        "metaKey": true
+      },
+      "result": "Command+V"
+    },
+    {
+      "event": {
+        "key": "w",
+        "code": "KeyW",
+        "metaKey": true
+      },
+      "result": "Command+W"
+    },
+    {
+      "event": {
+        "key": "x",
+        "code": "KeyX",
+        "metaKey": true
+      },
+      "result": "Command+X"
+    },
+    {
+      "event": {
+        "key": "y",
+        "code": "KeyY",
+        "metaKey": true
+      },
+      "result": "Command+Y"
+    },
+    {
+      "event": {
+        "key": "z",
+        "code": "KeyZ",
+        "metaKey": true
+      },
+      "result": "Command+Z"
+    },
+    {
+      "event": {
+        "key": "0",
+        "code": "Digit0",
+        "metaKey": true
+      },
+      "result": "Command+0"
+    },
+    {
+      "event": {
+        "key": "1",
+        "code": "Digit1",
+        "metaKey": true
+      },
+      "result": "Command+1"
+    },
+    {
+      "event": {
+        "key": "2",
+        "code": "Digit2",
+        "metaKey": true
+      },
+      "result": "Command+2"
+    },
+    {
+      "event": {
+        "key": "3",
+        "code": "Digit3",
+        "metaKey": true
+      },
+      "result": "Command+3"
+    },
+    {
+      "event": {
+        "key": "4",
+        "code": "Digit4",
+        "metaKey": true
+      },
+      "result": "Command+4"
+    },
+    {
+      "event": {
+        "key": "5",
+        "code": "Digit5",
+        "metaKey": true
+      },
+      "result": "Command+5"
+    },
+    {
+      "event": {
+        "key": "6",
+        "code": "Digit6",
+        "metaKey": true
+      },
+      "result": "Command+6"
+    },
+    {
+      "event": {
+        "key": "7",
+        "code": "Digit7",
+        "metaKey": true
+      },
+      "result": "Command+7"
+    },
+    {
+      "event": {
+        "key": "8",
+        "code": "Digit8",
+        "metaKey": true
+      },
+      "result": "Command+8"
+    },
+    {
+      "event": {
+        "key": "9",
+        "code": "Digit9",
+        "metaKey": true
+      },
+      "result": "Command+9"
+    },
+    {
+      "event": {
+        "key": " ",
+        "code": "Space",
+        "metaKey": true
+      },
+      "result": "Command+Space"
+    },
+    {
+      "event": {
+        "key": "F1",
+        "code": "F1"
+      },
+      "result": "F1"
+    },
+    {
+      "event": {
+        "key": "F2",
+        "code": "F2"
+      },
+      "result": "F2"
+    },
+    {
+      "event": {
+        "key": "F3",
+        "code": "F3"
+      },
+      "result": "F3"
+    },
+    {
+      "event": {
+        "key": "F4",
+        "code": "F4"
+      },
+      "result": "F4"
+    },
+    {
+      "event": {
+        "key": "F5",
+        "code": "F5"
+      },
+      "result": "F5"
+    },
+    {
+      "event": {
+        "key": "F6",
+        "code": "F6"
+      },
+      "result": "F6"
+    },
+    {
+      "event": {
+        "key": "F7",
+        "code": "F7"
+      },
+      "result": "F7"
+    },
+    {
+      "event": {
+        "key": "F8",
+        "code": "F8"
+      },
+      "result": "F8"
+    },
+    {
+      "event": {
+        "key": "F9",
+        "code": "F9"
+      },
+      "result": "F9"
+    },
+    {
+      "event": {
+        "key": "F10",
+        "code": "F10"
+      },
+      "result": "F10"
+    },
+    {
+      "event": {
+        "key": "F11",
+        "code": "F11"
+      },
+      "result": "F11"
+    },
+    {
+      "event": {
+        "key": "F12",
+        "code": "F12"
+      },
+      "result": "F12"
+    },
+    {
+      "event": {
+        "key": "F13",
+        "code": "F13"
+      },
+      "result": "F13"
+    },
+    {
+      "event": {
+        "key": "F14",
+        "code": "F14"
+      },
+      "result": "F14"
+    },
+    {
+      "event": {
+        "key": "F15",
+        "code": "F15"
+      },
+      "result": "F15"
+    },
+    {
+      "event": {
+        "key": "F16",
+        "code": "F16"
+      },
+      "result": "F16"
+    },
+    {
+      "event": {
+        "key": "F17",
+        "code": "F17"
+      },
+      "result": "F17"
+    },
+    {
+      "event": {
+        "key": "F18",
+        "code": "F18"
+      },
+      "result": "F18"
+    },
+    {
+      "event": {
+        "key": "F19",
+        "code": "F19"
+      },
+      "result": "F19"
+    },
+    {
+      "event": {
+        "key": "F20",
+        "code": "F20"
+      },
+      "result": "F20"
+    },
+    {
+      "event": {
+        "key": "F21",
+        "code": "F21"
+      },
+      "result": "F21"
+    },
+    {
+      "event": {
+        "key": "F22",
+        "code": "F22"
+      },
+      "result": "F22"
+    },
+    {
+      "event": {
+        "key": "F23",
+        "code": "F23"
+      },
+      "result": "F23"
+    },
+    {
+      "event": {
+        "key": "F24",
+        "code": "F24"
+      },
+      "result": "F24"
+    },
+    {
+      "event": {
+        "key": "F5",
+        "code": "F5",
+        "shiftKey": true
+      },
+      "result": "Shift+F5"
+    },
+    {
+      "event": {
+        "key": "Semicolon",
+        "code": "Semicolon",
+        "metaKey": true
+      },
+      "result": "Command+Semicolon"
+    },
+    {
+      "event": {
+        "key": "Quote",
+        "code": "Quote",
+        "metaKey": true
+      },
+      "result": "Command+Quote"
+    },
+    {
+      "event": {
+        "key": "Comma",
+        "code": "Comma",
+        "metaKey": true
+      },
+      "result": "Command+Comma"
+    },
+    {
+      "event": {
+        "key": "Period",
+        "code": "Period",
+        "metaKey": true
+      },
+      "result": "Command+Period"
+    },
+    {
+      "event": {
+        "key": "Slash",
+        "code": "Slash",
+        "metaKey": true
+      },
+      "result": "Command+Slash"
+    },
+    {
+      "event": {
+        "key": "Backslash",
+        "code": "Backslash",
+        "metaKey": true
+      },
+      "result": "Command+Backslash"
+    },
+    {
+      "event": {
+        "key": "BracketLeft",
+        "code": "BracketLeft",
+        "metaKey": true
+      },
+      "result": "Command+BracketLeft"
+    },
+    {
+      "event": {
+        "key": "BracketRight",
+        "code": "BracketRight",
+        "metaKey": true
+      },
+      "result": "Command+BracketRight"
+    },
+    {
+      "event": {
+        "key": "Backquote",
+        "code": "Backquote",
+        "metaKey": true
+      },
+      "result": "Command+Backquote"
+    },
+    {
+      "event": {
+        "key": "Minus",
+        "code": "Minus",
+        "metaKey": true
+      },
+      "result": "Command+Minus"
+    },
+    {
+      "event": {
+        "key": "Equal",
+        "code": "Equal",
+        "metaKey": true
+      },
+      "result": "Command+Equal"
+    },
+    {
+      "event": {
+        "key": "Enter",
+        "code": "Enter",
+        "metaKey": true
+      },
+      "result": "Command+Enter"
+    },
+    {
+      "event": {
+        "key": "Tab",
+        "code": "Tab",
+        "metaKey": true
+      },
+      "result": "Command+Tab"
+    },
+    {
+      "event": {
+        "key": "Enter",
+        "code": "Enter"
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "Control",
+        "code": "ControlLeft",
+        "ctrlKey": true
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "Alt",
+        "code": "AltLeft",
+        "altKey": true
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "Meta",
+        "code": "MetaLeft",
+        "metaKey": true
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "Shift",
+        "code": "ShiftLeft",
+        "shiftKey": true
+      },
+      "result": null
+    },
+    {
+      "event": {
+        "key": "a",
         "code": "KeyA"
       },
       "result": null
@@ -75,16 +1033,16 @@
     {
       "event": {
         "key": "a",
-        "shiftKey": true,
-        "code": "KeyA"
+        "code": "KeyA",
+        "shiftKey": true
       },
       "result": null
     },
     {
       "event": {
         "key": "a",
-        "metaKey": true,
-        "code": "KeyA"
+        "code": "KeyA",
+        "metaKey": true
       },
       "result": "Command+A"
     },
@@ -97,18 +1055,10 @@
     },
     {
       "event": {
-        "key": "Shift",
-        "shiftKey": true,
-        "code": "Shift"
-      },
-      "result": null
-    },
-    {
-      "event": {
         "key": " ",
+        "code": "Space",
         "ctrlKey": true,
-        "altKey": true,
-        "code": "Space"
+        "altKey": true
       },
       "result": "Control+Alt+Space"
     },
@@ -122,8 +1072,8 @@
     {
       "event": {
         "key": "ArrowLeft",
-        "ctrlKey": true,
-        "code": "ArrowLeft"
+        "code": "ArrowLeft",
+        "ctrlKey": true
       },
       "result": null
     }

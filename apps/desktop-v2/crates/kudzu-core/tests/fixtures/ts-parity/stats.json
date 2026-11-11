@@ -179,28 +179,257 @@
     {
       "input": 1440,
       "output": "1.0 days"
+    },
+    {
+      "input": 0.99,
+      "output": "59s"
+    },
+    {
+      "input": 540,
+      "output": "9.0 h"
+    },
+    {
+      "input": 600,
+      "output": "10 h"
+    },
+    {
+      "input": 1380,
+      "output": "23 h"
     }
   ],
   "relative": [
     {
-      "age": 0,
+      "at": 0,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "Never"
+    },
+    {
+      "at": 1794398400000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
       "output": "Just now"
     },
     {
-      "age": 30000,
+      "at": 1794398370000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
       "output": "Just now"
     },
     {
-      "age": 3600000,
+      "at": 1794398341000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "Just now"
+    },
+    {
+      "at": 1794398340000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "1 minute ago"
+    },
+    {
+      "at": 1794398310000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "1 minute ago"
+    },
+    {
+      "at": 1794398280000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "2 minutes ago"
+    },
+    {
+      "at": 1794394801000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "60 minutes ago"
+    },
+    {
+      "at": 1794394800000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
       "output": "1 hour ago"
     },
     {
-      "age": 86400000,
+      "at": 1794391200000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "2 hours ago"
+    },
+    {
+      "at": 1794312001000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "24 hours ago"
+    },
+    {
+      "at": 1794312000000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
       "output": "yesterday"
     },
     {
-      "age": 3456000000,
+      "at": 1794225600000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "2 days ago"
+    },
+    {
+      "at": 1791892800000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "29 days ago"
+    },
+    {
+      "at": 1791806400001,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "30 days ago"
+    },
+    {
+      "at": 1791806400000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "Oct 12, 2026"
+    },
+    {
+      "at": 1790942400000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
       "output": "Oct 2, 2026"
+    },
+    {
+      "at": 1794398460000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "in 1 minute"
+    },
+    {
+      "at": 1794398520000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "in 2 minutes"
+    },
+    {
+      "at": 1794402000000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "in 1 hour"
+    },
+    {
+      "at": 1794405600000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "in 2 hours"
+    },
+    {
+      "at": 1794484800000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "tomorrow"
+    },
+    {
+      "at": 1794571200000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "in 2 days"
+    },
+    {
+      "at": 1796990400000,
+      "now": 1794398400000,
+      "offsetMinutes": 0,
+      "output": "Dec 11, 2026"
+    }
+  ],
+  "clock": [
+    {
+      "at": "2026-11-11T12:00:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "offsetMinutes": 0,
+      "output": "12:00 PM"
+    },
+    {
+      "at": "2026-11-11T00:05:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "offsetMinutes": 0,
+      "output": "12:05 AM"
+    },
+    {
+      "at": "2026-11-11T23:59:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "offsetMinutes": 0,
+      "output": "11:59 PM"
+    },
+    {
+      "at": "2026-11-10T15:30:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "offsetMinutes": 0,
+      "output": "Nov 10, 3:30 PM"
+    },
+    {
+      "at": "2026-11-12T00:00:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "offsetMinutes": 0,
+      "output": "Nov 12, 12:00 AM"
+    }
+  ],
+  "relativeLocal": [
+    {
+      "at": 0,
+      "now": 1794398400000,
+      "offsetMinutes": -300,
+      "output": "Never"
+    },
+    {
+      "at": 1791775800000,
+      "now": 1794398400000,
+      "offsetMinutes": -240,
+      "output": "Oct 11, 2026"
+    },
+    {
+      "at": 1791779400000,
+      "now": 1794398400000,
+      "offsetMinutes": -240,
+      "output": "Oct 12, 2026"
+    }
+  ],
+  "clockLocal": [
+    {
+      "at": "2026-11-11T12:00:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "timezone": "America/New_York",
+      "offsetMinutes": -300,
+      "output": "7:00 AM"
+    },
+    {
+      "at": "2026-11-11T04:30:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "timezone": "America/New_York",
+      "offsetMinutes": -300,
+      "output": "Nov 10, 11:30 PM"
+    },
+    {
+      "at": "2026-11-11T05:00:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "timezone": "America/New_York",
+      "offsetMinutes": -300,
+      "output": "12:00 AM"
+    },
+    {
+      "at": "2026-11-11T05:01:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "timezone": "America/New_York",
+      "offsetMinutes": -300,
+      "output": "12:01 AM"
+    },
+    {
+      "at": "2026-11-10T15:30:00.000Z",
+      "now": "2026-11-11T12:00:00.000Z",
+      "timezone": "America/New_York",
+      "offsetMinutes": -300,
+      "output": "Nov 10, 10:30 AM"
     }
   ]
 }

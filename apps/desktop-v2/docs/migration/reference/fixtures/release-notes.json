@@ -40,5 +40,17 @@
         ]
       }
     ]
+  },
+  {
+    "input": "# Fixes\n-\titem with tab\n*  spaced star",
+    "result": [
+      {
+        "heading": "Fixes",
+        "items": [
+          "item with tab",
+          "spaced star"
+        ]
+      }
+    ]
   }
 ]

@@ -91,7 +91,7 @@ for(const spec of stateList.filter(s=>!process.env.ONLY || process.env.ONLY.spli
  metrics.states.push({window:spec.window,scene:spec.state,theme,file,url:spec.path,viewport:p.viewportSize(),...(spec.window==='form'?{dialogHeight:await p.getByRole('dialog').evaluate(e=>Math.ceil(e.getBoundingClientRect().height))}:{}),landmarks})
  console.log(file,landmarks.length)
  if(!existsSync(new URL('fixtures/color-inputs.json',root))) {
- const inputs=await p.evaluate(()=>['#000','#fff','#6366f1','#ff000080','rebeccapurple','hsl(120 100% 50%)','oklch(0.7 0.1 200)','transparent','invalid-color'].map(css=>{const c=document.createElement('canvas').getContext('2d');c.fillStyle='#000';c.fillStyle=css;c.fillRect(0,0,1,1);return {css,rgba:[...c.getImageData(0,0,1,1).data].map(v=>v/255)}}))
+ const inputs=await p.evaluate(()=>['#000','#fff','#6366f1','#ff000080','rebeccapurple','hsl(120 100% 50%)','oklch(0.7 0.1 200)','transparent','invalid-color','rgb(255, 128, 0)','rgba(0, 128, 255, 0.4)','oklch(0.8 0.4 150)'].map(css=>{const c=document.createElement('canvas').getContext('2d');c.fillStyle='#000';c.fillStyle=css;c.fillRect(0,0,1,1);return {css,rgba:[...c.getImageData(0,0,1,1).data].map(v=>v/255)}}))
  writeFileSync(new URL('fixtures/color-inputs.json',root),JSON.stringify(inputs,null,2)+'\n')
  }
  } catch(error) { metrics.states.push({window:spec.window,scene:spec.state,theme,error:String(error)}); console.error(spec.state,error) }
