@@ -1335,7 +1335,8 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Live checks from the S33 review:** the eleven checks in `docs/migration/reviews/S33-sync.md` § "Live checks for S71/S72" (crash after a remote add or delete, sign-out and account switch, multi-batch first fetch, offline conflicts, zone reset, sync off then quit, offline burst, unsigned and Next builds, usage batching, `syncVersion` 2).
 - **Live checks from the S36 re-review:**
   - A real Developer ID archive passes `codesign -dvvv`, `spctl` and the pinned requirement, and permission grants survive. Wrong team, wrong bundle id, a tampered archive and an equal version are refused.
-  - `kill -9` during extraction, then relaunch and install: the stale stage is swept, and none remains after success. Repeat on a filesystem that returns `ENOTSUP`, killing between the two fallback renames; the installed path comes back.
+  - `kill -9` during extraction, then relaunch and install: the stale stage is swept, and none remains after success. `kill -9` right after a successful swap leaves a complete app at the installed name.
+  - On a volume where `renamex_np(..., RENAME_SWAP)` returns `ENOTSUP` or `EXDEV`, the install fails and the installed app is unchanged (there is no fallback rename).
   - With `/Applications/Kudzu.app` running, open the DMG copy, a translocated copy and a second copy: the running app comes forward. Repeat with a lock record pointing at a different `.app`; nothing else opens.
   - Log in with and without the old `Kudzu.plist`: exactly one hidden process starts.
   - A translocated launch reports `needs_move` and writes no login agent at a temporary path.
@@ -1351,6 +1352,11 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Byte-compare the `KudzuSnippet`, `KudzuGroup`, `KudzuUsage` and `KudzuMeta` names and `payload` strings between Tauri and Rune on two Macs; the SwiftData zone is untouched.
   - Zone reset: recreation is queued before `zone_deleted`, the library is kept, and the service resends.
   - A signed run on Apple Silicon and the Intel slice under Rosetta (a successful compile isn't this evidence).
+- **Live checks from the S36 verification:**
+  - A forged `KZI1` lock record pointing at another `.app`, including a symlink that resolves to the running app and is then flipped: the second copy never opens anything but the verified running app.
+  - An unsigned raised `CFBundleShortVersionString` on disk: no skip and no relaunch; a valid archive still installs.
+  - A signed app on disk at or above the candidate: skip; Restart to Update relaunches only if that version is newer than the running binary, and the UI doesn't claim a swap.
+  - Login item: a `Program` key is refused, the plist is gone, and `enabled()` is false.
 - **Accept:** `NATIVE_SYSTEM.md` complete, with the machine, macOS version and display. Every failure fixed, or carried to S74. Every budget met, or the miss listed with its cause and upstream issue.
 - **Closes:** SHL-8, SHL-9, SYN-1–6 (live confirmation).
 - **Depends:** S40–S66, S70 · **Parallel with:** S71, S73
