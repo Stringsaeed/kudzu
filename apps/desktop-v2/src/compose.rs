@@ -1,10 +1,10 @@
 use crate::cli::LaunchMode;
 
-pub fn windows(mode: LaunchMode) -> Vec<rune::AnyWindowSpec> {
+pub fn windows(mode: LaunchMode, hidden: bool) -> Vec<rune::AnyWindowSpec> {
     // No platform adapters exist in S01. S40 must keep native assembly in this arm.
     let mut windows = match mode {
-        LaunchMode::Fixtures => placeholder(),
-        LaunchMode::Native => placeholder(),
+        LaunchMode::Fixtures => placeholder(false),
+        LaunchMode::Native => placeholder(hidden),
         LaunchMode::Bridge => unreachable!("bridge never constructs windows"),
     };
     // The gallery: always headless, and in debug builds when launched with `--gallery`.
@@ -15,7 +15,7 @@ pub fn windows(mode: LaunchMode) -> Vec<rune::AnyWindowSpec> {
     windows
 }
 
-fn placeholder() -> Vec<rune::AnyWindowSpec> {
+fn placeholder(hidden: bool) -> Vec<rune::AnyWindowSpec> {
     let spec = rune::AppSpec::new(
         "Kudzu Next",
         (1180.0, 760.0),
@@ -28,5 +28,17 @@ fn placeholder() -> Vec<rune::AnyWindowSpec> {
                 .child(rune::text("Kudzu Next").key("workspace-title"))
         },
     );
-    vec![rune::WindowSpec::from_app("main", rune::App::new(spec)).into()]
+    let mut recorded = false;
+    let app = rune::App::new(spec).on_frame_drawn(move |_| {
+        if !recorded {
+            recorded = true;
+            crate::timing::mark("main_first_frame");
+        }
+    });
+    vec![rune::WindowSpec::from_app("main", app)
+        .options(rune::WindowOptions {
+            visible: !hidden,
+            ..Default::default()
+        })
+        .into()]
 }

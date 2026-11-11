@@ -16,6 +16,9 @@ license = "MIT"
 
 [dependencies]
 rune.workspace = true
+flexi_logger.workspace = true
+log.workspace = true
+core-foundation.workspace = true
 kudzu-ui = { path = "crates/kudzu-ui" }
 
 [workspace.dependencies]

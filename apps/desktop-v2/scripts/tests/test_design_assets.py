@@ -15,8 +15,7 @@ class DesignAssetCheck(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "apps/desktop-v2"
         manifest = json.loads((ROOT / "design/assets-manifest.json").read_text())
-        # A source can name part of a file ("pnpm-lock.yaml#@tauri-apps/cli"); copy the whole file.
-        files = {name.split("#")[0] for name in manifest["sources"]} | set(manifest["outputs"]) | {
+        files = {name for name in manifest["sources"]} | set(manifest["outputs"]) | {
             "design/assets-manifest.json", "scripts/check-design-assets.py",
         }
         for name in files:
@@ -41,16 +40,16 @@ class DesignAssetCheck(unittest.TestCase):
         self.assertIn("sources: design/brand.json", result.stderr)
 
     def test_changed_export_is_rejected(self):
-        (self.root / "src-tauri/icons/icon.icns").write_bytes(b"replaced icon")
+        (self.root / "assets/icons/icon.icns").write_bytes(b"replaced icon")
         result = self.check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("outputs: src-tauri/icons/icon.icns", result.stderr)
+        self.assertIn("outputs: assets/icons/icon.icns", result.stderr)
 
     def test_missing_export_is_rejected(self):
-        (self.root / "public/icon.png").unlink()
+        (self.root / "assets/tray/normal.png").unlink()
         result = self.check()
         self.assertEqual(result.returncode, 1)
-        self.assertIn("public/icon.png", result.stderr)
+        self.assertIn("assets/tray/normal.png", result.stderr)
 
     def test_unimported_artwork_cannot_be_attested(self):
         (self.root / "design/app-icon/layers/02-echo-k-printed.svg").write_text("new artwork")
@@ -66,20 +65,6 @@ class DesignAssetCheck(unittest.TestCase):
         result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_changed_tauri_cli_requires_export(self):
-        lockfile = self.root / "../../pnpm-lock.yaml"
-        text = lockfile.read_text()
-        self.assertIn("'@tauri-apps/cli@", text)
-        lockfile.write_text(text.replace("'@tauri-apps/cli@", "'@tauri-apps/cli@9", 1))
-        result = self.check()
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("sources: ../../pnpm-lock.yaml#@tauri-apps/cli", result.stderr)
-
-    def test_unrelated_lock_change_needs_no_export(self):
-        lockfile = self.root / "../../pnpm-lock.yaml"
-        lockfile.write_text(lockfile.read_text() + "\n  gsap@3.15.0:\n    resolution: {integrity: sha512-x}\n")
-        result = self.check()
-        self.assertEqual(result.returncode, 0, result.stderr)
 
 
 if __name__ == "__main__":

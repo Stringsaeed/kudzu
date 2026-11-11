@@ -27,6 +27,7 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
       - run: cargo xtask check-deps
+      - run: python3 scripts/check-design-assets.py
       - name: Headless adapter isolation
         run: |
           cargo build

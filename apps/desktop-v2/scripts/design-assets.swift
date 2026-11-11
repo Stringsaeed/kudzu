@@ -52,3 +52,14 @@ try render("design/dmg/background.png", width: 660, height: 440, scale: 2) {
     text(brand.description, y: 324, size: 12, ink: color(0x737C75))
     text("After copying, open Kudzu from Applications.", y: 350, size: 10, ink: color(0x858D87))
 }
+
+// Render SVGs into the staged workspace; the exporter copies only bundle assets.
+for (name, suffix) in [("normal", ""), ("paused", "-paused"), ("permissions", "-permissions"), ("secure-input", "-secure-input")] {
+    guard let image = NSImage(contentsOf: root.appendingPathComponent("design/menu-bar/kudzu-menubar\(suffix).svg")) else { fatalError("Missing tray SVG") }
+    for scale in 1...3 {
+        let suffix = scale == 1 ? "" : "@\(scale)x"
+        try render("assets/tray/\(name)\(suffix).png", width: 18, height: 18, scale: scale) {
+            image.draw(in: NSRect(x: 0, y: 0, width: 18, height: 18))
+        }
+    }
+}

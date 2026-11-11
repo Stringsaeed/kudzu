@@ -11,33 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "design/assets-manifest.json"
 
 
-# The exports are rendered by `pnpm exec tauri icon`, so the only part of the workspace lockfile
-# they depend on is the Tauri CLI it resolves. Hashing the whole lockfile would mark them stale
-# whenever any package in the workspace changed, such as a website dependency.
-LOCKFILE = "../../pnpm-lock.yaml"
-TAURI_CLI = f"{LOCKFILE}#@tauri-apps/cli"
-
-
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def tauri_cli_digest(lockfile):
-    """Hash every lockfile entry for @tauri-apps/cli and its platform binaries."""
-    entries, keep = [], False
-    for line in lockfile.read_text().splitlines():
-        indent = len(line) - len(line.lstrip(" "))
-        if line.strip() and indent <= 2:
-            keep = line.strip().startswith(("'@tauri-apps/cli", "@tauri-apps/cli"))
-        if keep:
-            entries.append(line)
-    if not entries:
-        raise ValueError(f"No @tauri-apps/cli entries in {LOCKFILE}")
-    return hashlib.sha256("\n".join(entries).encode()).hexdigest()
-
-
-def source_digest(name):
-    return tauri_cli_digest(ROOT / LOCKFILE) if name == TAURI_CLI else digest(ROOT / name)
 
 
 def native_icon():
@@ -55,22 +30,20 @@ def native_icon():
 
 def inventory(icon_sources):
     sources = icon_sources | {
-        "design/brand.json", "design/wordmark/kudzu-wordmark-echo.svg",
-        "design/wordmark/kudzu-wordmark-echo-small.svg", TAURI_CLI,
+        "design/brand.json", "design/wordmark/kudzu-wordmark-echo-small.svg",
+        "design/app-icon/layers/02-echo-k-printed.svg",
         "scripts/brand-assets.py", "scripts/design-assets.swift", "scripts/update-design-assets.sh",
     }
-    outputs = {
-        "design/app-icon/Kudzu-1024.png", "design/app-icon/layers/02-echo-k-printed.svg",
-        "design/icon.png", "design/dmg/background.png", "design/wordmark/kudzu-wordmark-echo-small.png",
-        "public/icon.png", "app/favicon.ico", "public/brand/kudzu-wordmark-echo.svg",
-        "public/brand/kudzu-wordmark-echo-small.svg",
+    outputs = {"assets/icons/icon.icns"} | {
+        f"assets/tray/{name}{scale}.png"
+        for name in ("normal", "paused", "permissions", "secure-input")
+        for scale in ("", "@2x", "@3x")
     }
-    for pattern in ("design/menu-bar/*.svg", "design/menu-bar/*.png", "src-tauri/icons/*.png", "src-tauri/icons/*.icns", "src-tauri/icons/*.ico"):
-        outputs.update(str(path.relative_to(ROOT)) for path in ROOT.glob(pattern))
     return {
-        "sources": {name: source_digest(name) for name in sorted(sources)},
+        "sources": {name: digest(ROOT / name) for name in sorted(sources)},
         "outputs": {name: digest(ROOT / name) for name in sorted(outputs)},
     }
+
 
 
 def main():
