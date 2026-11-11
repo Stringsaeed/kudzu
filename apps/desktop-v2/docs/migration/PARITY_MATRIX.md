@@ -133,7 +133,7 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 
 Intentional differences, not closed:
 
-- **First-load preview shimmer.** Tauri animates a `background-position` sweep. Rune `Beat` has no background-position, so the first-load well is a static 14×180 bar (`RUNE-GAP` Beat). The demo scene warms the 50 ms preview so the captured state shows formatting, images and actions.
+- **First-load preview shimmer.** Tauri animates a `background-position` sweep. Rune `Beat` has no background-position, so the first-load well is a static 14×180 bar (`RUNE-GAP` Beat). The demo scene warms the 50 ms preview so the captured state shows the Name field and the meeting follow-up text.
 
 ## Quick Search (S56)
 

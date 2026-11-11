@@ -50,7 +50,8 @@ mod tests {
 
     #[test]
     fn a_missing_native_event_stays_none() {
-        assert!(Option::<CurrentEvent>::None.map(from_appkit).is_none());
+        let from_worker = std::thread::spawn(live).join().expect("worker");
+        assert!(from_worker.is_none());
     }
 
     #[test]

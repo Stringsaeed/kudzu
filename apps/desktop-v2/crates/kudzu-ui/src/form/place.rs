@@ -5,7 +5,6 @@ use kudzu_core::system::Rect as Caret;
 pub const FORM_W: f64 = 440.0;
 pub const FORM_H_MIN: f64 = 160.0;
 pub const FORM_H_MAX: f64 = 640.0;
-pub const FORM_H_WINDOW_MAX: f64 = 680.0;
 pub const FORM_EMPTY_FRACTION: f64 = 0.28;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -18,10 +17,6 @@ pub struct Frame {
 
 pub fn clamp_form_height(height: f64) -> f64 {
     height.clamp(FORM_H_MIN, FORM_H_MAX)
-}
-
-pub fn clamp_window_height(height: f64) -> f64 {
-    height.clamp(FORM_H_MIN, FORM_H_WINDOW_MAX)
 }
 
 /// Top-left of the form. `None` centres it at 28% of the screen height.
@@ -48,9 +43,13 @@ pub fn to_local(screen: Frame, (x, y): (f64, f64)) -> (f64, f64) {
     (x - screen.x, y - screen.y)
 }
 
-pub fn screen_holding(screens: &[Frame], caret: Option<Caret>) -> Option<Frame> {
+pub fn screen_holding(
+    screens: &[Frame],
+    caret: Option<Caret>,
+    pointer: Option<Frame>,
+) -> Option<Frame> {
     let Some(caret) = caret else {
-        return screens.first().copied();
+        return pointer.or_else(|| screens.first().copied());
     };
     screens
         .iter()
@@ -59,14 +58,11 @@ pub fn screen_holding(screens: &[Frame], caret: Option<Caret>) -> Option<Frame> 
         .or_else(|| screens.first().copied())
 }
 
-/// AppKit bottom-left `frame` as a top-left `Frame`, using the canvas's top edge.
-pub fn top_left_frame(
-    frame: kudzu_appkit::geometry::Rect,
-    canvas: kudzu_appkit::geometry::Rect,
-) -> Frame {
+/// AppKit bottom-left `frame` as a top-left `Frame`, flipped about the primary screen's top.
+pub fn top_left_frame(frame: kudzu_appkit::geometry::Rect, primary_max_y: f64) -> Frame {
     Frame {
         x: frame.x,
-        y: canvas.max_y() - frame.max_y(),
+        y: primary_max_y - frame.max_y(),
         w: frame.width,
         h: frame.height,
     }
@@ -123,7 +119,65 @@ mod tests {
         assert_eq!(clamp_form_height(40.0), FORM_H_MIN);
         assert_eq!(clamp_form_height(900.0), FORM_H_MAX);
         assert_eq!(clamp_form_height(360.0), 360.0);
-        assert_eq!(clamp_window_height(900.0), FORM_H_WINDOW_MAX);
+    }
+
+    #[test]
+    fn a_taller_secondary_does_not_shift_the_primary_origin() {
+        let primary = kudzu_appkit::geometry::Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1440.0,
+            height: 900.0,
+        };
+        let secondary = kudzu_appkit::geometry::Rect {
+            x: 1440.0,
+            y: 0.0,
+            width: 1920.0,
+            height: 1200.0,
+        };
+        let canvas_max_y = primary.max_y().max(secondary.max_y());
+        assert_eq!(canvas_max_y, 1200.0);
+        assert_eq!(top_left_frame(primary, canvas_max_y).y, 300.0);
+        assert_eq!(top_left_frame(primary, primary.max_y()).y, 0.0);
+        assert_eq!(top_left_frame(secondary, primary.max_y()).y, -300.0);
+    }
+
+    #[test]
+    fn a_display_above_the_primary_flips_about_the_primary_top() {
+        let primary = kudzu_appkit::geometry::Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 1440.0,
+            height: 900.0,
+        };
+        let above = kudzu_appkit::geometry::Rect {
+            x: 0.0,
+            y: 900.0,
+            width: 1440.0,
+            height: 1080.0,
+        };
+        assert_eq!(top_left_frame(primary, primary.max_y()).y, 0.0);
+        assert_eq!(top_left_frame(above, primary.max_y()).y, -1080.0);
+    }
+
+    #[test]
+    fn no_caret_uses_the_screen_under_the_pointer() {
+        let primary = Frame {
+            x: 0.0,
+            y: 0.0,
+            w: 1440.0,
+            h: 900.0,
+        };
+        let secondary = Frame {
+            x: 1440.0,
+            y: 0.0,
+            w: 1920.0,
+            h: 1080.0,
+        };
+        assert_eq!(
+            screen_holding(&[primary, secondary], None, Some(secondary)),
+            Some(secondary)
+        );
     }
 
     #[test]
@@ -155,7 +209,7 @@ mod tests {
             width: 1440.0,
             height: 400.0,
         };
-        let frame = top_left_frame(lower, canvas);
+        let frame = top_left_frame(lower, canvas.max_y());
         assert_eq!(frame.y, 500.0);
         assert_eq!(frame.h, 400.0);
     }

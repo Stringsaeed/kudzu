@@ -14,6 +14,17 @@ pub struct CurrentEvent {
     pub key_code: Option<u16>,
 }
 
+/// Opaque `CGEventRef`. objc2 debug verification requires `^{__CGEvent=}`, not `^v`.
+#[repr(C)]
+struct CgEventOpaque {
+    _p: [u8; 0],
+}
+
+unsafe impl objc2::RefEncode for CgEventOpaque {
+    const ENCODING_REF: objc2::Encoding =
+        objc2::Encoding::Pointer(&objc2::Encoding::Struct("__CGEvent", &[]));
+}
+
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
     fn CGEventGetTimestamp(event: *const c_void) -> u64;
@@ -30,7 +41,7 @@ pub fn current_event_on(mtm: MainThreadMarker) -> Option<CurrentEvent> {
     from_ns_event(&event)
 }
 
-fn from_ns_event(event: &NSEvent) -> Option<CurrentEvent> {
+pub(crate) fn from_ns_event(event: &NSEvent) -> Option<CurrentEvent> {
     let cg = cg_event(event)?;
     Some(CurrentEvent {
         timestamp: unsafe { cg_event_timestamp(cg) },
@@ -38,14 +49,14 @@ fn from_ns_event(event: &NSEvent) -> Option<CurrentEvent> {
     })
 }
 
-/// SAFETY: `event` is a non-null `CGEventRef` from AppKit on the main thread.
-unsafe fn cg_event_timestamp(event: *const c_void) -> u64 {
-    unsafe { CGEventGetTimestamp(event) }
+/// SAFETY: `event` is a non-null `CGEventRef` from AppKit.
+unsafe fn cg_event_timestamp(event: *const CgEventOpaque) -> u64 {
+    unsafe { CGEventGetTimestamp(event.cast()) }
 }
 
-fn cg_event(event: &NSEvent) -> Option<*const c_void> {
+fn cg_event(event: &NSEvent) -> Option<*const CgEventOpaque> {
     // SAFETY: NSEvent implements -CGEvent, returning a nullable CGEventRef.
-    let ptr: *const c_void = unsafe { msg_send![event, CGEvent] };
+    let ptr: *const CgEventOpaque = unsafe { msg_send![event, CGEvent] };
     if ptr.is_null() {
         None
     } else {
@@ -65,15 +76,8 @@ fn key_code_of(event: &NSEvent) -> Option<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Map a CGEvent pointer the same way `from_ns_event` does: null means no stamp.
-    fn stamp_of(cg_event: *const c_void) -> Option<u64> {
-        if cg_event.is_null() {
-            None
-        } else {
-            Some(unsafe { cg_event_timestamp(cg_event) })
-        }
-    }
+    use objc2_app_kit::NSEventModifierFlags;
+    use objc2_foundation::{NSPoint, NSString};
 
     #[test]
     fn off_the_main_thread_there_is_no_event() {
@@ -82,15 +86,23 @@ mod tests {
     }
 
     #[test]
-    fn a_null_cgevent_is_no_stamp() {
-        assert_eq!(stamp_of(std::ptr::null()), None);
-    }
-
-    #[test]
-    fn main_thread_marker_is_absent_on_a_worker() {
-        let marked = std::thread::spawn(|| MainThreadMarker::new().is_some())
-            .join()
-            .expect("worker");
-        assert!(!marked);
+    fn a_synthetic_return_key_has_a_stamp_and_key_code() {
+        let text = NSString::from_str("\r");
+        let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+            NSEventType::KeyDown,
+            NSPoint::new(0.0, 0.0),
+            NSEventModifierFlags::empty(),
+            0.0,
+            0,
+            None,
+            &text,
+            &text,
+            false,
+            36,
+        )
+        .expect("synthetic key event");
+        let current = from_ns_event(&event).expect("CGEvent stamp");
+        assert_eq!(current.key_code, Some(36));
+        let _ = current.timestamp;
     }
 }

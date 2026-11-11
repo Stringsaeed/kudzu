@@ -19,7 +19,6 @@ pub fn classify(notice: &OutcomeNotice, snippet: Option<Uuid>) -> Kind {
         && notice.source == Some(ActivitySource::Form);
     match notice.outcome {
         InsertionOutcome::EngineStopped => Kind::Ignore,
-        InsertionOutcome::TriggerLost => Kind::Ignore,
         _ if ours => Kind::Ours,
         _ => Kind::Ignore,
     }

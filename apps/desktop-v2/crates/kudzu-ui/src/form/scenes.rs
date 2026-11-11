@@ -15,7 +15,7 @@ pub const DEMO_SNIPPET: &str = "20493e8e-c034-4ff0-b926-e5ae3e119630";
 
 /// Body used when the fixture library has not installed that snippet (getting-started seed).
 /// Nested `;sig` is inlined so the preview does not diagnose a missing id.
-pub const DEMO_BODY: &str = "Hi {{field name=\"Name\"}},\n\nThanks for the time today. As discussed, {{cursor}}\n\nBest regards,\nSaeed\n{{date format=\"MMMM d, yyyy\"}}";
+pub const DEMO_BODY: &str = "Hi {{field name=\"Name\"}},\n\nThanks for the time today. As discussed, {{cursor}}\n\nBest regards,\nSaeed";
 
 type Scene = (&'static str, fn(&mut FormState));
 

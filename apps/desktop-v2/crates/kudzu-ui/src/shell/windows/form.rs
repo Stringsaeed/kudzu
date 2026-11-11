@@ -5,15 +5,17 @@ use super::super::{lifecycle::closes_windows, theme_sync::ThemeSync, Shell};
 use crate::form::{events, model::Panel, outcomes, place};
 use crate::widgets::key_hints::Held;
 use kudzu_app::assembly::Kudzu;
-use kudzu_app::expansion::ExpansionService;
-use kudzu_app::forms::{FormRequest, FormService, SubmitStartError};
+use kudzu_app::expansion::{ExpansionService, InsertionOutcome};
+use kudzu_app::forms::{FormRequest, FormService, Submission, SubmitStartError};
+use kudzu_app::ports::engine::AdmissionError;
 use kudzu_app::ports::{FormSubmission, FormToken, PanelFocus};
 use kudzu_app::settings::SettingsService;
 use kudzu_app::tasks::Task;
 use kudzu_core::template::RenderResult;
 use rune::{Key, KeyEvent, TextEdit, Tx};
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
+use uuid::Uuid;
 
 pub struct FormServices {
     pub settings: Arc<SettingsService>,
@@ -45,6 +47,11 @@ pub struct FormModel {
     pub(crate) scene: Option<Arc<FormRequest>>,
     pub(crate) outcome_seq: u64,
     pub(crate) held: Held,
+    /// Top-left origin from the last place. Height changes keep this.
+    pub(crate) origin: Option<(f64, f64)>,
+    pub(crate) place_count: u32,
+    pub(crate) placed_before_show: bool,
+    pub(crate) last_snippet: Option<Uuid>,
 }
 
 pub struct FormState {
@@ -54,6 +61,7 @@ pub struct FormState {
     /// Live `NSApp.currentEvent`, or a test fake. Never invents a stamp.
     pub(crate) current_event: fn() -> Option<kudzu_app::ports::InputEvent>,
     preview_waker: Option<rune::Waker>,
+    pub(crate) submit_admission: Arc<Mutex<Option<Result<(), AdmissionError>>>>,
 }
 
 impl FormState {
@@ -64,6 +72,7 @@ impl FormState {
             model: FormModel::default(),
             current_event: events::live,
             preview_waker: None,
+            submit_admission: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -80,11 +89,27 @@ impl FormState {
     }
 
     pub(crate) fn load(&mut self, request: Arc<FormRequest>) {
+        let replacing = self.model.request.is_some();
         self.model.request = Some(request.clone());
         self.model.last_token = Some(request.token);
+        self.model.last_snippet = Some(request.snippet_id);
         self.model.focus_seq = 0;
         self.model.panel = Some(Panel::from_request(&request));
+        self.model.origin = None;
+        self.model.place_count = 0;
+        self.model.placed_before_show = false;
         self.attach_preview_waker();
+        let height = self
+            .model
+            .panel
+            .as_ref()
+            .map(|panel| panel.height)
+            .unwrap_or(place::FORM_H_MIN);
+        self.place(height);
+        self.model.placed_before_show = self.model.place_count > 0;
+        if replacing {
+            self.focused(true);
+        }
         let form = self.shell.handles().form.clone();
         self.shell.handles().form.update(move |s, _| {
             if s.model.request.is_some() {
@@ -142,15 +167,45 @@ impl FormState {
             event: self.event(),
             focus_seq: self.model.focus_seq,
         };
-        let _baseline = self.svc.forms.outcomes().get();
+        if let Some(notice) = self.svc.forms.outcomes().get().as_ref().as_ref() {
+            self.model.outcome_seq = notice.sequence;
+        }
+        *self
+            .submit_admission
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = None;
         self.shell.handles().form.hide();
         match self.svc.forms.submit(request.token, values, submission) {
-            Ok(Some(task)) => self.shell.settle_value("form submit", task),
+            Ok(Some(task)) => self.keep_submit(task),
             Ok(None) => {}
             Err(error) => self.refuse(error),
         }
         self.model.request = None;
         self.model.panel = None;
+    }
+
+    fn keep_submit(&mut self, task: Task<Submission>) {
+        let admission = self.submit_admission.clone();
+        match Task::spawn("form-submit-log", move || {
+            wait_ready(&task);
+            match task.take() {
+                Some(Ok(submission)) => {
+                    if let Err(error) = submission.admission {
+                        log::warn!("form admission failed: {error}");
+                    }
+                    if let Some(error) = submission.memory_error {
+                        log::warn!("form memory persist failed: {error}");
+                    }
+                    *admission.lock().unwrap_or_else(PoisonError::into_inner) =
+                        Some(submission.admission);
+                }
+                Some(Err(error)) => log::warn!("form submit task failed: {error}"),
+                None => log::warn!("form submit task timed out"),
+            }
+        }) {
+            Ok(logged) => self.shell.settle_value("form submit", logged),
+            Err(error) => log::warn!("form submit log failed to start: {error}"),
+        }
     }
 
     fn refuse(&mut self, error: SubmitStartError) {
@@ -169,7 +224,7 @@ impl FormState {
         self.refuse(error);
     }
 
-    fn focused(&mut self, key: bool) {
+    pub(crate) fn focused(&mut self, key: bool) {
         if let Some(token) = self.token() {
             self.model.focus_seq += 1;
             self.svc.forms.panel_focused(
@@ -186,6 +241,11 @@ impl FormState {
     #[cfg(test)]
     pub(crate) fn report_focus(&mut self, key: bool) {
         self.focused(key);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn key(&mut self, key: &KeyEvent, tx: &mut Tx) -> bool {
+        on_key(self, key, tx)
     }
 
     pub fn sync(&mut self) -> bool {
@@ -225,8 +285,24 @@ impl FormState {
             return false;
         };
         self.model.outcome_seq = notice.sequence;
-        let snippet = self.model.request.as_ref().map(|r| r.snippet_id);
-        let _ = outcomes::classify(&notice, snippet);
+        let snippet = self
+            .model
+            .request
+            .as_ref()
+            .map(|r| r.snippet_id)
+            .or(self.model.last_snippet);
+        let kind = outcomes::classify(&notice, snippet);
+        if kind == outcomes::Kind::Ours {
+            match notice.outcome {
+                InsertionOutcome::Failed(error) => {
+                    log::warn!("form insertion failed: {error:?}");
+                }
+                InsertionOutcome::TriggerLost => {
+                    log::warn!("a stored trigger could not be restored");
+                }
+                _ => {}
+            }
+        }
         true
     }
 
@@ -314,12 +390,13 @@ impl FormState {
 
     pub(crate) fn break_line(&mut self, name: &str) {
         let edit = self.edit(name);
-        let at = edit.focus.min(edit.text.len());
-        if !edit.text.is_char_boundary(at) {
+        let start = edit.anchor.min(edit.focus);
+        let end = edit.anchor.max(edit.focus);
+        if !edit.text.is_char_boundary(start) || !edit.text.is_char_boundary(end) {
             return;
         }
-        edit.text.insert(at, '\n');
-        edit.focus = at + 1;
+        edit.text.replace_range(start..end, "\n");
+        edit.focus = start + 1;
         edit.anchor = edit.focus;
     }
 
@@ -362,34 +439,23 @@ impl FormState {
             panel.height = height;
         }
         tx.resize_window((place::FORM_W as f32, height as f32));
-        self.place(height);
     }
 
-    fn place(&self, height: f64) {
-        if !self.shell.native() {
-            return;
-        }
-        let Some(mtm) = objc2_foundation::MainThreadMarker::new() else {
-            return;
-        };
-        let screens = kudzu_appkit::screens::snapshot(mtm);
-        let Some(canvas) = kudzu_appkit::screens::canvas(mtm) else {
-            return;
-        };
-        let frames: Vec<place::Frame> = screens
-            .iter()
-            .map(|screen| place::top_left_frame(screen.frame, canvas))
-            .collect();
+    fn place(&mut self, height: f64) {
+        let height = place::clamp_form_height(height);
         let caret = self
             .model
             .request
             .as_ref()
             .and_then(|request| request.caret);
-        let Some(screen) = place::screen_holding(&frames, caret) else {
+        let Some((x, y)) = self.origin_for(caret, height) else {
             return;
         };
-        let height = place::clamp_form_height(height);
-        let (x, y) = place::form_origin(screen, caret, height);
+        self.model.origin = Some((x, y));
+        self.model.place_count = self.model.place_count.saturating_add(1);
+        if !self.shell.native() {
+            return;
+        }
         self.shell.handles().form.place(
             rune::DisplayTarget::Primary,
             rune::OverlayPlacement::Rect {
@@ -400,20 +466,57 @@ impl FormState {
             },
         );
     }
+
+    fn origin_for(
+        &self,
+        caret: Option<kudzu_core::system::Rect>,
+        height: f64,
+    ) -> Option<(f64, f64)> {
+        if !self.shell.native() {
+            let screen = place::Frame {
+                x: 0.0,
+                y: 0.0,
+                w: 1440.0,
+                h: 900.0,
+            };
+            let screen = place::screen_holding(&[screen], caret, None)?;
+            return Some(place::form_origin(screen, caret, height));
+        }
+        let mtm = objc2_foundation::MainThreadMarker::new()?;
+        let screens = kudzu_appkit::screens::snapshot(mtm);
+        let primary_max_y = screens.first()?.frame.max_y();
+        let frames: Vec<place::Frame> = screens
+            .iter()
+            .map(|screen| place::top_left_frame(screen.frame, primary_max_y))
+            .collect();
+        let pointer = kudzu_appkit::screens::under_pointer(mtm)
+            .map(|screen| place::top_left_frame(screen.frame, primary_max_y));
+        let screen = place::screen_holding(&frames, caret, pointer)?;
+        Some(place::form_origin(screen, caret, height))
+    }
+}
+
+fn wait_ready<T: Send + 'static>(task: &Task<T>) {
+    if *task.ready().get() {
+        return;
+    }
+    let (tx, rx) = std::sync::mpsc::channel();
+    let _sub = task.ready().subscribe(move || {
+        let _ = tx.send(());
+    });
+    if !*task.ready().get() {
+        let _ = rx.recv_timeout(Duration::from_secs(5));
+    }
 }
 
 fn wait_preview(
     task: Option<Task<Result<RenderResult, kudzu_app::expansion::ExpansionError>>>,
 ) -> Option<RenderResult> {
     let task = task?;
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        match task.take() {
-            Some(Ok(Ok(result))) => return Some(result),
-            Some(_) => return None,
-            None if Instant::now() >= deadline => return None,
-            None => std::thread::sleep(Duration::from_millis(5)),
-        }
+    wait_ready(&task);
+    match task.take() {
+        Some(Ok(Ok(result))) => Some(result),
+        _ => None,
     }
 }
 
