@@ -14,9 +14,10 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::super::input_source;
 use super::super::keys;
-use super::super::pasteboard::PreparedPaste;
+use super::super::pasteboard::{PasteError, PreparedPaste};
 use super::{Imp, InsertError};
-use crate::plan::{self, InsertionPlan, PlanMode};
+use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
+use crate::TriggerLost;
 
 /// The typed trigger an insertion replaces.
 #[derive(Clone, Copy)]
@@ -167,7 +168,41 @@ impl Imp {
         })
     }
 
-    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14).
+    /// Prepares a sequence that replaces `t`: its first step when it is text (a paste is saved
+    /// and written now), else nothing. When a later step pastes but the clipboard can't be
+    /// saved now, nothing is deleted. A paste refused later still stops the sequence where it
+    /// is, as any refused step does (EXP-15).
+    pub(super) fn prepare_sequence<'a>(
+        &'a self,
+        t: &TypedTrigger<'_>,
+        sequence: &'a Sequence,
+        method: InsertionMethod,
+    ) -> Result<Option<Delivery<'a>>, InsertError> {
+        let first = match sequence.steps.first() {
+            Some(Step::Text { text, spans }) => {
+                let html = spans
+                    .as_ref()
+                    .map(|spans| kudzu_core::formatting::html(text, spans));
+                Some(self.prepare_or_put_back(t, text, html.as_deref(), method)?)
+            }
+            _ => None,
+        };
+        let later = &sequence.steps[usize::from(first.is_some())..];
+        let pastes_later = later.iter().any(|step| {
+            matches!(step, Step::Text { text, spans }
+                if !plan::types(method, text, spans.is_some(), input_source::composing()))
+        });
+        let saved = matches!(first, Some(Delivery::Paste(_)));
+        if pastes_later && !saved && !self.pasteboard().can_save() {
+            drop(first);
+            self.put_back(t, 0);
+            return Err(PasteError::Unavailable.into());
+        }
+        Ok(first)
+    }
+
+    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14). When that is
+    /// refused too, the host hears that the trigger is lost.
     fn put_back(&self, t: &TypedTrigger<'_>, deleted: usize) {
         let text = t.restoration(deleted);
         if text.is_empty() {
@@ -175,6 +210,10 @@ impl Imp {
         }
         if let Err(error) = keys::retype(self.events(), &text) {
             log::warn!("could not type the trigger back: {error:?}");
+            self.host.trigger_lost(TriggerLost {
+                snippet_id: t.trigger.snippet_id,
+                trigger: t.trigger.trigger.clone(),
+            });
         }
     }
 }

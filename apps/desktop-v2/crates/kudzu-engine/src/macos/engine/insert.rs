@@ -73,12 +73,7 @@ impl Imp {
         // D14: a first step that pastes is prepared before the trigger is deleted.
         let mut first = None;
         if let Some(t) = &typed {
-            if let Some(Step::Text { text, spans }) = sequence.steps.first() {
-                let html = spans
-                    .as_ref()
-                    .map(|spans| kudzu_core::formatting::html(text, spans));
-                first = Some(self.prepare_or_put_back(t, text, html.as_deref(), method)?);
-            }
+            first = self.prepare_sequence(t, &sequence, method)?;
             if !self.delete_trigger(t, &mut first)? {
                 return Ok(false);
             }

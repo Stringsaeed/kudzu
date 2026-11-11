@@ -7,8 +7,9 @@
 //!   every report; [`Engine::start`] attaches the listener once permissions allow. The library
 //!   comes in through [`Engine::reload`]; pausing, suppression, forms and Quick Search inserts
 //!   through the other methods.
-//! - [`EngineHost`]: what the engine reports: status, expansions, form requests, activity, and
-//!   the one question it asks (an older clipboard item for `{{clipboard history=N}}`).
+//! - [`EngineHost`]: what the engine reports: status, expansions, form requests, activity, a
+//!   trigger a refused paste couldn't put back ([`TriggerLost`]), and the one question it asks
+//!   (an older clipboard item for `{{clipboard history=N}}`).
 //! - [`clipboard`]: the general pasteboard, shared with snippet pastes so that Kudzu's own
 //!   writes are recognised and a pending restore is never overwritten.
 //! - [`system`]: permissions, Secure Input, the frontmost app, the caret and the selection.
@@ -82,6 +83,18 @@ pub struct ExpansionEvent {
     pub chars_saved: i64,
 }
 
+/// A paste-based expansion was refused after it had deleted some of its trigger, and typing it
+/// back was refused too, so the document is missing what the user typed (D14). This happens when
+/// permission to post events goes away, or Secure Input comes on, mid-insertion. The clipboard is
+/// the user's again; the host should tell the user, who can undo in the target app or retype the
+/// trigger. Never contains typed text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TriggerLost {
+    pub snippet_id: Uuid,
+    /// The trigger as stored (the user may have typed it in another case).
+    pub trigger: String,
+}
+
 /// Callbacks from the engine into the host app. Called from engine threads (see the crate's
 /// threading notes), never while an engine lock is held.
 pub trait EngineHost: Send + Sync + 'static {
@@ -102,6 +115,9 @@ pub trait EngineHost: Send + Sync + 'static {
     /// A trigger fully matched, or engine health changed: what happened and why, for the
     /// "Why didn't this expand?" log. Never contains typed or inserted text. Keep it in memory.
     fn activity(&self, _event: kudzu_core::activity::ActivityEvent) {}
+
+    /// See [`TriggerLost`]. The activity log also records the failure.
+    fn trigger_lost(&self, _lost: TriggerLost) {}
 }
 
 /// Everything the engine matches and renders against.

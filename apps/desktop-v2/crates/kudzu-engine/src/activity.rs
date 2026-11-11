@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use kudzu_core::activity::{ActivityApp, ActivityEvent, ActivityOutcome, ActivitySource};
 use uuid::Uuid;
 
-use crate::{lock, AppInfo, EngineHost, EngineStatus, ExpansionEvent, FormRequest};
+use crate::{lock, AppInfo, EngineHost, EngineStatus, ExpansionEvent, FormRequest, TriggerLost};
 
 /// What an attempt is about. Holds no text beyond the snippet's stored trigger.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -200,6 +200,10 @@ impl EngineHost for Recorder {
 
     fn activity(&self, event: ActivityEvent) {
         self.host.activity(event);
+    }
+
+    fn trigger_lost(&self, lost: TriggerLost) {
+        self.host.trigger_lost(lost);
     }
 }
 

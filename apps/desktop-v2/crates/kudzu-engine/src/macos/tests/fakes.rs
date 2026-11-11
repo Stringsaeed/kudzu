@@ -33,6 +33,10 @@ impl Events for FakeEvents {
             if s.paste_refused && decode(key, flags, &text) == Out::Paste {
                 return Err(KeyError::EventCreation);
             }
+            if s.refuse_press == Some(s.presses) {
+                s.refuse_press = None;
+                return Err(KeyError::EventCreation);
+            }
             s.log.push(Ev::Out(decode(key, flags, &text)));
             s.press_times.push(Instant::now());
             Ok(())

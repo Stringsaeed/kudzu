@@ -19,7 +19,9 @@ use super::desk::{Desk, Ev, Out};
 use super::fakes::{FakeBoard, FakeEvents, FakeObserve};
 use crate::macos::pasteboard::Pasteboard;
 use crate::macos::Platform;
-use crate::{lock, Engine, EngineHost, EngineLibrary, EngineStatus, ExpansionEvent, FormRequest};
+use crate::{
+    lock, Engine, EngineHost, EngineLibrary, EngineStatus, ExpansionEvent, FormRequest, TriggerLost,
+};
 
 /// Records every host callback.
 #[derive(Default)]
@@ -28,6 +30,7 @@ pub(super) struct Host {
     pub expanded: Mutex<Vec<ExpansionEvent>>,
     pub forms: Mutex<Vec<FormRequest>>,
     pub activity: Mutex<Vec<ActivityEvent>>,
+    pub lost: Mutex<Vec<TriggerLost>>,
 }
 
 impl EngineHost for Host {
@@ -45,6 +48,10 @@ impl EngineHost for Host {
 
     fn activity(&self, event: ActivityEvent) {
         lock(&self.activity).push(event);
+    }
+
+    fn trigger_lost(&self, lost: TriggerLost) {
+        lock(&self.lost).push(lost);
     }
 }
 

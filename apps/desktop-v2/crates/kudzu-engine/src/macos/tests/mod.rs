@@ -25,6 +25,7 @@ mod images;
 mod latency;
 mod listener;
 mod paste;
+mod refusals;
 mod sequences;
 mod transactions;
 mod undo;

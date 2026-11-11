@@ -139,6 +139,8 @@ pub(super) struct State {
     pub transient_fails: bool,
     /// ⌘V can't be posted (its event can't be created); other keys still can.
     pub paste_refused: bool,
+    /// The press with this index (counting the ones that went out) can't be created, once.
+    pub refuse_press: Option<usize>,
     // Observations.
     pub elapsed: Duration,
     pub frontmost: Option<AppInfo>,
@@ -228,6 +230,7 @@ impl Desk {
             unreadable: false,
             transient_fails: false,
             paste_refused: false,
+            refuse_press: None,
             elapsed: Duration::ZERO,
             frontmost: Some(editor()),
             running: vec![editor(), mail()],

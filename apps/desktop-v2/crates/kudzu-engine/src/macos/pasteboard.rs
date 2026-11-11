@@ -212,6 +212,13 @@ impl Pasteboard {
         })
     }
 
+    /// Whether the clipboard can be saved right now (some promised data may be unreadable). For
+    /// a sequence that pastes only after a key press: checked before its trigger is deleted.
+    pub fn can_save(&self) -> bool {
+        let _transaction = self.begin();
+        self.board.snapshot().is_some()
+    }
+
     /// Restores the clipboard a paste replaced, unless the user copied something since. Also
     /// the pasteboard's shutdown: the engine calls it when it stops.
     pub fn restore_pending(&self) {
