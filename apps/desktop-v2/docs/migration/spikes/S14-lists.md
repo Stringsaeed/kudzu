@@ -9,7 +9,7 @@ No installed Kudzu, system settings, permissions or upstream issues were changed
 See `spikes/lists/README.md`. Warm target was cloned with the exact requested
 `cp -cR` command before the first build. Builds in this worktree were sequential.
 Machine: MacBook Pro Mac14,5, Apple M2 Max, 32 GB, macOS 27.2 (26B123), internal
-3024×1964 Retina display. Headless viewport 900×600, scale 1, 120 Hz simulated.
+3024×1964 Retina display. Headless viewport 900×600, scale 2, 120 Hz simulated.
 Other agents can contend for this machine; timings are observations, not guarantees.
 
 ## Source conclusions
@@ -166,3 +166,29 @@ The independent release Runtime-only trace also reports zero view commits in
 all seven runs (median 0.0592–0.0698 ms; p95 0.1905–0.2050 ms). These smaller
 numbers exclude renderer encode; the full renderer numbers above decide the budget.
 The earlier debug timings are not used for the performance verdict.
+
+## Review caveats (Grok 4.6 review, 2026-11-11: accept with caveats)
+
+Every verdict stands. The review recomputed the traces: library median p95 0.270 ms (worst 0.284), clipboard 0.302 ms (worst 0.310), against the 4 ms budget, at scale 2. Before building on this spike:
+
+**S42 (sidebar; owns `dnd.rs`)**
+- Don't copy the spike's `Dnd` as is. Hit-test **every** containing drop rect and pick the deepest group-tree depth, then the smaller area. The root "Groups" target sits behind nested 28 pt group rows, and first-match lets the root swallow group drops. Add a runtime test: a root rect contains a group rect, the pointer is over the child, and the drop lands on the child.
+- Add `take_press(&mut self) -> bool` (true means a real click). It consumes the extra press Rune #551 fires after an in-place drag and resets on the next Down. Every drag source's `on_press` calls it.
+- `finish` takes the same `accepts` callback as `update`, so acceptance is checked again on Up.
+- Use generation-based registration plus `unregister` for folded rows. Clip drawn rects to the sidebar viewport before registering them, and drop folded or inert rows from the generation.
+- Escape or losing focus arrives as `Phase::Up` with `Drag::cancelled()`; wire it to `finish(.., cancelled: true)`. A source that unmounts still calls `cancel()`.
+- The ghost shows the name for a single snippet or group, and a count for several (LIB-11).
+- Group rows are drag sources (`Payload::Group`) as well as targets. The library service keeps rejecting cycles.
+- Build on rune-kit `Sidebar` / `SidebarRow` (28 pt, depth indent). Edge auto-scroll is still to be decided.
+
+**S50 (library list)**
+- The memo revision includes every visible field (name, trigger, summary, usage, favourite or off, density), not just `selected`.
+- Type-to-filter, ⌘A, Escape, J/K, Page ±8, and a filter that keeps a selection outside the visible slice are model work; this spike only proved slice replacement.
+- In the split frame, use `tx.scroll_into_view_in(list_scope, id)` (#547). Only the unscoped call was tested here.
+- As a drag source: snapshot the selected ids on Down, with a 4 pt threshold. Run the 5,000-row scroll trace again on real rows.
+
+**S58 (clipboard list)**
+- Pinned and date sections are their own virtual rows with mixed heights (30 / 58 / 36; compact 28 / 50 / 32). Don't bake headers into items.
+- Thumbnails, secret dots, match marks, pin and copy checks, and the density toggle belong in the memo revision. There is no in-app drag. Run the 5,000-row budget trace again, plus a second one for compact density.
+
+**Shared:** keep selection in the model (#550). Re-test #203, #546, #549 and #550 on every Rune bump. `rune_kit::List` stays off the hot path. `cargo test` Instant timings are runtime-only, not §1.7 budget numbers.
