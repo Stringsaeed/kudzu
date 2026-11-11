@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, FixedOffset};
 use kudzu_core::matching::MatchingConfig;
 use kudzu_core::template::{self, FormFieldSpec, Node, RenderContext, RenderResult, TemplateTag};
-use kudzu_core::types::{AppRule, GroupRecord, InsertionMethod, SnippetRecord};
+use kudzu_core::{AppRule, GroupRecord, InsertionMethod, SnippetRecord};
 use uuid::Uuid;
 
 use crate::EngineLibrary;
@@ -197,7 +197,7 @@ pub(crate) fn now() -> DateTime<FixedOffset> {
 mod tests {
     use super::*;
     use kudzu_core::template::FormFieldKind;
-    use kudzu_core::types::AppRuleMode;
+    use kudzu_core::AppRuleMode;
 
     fn library(snippets: Vec<SnippetRecord>, groups: Vec<GroupRecord>) -> Library {
         let lib = EngineLibrary {

@@ -21,7 +21,7 @@ use kudzu_core::matching::{
     case_propagation, ExpansionMatcher, KeyInput, MatcherEvent, TriggerIndex, TriggerMatch,
 };
 use kudzu_core::template::RenderResult;
-use kudzu_core::types::{InsertionMethod, SnippetRecord};
+use kudzu_core::{InsertionMethod, SnippetRecord};
 use objc2::rc::autoreleasepool;
 use uuid::Uuid;
 

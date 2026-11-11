@@ -6,18 +6,17 @@ mod matching_support;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
-use kudzu_core::matching::{
-    find_conflicts, rule_summary, trigger_tokens, validate_trigger, ConflictKind, EffectiveSnippet,
-    GroupResolver, MatchingConfig, TriggerIssue, MAX_TRIGGER_LENGTH,
+use kudzu_core::library::conflicts::{find_conflicts, ConflictKind, TriggerConflict};
+use kudzu_core::library::groups::{rule_summary, EffectiveSnippet, GroupResolver};
+use kudzu_core::library::triggers::{
+    trigger_tokens, validate_trigger, TriggerIssue, MAX_TRIGGER_LENGTH,
 };
+use kudzu_core::matching::MatchingConfig;
 use kudzu_core::{AppRule, AppRuleMode, GroupRecord, InsertionMethod, SnippetRecord};
 use matching_support::*;
 use uuid::Uuid;
 
-fn conflicts(
-    snippets: &[&Snip],
-    groups: &[GroupRecord],
-) -> Vec<kudzu_core::matching::TriggerConflict> {
+fn conflicts(snippets: &[&Snip], groups: &[GroupRecord]) -> Vec<TriggerConflict> {
     find_conflicts(&records(snippets), groups)
 }
 

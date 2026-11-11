@@ -210,7 +210,7 @@ fn embedded_images_round_trip_with_a_plain_text_alternative() {
 
 #[test]
 fn distinct_formatting_is_not_deduplicated_and_removal_syncs() {
-    use kudzu_core::interchange::dedupe;
+    use kudzu_core::library::dedupe;
     use kudzu_core::{sync, KudzuLibrary};
     let plain = SnippetRecord::new("Plain", vec![";x".into()], "Hello");
     let mut rich = SnippetRecord::new("Rich", vec![";x".into()], "Hello");

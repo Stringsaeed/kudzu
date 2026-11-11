@@ -1,32 +1,27 @@
-//! Import orchestration: previews, safety backups, merge + dedupe, restore, export and starter
-//! snippets. Works on plain [`KudzuLibrary`] values; the caller persists the result.
+//! Import orchestration over files: previews, safety backups, merge + dedupe, restore and
+//! export. Works on plain [`KudzuLibrary`] values; the caller persists the result.
+//!
+//! Marked for S29: everything here that reads or writes files moves to `kudzu-app::data`
+//! together with [`BackupStore`]. The pure parts already live in [`super::merge`],
+//! [`super::detect`] and [`crate::library::starter`].
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use super::backup::{BackupInfo, BackupReason, BackupStore};
-use super::dedupe::{self, DedupeReport};
+use super::detect::{self, ImportSource};
 use super::espanso::{self, EspansoImportResult, ImportWarning};
-use super::stats::latest;
-use super::{kudzu_json, InterchangeError};
-use super::{raycast, textexpander, ImportResult};
-use crate::types::{GroupRecord, KudzuLibrary, SnippetRecord, UsageRecord};
-
-/// Starter trigger used in onboarding.
-pub const SAMPLE_TRIGGER: &str = ";kudzu";
-/// Starter expansion used in onboarding.
-pub const SAMPLE_EXPANSION: &str = "Kudzu is working!";
-/// Name of the group that holds the starter snippets.
-pub const GETTING_STARTED_GROUP: &str = "Getting Started";
+use super::merge::merge_library;
+use super::{raycast, textexpander, ImportResult, InterchangeError};
+use crate::library::dedupe::DedupeReport;
+use crate::library::json;
+use crate::library::model::KudzuLibrary;
 
 /// Import warnings sharing one message.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WarningGroup {
     pub message: String,
     pub count: usize,
@@ -56,8 +51,7 @@ pub fn group_warnings(warnings: &[ImportWarning]) -> Vec<WarningGroup> {
 }
 
 /// An Espanso directory parsed but not yet merged.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EspansoDirectoryPreview {
     pub path: PathBuf,
     pub snippet_count: usize,
@@ -88,8 +82,7 @@ pub fn detect_espanso_dirs(home: &Path) -> Vec<EspansoDirectoryPreview> {
 }
 
 /// A completed import (Espanso or Kudzu JSON), with its safety backup and dedupe details.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportSummary {
     /// Snippets in the source, before deduplication.
     pub imported_snippets: usize,
@@ -100,119 +93,6 @@ pub struct ImportSummary {
     pub dedupe_report: DedupeReport,
     pub warnings: Vec<ImportWarning>,
     pub grouped_warnings: Vec<WarningGroup>,
-}
-
-/// Adds `incoming` to `existing`, then dedupes.
-///
-/// Records whose IDs already exist are kept unless the incoming snippet has a newer `updated_at`.
-/// Usage rows for an existing (snippet, device) take the max of each counter: they are two
-/// snapshots of the same counter (e.g. this device's own backup), so summing would double count.
-/// Groups whose parent is missing, or whose parent link would form a cycle, become root groups.
-pub fn merge_library(
-    existing: &KudzuLibrary,
-    incoming: &KudzuLibrary,
-) -> (KudzuLibrary, DedupeReport) {
-    let mut merged = existing.clone();
-
-    // Groups: insert new ones without parents, then link parents that exist and don't loop.
-    let mut parents: HashMap<Uuid, Option<Uuid>> =
-        merged.groups.iter().map(|g| (g.id, g.parent_id)).collect();
-    let mut inserted = Vec::new();
-    for g in &incoming.groups {
-        if parents.contains_key(&g.id) {
-            continue;
-        }
-        parents.insert(g.id, None);
-        inserted.push(merged.groups.len());
-        merged.groups.push(GroupRecord {
-            parent_id: None,
-            ..g.clone()
-        });
-    }
-    for index in inserted {
-        let id = merged.groups[index].id;
-        let wanted = incoming
-            .groups
-            .iter()
-            .find(|g| g.id == id)
-            .and_then(|g| g.parent_id);
-        let Some(parent) = wanted.filter(|p| parents.contains_key(p)) else {
-            continue;
-        };
-        if !is_descendant_or_self(parent, id, &parents) {
-            parents.insert(id, Some(parent));
-            merged.groups[index].parent_id = Some(parent);
-        }
-    }
-
-    // Snippets: newer incoming edits win; group links must point at a known group.
-    let known_group = |gid: Option<Uuid>| gid.filter(|g| parents.contains_key(g));
-    let mut positions: HashMap<Uuid, usize> = HashMap::new();
-    for (i, s) in merged.snippets.iter().enumerate() {
-        positions.entry(s.id).or_insert(i);
-    }
-    for record in &incoming.snippets {
-        let record = SnippetRecord {
-            group_id: known_group(record.group_id),
-            ..record.clone()
-        };
-        match positions.get(&record.id) {
-            Some(&i) => {
-                if record.updated_at > merged.snippets[i].updated_at {
-                    merged.snippets[i] = record;
-                }
-            }
-            None => {
-                positions.insert(record.id, merged.snippets.len());
-                merged.snippets.push(record);
-            }
-        }
-    }
-
-    // Usage: max of each counter for a known (snippet, device).
-    let mut rows: HashMap<(Uuid, String), usize> = HashMap::new();
-    for (i, u) in merged.usage.iter().enumerate() {
-        rows.entry((u.snippet_id, u.device_id.clone())).or_insert(i);
-    }
-    for record in &incoming.usage {
-        match rows.get(&(record.snippet_id, record.device_id.clone())) {
-            Some(&i) => {
-                let row = &mut merged.usage[i];
-                *row = UsageRecord {
-                    count: row.count.max(record.count),
-                    chars_saved: row.chars_saved.max(record.chars_saved),
-                    last_used_at: latest(row.last_used_at, record.last_used_at),
-                    ..row.clone()
-                };
-            }
-            None => {
-                rows.insert(
-                    (record.snippet_id, record.device_id.clone()),
-                    merged.usage.len(),
-                );
-                merged.usage.push(record.clone());
-            }
-        }
-    }
-
-    dedupe::dedupe(&merged, &HashMap::new())
-}
-
-/// True if `candidate` is `group` or sits anywhere below it.
-fn is_descendant_or_self(
-    candidate: Uuid,
-    group: Uuid,
-    parents: &HashMap<Uuid, Option<Uuid>>,
-) -> bool {
-    let mut current = Some(candidate);
-    let mut seen = HashSet::new();
-    while let Some(node) = current.filter(|n| seen.insert(*n)) {
-        if node == group {
-            return true;
-        }
-        current = parents.get(&node).copied().flatten();
-    }
-    false
 }
 
 /// Writes a `preImport` backup of `existing`, then merges `incoming` into it.
@@ -263,17 +143,8 @@ pub fn import_result(
     )
 }
 
-/// Which app wrote an import file.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ImportSource {
-    Kudzu,
-    Espanso,
-    Raycast,
-    TextExpander,
-}
-
-/// Works out what `path` is from its extension and, for JSON, its shape: a Raycast export is
-/// an array of snippets, a Kudzu library an object. Folders are Espanso config directories.
+/// Works out what `path` is from its extension and, for JSON, its contents.
+/// Folders are Espanso config directories. S29 moves this file access to the data service.
 pub fn detect_import_source(path: &Path) -> Result<ImportSource, InterchangeError> {
     if path.is_dir() {
         return Ok(ImportSource::Espanso);
@@ -283,29 +154,13 @@ pub fn detect_import_source(path: &Path) -> Result<ImportSource, InterchangeErro
         .and_then(|e| e.to_str())
         .map(str::to_lowercase)
         .unwrap_or_default();
-    match extension.as_str() {
-        "yml" | "yaml" => Ok(ImportSource::Espanso),
-        "textexpander" | "csv" | "plist" | "xml" => Ok(ImportSource::TextExpander),
-        "json" => {
-            let json = fs::read_to_string(path).map_err(|e| {
-                InterchangeError::io(format!("Couldn't read {}", path.display()), e)
-            })?;
-            let first = json
-                .trim_start_matches('\u{feff}')
-                .trim_start()
-                .chars()
-                .next();
-            Ok(if first == Some('[') {
-                ImportSource::Raycast
-            } else {
-                ImportSource::Kudzu
-            })
-        }
-        _ => Err(InterchangeError::InvalidSource(
-            "Kudzu can import .json (Kudzu or Raycast), .yml (Espanso), and .textexpander or .csv (TextExpander) files."
-                .into(),
-        )),
-    }
+    let contents = if extension == "json" {
+        fs::read_to_string(path)
+            .map_err(|e| InterchangeError::io(format!("Couldn't read {}", path.display()), e))?
+    } else {
+        String::new()
+    };
+    detect::file_format(&extension, &contents)
 }
 
 /// Reads and converts the import file at `path`, whichever app wrote it. Nothing is merged yet.
@@ -316,7 +171,7 @@ pub fn load_import(path: &Path) -> Result<ImportResult, InterchangeError> {
                 InterchangeError::io(format!("Couldn't read {}", path.display()), e)
             })?;
             Ok(ImportResult {
-                library: kudzu_json::decode(&json)?,
+                library: json::decode(&json)?,
                 warnings: vec![],
             })
         }
@@ -334,7 +189,7 @@ pub fn import_kudzu_json(
     backups: &BackupStore,
     now: DateTime<Utc>,
 ) -> Result<(KudzuLibrary, ImportSummary), InterchangeError> {
-    let incoming = kudzu_json::decode(json)?;
+    let incoming = json::decode(json)?;
     import_library(existing, &incoming, vec![], backups, now)
 }
 
@@ -369,57 +224,4 @@ pub fn export_espanso_to_dir(
         written.push(path);
     }
     Ok(written)
-}
-
-/// Adds the "Getting Started" group and starter snippets (`;kudzu`, `;date`, `;sig`) unless a
-/// snippet already uses `;kudzu`. Returns whether anything was added.
-pub fn ensure_getting_started_snippets(library: &mut KudzuLibrary, now: DateTime<Utc>) -> bool {
-    let has_sample = library.snippets.iter().any(|s| {
-        s.triggers
-            .iter()
-            .any(|t| t.to_lowercase() == SAMPLE_TRIGGER)
-    });
-    if has_sample {
-        return false;
-    }
-    let existing = library.groups.iter().find(|g| {
-        g.parent_id.is_none() && g.name.to_lowercase() == GETTING_STARTED_GROUP.to_lowercase()
-    });
-    let group_id = match existing {
-        Some(g) => g.id,
-        None => {
-            let next = library
-                .groups
-                .iter()
-                .filter(|g| g.parent_id.is_none())
-                .map(|g| g.sort_index)
-                .max()
-                .map_or(0, |m| m + 1);
-            let group = GroupRecord {
-                sort_index: next,
-                ..GroupRecord::new(GETTING_STARTED_GROUP)
-            };
-            let id = group.id;
-            library.groups.push(group);
-            id
-        }
-    };
-    let starters = [
-        ("Kudzu Test", SAMPLE_TRIGGER, SAMPLE_EXPANSION),
-        (
-            "Today's Date",
-            ";date",
-            r#"{{date format="EEEE, d MMMM yyyy"}}"#,
-        ),
-        ("Signature", ";sig", "Best regards,\nYour Name"),
-    ];
-    for (name, trigger, content) in starters {
-        library.snippets.push(SnippetRecord {
-            group_id: Some(group_id),
-            created_at: now,
-            updated_at: now,
-            ..SnippetRecord::new(name, vec![trigger.to_string()], content)
-        });
-    }
-    true
 }

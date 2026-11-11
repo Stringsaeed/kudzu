@@ -17,7 +17,7 @@ use super::espanso::tags;
 use super::espanso::ImportWarning;
 use super::template_out::TemplateOut;
 use super::{ImportResult, InterchangeError};
-use crate::types::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
+use crate::library::model::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
 
 /// Name of the group that holds the imported snippets.
 pub const GROUP_NAME: &str = "Raycast";

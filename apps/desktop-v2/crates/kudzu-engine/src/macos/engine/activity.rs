@@ -10,7 +10,7 @@ use kudzu_core::activity::{
     ActivityApp, ActivityOutcome, ActivitySource, InsertFailure, Permission, RuleLevel,
     TapDisabledCause,
 };
-use kudzu_core::matching::{MatcherEvent, MatchingConfig, SkipCause, SkippedMatch};
+use kudzu_core::matching::{MatcherEvent, MatchingConfig, SkipReason, SkippedMatch};
 use uuid::Uuid;
 
 use super::{
@@ -54,9 +54,9 @@ impl Note {
             cause,
         } = skipped?;
         let outcome = match cause {
-            SkipCause::SnippetOff => ActivityOutcome::SnippetOff,
-            SkipCause::GroupOff { group_id } => ActivityOutcome::GroupOff { group_id },
-            SkipCause::Rule { level, group_id } => ActivityOutcome::AppRule { level, group_id },
+            SkipReason::SnippetOff => ActivityOutcome::SnippetOff,
+            SkipReason::GroupOff { group_id } => ActivityOutcome::GroupOff { group_id },
+            SkipReason::Rule { level, group_id } => ActivityOutcome::AppRule { level, group_id },
         };
         Some(Note::Trigger {
             snippet_id,

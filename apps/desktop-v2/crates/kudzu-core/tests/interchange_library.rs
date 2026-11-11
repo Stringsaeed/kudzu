@@ -8,9 +8,10 @@ mod interchange {
     use crate::interchange_support::TempDir;
     use chrono::{DateTime, FixedOffset, TimeZone, Utc};
     use kudzu_core::interchange::backup::{BackupReason, BackupStore, BackupTimeZone};
-    use kudzu_core::interchange::coordinator::{self, SAMPLE_TRIGGER};
     use kudzu_core::interchange::espanso::{self, ImportWarning};
-    use kudzu_core::interchange::{kudzu_json, InterchangeError};
+    use kudzu_core::interchange::{coordinator, merge, InterchangeError};
+    use kudzu_core::library::json as kudzu_json;
+    use kudzu_core::library::starter::{self, SAMPLE_TRIGGER};
     use kudzu_core::{
         AppRule, AppRuleMode, CaseMode, FireMode, GroupRecord, InsertionMethod, KudzuLibrary,
         SnippetRecord, UsageRecord,
@@ -443,7 +444,7 @@ mod interchange {
             ..KudzuLibrary::default()
         };
 
-        let (merged, report) = coordinator::merge_library(&existing, &incoming);
+        let (merged, report) = merge::merge_library(&existing, &incoming);
         assert!(report.is_empty());
         assert_eq!(
             merged
@@ -496,7 +497,7 @@ mod interchange {
             groups: vec![a_child_of_b, b.clone()],
             ..KudzuLibrary::default()
         };
-        let (merged, _) = coordinator::merge_library(&KudzuLibrary::default(), &incoming);
+        let (merged, _) = merge::merge_library(&KudzuLibrary::default(), &incoming);
         let parent = |id| merged.groups.iter().find(|g| g.id == id).unwrap().parent_id;
         assert_eq!(parent(a.id), Some(b.id));
         assert_eq!(parent(b.id), None);
@@ -507,14 +508,8 @@ mod interchange {
         let temp = TempDir::new("coordinator-export");
         let mut library = KudzuLibrary::default();
         let now = Utc::now();
-        assert!(coordinator::ensure_getting_started_snippets(
-            &mut library,
-            now
-        ));
-        assert!(!coordinator::ensure_getting_started_snippets(
-            &mut library,
-            now
-        ));
+        assert!(starter::ensure_getting_started_snippets(&mut library, now));
+        assert!(!starter::ensure_getting_started_snippets(&mut library, now));
         assert_eq!(
             library
                 .groups
@@ -546,7 +541,7 @@ mod interchange {
             groups: vec![GroupRecord::new("getting started")],
             ..KudzuLibrary::default()
         };
-        assert!(coordinator::ensure_getting_started_snippets(
+        assert!(starter::ensure_getting_started_snippets(
             &mut library,
             Utc::now()
         ));
@@ -561,7 +556,7 @@ mod interchange {
             vec![";KUDZU".into()],
             "mine",
         )]);
-        assert!(!coordinator::ensure_getting_started_snippets(
+        assert!(!starter::ensure_getting_started_snippets(
             &mut taken,
             Utc::now()
         ));

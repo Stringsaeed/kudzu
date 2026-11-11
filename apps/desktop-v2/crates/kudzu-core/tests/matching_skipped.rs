@@ -4,7 +4,7 @@ mod matching_support;
 
 use kudzu_core::activity::RuleLevel;
 use kudzu_core::matching::{
-    ExpansionMatcher, KeyBuffer, KeyInput, MatchingConfig, SkipCause, SkippedMatch, TriggerIndex,
+    ExpansionMatcher, KeyBuffer, KeyInput, MatchingConfig, SkipReason, SkippedMatch, TriggerIndex,
 };
 use matching_support::*;
 use unicode_segmentation::UnicodeSegmentation;
@@ -33,7 +33,7 @@ fn a_snippet_that_is_off_is_reported_with_its_stored_trigger() {
     assert_eq!(found.snippet_id, s.id());
     // The stored trigger, never the text as typed.
     assert_eq!(found.trigger, ";Sig");
-    assert_eq!(found.cause, SkipCause::SnippetOff);
+    assert_eq!(found.cause, SkipReason::SnippetOff);
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn a_group_that_is_off_names_the_nearest_disabled_group() {
     let found = skipped(";x", &index, None).expect("skipped");
     assert_eq!(
         found.cause,
-        SkipCause::GroupOff {
+        SkipReason::GroupOff {
             group_id: parent.id
         }
     );
@@ -62,7 +62,7 @@ fn a_snippet_turned_off_wins_over_its_group() {
     let index = make_index_with(&[&s], &[g], MatchingConfig::default());
     assert_eq!(
         skipped(";x", &index, None).unwrap().cause,
-        SkipCause::SnippetOff
+        SkipReason::SnippetOff
     );
 }
 
@@ -73,7 +73,7 @@ fn a_snippet_rule_is_reported_at_snippet_level() {
     let found = skipped(";x", &index, Some("com.tinyspeck.slackmacgap")).expect("skipped");
     assert_eq!(
         found.cause,
-        SkipCause::Rule {
+        SkipReason::Rule {
             level: RuleLevel::Snippet,
             group_id: None
         }
@@ -98,7 +98,7 @@ fn an_allow_list_blocks_unknown_apps() {
     let index = make_index(&[&s]);
     assert!(matches!(
         skipped(";x", &index, None).unwrap().cause,
-        SkipCause::Rule {
+        SkipReason::Rule {
             level: RuleLevel::Snippet,
             ..
         }
@@ -116,7 +116,7 @@ fn an_inherited_rule_names_the_group_that_set_it() {
     let found = skipped(";x", &index, Some("com.apple.mail")).expect("skipped");
     assert_eq!(
         found.cause,
-        SkipCause::Rule {
+        SkipReason::Rule {
             level: RuleLevel::Group,
             group_id: Some(parent.id)
         }
@@ -131,7 +131,7 @@ fn built_in_exclusions_are_the_default_level() {
     assert_eq!(found.snippet_id, s.id());
     assert_eq!(
         found.cause,
-        SkipCause::Rule {
+        SkipReason::Rule {
             level: RuleLevel::Default,
             group_id: None
         }
@@ -146,7 +146,7 @@ fn apps_the_user_excluded_are_the_app_setting_level() {
     let found = skipped(";x", &index, Some("com.example.game")).expect("skipped");
     assert_eq!(
         found.cause,
-        SkipCause::Rule {
+        SkipReason::Rule {
             level: RuleLevel::AppSetting,
             group_id: None
         }

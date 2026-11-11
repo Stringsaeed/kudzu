@@ -1,12 +1,25 @@
-//! Template syntax (docs/TEMPLATE_SYNTAX.md): parse, serialize, render, analyze.
+//! Template syntax (docs/TEMPLATE_SYNTAX.md): parse, serialize, render, analyze, and the form
+//! model.
 //!
-//! PUBLIC API CONTRACT — other crates compile against these exact signatures.
-//! Implementation may be split into submodules; keep these re-exported here.
+//! - `parser`, `render`, `analysis`, `icu`: the grammar, the renderer, static analysis and
+//!   the ICU date formatter, behind the functions below.
+//! - [`forms`]: form fields and form memory.
+//! - [`doc`], [`chips`], [`presets`], [`summary`], [`lists`], [`images`]: the editor document,
+//!   filled by S23.
 
 mod analysis;
+pub mod chips;
+pub mod doc;
+pub mod forms;
 mod icu;
+pub mod images;
+pub mod lists;
 mod parser;
+pub mod presets;
 mod render;
+pub mod summary;
+
+pub use forms::{FormFieldKind, FormFieldSpec, FormMemory};
 
 use std::collections::HashMap;
 use std::ops::Range;
@@ -32,8 +45,7 @@ pub struct Diagnostic {
 }
 
 /// A typed attribute value; quoted tokens always remain strings.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type", content = "value", rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AttributeValue {
     String(String),
     Bool(bool),
@@ -41,14 +53,14 @@ pub enum AttributeValue {
 }
 
 /// An ordered tag attribute.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Attribute {
     pub name: String,
     pub value: AttributeValue,
 }
 
 /// A tag with ordered attributes and UTF-16 source range (including delimiters).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tag {
     pub name: String,
     pub attributes: Vec<Attribute>,
@@ -58,15 +70,14 @@ pub struct Tag {
 }
 
 /// A literal segment or a tag.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     Text { text: String, range: Range<usize> },
     Tag(Tag),
 }
 
 /// A nonthrowing parse result.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ParsedTemplate {
     pub nodes: Vec<Node>,
     pub diagnostics: Vec<Diagnostic>,
@@ -80,8 +91,9 @@ pub struct DateOffset {
 }
 
 /// A key `{{key}}` can press during insertion.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
+#[cfg_attr(test, serde(rename_all = "camelCase"))]
 pub enum Key {
     Tab,
     Return,
@@ -211,38 +223,16 @@ pub enum TemplateTag {
     Unknown,
 }
 
-/// Form control kinds.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum FormFieldKind {
-    Text,
-    Multiline,
-    Choice,
-}
-
-/// A form control requested by a template.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FormFieldSpec {
-    pub name: String,
-    pub kind: FormFieldKind,
-    pub options: Vec<String>,
-    pub default_value: Option<String>,
-}
-
 /// Static facts about one template source.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TemplateInfo {
     pub form_fields: Vec<FormFieldSpec>,
     pub referenced_snippet_ids: Vec<Uuid>,
     pub has_cursor: bool,
     pub uses_clipboard: bool,
     /// Has a `{{selection}}` tag.
-    #[serde(default)]
     pub uses_selection: bool,
     /// Has a `{{key}}` tag, so the expansion is a sequence rather than one piece of text.
-    #[serde(default)]
     pub has_key_presses: bool,
 }
 
@@ -275,8 +265,9 @@ pub struct RenderContext<'a> {
 }
 
 /// Something other than text that happens during insertion.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
+#[cfg_attr(test, serde(tag = "kind", rename_all = "camelCase"))]
 pub enum ActionKind {
     /// Press `key` `count` times.
     Key { key: Key, count: u32 },
@@ -286,26 +277,28 @@ pub enum ActionKind {
 
 /// An [`ActionKind`] and where it happens: after the first `offset` UTF-16 units of the text.
 /// Actions are in insertion order; several can share an offset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
 pub struct RenderAction {
     pub offset: usize,
-    #[serde(flatten)]
+    #[cfg_attr(test, serde(flatten))]
     pub action: ActionKind,
 }
 
 /// Rendered text, caret placement and diagnostics.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
+#[cfg_attr(test, serde(rename_all = "camelCase"))]
 pub struct RenderResult {
     pub text: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, serde(default, skip_serializing_if = "Option::is_none"))]
     pub formatting: Option<Vec<crate::formatting::FormatSpan>>,
     /// Caret offset in UTF-16 code units from the start of `text`, if a root `{{cursor}}` exists.
     pub cursor_offset: Option<usize>,
     pub diagnostics: Vec<Diagnostic>,
     /// Key presses and pauses from `{{key}}` and `{{delay}}`, in order. `text` never contains them:
     /// a consumer that only wants text (copy, previews, agents) can ignore this.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(test, serde(default, skip_serializing_if = "Vec::is_empty"))]
     pub actions: Vec<RenderAction>,
 }
 
@@ -474,62 +467,4 @@ pub fn random_index(count: usize) -> usize {
 /// in `locale`. Unsupported letters are emitted literally.
 pub fn format_icu(date: &DateTime<FixedOffset>, pattern: &str, locale: &str) -> String {
     icu::format(date, pattern, locale)
-}
-
-/// Last submitted form values per snippet (bounded to 200 snippets).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct FormMemory {
-    pub values: HashMap<Uuid, HashMap<String, String>>,
-}
-
-impl FormMemory {
-    /// Valid remembered values, then defaults, then the first choice, else empty text.
-    pub fn initial_values(
-        &self,
-        snippet_id: Uuid,
-        fields: &[FormFieldSpec],
-    ) -> HashMap<String, String> {
-        let remembered = self.values.get(&snippet_id);
-        fields
-            .iter()
-            .map(|field| {
-                let is_choice = field.kind == FormFieldKind::Choice;
-                let candidates = [
-                    remembered.and_then(|r| r.get(&field.name)),
-                    field.default_value.as_ref(),
-                ];
-                let value = candidates
-                    .into_iter()
-                    .flatten()
-                    .find(|v| !is_choice || field.options.contains(v))
-                    .or(if is_choice {
-                        field.options.first()
-                    } else {
-                        None
-                    })
-                    .cloned()
-                    .unwrap_or_default();
-                (field.name.clone(), value)
-            })
-            .collect()
-    }
-
-    /// Records a submission.
-    pub fn record(&mut self, submitted: HashMap<String, String>, snippet_id: Uuid) {
-        if !self.values.contains_key(&snippet_id) && self.values.len() >= Self::CAPACITY {
-            // Deterministic eviction, as in the Swift app: the smallest UUID goes.
-            if let Some(victim) = self.values.keys().min().copied() {
-                self.values.remove(&victim);
-            }
-        }
-        self.values.insert(snippet_id, submitted);
-    }
-
-    /// Maximum number of snippets remembered.
-    pub const CAPACITY: usize = 200;
-
-    /// Drops memory for snippets that no longer exist.
-    pub fn retain_snippets(&mut self, ids: &std::collections::HashSet<Uuid>) {
-        self.values.retain(|k, _| ids.contains(k));
-    }
 }

@@ -6,13 +6,14 @@ use chrono::{DateTime, Utc};
 use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
+use super::config::resolve_insertion;
 use super::key_buffer::{folded_key, folded_string, nfc, KeyBuffer};
-use super::settings::{nearest_disabled_group, resolve_insertion, EffectiveSnippet, GroupResolver};
 use super::{
-    case_propagation, CaseStyle, KeyInput, MatchingConfig, SkipCause, SkippedMatch, TriggerMatch,
+    case_propagation, CaseStyle, KeyInput, MatchingConfig, SkipReason, SkippedMatch, TriggerMatch,
 };
 use crate::activity::RuleLevel;
-use crate::types::{
+use crate::library::groups::{nearest_disabled_group, EffectiveSnippet, GroupResolver};
+use crate::library::model::{
     AppRule, AppRuleMode, CaseMode, FireMode, GroupRecord, InsertionMethod, SnippetRecord,
 };
 
@@ -74,7 +75,7 @@ struct IndexedSnippet {
     rule: Option<IndexedRule>,
     insertion: Option<InsertionMethod>,
     /// Why the snippet can never fire; `None` when it is effectively enabled.
-    off: Option<SkipCause>,
+    off: Option<SkipReason>,
     /// The group `rule` was inherited from; `None` for the snippet's own rule.
     rule_group: Option<Uuid>,
 }
@@ -180,12 +181,12 @@ impl IndexData {
             let off = if effective.is_enabled {
                 None
             } else if !snippet.is_enabled {
-                Some(SkipCause::SnippetOff)
+                Some(SkipReason::SnippetOff)
             } else {
                 // Disabled only through its ancestry; an unresolvable group reads as the snippet.
                 Some(
                     nearest_disabled_group(snippet.group_id, groups)
-                        .map_or(SkipCause::SnippetOff, |group_id| SkipCause::GroupOff {
+                        .map_or(SkipReason::SnippetOff, |group_id| SkipReason::GroupOff {
                             group_id,
                         }),
                 )
@@ -313,7 +314,7 @@ impl IndexData {
                 } else {
                     RuleLevel::AppSetting
                 };
-                SkipCause::Rule {
+                SkipReason::Rule {
                     level,
                     group_id: None,
                 }
@@ -325,11 +326,11 @@ impl IndexData {
                 .is_some_and(|rule| !rule.permits(bundle_id))
             {
                 match snippet.rule_group {
-                    Some(group_id) => SkipCause::Rule {
+                    Some(group_id) => SkipReason::Rule {
                         level: RuleLevel::Group,
                         group_id: Some(group_id),
                     },
-                    None => SkipCause::Rule {
+                    None => SkipReason::Rule {
                         level: RuleLevel::Snippet,
                         group_id: None,
                     },

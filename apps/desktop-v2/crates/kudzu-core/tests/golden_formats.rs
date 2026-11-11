@@ -15,7 +15,7 @@ use chrono::{DateTime, FixedOffset, TimeZone, Utc};
 use kudzu_core::clipboard::{ClipEntry, ClipKind, ClipSource, History, ImageSize, SECRET_RULES};
 use kudzu_core::formatting::{FormatSpan, FormatStyle, Formatting};
 use kudzu_core::interchange::backup::{BackupReason, BackupStore, BackupTimeZone};
-use kudzu_core::interchange::kudzu_json;
+use kudzu_core::library::json as kudzu_json;
 use kudzu_core::secrets::SecretKind;
 use kudzu_core::sync::{self, IndexedRecord, RecordKind, SyncIndex};
 use kudzu_core::template::FormMemory;
@@ -263,6 +263,8 @@ fn clipboard_index_is_byte_exact() {
     assert_eq!(decoded, history);
 }
 
+// Keep the original golden fixture construction unchanged during the restructure.
+#[allow(clippy::field_reassign_with_default)]
 #[test]
 fn sync_payloads_are_byte_exact() {
     let library = library();

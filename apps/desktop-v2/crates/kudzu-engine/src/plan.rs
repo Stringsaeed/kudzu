@@ -5,7 +5,7 @@ use std::time::Duration;
 use kudzu_core::formatting::{FormatSpan, FormatStyle};
 use kudzu_core::matching::{case_propagation, CaseStyle, TriggerMatch};
 use kudzu_core::template::{ActionKind, Key, RenderAction};
-use kudzu_core::types::{FireMode, InsertionMethod};
+use kudzu_core::{FireMode, InsertionMethod};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Whether the keystroke that completed a trigger could be withheld from the target app.

@@ -1,6 +1,6 @@
 [package]
 name = "kudzu-core"
-description = "Pure logic for Kudzu: shared types, templates, matching, import/export."
+description = "Kudzu's pure domain: the library model, templates, matching, interchange, clipboard, secrets and sync."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -11,6 +11,6 @@ serde_json.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
-unicode-segmentation = "1.12"
-unicode-normalization = "0.1"
-yaml-rust2 = "0.11"
+unicode-segmentation.workspace = true
+unicode-normalization.workspace = true
+yaml-rust2.workspace = true

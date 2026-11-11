@@ -7,8 +7,10 @@ use yaml_rust2::yaml::Hash;
 use yaml_rust2::{Yaml, YamlEmitter};
 
 use crate::interchange::strftime;
+use crate::library::model::{
+    CaseMode, FireMode, GroupRecord, InsertionMethod, KudzuLibrary, SnippetRecord,
+};
 use crate::template::{self, AttributeValue, Node, Tag, TemplateTag};
-use crate::types::{CaseMode, FireMode, GroupRecord, InsertionMethod, KudzuLibrary, SnippetRecord};
 
 fn s(text: &str) -> Yaml {
     Yaml::String(text.to_string())

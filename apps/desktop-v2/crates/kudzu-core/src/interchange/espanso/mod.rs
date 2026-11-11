@@ -11,31 +11,32 @@ mod yaml;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+#[cfg(test)]
 use serde::{Deserialize, Serialize};
 
 use super::InterchangeError;
-use crate::types::KudzuLibrary;
+use crate::library::model::KudzuLibrary;
 
 /// A warning emitted during an Espanso import for an unsupported or degraded feature.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(Serialize, Deserialize))]
+#[cfg_attr(test, serde(rename_all = "camelCase"))]
 pub struct ImportWarning {
     /// Path of the match file relative to the imported directory.
     pub file: String,
     /// 1-based line in `file`, when known.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, serde(default, skip_serializing_if = "Option::is_none"))]
     pub line: Option<usize>,
     /// Index of the match in the file's `matches:` list, when the warning is about one match.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, serde(default, skip_serializing_if = "Option::is_none"))]
     pub match_index: Option<usize>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, serde(default, skip_serializing_if = "Option::is_none"))]
     pub trigger: Option<String>,
     pub message: String,
 }
 
 /// The library built from Espanso files plus everything that didn't convert cleanly.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EspansoImportResult {
     pub library: KudzuLibrary,
     pub warnings: Vec<ImportWarning>,

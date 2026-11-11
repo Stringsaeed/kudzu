@@ -1,28 +1,32 @@
-//! Kudzu JSON, Espanso import/export, backups, dedupe and import helpers.
+//! Moving libraries between apps and formats.
 //!
-//! - [`kudzu_json`]: the native library file format.
 //! - [`espanso`]: Espanso match-file import and export.
 //! - [`raycast`]: Raycast snippet JSON import.
 //! - [`textexpander`]: TextExpander (`.textexpander` property list and CSV) import.
+//! - `rich`: Markdown, HTML and RTF readers that turn rich sources into formatting spans.
 //! - [`strftime`]: strftime ⇄ ICU pattern and offset conversion used by the Espanso bridge.
-//! - [`backup`]: timestamped JSON snapshots on disk.
-//! - [`dedupe`]: deterministic duplicate detection and merging.
-//! - [`coordinator`]: import orchestration (backup, merge, dedupe), starter snippets.
-//! - [`stats`]: usage totals, time saved and palette ranking.
-//! - [`unique_name`]: collision-free names and triggers.
+//! - [`detect`]: which app wrote an import file.
+//! - [`merge`]: adding an imported library to an existing one.
+//! - [`backup`]: backup file names, reasons and the daily rule, plus the on-disk store.
+//! - [`coordinator`]: import orchestration over files (preview, backup, merge, restore,
+//!   export). File orchestration moves to `kudzu-app::data` in S29.
+//!
+//! The Kudzu JSON codec lives in `library::json`, dedupe in `library::dedupe` and usage
+//! statistics in `library::usage`: they are rules of the library, not of a foreign format.
+//!
+//! The readers are the one place in this crate that touches the file system: walking an
+//! Espanso directory is part of that format.
 
 pub mod backup;
 pub mod coordinator;
-pub mod dedupe;
+pub mod detect;
 pub mod espanso;
-pub mod kudzu_json;
+pub mod merge;
 pub mod raycast;
 mod rich;
-pub mod stats;
 pub mod strftime;
 mod template_out;
 pub mod textexpander;
-pub mod unique_name;
 
 /// A library built from another app's export, plus everything that didn't convert cleanly.
 pub type ImportResult = espanso::EspansoImportResult;

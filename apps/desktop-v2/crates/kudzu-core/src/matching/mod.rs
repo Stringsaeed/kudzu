@@ -1,30 +1,29 @@
-//! Keystroke matching: rolling buffer, reversed-trigger index, case propagation, undo,
-//! inheritance-resolved settings and conflict detection.
+//! Keystroke matching: the rolling key buffer, the reversed-trigger index, case propagation,
+//! undo, and the matching configuration with its defaults.
 //!
-//! PUBLIC API CONTRACT — other crates compile against these exact signatures.
-//! Implementation may be split into submodules; keep these re-exported here.
+//! - [`config`]: [`MatchingConfig`] and the insertion precedence chain.
+//! - `key_buffer`: the rolling buffer and per-cluster key folding (shared with
+//!   `library::conflicts`, which compares triggers the way the matcher does).
+//! - `index`: the reversed-trigger suffix tries behind [`TriggerIndex`].
+//! - `undo`: one-shot undo of the last expansion.
+//!
+//! The engine drives [`ExpansionMatcher`] from its event-tap thread; everything here is
+//! `Send`, and an index is cheap to clone.
 
-mod conflicts;
+pub mod config;
 mod index;
-mod key_buffer;
-mod settings;
+pub(crate) mod key_buffer;
 mod undo;
-mod validator;
 
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::types::{GroupRecord, InsertionMethod, SnippetRecord};
+use crate::library::model::{GroupRecord, InsertionMethod, SnippetRecord};
 
+pub use config::MatchingConfig;
 pub use key_buffer::KeyBuffer;
-pub use settings::{
-    insertion_title, rule_summary, EffectiveSnippet, GroupResolver, InheritedGroupSettings,
-};
 pub use undo::UndoTracker;
-pub use validator::{trigger_tokens, validate_trigger, TriggerIssue, MAX_TRIGGER_LENGTH};
 
 /// One real keystroke as seen by the matcher.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,81 +35,8 @@ pub enum KeyInput {
     Reset,
 }
 
-/// Global inputs to trigger matching.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MatchingConfig {
-    pub default_insertion: InsertionMethod,
-    /// Apps where nothing ever expands.
-    pub denied_bundle_ids: HashSet<String>,
-    /// Global per-app insertion overrides.
-    pub app_insertions: HashMap<String, InsertionMethod>,
-    /// Punctuation that ends a word for whole-word snippets; whitespace always does.
-    pub separators: HashSet<char>,
-}
-
-impl MatchingConfig {
-    /// `. , ! ? ; : ) ] } ' "`, plus the common punctuation of other scripts (Spanish, French,
-    /// typographic quotes and dashes, CJK, Arabic, Hebrew, Devanagari). Symbols that join words
-    /// (`-`, `_`, `@`, `/`) and the ASCII opening brackets are not separators.
-    pub fn default_separators() -> HashSet<char> {
-        const ASCII: &str = ".,!?;:)]}'\"";
-        const OTHER: &str =
-            "¿¡«»‹›“”‘’„‚…–—。、，．！？；：（）［］｛｝「」『』【】〈〉《》،؛؟۔׃־।॥";
-        ASCII.chars().chain(OTHER.chars()).collect()
-    }
-
-    /// Password managers and the login window.
-    pub fn default_denied_bundle_ids() -> HashSet<String> {
-        [
-            "com.1password.1password",
-            "com.agilebits.onepassword7",
-            "com.agilebits.onepassword-osx",
-            "com.bitwarden.desktop",
-            "com.apple.keychainaccess",
-            "com.apple.Passwords",
-            "com.apple.loginwindow",
-        ]
-        .into_iter()
-        .map(String::from)
-        .collect()
-    }
-
-    /// Terminals prefer paste.
-    pub fn default_app_insertions() -> HashMap<String, InsertionMethod> {
-        [
-            "com.apple.Terminal",
-            "com.googlecode.iterm2",
-            "dev.warp.Warp-Stable",
-            "com.mitchellh.ghostty",
-            "org.alacritty",
-            "net.kovidgoyal.kitty",
-            "com.github.wez.wezterm",
-        ]
-        .into_iter()
-        .map(|b| (b.to_string(), InsertionMethod::Paste))
-        .collect()
-    }
-
-    /// Whitespace, newline or a configured separator.
-    pub fn is_separator(&self, c: char) -> bool {
-        c.is_whitespace() || self.separators.contains(&c)
-    }
-}
-
-impl Default for MatchingConfig {
-    fn default() -> Self {
-        Self {
-            default_insertion: InsertionMethod::Automatic,
-            denied_bundle_ids: Self::default_denied_bundle_ids(),
-            app_insertions: Self::default_app_insertions(),
-            separators: Self::default_separators(),
-        }
-    }
-}
-
 /// How the user capitalised a typed trigger.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CaseStyle {
     AsIs,
     Capitalized,
@@ -217,7 +143,7 @@ pub struct TriggerMatch {
     /// Resolved insertion method for the frontmost app.
     pub insertion: InsertionMethod,
     pub case_style: CaseStyle,
-    pub fire_mode: crate::types::FireMode,
+    pub fire_mode: crate::library::model::FireMode,
 }
 
 impl TriggerMatch {
@@ -229,7 +155,7 @@ impl TriggerMatch {
 
 /// Why a fully typed trigger did not fire.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SkipCause {
+pub enum SkipReason {
     /// The snippet itself is turned off.
     SnippetOff,
     /// The nearest group in its ancestry that is turned off.
@@ -247,7 +173,7 @@ pub struct SkippedMatch {
     pub snippet_id: Uuid,
     /// The trigger as stored.
     pub trigger: String,
-    pub cause: SkipCause,
+    pub cause: SkipReason,
 }
 
 /// What the app must do to revert the last expansion.
@@ -415,29 +341,4 @@ impl Default for ExpansionMatcher {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Kind of trigger conflict.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ConflictKind {
-    Duplicate,
-    Shadowing,
-}
-
-/// A problem between two snippets' triggers, for editor warnings.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TriggerConflict {
-    pub kind: ConflictKind,
-    /// For shadowing: the shadowing (shorter, immediate) snippet.
-    pub snippet_id: Uuid,
-    pub trigger: String,
-    pub other_snippet_id: Uuid,
-    pub other_trigger: String,
-}
-
-/// Finds duplicate and shadowed triggers among effectively enabled snippets.
-pub fn find_conflicts(snippets: &[SnippetRecord], groups: &[GroupRecord]) -> Vec<TriggerConflict> {
-    conflicts::find(snippets, groups)
 }

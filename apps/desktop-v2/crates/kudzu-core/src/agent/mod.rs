@@ -9,6 +9,8 @@
 //! password, key or token is replaced with a `[redacted: …]` marker, and search only sees the
 //! redacted text, so a query can't probe for a secret either.
 
+//! S32 moves this inbound adapter to `kudzu-app::agents`.
+
 mod tools;
 
 use std::collections::HashMap;

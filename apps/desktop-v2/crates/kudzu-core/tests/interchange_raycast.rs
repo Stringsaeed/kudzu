@@ -1,7 +1,7 @@
 //! Raycast snippet export import.
 
 mod interchange {
-    use kudzu_core::interchange::{coordinator, raycast, ImportResult};
+    use kudzu_core::interchange::{coordinator, detect, raycast, ImportResult};
     use kudzu_core::template::{self, Severity};
     use kudzu_core::{CaseMode, FireMode, SnippetRecord};
 
@@ -231,11 +231,11 @@ mod interchange {
         .unwrap();
         assert_eq!(
             coordinator::detect_import_source(&raycast_file).unwrap(),
-            coordinator::ImportSource::Raycast
+            detect::ImportSource::Raycast
         );
         assert_eq!(
             coordinator::detect_import_source(&kudzu_file).unwrap(),
-            coordinator::ImportSource::Kudzu
+            detect::ImportSource::Kudzu
         );
         assert_eq!(
             coordinator::load_import(&raycast_file)

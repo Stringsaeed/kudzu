@@ -1,7 +1,7 @@
 //! TextExpander (.textexpander property list and CSV) import.
 
 mod interchange {
-    use kudzu_core::interchange::{coordinator, textexpander, ImportResult};
+    use kudzu_core::interchange::{coordinator, detect, textexpander, ImportResult};
     use kudzu_core::template::{self, Severity};
     use kudzu_core::{CaseMode, FireMode, SnippetRecord};
 
@@ -238,7 +238,7 @@ mod interchange {
         std::fs::write(&file, PLIST).unwrap();
         assert_eq!(
             coordinator::detect_import_source(&file).unwrap(),
-            coordinator::ImportSource::TextExpander
+            detect::ImportSource::TextExpander
         );
         assert_eq!(
             coordinator::load_import(&file)
