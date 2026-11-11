@@ -255,17 +255,21 @@ impl Observe for FakeObserve {
 
     fn activate_and_wait(&self, app: &AppInfo, _timeout: Duration) -> bool {
         let pid = self.resolve_pid(app);
-        self.0.with(|s| {
+        let (activated, n) = self.0.with(|s| {
             s.log.push(Ev::Activated(app.bundle_id.clone()));
+            s.activations += 1;
             let found = s.running.iter().find(|a| a.pid.is_some() && a.pid == pid);
-            match found.cloned().filter(|_| s.activation_works) {
+            let activated = match found.cloned().filter(|_| s.activation_works) {
                 Some(running) => {
                     s.frontmost = Some(running);
                     true
                 }
                 None => false,
-            }
-        })
+            };
+            (activated, s.activations - 1)
+        });
+        self.0.fire(At::Activate(n));
+        activated
     }
 
     fn permissions(&self) -> PermissionStatus {

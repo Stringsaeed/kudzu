@@ -18,6 +18,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::document::Document;
 use super::keyboard::{apply_key, user_key, CgEvent, KeyEvent};
+use super::panels::Panels;
 use crate::macos::ffi::*;
 use crate::macos::keys::SYNTHETIC_MARKER;
 use crate::macos::pasteboard::Items;
@@ -98,6 +99,8 @@ pub(super) enum At {
     Sleep(Duration, usize),
     /// After the n-th held event the engine posted again (0-based).
     Held(usize),
+    /// While the engine waits for its n-th app activation (0-based), once the app is in front.
+    Activate(usize),
 }
 
 type Action = Box<dyn FnOnce(&Desk) + Send>;
@@ -118,6 +121,7 @@ pub(super) struct State {
     pub press_times: Vec<Instant>,
     pub presses: usize,
     pub helds: usize,
+    pub activations: usize,
     pub sleeps: HashMap<Duration, usize>,
     // Pasteboard.
     pub items: Items,
@@ -141,6 +145,8 @@ pub(super) struct State {
     pub refuse: Vec<TapMode>,
     /// Most listeners ever enabled at once.
     pub peak_enabled: usize,
+    // Kudzu's panels.
+    pub panels: Panels,
 }
 
 pub(super) fn app(bundle_id: &str, name: &str, pid: i32) -> AppInfo {
@@ -206,6 +212,7 @@ impl Desk {
             press_times: Vec::new(),
             presses: 0,
             helds: 0,
+            activations: 0,
             sleeps: HashMap::new(),
             items: user_clipboard(),
             count: 100,
@@ -226,6 +233,7 @@ impl Desk {
             next_listener: 0,
             refuse: Vec::new(),
             peak_enabled: 0,
+            panels: Panels::default(),
         };
         Desk(Arc::new(Inner {
             state: Mutex::new(state),

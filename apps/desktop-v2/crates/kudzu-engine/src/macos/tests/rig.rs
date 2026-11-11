@@ -184,6 +184,17 @@ impl Rig {
         }
     }
 
+    /// Types `keys` wherever focus is (see `panels.rs`), letting the engine finish after every
+    /// key event.
+    pub fn press(&self, keys: &str) {
+        for key in keys.graphemes(true) {
+            self.desk.key_at_focus(key, true);
+            self.settle();
+            self.desk.key_at_focus(key, false);
+            self.settle();
+        }
+    }
+
     /// Types `keys` into the form panel (the listener sees them; the document doesn't).
     pub fn type_in_panel(&self, keys: &str) {
         self.desk.types_in_panel(keys);

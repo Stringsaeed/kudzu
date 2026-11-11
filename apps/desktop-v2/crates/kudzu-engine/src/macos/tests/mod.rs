@@ -14,8 +14,10 @@ mod desk;
 mod document;
 mod fakes;
 mod keyboard;
+mod panels;
 mod rig;
 
+mod focus;
 mod forms;
 mod guards;
 mod held;
