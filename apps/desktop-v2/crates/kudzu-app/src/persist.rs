@@ -6,12 +6,14 @@ use crate::watch::{Publisher, Subscription, Watch};
 use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::io::Write;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, PoisonError, Weak};
+use std::sync::{mpsc, Arc, Condvar, Mutex, PoisonError, Weak};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 pub use crate::watch::Revision;
+mod temporary;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum PersistError {
@@ -27,6 +29,10 @@ pub enum PersistError {
     Stopped,
     #[error("The save writer stopped unexpectedly.")]
     WorkerStopped,
+    #[error("The save operation stopped unexpectedly. Kudzu will retry.")]
+    Panicked,
+    #[error("Saving took too long. Some changes may not be on disk yet.")]
+    Timeout,
 }
 impl From<std::io::Error> for PersistError {
     fn from(error: std::io::Error) -> Self {
@@ -76,6 +82,7 @@ impl<T> JsonFile<T> {
         decode: impl FnOnce(&[u8]) -> Result<T, PersistError>,
         encode: Encoder<T>,
     ) -> Result<(Self, Loaded<T>), PersistError> {
+        temporary::sweep(&path)?;
         let loaded = match fs::read(&path) {
             Ok(bytes) => match decode(&bytes) {
                 Ok(value) => Loaded {
@@ -121,7 +128,8 @@ impl<T> WriteTarget<T> for JsonFile<T> {
             .filter(|p| !p.as_os_str().is_empty())
             .unwrap_or(Path::new("."));
         fs::create_dir_all(parent)?;
-        let temp = parent.join(format!(".kudzu-{}.tmp", uuid::Uuid::new_v4()));
+        let temporary = temporary::Temporary::reserve(parent)?;
+        let temp = temporary.path();
         let mut options = fs::OpenOptions::new();
         options.write(true).create_new(true);
         #[cfg(unix)]
@@ -129,17 +137,10 @@ impl<T> WriteTarget<T> for JsonFile<T> {
             use std::os::unix::fs::OpenOptionsExt;
             options.mode(0o600);
         }
-        let mut file = options.open(&temp)?;
-        struct Cleanup(PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = fs::remove_file(&self.0);
-            }
-        }
-        let _cleanup = Cleanup(temp.clone());
+        let mut file = options.open(temp)?;
         file.write_all(&bytes)?;
         file.sync_all()?;
-        fs::rename(&temp, &self.path)?;
+        fs::rename(temp, &self.path)?;
         sync_parent(&self.path)?;
         Ok(())
     }
@@ -163,6 +164,7 @@ struct Pending<T> {
     latest: Revision,
     value: Option<(Revision, Arc<T>)>,
     due: Duration,
+    first_pending_at: Option<Duration>,
 }
 struct Slot<T> {
     pending: Mutex<Pending<T>>,
@@ -171,24 +173,24 @@ struct Slot<T> {
 }
 trait PendingWrite: Send + Sync {
     fn due(&self) -> Option<Duration>;
-    fn attempt(&self, now: Duration, retry: Duration) -> Result<(), PersistError>;
+    fn attempt(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError>;
 }
 impl<T: Send + Sync> PendingWrite for Slot<T> {
     fn due(&self) -> Option<Duration> {
         let pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
         pending.value.as_ref().map(|_| pending.due)
     }
-    fn attempt(&self, now: Duration, retry: Duration) -> Result<(), PersistError> {
-        let Some((revision, value)) = self
-            .pending
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .value
-            .clone()
-        else {
+    fn attempt(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError> {
+        let Some((revision, value)) = ({
+            let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+            pending.first_pending_at = None;
+            pending.value.clone()
+        }) else {
             return Ok(());
         };
-        let result = self.target.write(&value);
+        let result = catch_unwind(AssertUnwindSafe(|| self.target.write(&value)))
+            .unwrap_or(Err(PersistError::Panicked));
+        let now = clock.monotonic();
         let notification = {
             let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
             let current = self.saved.watch().get();
@@ -196,6 +198,7 @@ impl<T: Send + Sync> PendingWrite for Slot<T> {
                 Ok(()) => {
                     if pending.latest == revision {
                         pending.value = None;
+                        pending.first_pending_at = None;
                     }
                     SaveState {
                         durable: revision.max(current.durable),
@@ -205,6 +208,7 @@ impl<T: Send + Sync> PendingWrite for Slot<T> {
                 Err(error) => {
                     if pending.latest == revision {
                         pending.due = now.saturating_add(retry);
+                        pending.first_pending_at = Some(now);
                     }
                     SaveState {
                         durable: current.durable,
@@ -252,16 +256,21 @@ impl<T> Persisted<T> {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
         if revision > pending.latest {
+            let now = writer.clock.monotonic();
+            let first = *pending.first_pending_at.get_or_insert(now);
             pending.latest = revision;
             pending.value = Some((revision, value));
-            pending.due = writer.clock.monotonic().saturating_add(writer.debounce);
+            pending.due = now
+                .saturating_add(writer.debounce)
+                .min(first.saturating_add(Duration::from_secs(5)));
             writer.changed.notify_one();
         }
         Ok(())
     }
 }
 struct Worker {
-    join: Option<JoinHandle<Result<(), PersistError>>>,
+    join: Option<JoinHandle<()>>,
+    completed: mpsc::Receiver<Result<(), PersistError>>,
     result: Result<(), PersistError>,
 }
 
@@ -292,19 +301,35 @@ impl Writer {
             }
         }));
         let thread_state = shared.clone();
+        let (done, completed) = mpsc::channel();
         let join = std::thread::Builder::new()
             .name("kudzu-persist".into())
-            .spawn(move || writer_loop(thread_state, retry.max(Duration::from_millis(1))))?;
+            .spawn(move || {
+                let result = catch_unwind(AssertUnwindSafe(|| {
+                    writer_loop(thread_state.clone(), retry.max(Duration::from_millis(1)))
+                }))
+                .unwrap_or(Err(PersistError::WorkerStopped));
+                {
+                    let mut queue = thread_state
+                        .queue
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner);
+                    queue.stopped = true;
+                    thread_state.changed.notify_all();
+                }
+                let _ = done.send(result);
+            })?;
         Ok(Self {
             shared,
             worker: Mutex::new(Worker {
                 join: Some(join),
+                completed,
                 result: Ok(()),
             }),
             _clock_wake: subscription,
         })
     }
-    /// A file has one registration and one owning service. Loaded state starts at revision zero.
+    /// A file has one registration and one owning service. Use its loaded snapshot's revision.
     pub fn register<T: Send + Sync + 'static>(
         &self,
         target: impl WriteTarget<T> + 'static,
@@ -323,6 +348,7 @@ impl Writer {
                 latest: durable,
                 value: None,
                 due: Duration::ZERO,
+                first_pending_at: None,
             }),
             target: Box::new(target),
             saved: Publisher::new(SaveState {
@@ -336,10 +362,15 @@ impl Writer {
             writer: Arc::downgrade(&self.shared),
         })
     }
-    /// Stop admissions, bypass debounce, attempt every pending file, and join the writer.
+    /// Stop admissions, bypass debounce, attempt every pending file, and wait up to five seconds.
     /// S40 must stop producers first and handle an error before treating shutdown as durable.
-    /// No worker may wait on the UI. Repeated calls return the same result.
+    /// No target may wait on the UI. On Timeout the worker remains alive and retains its data;
+    /// S40 must report the failure, not claim a durable quit. A process exit can lose that data.
+    /// Repeated calls return the same result, including Timeout, without another wait.
     pub fn shutdown(&self) -> Result<(), PersistError> {
+        self.shutdown_with_timeout(Duration::from_secs(5))
+    }
+    pub fn shutdown_with_timeout(&self, timeout: Duration) -> Result<(), PersistError> {
         let mut worker = self.worker.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(join) = worker.join.take() {
             {
@@ -351,7 +382,14 @@ impl Writer {
                 queue.stopped = true;
                 self.shared.changed.notify_one();
             }
-            worker.result = join.join().unwrap_or(Err(PersistError::WorkerStopped));
+            worker.result = match worker.completed.recv_timeout(timeout) {
+                Ok(result) => {
+                    let _ = join.join();
+                    result
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => Err(PersistError::Timeout),
+                Err(mpsc::RecvTimeoutError::Disconnected) => Err(PersistError::WorkerStopped),
+            };
         }
         worker.result
     }
@@ -369,7 +407,7 @@ fn writer_loop(shared: Arc<Shared>, retry: Duration) -> Result<(), PersistError>
             drop(queue);
             let mut result = Ok(());
             for slot in slots {
-                if let Err(error) = slot.attempt(shared.clock.monotonic(), retry) {
+                if let Err(error) = slot.attempt(shared.clock.as_ref(), retry) {
                     result = Err(error);
                 }
             }
@@ -397,10 +435,13 @@ fn writer_loop(shared: Arc<Shared>, retry: Duration) -> Result<(), PersistError>
             continue;
         }
         drop(queue);
-        let _ = slot.attempt(now, retry);
+        let _ = slot.attempt(shared.clock.as_ref(), retry);
         queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     }
 }
+
+#[cfg(test)]
+mod review_tests;
 
 #[cfg(test)]
 mod tests {
