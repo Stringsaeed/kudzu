@@ -522,3 +522,42 @@ fn a_submission_event_without_a_stamp_fails_closed() {
     assert_eq!(rig.log(), []);
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
+
+// MARK: Suppression doesn't hide a cancellation (re-review major 4)
+
+/// A submitted form's sequence pauses; the user clicks in the target, moving its caret, while
+/// suppression is still held (by the forms service or another owner). The rest of the sequence
+/// doesn't go in at the new caret.
+#[test]
+fn a_click_during_a_submitted_forms_pause_stops_it_while_suppressed() {
+    let rig = Rig::new(&[snippet(
+        ";addr",
+        "Dear {{field name=who}}{{delay ms=100}}, hi",
+    )]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.engine.set_suppressed(true);
+    rig.show_form(token);
+    rig.press("Sam");
+    rig.at(At::Sleep(ms(50), 2), |d| d.clicks_text(0));
+    rig.submit(token, &[("who", "Sam")]);
+    assert!(
+        !rig.posted().contains(&Out::Type(", hi".into())),
+        "{:?}",
+        rig.posted()
+    );
+    assert_eq!(rig.doc(), "|Dear Sam");
+}
+
+/// The same for a Quick Search sequence inserted while a suppression guard is held.
+#[test]
+fn a_click_during_a_quick_search_pause_stops_it_while_suppressed() {
+    let rig = Rig::new(&[snippet(";q", "one{{delay ms=100}}two")]);
+    rig.engine.set_suppressed(true);
+    rig.at(At::Sleep(ms(50), 1), |d| d.clicks_text(0));
+    rig.engine
+        .insert_snippet(rig.snippet_id(";q"), Some(editor()));
+    rig.settle();
+    assert_eq!(rig.posted(), [Out::Type("one".into())]);
+    assert_eq!(rig.doc(), "|one");
+}

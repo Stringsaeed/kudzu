@@ -88,10 +88,15 @@ impl Imp {
             return false;
         }
         if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
-            core.note_form_click(|| self.clicked_on_kudzu(event));
-            // A click moves the caret or focus: the typed context is gone. Clicks in our own
-            // focused windows (form, palette) don't affect the target document.
-            if !self.flags.suppressed.load(Ordering::SeqCst) {
+            let suppressed = self.flags.suppressed.load(Ordering::SeqCst);
+            let mut on_kudzu = None;
+            let mut on_kudzu = || *on_kudzu.get_or_insert_with(|| self.clicked_on_kudzu(event));
+            core.note_form_click(&mut on_kudzu);
+            // A click moves the caret or focus: the typed context is gone, and any insertion in
+            // flight stops. Suppression only spares clicks in Kudzu's own windows (form,
+            // palette), which don't touch the target document; it never hides a click
+            // elsewhere from an insertion (whoever holds the suppression).
+            if !suppressed || !on_kudzu() {
                 effects.post_unmatched = core.invalidate();
             }
             return false;

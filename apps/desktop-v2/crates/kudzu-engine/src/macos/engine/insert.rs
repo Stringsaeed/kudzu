@@ -105,10 +105,10 @@ impl Imp {
                 return Ok(false);
             }
         }
-        // Once the trigger is gone, each step checks the attempt, the guard and the app in front.
+        // Once the trigger is gone, each step checks the attempt, the guard, the app in front and
+        // a submitted form's interruption (listen-only typing now lands after the text).
         let step = Live {
             listen_only: false,
-            form: None,
             ..live
         };
         let stop = |imp: &Imp| {
