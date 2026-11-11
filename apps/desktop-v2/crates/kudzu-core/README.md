@@ -32,9 +32,10 @@ is also available directly. Cross-domain calls use the owning domain's path.
 
 - S21 filled `search` (`search/{fuzzy,collate}.rs`) and extended `library/{groups,usage}.rs`
   (group tree, paths, counts, `usage_by_id`, `totals`). The search index takes the template
-  summariser as a function; wire S23's `template::summary` plain summary (2,000 units) into it.
+  summariser as a function. Callers pass `template::summary::plain_summary` at 2,000 units.
 - S22 fills `clipboard/{query,sections,facts}.rs`.
-- S23 fills `template/{doc,chips,presets,summary,lists,images}.rs`.
+- S23 filled `template/{doc,chips,presets,summary,lists,images}.rs`. `template/doc/{load,edit,format,clipboard}.rs`
+  are part of the editor document, not separate public modules.
 - S24 fills `color.rs`, `keys.rs`, `release_notes.rs` and `fmt.rs`.
 - S25 uses `system` in the application ports. S20's engine scope permits import
   and type-name changes only, so its existing status structs remain until S34

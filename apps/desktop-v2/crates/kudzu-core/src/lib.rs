@@ -6,7 +6,7 @@
 //!   inheritance, trigger validation and conflicts, usage statistics, dedupe, naming, and the
 //!   starter snippets.
 //! - [`template`]: template parser, serializer, renderer, analysis, the ICU date formatter, form
-//!   fields and form memory; the editor document arrives in S23.
+//!   fields and form memory, and the editor document (`template::doc::EditorDoc`).
 //! - [`matching`]: keystroke buffer, trigger index, matcher, case propagation, undo, and the
 //!   matching configuration with its defaults.
 //! - [`formatting`]: formatting spans over a template and their HTML output.

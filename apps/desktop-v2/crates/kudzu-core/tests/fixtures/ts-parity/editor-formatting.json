@@ -1,0 +1,711 @@
+{
+  "transactions": [
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "enable",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "bold",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "italic",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "underline",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "link",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/first"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "edit-link",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/edited"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "clear",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "insert-image",
+      "doc": "[Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 28
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 5,
+          "style": {
+            "kind": "image",
+            "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x8AAAAASUVORK5CYII=",
+            "width": 32
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "remove-image-formatting",
+      "doc": "[Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 5
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "insert",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "bullets",
+      "doc": "• Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 10
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "numbers",
+      "doc": "1. Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 6,
+            "head": 11
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "remove-numbers",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "undo",
+      "doc": "1. Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 6,
+            "head": 11
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "redo",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "enable",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "bold",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "italic",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "underline",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "link",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/first"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "edit-link",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/edited"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "clear",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "insert-image",
+      "doc": "[Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 5,
+          "style": {
+            "kind": "image",
+            "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x8AAAAASUVORK5CYII=",
+            "width": 32
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "remove-image-formatting",
+      "doc": "[Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 5
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "insert",
+      "doc": "Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "bullets",
+      "doc": "• Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 10
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "numbers",
+      "doc": "1. Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 6,
+            "head": 11
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "remove-numbers",
+      "doc": "Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "undo",
+      "doc": "1. Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 6,
+            "head": 11
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "redo",
+      "doc": "Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    }
+  ],
+  "safety": [
+    {
+      "input": "https://example.com",
+      "result": true
+    },
+    {
+      "input": "javascript:alert(1)",
+      "result": false
+    },
+    {
+      "input": "mailto:a@b.com",
+      "result": true
+    },
+    {
+      "input": "https://bad x",
+      "result": false
+    }
+  ],
+  "utf16": [
+    {
+      "start": 0,
+      "end": 2,
+      "style": {
+        "kind": "italic"
+      }
+    }
+  ]
+}

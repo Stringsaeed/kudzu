@@ -25,8 +25,9 @@
 //!   (ICU collation via `icu_collator`, see `collate`), not the displayed fallback name; equal
 //!   names keep library order.
 //! - The content a term is matched against is the plain summary of the template (tags shown as
-//!   their chip labels, whitespace collapsed, first 2,000 units). The summariser belongs to the
-//!   template editor document (S23), so [`index`] takes it as a function.
+//!   their chip labels, whitespace collapsed, first 2,000 units). Callers pass
+//!   [`plain_summary`](crate::template::summary::plain_summary). [`index`] takes that function
+//!   so a test can substitute one.
 
 mod collate;
 #[cfg(test)]
@@ -47,7 +48,7 @@ use collate::CollationKey;
 
 use crate::library::usage::SnippetUsage;
 use crate::SnippetRecord;
-use fuzzy::{find, fuzzy, is_boundary, is_js_space_char, units};
+use fuzzy::{alphabet, find, fuzzy, has_every_unit, is_boundary, is_js_space_char, units};
 
 /// Results `rank` returns when a caller has no reason to ask for another number.
 pub const DEFAULT_LIMIT: usize = 200;
@@ -87,6 +88,9 @@ struct Entry {
     name_lower: Vec<u16>,
     triggers_lower: Vec<Vec<u16>>,
     content_lower: Vec<u16>,
+    /// Sorted unique units of `content_lower`. A term that uses a unit outside this set cannot
+    /// occur, so the keystroke skips the scan of a summary that may be 2,000 units long.
+    content_alphabet: Vec<u16>,
     usage: i64,
     last_used_ms: i64,
     enabled: bool,
@@ -117,6 +121,8 @@ pub fn index(
         .iter()
         .map(|s| {
             let used = usage.get(&s.id);
+            let content_lower = units(&summarize(&s.content).to_lowercase());
+            let content_alphabet = alphabet(&content_lower);
             Entry {
                 name_lower: units(&display_name(s).to_lowercase()),
                 triggers_lower: s
@@ -124,7 +130,8 @@ pub fn index(
                     .iter()
                     .map(|t| units(&t.to_lowercase()))
                     .collect(),
-                content_lower: units(&summarize(&s.content).to_lowercase()),
+                content_lower,
+                content_alphabet,
                 usage: used.map_or(0, |u| u.count),
                 last_used_ms: used.map_or(0, |u| u.last_ms),
                 enabled: s.is_enabled,
@@ -281,7 +288,7 @@ fn score_entry(
         }
         // Content only matches contiguous text: subsequences over long bodies are noise (and the
         // slowest part of a keystroke).
-        if term_best < 40.0 && term.len() > 1 {
+        if term_best < 40.0 && term.len() > 1 && has_every_unit(&entry.content_alphabet, term) {
             if let Some(at) = find(&entry.content_lower, term) {
                 let boundary = if is_boundary(&entry.content_lower, at) {
                     10.0

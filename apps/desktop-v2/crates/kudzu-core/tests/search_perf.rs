@@ -13,6 +13,7 @@ use std::time::Instant;
 use chrono::DateTime;
 use kudzu_core::library::usage::usage_by_id;
 use kudzu_core::search::{self, DEFAULT_LIMIT};
+use kudzu_core::template::summary::{plain_summary, SEARCH_UNITS};
 use kudzu_core::{KudzuLibrary, SnippetRecord};
 use serde::Deserialize;
 
@@ -76,6 +77,64 @@ fn ranking_5000_snippets_stays_within_the_keystroke_budget() {
     let worst = samples_ms.last().unwrap();
     println!(
         "rank over 5,000 snippets: p95 {p95:.3} ms, worst {worst:.3} ms ({} samples)",
+        samples_ms.len()
+    );
+    if cfg!(debug_assertions) {
+        eprintln!("debug build: the {BUDGET_MS} ms budget is only enforced in release");
+    } else {
+        assert!(p95 <= BUDGET_MS, "p95 {p95:.3} ms exceeds {BUDGET_MS} ms");
+    }
+}
+
+/// Same ranking budget when every summary is near the 2,000-unit cap. The index is built with
+/// the real summariser, not the recorded map.
+#[test]
+fn ranking_long_summaries_stays_within_the_keystroke_budget() {
+    let inputs: Inputs = serde_json::from_str(&fixture("search-inputs.json")).unwrap();
+    let mut snippets = inputs.large;
+    assert_eq!(snippets.len(), 5_000);
+    let body = format!("{}{{{{date}}}}", "a".repeat(1800));
+    for snippet in &mut snippets {
+        snippet.content = body.clone();
+    }
+    let usage = usage_by_id(&inputs.library.usage);
+    let index = search::index(&snippets, &usage, &|content| {
+        plain_summary(content, None, SEARCH_UNITS)
+    });
+    let now = DateTime::from_timestamp_millis(1_794_398_400_000).unwrap();
+    let mut queries: Vec<String> = [
+        "",
+        ";sig",
+        ";s42",
+        "sig",
+        "em sg",
+        "clipboard",
+        "thanks",
+        "café",
+        "العربية",
+        "İ",
+        "😀",
+        "no-such-match",
+    ]
+    .map(String::from)
+    .to_vec();
+    let typed = "email signature";
+    queries.extend((1..=typed.len()).map(|n| typed[..n].to_string()));
+
+    let mut samples_ms = Vec::new();
+    for _ in 0..ROUNDS {
+        for query in &queries {
+            let start = Instant::now();
+            let hits = search::rank(&index, query, DEFAULT_LIMIT, now);
+            samples_ms.push(start.elapsed().as_secs_f64() * 1_000.0);
+            assert!(hits.len() <= DEFAULT_LIMIT);
+        }
+    }
+    samples_ms.sort_by(|a, b| a.total_cmp(b));
+    let p95 = samples_ms[(samples_ms.len() * 95 / 100).min(samples_ms.len() - 1)];
+    let worst = samples_ms.last().unwrap();
+    println!(
+        "rank over 5,000 long summaries: p95 {p95:.3} ms, worst {worst:.3} ms ({} samples)",
         samples_ms.len()
     );
     if cfg!(debug_assertions) {

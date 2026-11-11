@@ -69,6 +69,22 @@ pub(super) fn is_boundary(text: &[u16], i: usize) -> bool {
             && matches!(u8::try_from(text[i]), Ok(b'0'..=b'9')))
 }
 
+/// Sorted unique units of `text`. Built once per summary so a keystroke can reject a term
+/// before scanning a long body.
+pub(super) fn alphabet(text: &[u16]) -> Vec<u16> {
+    let mut units = text.to_vec();
+    units.sort_unstable();
+    units.dedup();
+    units
+}
+
+/// Every unit of `needle` occurs in `alphabet` (`alphabet` is sorted and unique).
+pub(super) fn has_every_unit(alphabet: &[u16], needle: &[u16]) -> bool {
+    needle
+        .iter()
+        .all(|unit| alphabet.binary_search(unit).is_ok())
+}
+
 /// Index of the first occurrence of `needle` in `haystack` (JavaScript's `indexOf`).
 pub(super) fn find(haystack: &[u16], needle: &[u16]) -> Option<usize> {
     let (first, rest) = needle.split_first()?;

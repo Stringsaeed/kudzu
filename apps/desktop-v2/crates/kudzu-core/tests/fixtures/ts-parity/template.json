@@ -1,0 +1,629 @@
+{
+  "presets": [
+    {
+      "format": "yyyy-MM-dd",
+      "label": "ISO date"
+    },
+    {
+      "format": "MMMM d, yyyy",
+      "label": "Long date"
+    },
+    {
+      "format": "MMM d, yyyy",
+      "label": "Medium date"
+    },
+    {
+      "format": "M/d/yy",
+      "label": "Short date"
+    },
+    {
+      "format": "d MMMM yyyy",
+      "label": "Day month year"
+    },
+    {
+      "format": "EEEE",
+      "label": "Weekday"
+    },
+    {
+      "format": "EEEE, MMMM d",
+      "label": "Weekday + date"
+    },
+    {
+      "format": "HH:mm",
+      "label": "24-hour time"
+    },
+    {
+      "format": "h:mm a",
+      "label": "12-hour time"
+    },
+    {
+      "format": "HH:mm:ss",
+      "label": "Time with seconds"
+    },
+    {
+      "format": "yyyy-MM-dd'T'HH:mm:ssXXX",
+      "label": "ISO timestamp"
+    }
+  ],
+  "cases": [
+    {
+      "source": "{{date}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 8,
+          "source": "{{date}}",
+          "name": "date",
+          "attrs": {},
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Date · ISO date",
+          "tone": "time",
+          "canonical": "{{date}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Date · ISO date›"
+    },
+    {
+      "source": "{{time}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 8,
+          "source": "{{time}}",
+          "name": "time",
+          "attrs": {},
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Time · 24-hour time",
+          "tone": "time",
+          "canonical": "{{time}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Time · 24-hour time›"
+    },
+    {
+      "source": "{{clipboard trim=true history=2}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 33,
+          "source": "{{clipboard trim=true history=2}}",
+          "name": "clipboard",
+          "attrs": {
+            "trim": true,
+            "history": 2
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Clipboard · 2 back (trimmed)",
+          "tone": "clipboard",
+          "canonical": "{{clipboard trim=true history=2}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": true,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Clipboard · 2 back (trimmed)›"
+    },
+    {
+      "source": "{{cursor}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 10,
+          "source": "{{cursor}}",
+          "name": "cursor",
+          "attrs": {},
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Cursor",
+          "tone": "cursor",
+          "canonical": "{{cursor}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": true,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Cursor›"
+    },
+    {
+      "source": "{{snippet id=\"c5af65ac-e426-4046-802b-11ccdd3a62ba\"}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 53,
+          "source": "{{snippet id=\"c5af65ac-e426-4046-802b-11ccdd3a62ba\"}}",
+          "name": "snippet",
+          "attrs": {
+            "id": "c5af65ac-e426-4046-802b-11ccdd3a62ba"
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "↳ Email signature",
+          "tone": "snippet",
+          "canonical": "{{snippet id=\"c5af65ac-e426-4046-802b-11ccdd3a62ba\"}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [
+          "c5af65ac-e426-4046-802b-11ccdd3a62ba"
+        ],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹↳ Email signature›"
+    },
+    {
+      "source": "{{field name=\"Name\" default=\"Friend\"}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 38,
+          "source": "{{field name=\"Name\" default=\"Friend\"}}",
+          "name": "field",
+          "attrs": {
+            "name": "Name",
+            "default": "Friend"
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Name",
+          "tone": "form",
+          "canonical": "{{field name=\"Name\" default=\"Friend\"}}"
+        }
+      ],
+      "facts": {
+        "isForm": true,
+        "fieldNames": [
+          "Name"
+        ],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Name›"
+    },
+    {
+      "source": "{{choice name=\"Platform\" options=\"Mac|Linux\"}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 46,
+          "source": "{{choice name=\"Platform\" options=\"Mac|Linux\"}}",
+          "name": "choice",
+          "attrs": {
+            "name": "Platform",
+            "options": "Mac|Linux"
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Platform ▾",
+          "tone": "form",
+          "canonical": "{{choice name=\"Platform\" options=\"Mac|Linux\"}}"
+        }
+      ],
+      "facts": {
+        "isForm": true,
+        "fieldNames": [
+          "Platform"
+        ],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Platform ▾›"
+    },
+    {
+      "source": "{{selection trim=true}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 23,
+          "source": "{{selection trim=true}}",
+          "name": "selection",
+          "attrs": {
+            "trim": true
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Selection (trimmed)",
+          "tone": "clipboard",
+          "canonical": "{{selection trim=true}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": true,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Selection (trimmed)›"
+    },
+    {
+      "source": "{{uuid upper=true}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 19,
+          "source": "{{uuid upper=true}}",
+          "name": "uuid",
+          "attrs": {
+            "upper": true
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "UUID (capitals)",
+          "tone": "time",
+          "canonical": "{{uuid upper=true}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹UUID (capitals)›"
+    },
+    {
+      "source": "{{random options=\"A|B\"}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 24,
+          "source": "{{random options=\"A|B\"}}",
+          "name": "random",
+          "attrs": {
+            "options": "A|B"
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Random · 2 options",
+          "tone": "time",
+          "canonical": "{{random options=\"A|B\"}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Random · 2 options›"
+    },
+    {
+      "source": "{{key name=\"tab\" count=2}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 26,
+          "source": "{{key name=\"tab\" count=2}}",
+          "name": "key",
+          "attrs": {
+            "name": "tab",
+            "count": 2
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "⇥ Tab ×2",
+          "tone": "key",
+          "canonical": "{{key name=\"tab\" count=2}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": true,
+        "cursorCancelled": false
+      },
+      "summary": "‹⇥ Tab ×2›"
+    },
+    {
+      "source": "{{delay ms=300}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 16,
+          "source": "{{delay ms=300}}",
+          "name": "delay",
+          "attrs": {
+            "ms": 300
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Pause 300 ms",
+          "tone": "key",
+          "canonical": "{{delay ms=300}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹Pause 300 ms›"
+    },
+    {
+      "source": "{{unknown a=\"x\"}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 17,
+          "source": "{{unknown a=\"x\"}}",
+          "name": "",
+          "attrs": {},
+          "verbatim": true
+        }
+      ],
+      "chips": [
+        {
+          "label": "{{unknown a=\"x\"}}",
+          "tone": "error",
+          "canonical": "{{}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": true,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹{{unknown a=\"x\"}}›"
+    },
+    {
+      "source": "{{field}}",
+      "tokens": [
+        {
+          "kind": "tag",
+          "from": 0,
+          "to": 9,
+          "source": "{{field}}",
+          "name": "",
+          "attrs": {},
+          "verbatim": true
+        }
+      ],
+      "chips": [
+        {
+          "label": "{{field}}",
+          "tone": "error",
+          "canonical": "{{}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": true,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "‹{{field}}›"
+    },
+    {
+      "source": "\\{{literal}}",
+      "tokens": [
+        {
+          "kind": "text",
+          "from": 0,
+          "to": 12,
+          "text": "{{literal}}"
+        }
+      ],
+      "chips": [],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "{{literal}}"
+    },
+    {
+      "source": "😀 {{date format=\"yyyy-MM-dd\"}}",
+      "tokens": [
+        {
+          "kind": "text",
+          "from": 0,
+          "to": 3,
+          "text": "😀 "
+        },
+        {
+          "kind": "tag",
+          "from": 3,
+          "to": 31,
+          "source": "{{date format=\"yyyy-MM-dd\"}}",
+          "name": "date",
+          "attrs": {
+            "format": "yyyy-MM-dd"
+          },
+          "verbatim": false
+        }
+      ],
+      "chips": [
+        {
+          "label": "Date · ISO date",
+          "tone": "time",
+          "canonical": "{{date format=\"yyyy-MM-dd\"}}"
+        }
+      ],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "😀 ‹Date · ISO date›"
+    },
+    {
+      "source": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tokens": [
+        {
+          "kind": "text",
+          "from": 0,
+          "to": 150,
+          "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ],
+      "chips": [],
+      "facts": {
+        "isForm": false,
+        "fieldNames": [],
+        "usesClipboard": false,
+        "hasCursor": false,
+        "snippetIds": [],
+        "hasErrors": false,
+        "usesSelection": false,
+        "pressesKeys": false,
+        "cursorCancelled": false
+      },
+      "summary": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ]
+}

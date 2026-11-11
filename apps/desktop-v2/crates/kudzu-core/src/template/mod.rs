@@ -5,7 +5,7 @@
 //!   the ICU date formatter, behind the functions below.
 //! - [`forms`]: form fields and form memory.
 //! - [`doc`], [`chips`], [`presets`], [`summary`], [`lists`], [`images`]: the editor document,
-//!   filled by S23.
+//!   chip labels, date presets, summaries, list markers and image rules.
 
 mod analysis;
 pub mod chips;

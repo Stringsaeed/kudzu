@@ -4,7 +4,9 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, FixedOffset, TimeZone};
-use kudzu_core::template::{self, Node, RenderContext, RenderResult};
+use kudzu_core::template::{
+    self, Attribute, AttributeValue, Node, RenderContext, RenderResult, Tag,
+};
 use uuid::Uuid;
 
 /// 2024-01-31T00:00:00Z.
@@ -163,5 +165,139 @@ impl SplitMix64 {
 
     pub fn bool(&mut self) -> bool {
         self.next() & 1 == 1
+    }
+}
+
+/// A short literal for grammar property tests.
+pub fn random_text(rng: &mut SplitMix64) -> String {
+    const ALPHABET: &[&str] = &[
+        "a", "{", "}", "\\", "\"", " ", "😀", "\n", "|", "{{", "}}", "\\{", "\\\\",
+    ];
+    (0..rng.below(7)).map(|_| *rng.pick(ALPHABET)).collect()
+}
+
+pub fn random_tag(rng: &mut SplitMix64) -> Tag {
+    let make = |name: &str, attributes: Vec<Attribute>| Tag {
+        name: name.into(),
+        attributes,
+        range: 0..0,
+        verbatim: None,
+    };
+    let string = |rng: &mut SplitMix64| AttributeValue::String(random_text(rng));
+    match rng.below(14) {
+        8 => make(
+            "key",
+            vec![
+                Attribute {
+                    name: "name".into(),
+                    value: AttributeValue::String(rng.pick(&template::Key::ALL).name().into()),
+                },
+                Attribute {
+                    name: "count".into(),
+                    value: AttributeValue::Number(rng.below(60) as f64),
+                },
+            ],
+        ),
+        9 => make(
+            "delay",
+            vec![Attribute {
+                name: "ms".into(),
+                value: AttributeValue::Number(rng.below(7000) as f64),
+            }],
+        ),
+        10 => make(
+            "selection",
+            vec![Attribute {
+                name: "trim".into(),
+                value: AttributeValue::Bool(rng.bool()),
+            }],
+        ),
+        11 => make(
+            "uuid",
+            vec![Attribute {
+                name: "upper".into(),
+                value: AttributeValue::Bool(rng.bool()),
+            }],
+        ),
+        12 => make(
+            "random",
+            vec![Attribute {
+                name: "options".into(),
+                value: string(rng),
+            }],
+        ),
+        13 => make(
+            "clipboard",
+            vec![Attribute {
+                name: "history".into(),
+                value: AttributeValue::Number(rng.below(120) as f64 - 10.0),
+            }],
+        ),
+        0 => make(
+            "date",
+            vec![Attribute {
+                name: "format".into(),
+                value: string(rng),
+            }],
+        ),
+        1 => make("cursor", vec![]),
+        2 => make(
+            "clipboard",
+            vec![Attribute {
+                name: "trim".into(),
+                value: AttributeValue::Bool(rng.bool()),
+            }],
+        ),
+        3 => make(
+            "field",
+            vec![
+                Attribute {
+                    name: "name".into(),
+                    value: string(rng),
+                },
+                Attribute {
+                    name: "default".into(),
+                    value: string(rng),
+                },
+            ],
+        ),
+        4 => make(
+            "choice",
+            vec![
+                Attribute {
+                    name: "name".into(),
+                    value: AttributeValue::String("c".into()),
+                },
+                Attribute {
+                    name: "options".into(),
+                    value: string(rng),
+                },
+            ],
+        ),
+        5 => make(
+            "snippet",
+            vec![Attribute {
+                name: "id".into(),
+                value: AttributeValue::String(
+                    Uuid::new_v4().hyphenated().to_string().to_uppercase(),
+                ),
+            }],
+        ),
+        6 => make(
+            "time",
+            vec![Attribute {
+                name: "extra".into(),
+                value: AttributeValue::Number(rng.below(1999) as f64 - 999.0),
+            }],
+        ),
+        _ => Tag {
+            name: String::new(),
+            attributes: vec![],
+            range: 0..0,
+            verbatim: Some(
+                rng.pick(&["{{DATE}}", "{{ nope }}", "{{field}}", "{{x y=1}}"])
+                    .to_string(),
+            ),
+        },
     }
 }
