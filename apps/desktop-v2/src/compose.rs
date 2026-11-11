@@ -35,7 +35,7 @@ fn placeholder(hidden: bool) -> Vec<rune::AnyWindowSpec> {
             crate::timing::mark("main_first_frame");
         }
     });
-    vec![rune::WindowSpec::from_app("main", app)
+    vec![kudzu_ui::theme::window::spec("main", app)
         .options(rune::WindowOptions {
             visible: !hidden,
             ..Default::default()

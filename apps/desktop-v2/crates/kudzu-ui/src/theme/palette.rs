@@ -26,7 +26,7 @@ impl Oklch {
     }
 
     pub fn color(self) -> Color {
-        rune::oklcha(self.l, self.c, self.h, self.a)
+        super::gamut::map(self)
     }
 }
 

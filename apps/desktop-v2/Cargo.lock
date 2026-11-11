@@ -1701,6 +1701,7 @@ dependencies = [
  "kudzu-ui",
  "log",
  "rune",
+ "serde_json",
 ]
 
 [[package]]

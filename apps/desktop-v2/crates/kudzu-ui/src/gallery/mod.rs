@@ -54,5 +54,5 @@ pub fn window() -> rune::AnyWindowSpec {
         ..AppSpec::new("Kudzu Gallery", tokens::SIZE, GalleryState::default, view)
     };
     let app = rune::App::new(spec).font_smoothing(rune::FontSmoothing::Off);
-    rune::WindowSpec::from_app(KEY, app).into()
+    crate::theme::window::spec(KEY, app).into()
 }

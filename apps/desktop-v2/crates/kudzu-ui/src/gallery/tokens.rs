@@ -55,6 +55,7 @@ fn swatches(theme: &Theme) -> El {
 
 fn swatch(theme: &Theme, index: usize, name: &str, colour: rune::Color) -> El {
     let chip = el()
+        .key(format!("swatch-fill-{index}"))
         .size(SWATCH.0, SWATCH.1)
         .radius(radius::MD)
         .fill(colour)

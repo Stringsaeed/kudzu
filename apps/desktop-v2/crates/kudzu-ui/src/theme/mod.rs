@@ -6,12 +6,14 @@
 
 pub mod depth;
 pub mod fonts;
+mod gamut;
 pub mod icons;
 pub mod kit;
 pub mod motion;
 pub mod palette;
 pub mod radius;
 pub mod type_;
+pub mod window;
 
 use std::sync::LazyLock;
 
@@ -100,7 +102,7 @@ mod tests {
     fn themes_resolve_their_own_tables() {
         assert_eq!(Theme::dark().c, palette::DARK.resolve());
         assert_eq!(Theme::light().depth, depth::LIGHT.resolve());
-        assert_eq!(Theme::light().c.background, rune::oklch(1.0, 0.0, 0.0));
+        assert_eq!(Theme::light().c.background, rune::Color::WHITE);
     }
 }
 
@@ -115,6 +117,9 @@ pub(crate) mod css {
     use super::depth::Layer;
     use super::palette::Oklch;
 
+    // Source: bca79f179f5b6e7c869161d80ce6d3ebb1106689.
+    // Repository path components: apps / desktop / app / globals.css (full path in REVIEW.md).
+    // Frozen excerpt for the S73 parity re-check; no build-time dependency on the old app.
     pub const GLOBALS: &str = r#"
 @theme inline {
   --radius-sm: calc(var(--radius) * 0.6);

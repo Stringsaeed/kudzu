@@ -30,6 +30,67 @@ fn render(theme: &str, out: &Path) {
     assert!(status.success(), "kudzu --snap failed for {theme}");
 }
 
+fn swatch_centres(theme: &str, images: &[&Image]) {
+    use kudzu_ui::theme::Theme;
+    use serde_json::Value;
+    fn find<'a>(node: &'a Value, key: &str) -> Option<&'a Value> {
+        if node["key"] == key {
+            return Some(node);
+        }
+        node["children"]
+            .as_array()?
+            .iter()
+            .find_map(|c| find(c, key))
+    }
+    let tree_path =
+        std::env::temp_dir().join(format!("kudzu-s04-{}-{theme}.json", std::process::id()));
+    let output = Command::new(env!("CARGO_BIN_EXE_kudzu"))
+        .args([
+            "--window", "gallery", "--scene", "tokens", "--theme", theme, "--tree",
+        ])
+        .arg(&tree_path)
+        .env("KUDZU_FONTS", "bundled")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let tree: Value = serde_json::from_slice(&std::fs::read(&tree_path).unwrap()).unwrap();
+    std::fs::remove_file(tree_path).unwrap();
+    let resolved = if theme == "dark" {
+        Theme::dark()
+    } else {
+        Theme::light()
+    };
+    let background = resolved.c.background;
+    let encode = rune::color::srgb_encode;
+    for (index, (name, token)) in resolved.tokens.entries().iter().enumerate() {
+        let bounds =
+            &find(&tree["accessibility"], &format!("swatch-fill-{index}")).expect(name)["bounds"];
+        let number = |i| bounds[i].as_f64().unwrap();
+        let centre = (number(0) + number(2) / 2.0, number(1) + number(3) / 2.0);
+        let color = token.color();
+        let expected = [color.r, color.g, color.b]
+            .into_iter()
+            .zip([background.r, background.g, background.b])
+            .map(|(c, b)| {
+                ((encode(c) * color.a + encode(b) * (1.0 - color.a)) * 255.0).round() as u8
+            })
+            .collect::<Vec<_>>();
+        for image in images {
+            let scale = image.width as f64 / kudzu_ui::gallery::tokens::SIZE.0 as f64;
+            let x = (centre.0 * scale) as usize;
+            let y = (centre.1 * scale) as usize;
+            let pixel = &image.rgb[(y * image.width as usize + x) * 3..][..3];
+            assert!(
+                pixel
+                    .iter()
+                    .zip(&expected)
+                    .all(|(a, b)| a.abs_diff(*b) <= 1),
+                "{theme} {name} centre ({x},{y}): {pixel:?} != {expected:?}"
+            );
+        }
+    }
+}
+
 fn check(theme: &str) {
     let out = std::env::temp_dir().join(format!(
         "kudzu-gallery-tokens-{}-{theme}.png",
@@ -49,6 +110,7 @@ fn check(theme: &str) {
         (want.width, want.height),
         "{theme}: size"
     );
+    swatch_centres(theme, &[&got, &want]);
     let changed = got
         .rgb
         .chunks(3)
