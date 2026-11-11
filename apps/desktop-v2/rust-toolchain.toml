@@ -1,3 +1,6 @@
 [toolchain]
 channel = "1.99.1"
 components = ["rustfmt", "clippy"]
+# The universal release bundle builds both slices; rustup installs these on first use,
+# so the pinned toolchain and the installed targets cannot disagree.
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]
