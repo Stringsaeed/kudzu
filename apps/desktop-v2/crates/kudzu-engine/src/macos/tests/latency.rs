@@ -1,11 +1,14 @@
 //! A CPU regression check on §1.7's engine budget, measured on the poster seam. The fakes cost
 //! almost nothing and sleeps are virtual, so this measures the engine's own work.
 //!
-//! Only the tap callback is asserted: ≤ 0.2 ms at p99 of its thread CPU time, what it costs the
-//! tap thread without the time other processes take the core away. Its wall-clock time and the
-//! trigger-to-first-event time (≤ 15 ms at p95 in §1.7) are printed, not asserted: the second
-//! crosses threads, and both depend on how the machine schedules them. Release-build wall
-//! times with real posting are S72's to measure.
+//! Only the tap callback is asserted, by its thread CPU time at p99: what it costs the tap
+//! thread without the time other processes take the core away. §1.7's budget of 0.2 ms holds
+//! with optimizations on (`cargo test --release -p kudzu-engine latency`, its own CI step). An
+//! unoptimized build on a shared runner is several times slower and noisier (one CI run
+//! measured 0.38 ms), so there the bound only catches a gross regression. Its wall-clock time
+//! and the trigger-to-first-event time (≤ 15 ms at p95 in §1.7) are printed, not asserted: the
+//! second crosses threads, and both depend on how the machine schedules them. Release-build
+//! wall times with real posting are S72's to measure.
 
 use std::time::{Duration, Instant};
 
@@ -13,6 +16,26 @@ use super::desk::Out;
 use super::rig::{snippet, Rig};
 
 const SAMPLES: usize = 400;
+
+/// §1.7's tap-callback budget, asserted with optimizations on.
+#[cfg(not(debug_assertions))]
+const CALLBACK_BUDGET: Duration = Duration::from_micros(200);
+/// A debug build only guards against a gross regression (ten times the budget).
+#[cfg(debug_assertions)]
+const CALLBACK_BUDGET: Duration = Duration::from_millis(2);
+
+/// Asserts a tap-callback CPU p99 against [`CALLBACK_BUDGET`].
+fn assert_within_budget(what: &str, cpu_p99: Duration) {
+    let build = if cfg!(debug_assertions) {
+        "debug build, gross-regression bound"
+    } else {
+        "optimized build"
+    };
+    assert!(
+        cpu_p99 <= CALLBACK_BUDGET,
+        "{what} p99 {cpu_p99:?} > {CALLBACK_BUDGET:?} ({build})"
+    );
+}
 
 /// `CLOCK_THREAD_CPUTIME_ID` in `<time.h>` on Darwin.
 const CLOCK_THREAD_CPUTIME_ID: u32 = 16;
@@ -69,15 +92,12 @@ fn the_tap_callback_stays_within_its_cpu_budget() {
         "tap callback p99: {cpu_p99:?} thread CPU, {wall_p99:?} wall clock; \
          trigger to first synthetic event p95: {first_p95:?}"
     );
-    assert!(
-        cpu_p99 <= Duration::from_micros(200),
-        "tap callback p99 {cpu_p99:?} > 0.2 ms"
-    );
+    assert_within_budget("tap callback", cpu_p99);
 }
 
 /// The click path while a typed form is pending (re-review major 8): reading the window the
 /// click lands on and comparing it with Kudzu's windows costs the tap callback no more than a
-/// key does. No window-server call is made; the budget is the same 0.2 ms of thread CPU at p99.
+/// key does. No window-server call is made; the budget is the same as for a key.
 #[test]
 fn a_click_during_a_typed_form_stays_within_the_cpu_budget() {
     use super::keyboard::CgEvent;
@@ -100,8 +120,5 @@ fn a_click_during_a_typed_form_stays_within_the_cpu_budget() {
     let cpu_p99 = percentile(&mut cpu, 0.99);
     let wall_p99 = percentile(&mut wall, 0.99);
     println!("click during a typed form p99: {cpu_p99:?} thread CPU, {wall_p99:?} wall clock");
-    assert!(
-        cpu_p99 <= Duration::from_micros(200),
-        "click callback p99 {cpu_p99:?} > 0.2 ms"
-    );
+    assert_within_budget("click callback", cpu_p99);
 }

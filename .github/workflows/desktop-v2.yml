@@ -26,6 +26,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
+      - name: Engine tap-callback budget (optimized build)
+        run: cargo test --release -p kudzu-engine latency
       - run: cargo xtask check-deps
       - run: python3 scripts/check-design-assets.py
       - run: python3 -m unittest discover -s scripts/tests
