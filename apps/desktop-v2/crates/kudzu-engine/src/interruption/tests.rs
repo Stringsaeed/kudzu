@@ -255,3 +255,13 @@ fn an_interruption_is_final() {
     assert!(form.interrupted());
     assert!(!form.may_delete());
 }
+
+#[test]
+fn reports_past_the_limit_interrupt_and_are_not_kept() {
+    let mut form = key();
+    for seq in 2..=(LIMIT as u64 + 10) {
+        form.focus(report(seq % 2 == 0, seq, seq));
+    }
+    assert!(form.interrupted());
+    assert!(form.reports.len() <= LIMIT, "{} kept", form.reports.len());
+}

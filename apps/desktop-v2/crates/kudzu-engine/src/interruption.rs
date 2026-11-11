@@ -107,13 +107,17 @@ impl Interruption {
         if report.seq <= self.seq {
             return;
         }
-        if report.seq != self.seq + 1 || self.reports.len() >= LIMIT {
+        let full = self.reports.len() >= LIMIT;
+        if report.seq != self.seq + 1 || full {
             self.interrupted = true;
         }
         self.seq = report.seq;
-        // Changes after the submission's count are the panel going away.
+        // Changes after the submission's count are the panel going away. Past the limit the
+        // form is already interrupted for good, so the report isn't kept.
         if self.submitted.is_none_or(|count| report.seq <= count) {
-            self.reports.push((report.key, report.after));
+            if !full {
+                self.reports.push((report.key, report.after));
+            }
             self.key = report.key;
         }
         self.settle();
