@@ -1236,6 +1236,13 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - The window-owner lookup returns Kudzu's own pid for its panels.
   - `CGEventGetTimestamp` at the tap equals the CGEvent timestamp of `NSApp.currentEvent` (check the tick units on Apple Silicon).
   - A trigger left visible during a leading delay (D24) doesn't confuse target-app autocomplete.
+- **Live checks from the S28 re-review:**
+  - `has_private_marker` inspects type identifiers only (never `dataForType`) and errors when `changeCount` moved.
+  - `read()` keeps empty or promised type markers and resolves promised image and file bytes before classification. An empty promised image must not be dropped for good once `last_change` advances.
+  - Kudzu's own writes set `PasteSnapshot.own`, so a copy-back isn't recorded.
+  - `FileIcons::file_icon` matches Finder's icon at 64 px for a real file path.
+  - 1Password and Bitwarden copies are skipped (ignored bundle or concealed type), including while another app is frontmost.
+  - Picker paste: the panel hides and the paste runs on a worker; 800 ms activate plus 40 ms settle; no clipboard restore.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
