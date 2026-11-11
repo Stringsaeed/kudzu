@@ -1258,6 +1258,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D11 | **Model routing (2026-11-11):** spread implementation across providers (Claude, Codex, Grok, OpenCode Go); no single provider takes most steps. Claude has headroom for now and takes the hardest steps; Codex is used a little more lightly than §4 says. The orchestrator may reassign a step's implementer and reviewer from §4; implementer and reviewer still come from different providers, and the step report names the models used. | §4 |
 | D12 | **Reference screenshots stay out of git.** Scripts, `metrics.json` and fixtures are committed; the PNGs live at `$KUDZU_REFERENCE_DIR` (default `~/.local/share/kudzu-migration/reference/`). Pixel comparisons run locally only. | S02, S06, S73 |
 | D13 | **Collation:** `icu_collator` (ICU4X) is approved (2026-11-11) for `localeCompare`-compatible sorting of snippet and group names, replacing S21's hand-written approximation. Pin the version and data, check against browser-recorded orderings, and report the binary-size cost. | §2, S21 |
+| D14 | **Refused paste never loses text (fix, 2026-11-11):** a paste-based expansion saves and writes the clipboard **before** sending any Backspace. If posting ⌘V still fails afterwards, the trigger is typed back. Today's engine sends the Backspaces first and leaves neither the trigger nor the snippet (found by S39). This is a fix beyond D5 and D9. | S34 (with S39's pinned test updated to the fixed behaviour) |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
@@ -1268,7 +1269,8 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - An unbundled binary is Dev, never production (§1.6).
 - The palette, picker and form are non-activating panels, not focusable app windows (WIN-3). What the user sees must be the same; S11 and S71 check it.
 - No visible change: `kzclip://` is gone; the version lives in `version.txt`; the updater checks an archive before installing it.
-- FRM-4: a typed form interrupted by typing in the target app is not submitted (D9). The Tauri engine skips that check while a form is open.
+- FRM-4: a typed form interrupted by typing in the target app is not submitted (D9).
+- A refused paste-based expansion keeps the trigger text (D14). The Tauri engine skips that check while a form is open.
 
 ---
 
