@@ -17,7 +17,7 @@ use std::sync::LazyLock;
 use rune::{icon, row, text, Color, El, Icon, TextStyle, Tx};
 use rune_kit::{ButtonVariant, ControlSize, Kit, State};
 
-use super::press::{raised_layers, Faces, Look};
+use super::press::{raised_layers, Faces, Look, Press};
 
 use crate::theme::kit::{destructive_soft, hover};
 use crate::theme::{motion, palette::fixed, radius, Theme};
@@ -113,6 +113,8 @@ impl Size {
 }
 
 type Attach = Box<dyn FnOnce(rune_kit::Button) -> rune_kit::Button>;
+/// Space's press look, attached once the state type is known (`on_press`).
+type Keys = Box<dyn FnOnce(El, &Press) -> El>;
 
 /// The theme's kit without button shadows: the depth layers draw them.
 fn flat(theme: &Theme) -> &'static Kit {
@@ -145,6 +147,7 @@ pub struct Button {
     icon_end: Option<&'static Icon>,
     state: State,
     attach: Vec<Attach>,
+    keys: Option<Keys>,
 }
 
 impl Button {
@@ -158,6 +161,7 @@ impl Button {
             icon_end: None,
             state: State::Rest,
             attach: Vec::new(),
+            keys: None,
         }
     }
     pub fn variant(mut self, v: Variant) -> Self {
@@ -212,10 +216,12 @@ impl Button {
     }
     pub fn on_press<S: 'static>(mut self, f: impl Fn(&mut S) + 'static) -> Self {
         self.attach.push(Box::new(move |b| b.on_press(f)));
+        self.keys = Some(Box::new(|e, p: &Press| p.keyboard::<S>(e)));
         self
     }
     pub fn on_press_tx<S: 'static>(mut self, f: impl Fn(&mut S, &mut Tx) + 'static) -> Self {
         self.attach.push(Box::new(move |b| b.on_press_tx(f)));
+        self.keys = Some(Box::new(|e, p: &Press| p.keyboard::<S>(e)));
         self
     }
 
@@ -253,7 +259,9 @@ impl Button {
             }
             face
         };
-        let mut b = rune_kit::Button::new(self.name.unwrap_or(self.label))
+        let name = self.name.unwrap_or(self.label);
+        let press = Press::new(format!("button:{name}"));
+        let mut b = rune_kit::Button::new(name)
             .variant(base)
             .control_size(ControlSize::Regular)
             .state(self.state)
@@ -317,12 +325,24 @@ impl Button {
             Variant::Destructive | Variant::Link => None,
         };
         e = match (faces, self.variant) {
-            (Some(f), Variant::Ghost) => raised_layers(e, m.radius, f, &[], &[], &d.pressed, look),
-            (Some(f), _) => {
-                raised_layers(e, m.radius, f, &d.raised, &d.raised_hover, &d.pressed, look)
+            (Some(f), Variant::Ghost) => {
+                raised_layers(e, m.radius, f, &[], &[], &d.pressed, look, &press)
             }
+            (Some(f), _) => raised_layers(
+                e,
+                m.radius,
+                f,
+                &d.raised,
+                &d.raised_hover,
+                &d.pressed,
+                look,
+                &press,
+            ),
             (None, _) => e,
         };
+        if let (Some(keys), Look::Live) = (self.keys, look) {
+            e = keys(e, &press);
+        }
         match self.variant {
             Variant::Destructive => e = e.hover(c.destructive.alpha(0.1)),
             Variant::Link => e = e.hover(Color::TRANSPARENT).press(Color::TRANSPARENT),

@@ -9,9 +9,10 @@
 //!
 //! - **decorated** (rune-kit's component, built, then given Kudzu's metrics): [`button`],
 //!   [`input`] (`Input` and `InputGroup`), [`select`], [`menu`], [`toast`].
-//! - **themed** through a copy of the kit: [`checkbox`].
-//! - **wrapper** (built from Rune core, tagged `RUNE-GAP`): [`switch`], [`textarea`], [`dialog`].
-//! - [`press`]: the hover and press depth layers the decorated controls share.
+//! - **wrapper** (built from Rune core, tagged `RUNE-GAP`): [`switch`], [`textarea`], [`dialog`],
+//!   [`checkbox`] (D21: its checked depth and sheen).
+//! - [`press`]: the hover and press depth layers the decorated controls share, and Space's
+//!   press held until its key-up (D21).
 pub mod button;
 pub mod checkbox;
 pub mod dialog;

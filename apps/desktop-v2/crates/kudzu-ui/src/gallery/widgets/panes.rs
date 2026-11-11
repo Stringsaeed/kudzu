@@ -8,20 +8,44 @@ use crate::theme::{icons, Theme};
 use crate::widgets::empty_state::{glyph_tile, EmptyState};
 use crate::widgets::kit_ext::button::{Button, Size, Variant};
 use crate::widgets::kit_ext::switch::Switch;
-use crate::widgets::secret_text::{cover, row_secret};
+use crate::widgets::secret_text::{self, cover, row_secret};
 use crate::widgets::settings_card::{setting_row, SettingsCard};
 use crate::widgets::shortcut::Shortcut;
 
-/// A concealed and a revealed row; the preview's cover.
+/// A concealed and a revealed row; the preview's cover, concealed and revealed, as tall as
+/// the hidden text (D21): a short secret keeps `min-h-28`, a long one its own height.
 pub fn secret_text(theme: &Theme) -> El {
     let (style, ink) = (theme.ty.body, theme.c.foreground);
-    let cover = cover(
-        theme,
-        "Looks like a password",
-        false,
-        || text("never built while covered"),
-        |_: &mut GalleryState, _| {},
-    );
+    let long = "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUA\nAAAEbm9uZQAAAAAAAAABAAABlwAAAAdz\nc2gtcnNhAAAAAwEAAQAAAYEAx2x1aW5Z\nnHk0bXl0cmlnZ2VyczBleGFtcGxlMGtl\n-----END OPENSSH PRIVATE KEY-----";
+    let preview = |key: &str, secret: &'static str, revealed: bool| {
+        let height = secret_text::text_height(secret, theme.ty.mono, 296.0);
+        cover(
+            theme,
+            key,
+            "Looks like a private key",
+            revealed,
+            height,
+            move || {
+                text(secret)
+                    .font(theme.ty.mono)
+                    .color(theme.c.foreground)
+                    .wrap()
+            },
+            |_: &mut GalleryState, _| {},
+        )
+    };
+    let short = |key: &str, revealed: bool| {
+        cover(
+            theme,
+            key,
+            "Looks like a password",
+            revealed,
+            secret_text::text_height("hunter2-correct-horse", style, 296.0),
+            || text("hunter2-correct-horse").font(style).color(ink),
+            |_: &mut GalleryState, _| {},
+        )
+    };
+    let tall = secret_text::text_height(long, theme.ty.mono, 296.0).max(secret_text::MIN_HEIGHT);
     col()
         .gap(24.0)
         .child(line(
@@ -36,11 +60,31 @@ pub fn secret_text(theme: &Theme) -> El {
         ))
         .child(line(
             theme,
-            "Preview cover (min-h-28)",
-            [col()
-                .w(296.0)
-                .child(cover)
-                .key("spec:secret-text/cover:296x112")],
+            "Preview: a short secret covered and revealed (min-h-28)",
+            [
+                col()
+                    .w(296.0)
+                    .child(short("short-covered", false))
+                    .key("spec:secret-text/cover:296x112"),
+                col()
+                    .w(296.0)
+                    .child(short("short-shown", true))
+                    .key("spec:secret-text/revealed:296x112"),
+            ],
+        ))
+        .child(line(
+            theme,
+            "Preview: a long secret keeps its height covered and revealed",
+            [
+                col()
+                    .w(296.0)
+                    .child(preview("long-covered", long, false))
+                    .key(format!("spec:secret-text/long-cover:296x{tall}")),
+                col()
+                    .w(296.0)
+                    .child(preview("long-shown", long, true))
+                    .key(format!("spec:secret-text/long-revealed:296x{tall}")),
+            ],
         ))
 }
 

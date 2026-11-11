@@ -1,13 +1,13 @@
 //! `switch`, `checkbox`, `input` (with `input-group`), `textarea`, `label`, `select`.
 
 use rune::{col, row, text, El, Family, TextEdit, TextStyle};
-use rune_kit::{Checkbox, Field, Select, SelectAppearance, State};
+use rune_kit::{Field, Select, SelectAppearance, State};
 
 use super::line;
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::{
     button::{Button, Size as ButtonSize, Variant},
-    checkbox,
+    checkbox::Checkbox,
     input::Input,
     select,
     switch::{Size, Switch},
@@ -65,18 +65,42 @@ pub fn switch(theme: &Theme) -> El {
         .child(line(theme, "Reference landmarks", reference))
 }
 
-/// rune-kit's 16 point box (`size-4`, 4 point corners), checked in shadcn's primary through
-/// `kit_ext::checkbox` (D6, after S06).
+/// shadcn's 16 point box (`size-4`, 4 point corners), checked in primary with the raised depth
+/// and the strong sheen (`kit_ext::checkbox`, D21).
 pub fn checkbox(theme: &Theme) -> El {
-    let b = |c: Checkbox| checkbox::build(c, theme);
-    col().child(line(
+    let b = |c: Checkbox, key: &str| c.build(theme).key(format!("spec:checkbox/{key}:16x16"));
+    let label = "Also delete pinned items";
+    col().gap(24.0).child(line(
         theme,
-        "Off, on, focus, disabled",
+        "Off, on, focus off, focus on, disabled; with its label",
         [
-            b(Checkbox::new(false).label("Also clear pinned items")).key("info:checkbox/off"),
-            b(Checkbox::new(true).label("Also clear pinned items")).key("info:checkbox/on"),
-            b(Checkbox::new(true).state(State::Focus)).key("info:checkbox/focus"),
-            b(Checkbox::new(false).state(State::Disabled)).key("info:checkbox/disabled"),
+            b(Checkbox::new(false).label(label).hide_label(), "off"),
+            b(Checkbox::new(true).label(label).hide_label(), "on"),
+            b(
+                Checkbox::new(false)
+                    .label(label)
+                    .hide_label()
+                    .state(State::Focus),
+                "focus-off",
+            ),
+            b(
+                Checkbox::new(true)
+                    .label(label)
+                    .hide_label()
+                    .state(State::Focus),
+                "focus-on",
+            ),
+            b(
+                Checkbox::new(true)
+                    .label(label)
+                    .hide_label()
+                    .state(State::Disabled),
+                "disabled",
+            ),
+            Checkbox::new(true)
+                .label(label)
+                .build(theme)
+                .key("spec:checkbox/labelled:_x20"),
         ],
     ))
 }
@@ -203,6 +227,19 @@ pub fn select(theme: &Theme, layer: &mut Vec<El>) -> El {
         State::Hover,
     )
     .key("spec:select/hover:128x32");
+    let focus = select::build(
+        Select::new("keep-focus", &KEEP)
+            .label("Keep history for (focus)")
+            .appearance(SelectAppearance::Field)
+            .width(128.0)
+            .current(Some("1 week"))
+            .state(State::Focus),
+        theme,
+        layer,
+        false,
+        State::Focus,
+    )
+    .key("spec:select/focus:128x32");
     let open = select::build(
         Select::new("keep-open", &KEEP)
             .label("Keep history for (open)")
@@ -218,8 +255,8 @@ pub fn select(theme: &Theme, layer: &mut Vec<El>) -> El {
     let open = col().key("spec:select/open:128x32").child(open);
     col().gap(24.0).child(line(
         theme,
-        "Trigger, hover; open list",
-        [closed, hover, open],
+        "Trigger, hover, focus (3 pt halo); open list",
+        [closed, hover, focus, open],
     ))
 }
 

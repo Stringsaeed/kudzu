@@ -9,15 +9,16 @@
 //! `hover:shadow-raised-hover` and `data-[state=open]:shadow-pressed`; the list is `rounded-lg`.
 //! Built with a kit whose base background is `surface-raised` and whose field depth is empty,
 //! the depth is drawn by [`super::press`]'s layers (`RUNE-GAP(#360)`) and the list's radius set
-//! on what `Select::build` pushed (`RUNE-GAP(#573)`).
+//! on what `Select::build` pushed (`RUNE-GAP(#573)`). Keyboard focus draws shadcn's 3 point
+//! `ring/50` halo around rune-kit's 1 point ring-coloured border (D21).
 
 use std::sync::LazyLock;
 
-use rune::{Color, El};
+use rune::{Color, El, Shadow};
 use rune_kit::{Kit, Select, State};
 
 use super::menu::round;
-use super::press::{raised_layers, Faces, Look};
+use super::press::{layer as face_layer, raised_layers, Faces, Look, Press};
 use crate::theme::{palette::fixed, radius, Theme};
 
 /// `h-8`.
@@ -79,13 +80,31 @@ pub fn build(select: Select, theme: &Theme, layer: &mut Vec<El>, open: bool, sta
         hover: theme.c.surface_raised,
         sheen: Some((top.color(), bottom.color())),
     };
-    raised_layers(
-        trigger,
+    let press = Press::new("select");
+    let c = &theme.c;
+    // `focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50` (D21): the
+    // halo as the focus ring; rune-kit's 1 point inside ring is the border.
+    let trigger = raised_layers(
+        trigger.focus_ring(3.0, 0.0, c.ring.alpha(0.5)),
         radius::LG,
         faces,
         &d.raised,
         &d.raised_hover,
         &d.pressed,
         look,
-    )
+        &press,
+    );
+    if state != State::Focus || open {
+        return trigger;
+    }
+    // A forced focus (galleries): the border over the face, the halo outside.
+    let border = face_layer("focus-border", radius::LG, Color::TRANSPARENT, &[])
+        .paint_order(0)
+        .box_shadow(Shadow {
+            spread: 1.0,
+            color: c.ring,
+            inset: true,
+            ..Shadow::default()
+        });
+    trigger.child(border).outline(3.0, 0.0, c.ring.alpha(0.5))
 }

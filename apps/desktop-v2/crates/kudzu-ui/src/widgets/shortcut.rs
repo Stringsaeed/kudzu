@@ -65,6 +65,11 @@ impl Shortcut {
             ..Shortcut::keys(Vec::<String>::new())
         }
     }
+    /// A recorded accelerator (`"Control+Alt+Space"`), as Settings stores the hotkeys.
+    pub fn accelerator(accel: &str) -> Shortcut {
+        Shortcut::keys(kudzu_core::keys::accelerator_labels(accel))
+    }
+    /// Labels made elsewhere; they are spoken by name (`⌃` is "Control").
     pub fn keys<I: IntoIterator<Item = T>, T: Into<String>>(keys: I) -> Shortcut {
         Shortcut {
             labels: keys.into_iter().map(Into::into).collect(),
@@ -94,11 +99,16 @@ impl Shortcut {
         self
     }
 
-    /// What a reader hears: the combo in words, or the labels as they are.
+    /// What a reader hears: the combo in words; labels by their keys' spoken names.
     pub fn spoken_label(&self) -> String {
         match &self.combo {
             Some(c) => kudzu_core::keys::spoken_shortcut(c),
-            None => self.labels.join(" "),
+            None => self
+                .labels
+                .iter()
+                .map(|l| spoken_cap(l))
+                .collect::<Vec<_>>()
+                .join(" "),
         }
     }
 
@@ -120,6 +130,29 @@ impl Shortcut {
             .center_y()
             .child(caps)
     }
+}
+
+/// A keycap's spoken name: its glyph turned back into the combo token `kudzu_core::keys` names
+/// (`⌃` → `ctrl` → "Control"), a letter as itself.
+pub fn spoken_cap(label: &str) -> String {
+    let token = match label {
+        "⌘" => "mod",
+        "⌃" => "ctrl",
+        "⌥" => "alt",
+        "⇧" => "shift",
+        "↵" | "⏎" | "↩" => "enter",
+        "⌫" => "backspace",
+        "⌦" => return "Forward Delete".into(),
+        "⇥" => "tab",
+        "esc" => "escape",
+        "↑" => "up",
+        "↓" => "down",
+        "←" => "left",
+        "→" => "right",
+        "Space" | "space" => "space",
+        other => other,
+    };
+    kudzu_core::keys::spoken_shortcut(token)
 }
 
 /// One keycap: also the footer hints' caps and the preview's key badges.
@@ -187,7 +220,18 @@ mod tests {
             Shortcut::combo("mod+enter").spoken_label(),
             "Command Return"
         );
-        assert_eq!(Shortcut::keys(["⌃", "Space"]).spoken_label(), "⌃ Space");
+        assert_eq!(
+            Shortcut::keys(["⌃", "⌥", "Space"]).spoken_label(),
+            "Control Option Space"
+        );
+        assert_eq!(
+            Shortcut::accelerator("CommandOrControl+Shift+V").spoken_label(),
+            "Command Shift V"
+        );
+        assert_eq!(
+            Shortcut::keys(["⌦", "k"]).spoken_label(),
+            "Forward Delete K"
+        );
     }
 
     /// The accessibility tree as JSON text.
@@ -214,6 +258,30 @@ mod tests {
         for t in [spoken, tree(false)] {
             assert!(!t.contains('⌘') && !t.contains('↵'), "caps are hidden: {t}");
         }
+    }
+
+    /// Recorded accelerators (Settings' hotkeys) read by name, never by glyph.
+    #[test]
+    fn recorded_accelerators_are_spoken_by_name_in_the_tree() {
+        fn view(_: &(), _: &mut Cx<()>) -> El {
+            rune::row()
+                .child(
+                    Shortcut::accelerator("Control+Alt+Space")
+                        .spoken(true)
+                        .build(Theme::light()),
+                )
+                .child(
+                    Shortcut::keys(["⌃", "⌥", "V"])
+                        .spoken(true)
+                        .build(Theme::light()),
+                )
+        }
+        let mut rt = Runtime::new((), view, (300.0, 60.0), Env::new(true, 1.0));
+        rt.frame(0.0);
+        let t = rt.accessibility_json().to_string();
+        assert!(t.contains("Control Option Space"), "{t}");
+        assert!(t.contains("Control Option V"), "{t}");
+        assert!(!t.contains('⌃') && !t.contains('⌥'), "{t}");
     }
 
     #[test]

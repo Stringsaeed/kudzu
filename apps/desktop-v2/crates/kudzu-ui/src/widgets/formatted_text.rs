@@ -2,8 +2,11 @@
 //! its formatting (bold, italic, underline, links in iris), inline images, the cursor marker
 //! (a 2 point iris bar) and key and pause badges where the insertion presses a key or waits.
 //! Built as one Rune rich text, so it wraps as the web's inline flow does: badges are pills
-//! (keycaps on `foreground/6%`, a pause in faint ink on a well), the cursor a hair-space pill
-//! in iris, a repeated key adds a faint `×N`.
+//! (keycaps on `foreground/6%`, a pause in faint ink on a well), a repeated key adds a faint
+//! `×N`. The cursor (D21) is a 2 point iris bar: a zero-width space whose span background is
+//! padded 1 point either side (Rune pads a span background sideways only), between hair spaces
+//! for `mx-px`. Rune sizes a span background on the cap height, so the bar is about 1.34 em
+//! tall where the web's is 1.1 em.
 //!
 //! An image draws as the image when the caller can decode it (`image`: data URL to
 //! [`Pixels`], from the preview's image cache), else as a pill with an image glyph and its alt
@@ -15,6 +18,11 @@ use kudzu_core::formatting::{safe_image, safe_link, FormatSpan, FormatStyle};
 use kudzu_core::template::{ActionKind, Key, RenderResult};
 
 use crate::theme::{icons, Theme};
+
+/// The cursor's character: no advance of its own, so its background is exactly its padding.
+const CURSOR: char = '\u{200B}';
+/// `w-[2px]`.
+const CURSOR_WIDTH: f32 = 2.0;
 
 /// One run of text between formatting, cursor and action boundaries (`formattedParts`), as
 /// UTF-16 offsets into the rendered text.
@@ -182,16 +190,18 @@ pub fn formatted_text(
             out.push('\u{2009}');
         }
     };
-    let cursor = |at: usize, out: &mut String, pills: &mut Vec<_>| {
+    let cursor = |at: usize, out: &mut String, spans: &mut Vec<Span>| {
         if result.cursor_offset == Some(at) {
-            let start = out.len();
             out.push('\u{200A}');
-            pills.push((start..out.len(), PillStyle::new().bg(c.iris).fg(c.iris)));
+            let start = out.len();
+            out.push(CURSOR);
+            spans.push(Span::new(start, out.len()).bg(c.iris, CURSOR_WIDTH / 2.0));
+            out.push('\u{200A}');
         }
     };
     for p in &all {
         marks(p.start, &mut out, &mut spans, &mut pills);
-        cursor(p.start, &mut out, &mut pills);
+        cursor(p.start, &mut out, &mut spans);
         let (from, to) = (byte_at(text, p.start), byte_at(text, p.end));
         if let Some((start, end, url, width)) = &p.image {
             if *start != p.start {
@@ -239,7 +249,7 @@ pub fn formatted_text(
         }
     }
     marks(len16, &mut out, &mut spans, &mut pills);
-    cursor(len16, &mut out, &mut pills);
+    cursor(len16, &mut out, &mut spans);
     let mut e = rich(out, spans).font(style).color(ink).wrap().pills(pills);
     for (at, i) in icons_at {
         e = e.inline_icon(at, i);
@@ -336,7 +346,7 @@ mod tests {
         assert!(
             shown
                 .iter()
-                .any(|t| t.starts_with("Hi⇥×2\u{2009}300 ms\u{2009} there\u{200A}")),
+                .any(|t| t.starts_with("Hi⇥×2\u{2009}300 ms\u{2009} there\u{200A}\u{200B}\u{200A}")),
             "{shown:?}"
         );
     }

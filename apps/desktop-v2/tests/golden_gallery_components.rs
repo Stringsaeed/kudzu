@@ -1,6 +1,7 @@
-//! Goldens for the gallery scenes: S06's three exact-metric primitives (button, switch, input),
-//! one overlay on the kit's palette and elevation (dropdown-menu) and the icon set; S07's D6
-//! select and four shared widgets (breadcrumb, selection pill, key hints, settings card), rendered
+//! Goldens for the gallery scenes: S06's exact-metric primitives and the icon set, and every S07
+//! scene: the D6 and D21 primitives (select with its focus halo, dialogs, toast, checkbox
+//! checked and focused, menus, input group, toggle, command) and the shared widgets (pressed
+//! buttons and switches, the secret covered and revealed, keycaps, the preview, …), rendered
 //! headless with the bundled fonts (`KUDZU_FONTS=bundled`). Regression tests for the kit
 //! mapping, `widgets::kit_ext` and `widgets`, not parity evidence: `cargo xtask parity` is (PLAN §1.7).
 //! `KUDZU_BLESS=1` rewrites them.
@@ -15,17 +16,33 @@ const CHANNEL_TOLERANCE: u8 = 2;
 const CHANGED_SHARE: f64 = 0.0002;
 
 /// Scene and window size in points: only as tall as the scene draws, to keep the PNGs small.
-const SCENES: [(&str, &str); 10] = [
-    ("button", "1160x540"),
-    ("switch", "1160x260"),
-    ("input", "1160x220"),
-    ("dropdown-menu", "1160x340"),
+const SCENES: [(&str, &str); 26] = [
+    ("button", "820x600"),
+    ("switch", "420x300"),
+    ("input", "1060x260"),
+    ("dropdown-menu", "520x330"),
     ("icons", "1160x600"),
-    ("select", "1160x320"),
-    ("breadcrumb", "1160x480"),
-    ("selection-pill", "1160x260"),
-    ("key-hints", "1160x160"),
-    ("settings-card", "1160x420"),
+    ("select", "680x300"),
+    ("breadcrumb", "1000x460"),
+    ("selection-pill", "460x260"),
+    ("key-hints", "740x180"),
+    ("settings-card", "720x450"),
+    ("slider", "920x160"),
+    ("stepper", "1020x180"),
+    ("shortcut", "420x330"),
+    ("trigger-chip", "420x160"),
+    ("formatted-text", "520x210"),
+    ("secret-text", "700x500"),
+    ("empty-state", "580x400"),
+    ("wordmark", "420x240"),
+    ("dialog", "900x520"),
+    ("alert-dialog", "900x440"),
+    ("sonner", "460x250"),
+    ("checkbox", "420x160"),
+    ("context-menu", "420x300"),
+    ("input-group", "740x260"),
+    ("toggle", "420x170"),
+    ("command", "420x300"),
 ];
 
 fn golden(scene: &str, theme: &str) -> PathBuf {

@@ -1,11 +1,11 @@
 //! Footer key hints that react to their key (`components/app/palette/key-hints.ts` and the
 //! `key-hint` utility in `globals.css:550`): while a hint's key is held its keycaps sink to 90%
 //! and turn `iris-soft` with iris ink, fast and eased out; on release they spring back on the pop
-//! curve. The window's `on_key` names the hint with [`hint_for`] and keeps it in [`Held`]; Rune
-//! reports key presses, not releases, so [`Held`] lets go after the key-repeat delay unless the
-//! key repeats, and at the next press of another key.
+//! curve. The window's key handling names the hint with [`hint_for`] and keeps it in [`Held`];
+//! the real key-up lets it go (D21): [`release_on_key_up`] puts an `on_key_up` on the window's
+//! root, which hears every release no control took, as the Tauri window's `keyup` listener does.
 
-use rune::{row, text, El, Key, KeyEvent};
+use rune::{row, text, El, Key, KeyEvent, Tx};
 
 use crate::theme::{motion, Theme};
 use crate::widgets::shortcut::{cap, Shortcut, Size, Tone};
@@ -25,39 +25,35 @@ pub fn hint_for(e: &KeyEvent) -> Option<String> {
     })
 }
 
-/// How long a hint stays held without a repeat: past macOS's default initial key-repeat delay.
-pub const HOLD: f64 = 0.55;
-
 /// The hint whose key is down.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Held {
-    hint: Option<(String, f64)>,
+    hint: Option<String>,
 }
 
 impl Held {
-    /// A key press at `clock`; the deadline for the window's poll to call [`Held::poll`].
-    pub fn press(&mut self, hint: Option<String>, clock: f64) -> Option<f64> {
-        self.hint = hint.map(|h| (h, clock));
-        self.hint.as_ref().map(|_| clock + HOLD)
+    /// A key press: the hint it belongs to, if any, is held; any other key lets go.
+    pub fn press(&mut self, hint: Option<String>) {
+        self.hint = hint;
     }
-    /// True when the held hint let go (the view rebuilds).
-    pub fn poll(&mut self, clock: f64) -> bool {
-        if self
-            .hint
-            .as_ref()
-            .is_some_and(|(_, at)| clock - at >= HOLD - 1e-6)
-        {
-            self.hint = None;
-            return true;
-        }
-        false
-    }
-    pub fn release(&mut self) {
-        self.hint = None;
+    /// A key-up (`releaseHints` lets every hint go on any release); true when one let go.
+    pub fn release(&mut self) -> bool {
+        self.hint.take().is_some()
     }
     pub fn is(&self, id: &str) -> bool {
-        self.hint.as_ref().is_some_and(|(h, _)| h == id)
+        self.hint.as_deref() == Some(id)
     }
+}
+
+/// Puts the release on the window's `root`: every key-up nothing else took lets the held hint
+/// go. The release is not taken, so other handlers still hear it.
+pub fn release_on_key_up<S: 'static>(root: El, held: fn(&mut S) -> &mut Held) -> El {
+    root.on_key_up(move |s: &mut S, _: &KeyEvent, tx: &mut Tx| {
+        if !held(s).release() {
+            tx.live_only();
+        }
+        false
+    })
 }
 
 /// One footer hint: its shortcut's caps, then its label (`text-[11.5px]` muted).
@@ -165,13 +161,53 @@ mod tests {
         assert_eq!(hint_for(&ev(Key::Backspace, false, false)), None);
     }
 
+    struct Footer {
+        held: Held,
+    }
+
+    fn footer(s: &Footer, _: &mut rune::Cx<Footer>) -> El {
+        let theme = Theme::light();
+        // The palette's field holds focus; here the root does, so its `on_key` hears the key.
+        let root = rune::col()
+            .key("footer")
+            .focusable(true)
+            .child(key_hint(
+                theme,
+                "escape",
+                "escape",
+                None,
+                s.held.is("escape"),
+            ))
+            .on_key(|s: &mut Footer, e: &KeyEvent, _: &mut Tx| {
+                s.held.press(hint_for(e));
+                false
+            });
+        release_on_key_up(root, |s: &mut Footer| &mut s.held)
+    }
+
+    /// The hint holds from the key's press to its real release, however long it is held.
     #[test]
-    fn a_held_hint_lets_go_after_the_repeat_delay() {
-        let mut h = Held::default();
-        assert_eq!(h.press(Some("tab".into()), 1.0), Some(1.0 + HOLD));
-        assert!(h.is("tab"));
-        assert!(!h.poll(1.2));
-        assert!(h.poll(1.0 + HOLD));
-        assert!(!h.is("tab"));
+    fn a_held_hint_lets_go_on_key_up() {
+        let mut rt = rune::Runtime::new(
+            Footer {
+                held: Held::default(),
+            },
+            footer,
+            (400.0, 60.0),
+            rune::Env::new(true, 1.0),
+        );
+        rt.frame(0.0);
+        rt.update(|_, tx| tx.focus("footer", false));
+        rt.frame(1.0 / 60.0);
+        rt.key(ev(Key::Escape, false, false));
+        rt.frame(1.0 / 60.0);
+        assert!(rt.state.held.is("escape"));
+        for _ in 0..120 {
+            rt.frame(1.0 / 60.0);
+        }
+        assert!(rt.state.held.is("escape"), "still held after two seconds");
+        rt.key_up(ev(Key::Escape, false, false));
+        rt.frame(1.0 / 60.0);
+        assert!(!rt.state.held.is("escape"));
     }
 }

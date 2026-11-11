@@ -150,7 +150,7 @@ fn sample() -> RenderResult {
             .into(),
         formatting: Some(vec![
             FormatSpan { start: 0, end: 8, style: FormatStyle::Bold },
-            FormatSpan { start: 26, end: 40, style: FormatStyle::Italic },
+            FormatSpan { start: 24, end: 40, style: FormatStyle::Italic },
             FormatSpan {
                 start: 55,
                 end: 75,

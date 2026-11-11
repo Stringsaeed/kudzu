@@ -224,6 +224,6 @@ pub fn sonner(theme: &Theme) -> El {
     col().child(line(
         theme,
         "Toast with an action",
-        [toast.key("info:sonner/toast")],
+        [toast.key("spec:sonner/toast:356x_")],
     ))
 }

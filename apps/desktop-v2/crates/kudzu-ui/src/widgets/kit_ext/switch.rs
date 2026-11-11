@@ -9,13 +9,14 @@
 //!
 //! The knob's stretch while the switch is held (`group-active/switch:scale-x-[1.2]`, from the
 //! edge facing its travel) is a live frame on the knob's face that the switch's drag handler
-//! sets on Down and clears on Up (D6, after S06; `RUNE-GAP(#360)`, see `super::press`). A
-//! forced `State::Pressed` (galleries) draws it statically.
+//! sets on Down and clears on Up (D6, after S06; `RUNE-GAP(#360)`, see `super::press`), and Space
+//! holds it from the press to the key-up (D21). A forced `State::Pressed` (galleries) draws it
+//! statically.
 
 use rune::{el, Color, El, Live, Phase, Shadow, Tx};
 use rune_kit::State;
 
-use super::press::press_spring;
+use super::press::{keyboard_held, on_space, press_spring};
 use crate::theme::{motion, Theme};
 
 /// shadcn's `size`.
@@ -43,6 +44,9 @@ const INSET: f32 = 1.0;
 const STRETCH: f32 = 1.2;
 
 type Attach = Box<dyn FnOnce(El) -> El>;
+/// Space's knob stretch, attached once the state type is known (`on_toggle`): the element,
+/// its press id, and the knob frame to set on the press and on its release.
+type Keys = Box<dyn FnOnce(El, String, Live<[f32; 4]>, [f32; 4], [f32; 4]) -> El>;
 
 /// `Switch::new(on).label("Open at login").on_toggle(|s: &mut S| s.login ^= true).build(theme)`.
 pub struct Switch {
@@ -51,6 +55,7 @@ pub struct Switch {
     label: Option<String>,
     state: State,
     attach: Vec<Attach>,
+    keys: Option<Keys>,
 }
 
 impl Switch {
@@ -61,6 +66,7 @@ impl Switch {
             label: None,
             state: State::Rest,
             attach: Vec::new(),
+            keys: None,
         }
     }
     pub fn size(mut self, s: Size) -> Self {
@@ -85,10 +91,18 @@ impl Switch {
     }
     pub fn on_toggle<S: 'static>(mut self, f: impl Fn(&mut S) + 'static) -> Self {
         self.attach.push(Box::new(move |e| e.on_press(f)));
+        self.keys = Some(Box::new(|e, id, rect: Live<[f32; 4]>, rest, held| {
+            let (down, up) = (rect.clone(), rect);
+            on_space::<S>(e, id, move || _ = down.set(held), move || _ = up.set(rest))
+        }));
         self
     }
     pub fn on_toggle_tx<S: 'static>(mut self, f: impl Fn(&mut S, &mut Tx) + 'static) -> Self {
         self.attach.push(Box::new(move |e| e.on_press_tx(f)));
+        self.keys = Some(Box::new(|e, id, rect: Live<[f32; 4]>, rest, held| {
+            let (down, up) = (rect.clone(), rect);
+            on_space::<S>(e, id, move || _ = down.set(held), move || _ = up.set(rest))
+        }));
         self
     }
 
@@ -131,6 +145,7 @@ impl Switch {
             .size(knob_w, side)
             .absolute(x, (h - side) / 2.0)
             .motion(motion::SOFT);
+        let id = format!("switch:{}", self.label.as_deref().unwrap_or_default());
         let (knob, hold) = if live {
             let rest = [0.0, 0.0, side, side];
             // Stretched from the edge facing the travel: the leading edge when on.
@@ -140,7 +155,8 @@ impl Switch {
                 0.0
             };
             let held = [lead, 0.0, side * STRETCH, side];
-            let rect = Live::new(rest);
+            // Space holding this switch (it toggled and rebuilt): stay stretched until key-up.
+            let rect = Live::new(if keyboard_held(&id) { held } else { rest });
             let face = face
                 .absolute(0.0, 0.0)
                 .size(side, side)
@@ -184,6 +200,9 @@ impl Switch {
             _ => {}
         }
         if let Some((rect, rest, held)) = hold.filter(|_| !disabled) {
+            if let Some(keys) = self.keys {
+                e = keys(e, id, rect.clone(), rest, held);
+            }
             e = e.on_drag_any(move |d, tx| {
                 let on = d.phase == Phase::Down || (d.phase == Phase::Move && !d.cancelled());
                 rect.set(if on { held } else { rest });
