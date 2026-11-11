@@ -16,7 +16,9 @@
 //! - Before the panel has ever been key, no click can be on it: interrupted.
 //! - The submission comes from the panel, after the panel reported every focus change the
 //!   events before it caused, so it settles a click made while the panel was key as having
-//!   stayed.
+//!   stayed. From then on the panel is going away and the target is coming forward: every
+//!   key-down or click that reaches the session interrupts, until the trigger is deleted, and
+//!   focus reports no longer count.
 //! - Focus moving without input (a shortcut opens another panel, a panel closes) is not an
 //!   interruption.
 
@@ -38,6 +40,8 @@ pub(crate) struct Interruption {
     /// The panel has been key at least once.
     was_key: bool,
     click: Option<Click>,
+    /// Submitted, and the trigger not deleted yet.
+    submitted: bool,
 }
 
 impl Interruption {
@@ -46,14 +50,14 @@ impl Interruption {
         if self.click == Some(Click::WhileAway) {
             self.click = None;
         }
-        if !self.key {
+        if !self.key || self.submitted {
             self.interrupted = true;
         }
     }
 
     /// A mouse-down reached the session.
     pub fn click(&mut self) {
-        if self.click == Some(Click::WhileAway) || !(self.key || self.was_key) {
+        if self.submitted || self.click == Some(Click::WhileAway) || !(self.key || self.was_key) {
             self.interrupted = true;
         }
         self.click = Some(if self.key {
@@ -65,6 +69,9 @@ impl Interruption {
 
     /// The panel reported that it became key (`true`) or stopped being key.
     pub fn focus(&mut self, key: bool) {
+        if self.submitted {
+            return;
+        }
         if self.click.take().is_some() && !key {
             self.interrupted = true;
         }
@@ -77,6 +84,12 @@ impl Interruption {
         if self.click.take() == Some(Click::WhileAway) {
             self.interrupted = true;
         }
+        self.submitted = true;
+    }
+
+    /// Whether the form was submitted (its trigger isn't deleted yet).
+    pub fn submitted(&self) -> bool {
+        self.submitted
     }
 
     /// Something may have changed the document where the trigger is.
@@ -185,6 +198,19 @@ mod tests {
         // The panel closing after the submission is not that click leaving it.
         form.focus(false);
         assert!(!form.interrupted());
+    }
+
+    #[test]
+    fn after_the_submission_any_key_or_click_interrupts_and_focus_no_longer_counts() {
+        for then in [Interruption::key_down, Interruption::click] {
+            let mut form = key();
+            form.submit();
+            form.focus(false);
+            assert!(!form.interrupted(), "the panel closing is expected");
+            form.focus(true);
+            then(&mut form);
+            assert!(form.interrupted());
+        }
     }
 
     #[test]

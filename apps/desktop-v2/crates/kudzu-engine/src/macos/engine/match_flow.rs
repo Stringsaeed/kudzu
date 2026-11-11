@@ -12,6 +12,7 @@ use super::super::ffi::{
 use super::super::input_source;
 use super::super::keys::{self, REPLAY_MARKER, SYNTHETIC_MARKER};
 use super::super::tap::{self, HeldEvent};
+use super::replace::TypedTrigger;
 use super::session::Core;
 use super::{activity, Guard, Imp, InsertError, Job, LISTEN_ONLY_SETTLE};
 use crate::hold::HoldState;
@@ -260,7 +261,13 @@ impl Imp {
                 } else {
                     None
                 };
-                self.insert_expansion(token, &trigger, rendered, m.mode, swallowed, Guard::Typed)
+                let typed = TypedTrigger {
+                    trigger: &trigger,
+                    mode: m.mode,
+                    swallowed,
+                    form: None,
+                };
+                self.insert_expansion(token, typed, rendered, Guard::Typed)
             }
             MatcherEvent::Undo(undo) => {
                 let events = self.events();

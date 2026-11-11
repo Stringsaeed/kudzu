@@ -174,7 +174,9 @@ impl Engine {
     }
 
     /// Fills a pending form: the engine brings the target app back, deletes the trigger (if it
-    /// was typed) and inserts. A stale or repeated token does nothing.
+    /// was typed) and inserts. Until that deletion, any key-down or click that reaches the
+    /// session interrupts a typed form, which then deletes nothing. A stale or repeated token
+    /// does nothing.
     pub fn submit_form(&self, token: u64, values: HashMap<String, String>) {
         self.imp.submit_form(token, values);
     }

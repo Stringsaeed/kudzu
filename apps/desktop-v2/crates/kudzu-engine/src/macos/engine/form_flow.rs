@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use super::super::keys::{self, SYNTHETIC_MARKER};
 use super::super::tap::HeldEvent;
+use super::replace::TypedTrigger;
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
 use crate::interruption::Interruption;
 use crate::library;
@@ -122,19 +123,50 @@ impl Imp {
         Ok(())
     }
 
+    /// Submits the pending form `token`, once. A typed form stays pending through the target's
+    /// activation and settling, still watching for input that interrupts it, until the final
+    /// guard before its first Backspace takes it (FRM-4).
     pub(super) fn submit(&self, token: u64, values: HashMap<String, String>) {
-        let form = {
-            let mut core = lock(&self.core);
-            match core.pending_form.take() {
-                Some(form) if form.token == token => form,
-                other => {
-                    core.pending_form = other;
-                    return;
-                }
-            }
+        let Some(form) = self.begin_submission(token) else {
+            return;
         };
-        let mut form = form;
-        form.input.submit();
+        self.submit_now(&form, values);
+        let mut core = lock(&self.core);
+        if core.pending_form.as_ref().is_some_and(|f| f.token == token) {
+            core.pending_form = None;
+        }
+    }
+
+    /// Marks the pending form `token` submitted and returns it. A palette form has nothing to
+    /// delete, so it stops being pending at once.
+    fn begin_submission(&self, token: u64) -> Option<PendingForm> {
+        let mut core = lock(&self.core);
+        let pending = core
+            .pending_form
+            .as_mut()
+            .filter(|f| f.token == token && !f.input.submitted())?;
+        pending.input.submit();
+        let form = pending.clone();
+        if matches!(form.kind, FormKind::Palette) {
+            core.pending_form = None;
+        }
+        Some(form)
+    }
+
+    /// The final guard for a submitted typed form: takes it, and says whether it may still
+    /// delete its trigger (not interrupted, cancelled or replaced since).
+    pub(super) fn take_submitted_form(&self, token: u64) -> bool {
+        let mut core = lock(&self.core);
+        match core.pending_form.take() {
+            Some(form) if form.token == token => !form.input.interrupted(),
+            other => {
+                core.pending_form = other;
+                false
+            }
+        }
+    }
+
+    fn submit_now(&self, form: &PendingForm, values: HashMap<String, String>) {
         if form.input.interrupted() && matches!(form.kind, FormKind::Typed(_)) {
             return;
         }
@@ -154,7 +186,7 @@ impl Imp {
         }
         let generation = self.begin_explicit();
         self.observe().sleep(SETTLE);
-        let result = self.insert_submitted(generation, &form, target.as_ref(), values);
+        let result = self.insert_submitted(generation, form, target.as_ref(), values);
         if let Err(error) = result {
             log::warn!("form insertion failed: {error}");
             self.recorder.resolve(activity::failed(&error));
@@ -181,14 +213,15 @@ impl Imp {
         let rendered = self.render(&library, snippet, values, form.selection.clone());
         match &form.kind {
             // The trigger and any separator are in the document as typed.
-            FormKind::Typed(trigger) => self.insert_expansion(
-                generation,
-                trigger,
-                rendered,
-                PlanMode::ListenOnly,
-                None,
-                Guard::Explicit,
-            ),
+            FormKind::Typed(trigger) => {
+                let typed = TypedTrigger {
+                    trigger,
+                    mode: PlanMode::ListenOnly,
+                    swallowed: None,
+                    form: Some(form.token),
+                };
+                self.insert_expansion(generation, typed, rendered, Guard::Explicit)
+            }
             FormKind::Palette => {
                 self.insert_rendered(generation, &library, snippet, rendered, target)
             }

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use kudzu_core::matching::{case_propagation, TriggerMatch};
+use kudzu_core::matching::case_propagation;
 use kudzu_core::template::RenderResult;
 use kudzu_core::{InsertionMethod, SnippetRecord};
 
@@ -13,7 +13,7 @@ use super::super::keys;
 use super::replace::TypedTrigger;
 use super::{Guard, Imp, InsertError, KEY_SETTLE, PAUSE_SLICE};
 use crate::library::{self, Library};
-use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
+use crate::plan::{self, InsertionPlan, Sequence, Step};
 use crate::{lock, ExpansionEvent};
 
 impl Imp {
@@ -79,7 +79,9 @@ impl Imp {
                     .map(|spans| kudzu_core::formatting::html(text, spans));
                 first = Some(self.prepare_or_put_back(t, text, html.as_deref(), method)?);
             }
-            self.delete_trigger(t, &mut first)?;
+            if !self.delete_trigger(t, &mut first)? {
+                return Ok(false);
+            }
         }
         let pid = self.observe().frontmost_pid();
         let live = |imp: &Imp| {
@@ -184,12 +186,16 @@ impl Imp {
     pub(super) fn insert_expansion(
         &self,
         token: u64,
-        trigger: &TriggerMatch,
+        typed: TypedTrigger<'_>,
         rendered: RenderResult,
-        mode: PlanMode,
-        swallowed: Option<&str>,
         guard: Guard,
     ) -> Result<(), InsertError> {
+        let TypedTrigger {
+            trigger,
+            mode,
+            swallowed,
+            ..
+        } = typed;
         let text = case_propagation::apply(trigger.case_style, &rendered.text);
         let offset = rendered
             .cursor_offset
@@ -202,11 +208,6 @@ impl Imp {
             let actions =
                 plan::cased_actions(trigger.case_style, &rendered.text, &rendered.actions);
             let sequence = Sequence::new(&text, spans.as_deref(), &actions, offset);
-            let typed = TypedTrigger {
-                trigger,
-                mode,
-                swallowed,
-            };
             if self.insert_sequence(token, guard, Some(typed), trigger.insertion, sequence)? {
                 self.host.expanded(ExpansionEvent {
                     snippet_id: trigger.snippet_id,
@@ -224,16 +225,13 @@ impl Imp {
                     .any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. }))
             });
         let mut plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
-        let typed = TypedTrigger {
-            trigger,
-            mode,
-            swallowed,
-        };
         let caret = {
             let delivery =
                 self.prepare_or_put_back(&typed, &plan.text, html.as_deref(), trigger.insertion)?;
             let mut prepared = Some(delivery);
-            self.delete_trigger(&typed, &mut prepared)?;
+            if !self.delete_trigger(&typed, &mut prepared)? {
+                return Ok(());
+            }
             let caret = has_images
                 .then(|| self.observe().caret_snapshot())
                 .flatten();

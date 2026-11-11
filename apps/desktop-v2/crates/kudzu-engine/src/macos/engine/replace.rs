@@ -19,10 +19,14 @@ use super::{Imp, InsertError};
 use crate::plan::{self, InsertionPlan, PlanMode};
 
 /// The typed trigger an insertion replaces.
+#[derive(Clone, Copy)]
 pub(super) struct TypedTrigger<'a> {
     pub(super) trigger: &'a TriggerMatch,
     pub(super) mode: PlanMode,
     pub(super) swallowed: Option<&'a str>,
+    /// The submitted form that replaces it, which must still be uninterrupted when the first
+    /// Backspace goes out.
+    pub(super) form: Option<u64>,
 }
 
 impl TypedTrigger<'_> {
@@ -126,13 +130,18 @@ impl Imp {
             .inspect_err(|_| self.put_back(t, 0))
     }
 
-    /// Deletes `t`. When a Backspace is refused partway, `prepared` is abandoned (its clipboard
-    /// comes back) and what was deleted is typed back.
+    /// Deletes `t`, or returns `false` with nothing deleted when its submitted form was
+    /// interrupted (the final guard, FRM-4). When a Backspace is refused partway, `prepared` is
+    /// abandoned (its clipboard comes back) and what was deleted is typed back.
     pub(super) fn delete_trigger(
         &self,
         t: &TypedTrigger<'_>,
         prepared: &mut Option<Delivery<'_>>,
-    ) -> Result<(), InsertError> {
+    ) -> Result<bool, InsertError> {
+        if t.form.is_some_and(|token| !self.take_submitted_form(token)) {
+            prepared.take();
+            return Ok(false);
+        }
         for deleted in 0..t.delete_count() {
             if let Err(error) = keys::delete_backward(self.events(), 1) {
                 prepared.take();
@@ -140,7 +149,7 @@ impl Imp {
                 return Err(error.into());
             }
         }
-        Ok(())
+        Ok(true)
     }
 
     /// [`Imp::complete`] after `t` was deleted. A paste whose ⌘V is refused has already put the

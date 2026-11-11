@@ -7,14 +7,18 @@
 
 use kudzu_core::activity::{ActivityOutcome, ActivitySource};
 
-use super::desk::{editor, Ev, Out};
+use super::desk::{editor, At, Desk, Ev, Out};
 use super::panels::Focus;
 use super::rig::{backspaces, ms, snippet, Rig};
 
 /// A typed form for `;addr` on its panel, which is key. The `forms` service holds a
 /// suppression guard while it is open.
 fn opened(late: bool) -> (Rig, u64) {
-    let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, hi")]);
+    opened_with(late, |_| {})
+}
+
+fn opened_with(late: bool, setup: impl FnOnce(&Desk)) -> (Rig, u64) {
+    let rig = Rig::with(&[snippet(";addr", "Dear {{field name=who}}, hi")], setup);
     rig.type_(";addr");
     let token = rig.host.form_token();
     rig.engine.set_suppressed(true);
@@ -161,5 +165,95 @@ fn a_click_before_the_form_is_shown_interrupts_it() {
     rig.show_form(token);
     rig.submit(token, &[("who", "Sam")]);
     assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+// MARK: Submission
+
+/// The submitted panel goes away and the target comes forward; meanwhile the user clicks in the
+/// target. Suppression is still on, so the click doesn't cancel anything else.
+#[test]
+fn a_click_during_activation_interrupts_the_submission() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.at(At::Activate(0), |d| d.click_on(Focus::Target, Some(2)));
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(
+        rig.log(),
+        [Ev::Activated(editor().bundle_id), Ev::Slept(ms(50))]
+    );
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The same without suppression.
+#[test]
+fn a_click_during_activation_interrupts_an_unsuppressed_submission() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.engine.set_suppressed(false);
+    rig.at(At::Activate(0), |d| d.click_on(Focus::Target, Some(2)));
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Nothing holds typing until the insertion starts, so a key typed during activation reaches the
+/// target after the trigger.
+#[test]
+fn a_key_during_activation_interrupts_the_submission() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.at(At::Activate(0), |d| {
+        d.focus_moves(Focus::Target);
+        d.key_at_focus("z", true);
+        d.key_at_focus("z", false);
+    });
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// A click while the target settles, before the trigger is deleted.
+#[test]
+fn a_click_while_settling_interrupts_the_submission() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.at(At::Sleep(ms(50), 1), |d| d.click_on(Focus::Target, Some(2)));
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// With the active listener, typing while the target settles is held, then replayed after the
+/// insertion: it never lands inside the trigger, so the submission goes ahead.
+#[test]
+fn a_key_while_settling_is_held_and_replayed_after_the_insertion() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.at(At::Sleep(ms(50), 1), |d| {
+        d.focus_moves(Focus::Target);
+        d.key_at_focus("z", true);
+        d.key_at_focus("z", false);
+    });
+    rig.submit(token, &[("who", "Sam")]);
+    rig.settle();
+    assert_eq!(rig.doc(), "Dear Sam, hiz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Expanded]);
+}
+
+/// Listen-only can't hold that key: it reaches the target, so the submission deletes nothing.
+#[test]
+fn a_key_while_settling_interrupts_a_listen_only_submission() {
+    use crate::TapMode;
+    let (rig, token) = opened_with(false, |d| d.with(|s| s.refuse = vec![TapMode::Active]));
+    rig.press("Sam");
+    rig.at(At::Sleep(ms(50), 1), |d| {
+        d.focus_moves(Focus::Target);
+        d.key_at_focus("z", true);
+        d.key_at_focus("z", false);
+    });
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";addrz|");
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
