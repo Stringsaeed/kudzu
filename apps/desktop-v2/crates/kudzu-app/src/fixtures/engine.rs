@@ -15,7 +15,8 @@ use kudzu_core::{
 };
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, Condvar, Mutex},
+    time::{Duration, Instant},
 };
 use uuid::Uuid;
 #[derive(Clone)]
@@ -75,6 +76,8 @@ impl Default for EngineState {
 pub struct FakeEngine {
     instances: EngineInstances,
     pub state: Mutex<EngineState>,
+    /// Signalled whenever matching is suppressed or released.
+    suppression: Condvar,
     events: Mutex<Option<Arc<dyn EngineEvents>>>,
     pub before_submit: Mutex<Option<Arc<dyn Fn() + Send + Sync>>>,
 }
@@ -88,6 +91,7 @@ impl Default for FakeEngine {
         Self {
             instances,
             state: Mutex::new(state),
+            suppression: Condvar::new(),
             events: Mutex::new(None),
             before_submit: Mutex::new(None),
         }
@@ -121,6 +125,24 @@ impl FakeEngine {
         if !focused {
             state.interrupted_forms.insert(token);
         }
+    }
+    /// A trigger typed in the target app. Like the native matcher, it expands only while the
+    /// engine runs and matching isn't suppressed; returns whether it did.
+    pub fn type_trigger(&self) -> bool {
+        let state = self.state.lock().unwrap();
+        state.running && !state.suppressed
+    }
+    /// Waits up to `timeout` for matching to stop being suppressed; returns whether it did.
+    pub fn wait_unsuppressed(&self, timeout: Duration) -> bool {
+        let end = Instant::now() + timeout;
+        let mut state = self.state.lock().unwrap();
+        while state.suppressed {
+            let Some(left) = end.checked_duration_since(Instant::now()) else {
+                return false;
+            };
+            state = self.suppression.wait_timeout(state, left).unwrap().0;
+        }
+        true
     }
     pub fn events(&self) -> Option<Arc<dyn EngineEvents>> {
         self.events.lock().unwrap().clone()
@@ -183,6 +205,7 @@ impl ExpansionEngine for FakeEngine {
     }
     fn set_suppressed(&self, suppressed: bool) {
         self.state.lock().unwrap().suppressed = suppressed;
+        self.suppression.notify_all();
     }
     fn insert(
         &self,

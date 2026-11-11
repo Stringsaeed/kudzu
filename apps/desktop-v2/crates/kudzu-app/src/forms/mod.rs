@@ -1,4 +1,5 @@
 //! Pending forms belong to this service, not to the panel. Tokens are consumed exactly once.
+mod hold;
 mod memory;
 mod submission;
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
         FormChannel, FormRequest as EngineRequest, FormSubmission, FormToken, PanelFocus, TargetApp,
     },
     tasks::{Task, TaskError},
-    watch::{Publisher, Watch},
+    watch::{Publisher, Subscription, Watch},
 };
 use kudzu_core::{
     library::model::KudzuLibrary,
@@ -19,6 +20,7 @@ pub use memory::PruneState;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex, PoisonError},
+    time::Duration,
 };
 pub use submission::{Submission, SubmissionWorker, SubmitStartError};
 use uuid::Uuid;
@@ -62,6 +64,10 @@ pub struct FormService {
     channel: Arc<dyn FormChannel>,
     submit_worker: Arc<dyn SubmissionWorker>,
     target: Arc<dyn TargetApp>,
+    /// Submitted forms still keeping triggers suppressed, waiting for their outcome.
+    holds: Arc<hold::Holds>,
+    outcome_deadline: Duration,
+    _outcomes: Subscription,
 }
 impl FormService {
     /// Startup I/O only. This file is local product data and is never handed to sync or agents.
@@ -97,6 +103,8 @@ impl FormService {
         channel: Arc<dyn FormChannel>,
         target: Arc<dyn TargetApp>,
     ) -> Result<Self, FormError> {
+        let holds = Arc::new(hold::Holds::default());
+        let outcomes = holds.watch(expansion.outcomes());
         Ok(Self {
             state: Mutex::new(State {
                 pending: None,
@@ -108,10 +116,18 @@ impl FormService {
             channel,
             submit_worker: Arc::new(submission::ThreadedSubmission),
             target,
+            holds,
+            outcome_deadline: hold::OUTCOME_DEADLINE,
+            _outcomes: outcomes,
         })
     }
     pub fn with_submission_worker(mut self, worker: Arc<dyn SubmissionWorker>) -> Self {
         self.submit_worker = worker;
+        self
+    }
+    /// How long a submitted form may keep triggers suppressed while no outcome arrives.
+    pub fn with_outcome_deadline(mut self, deadline: Duration) -> Self {
+        self.outcome_deadline = deadline;
         self
     }
     pub fn pending(&self) -> Watch<Option<Arc<FormRequest>>> {
@@ -207,6 +223,8 @@ impl FormService {
     /// Hide the panel before calling. Memory is accepted before engine submission; disk I/O
     /// never blocks insertion. EngineEvents::expanded, not this result, records usage.
     /// `submission` comes from NSApp.currentEvent in the submitting handler (S57).
+    /// Typed triggers stay suppressed until the form's outcome arrives (see `hold`): the engine
+    /// activates the target before it holds input, and a trigger typed then mustn't expand.
     pub fn submit(
         &self,
         token: FormToken,
@@ -219,12 +237,16 @@ impl FormService {
         let (memory_revision, memory_error) = self
             .memory
             .record(pending.request.snippet_id, values.clone());
-        drop(pending.guard);
-        let channel = self.channel.clone();
+        let after = self.expansion.outcomes().revision().0;
+        let snippet = pending.request.snippet_id;
+        self.holds
+            .hold(token, snippet, after, pending.guard, self.outcome_deadline);
+        let (channel, holds) = (self.channel.clone(), self.holds.clone());
         match self.submit_worker.spawn(Box::new(move || {
             let admission = channel.submit_form(token, values, submission);
             if admission.is_err() {
                 channel.cancel_form(token);
+                holds.release(token);
             }
             Submission {
                 memory_revision,
@@ -234,7 +256,7 @@ impl FormService {
         })) {
             Ok(task) => Ok(Some(task)),
             Err(start) => {
-                let snippet = pending.request.snippet_id;
+                self.holds.release(token);
                 let restoration = self.cancel_request(pending.request, true);
                 self.expansion.publish_outcome(
                     Some(snippet),
@@ -327,6 +349,7 @@ impl Drop for FormService {
             self.channel.cancel_form(pending.request.token);
             drop(pending);
         }
+        self.holds.clear();
         committed.notification.notify();
     }
 }

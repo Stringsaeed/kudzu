@@ -94,7 +94,12 @@ fn tokens_complete_once_replacement_and_close_release_only_their_guard() {
     );
     assert_eq!(result.admission, Ok(()));
     assert!(forms.pending().get().is_none());
-    assert!(!h.engine.state.lock().unwrap().suppressed);
+    // The submitted form keeps triggers suppressed until its outcome (third review, major 3).
+    assert!(h.engine.state.lock().unwrap().suppressed);
+    h.engine.resolve_form(form_token(1), id);
+    assert!(h
+        .engine
+        .wait_unsuppressed(std::time::Duration::from_secs(10)));
     assert!(forms
         .submit(
             form_token(1),
@@ -283,7 +288,10 @@ fn interrupted_submission_reports_an_outcome_after_admission_while_suppressed() 
         InsertionOutcome::Interrupted
     );
     assert_eq!(h.engine.state.lock().unwrap().submissions.len(), 1);
-    assert!(!h.engine.state.lock().unwrap().suppressed);
+    // Released by the outcome, on the hold's own thread.
+    assert!(h
+        .engine
+        .wait_unsuppressed(std::time::Duration::from_secs(10)));
     assert!(forms
         .preview(form_token(1), HashMap::new())
         .unwrap()
@@ -470,6 +478,10 @@ fn concurrent_submit_and_cancel_consume_one_token_and_preserve_another_suppressi
     assert_eq!(engine.submissions.len() + engine.cancelled.len(), 1);
     assert!(engine.suppressed);
     drop(engine);
+    // A submission's guard waits for an outcome this unwired service never hears; dropping
+    // the service releases it, and the other owner's guard still holds.
+    drop(forms);
+    assert!(h.engine.state.lock().unwrap().suppressed);
     drop(guard);
     assert!(!h.engine.state.lock().unwrap().suppressed);
 }
