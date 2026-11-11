@@ -49,7 +49,34 @@ outputs['group-edge-cases'] = [
  [{id:'a',name:'First',sortIndex:0,isEnabled:true},{id:'a',name:'Duplicate',sortIndex:1,isEnabled:false}]
 ].map(groups=>({groups,tree:G.buildTree(groups),paths:groups.map(g=>({id:g.id,path:G.groupPath(groups,g.id),descendants:[...G.descendantIds(groups,g.id)],enabled:G.isGroupEnabled(groups,g.id)})),counts:[...G.recursiveCounts(groups,library.snippets)]}))
 outputs.stats = { usage:[...Stats.usageById(library)], totals:[20,40,80].map(wpm=>({wpm,result:Stats.totals(library,Stats.usageById(library),wpm)})), counts:[0,1,999,1000,999999,1000000].map(input=>({input,output:Stats.formatCount(input)})), durations:[0,0.1,1,59,60,1440].map(input=>({input,output:Stats.formatDuration(input)})), relative:[0,30000,3600000,86400000,86400000*40].map(age=>({age,output:Stats.relativeTime(Date.now()-age)})) }
-outputs.clipboard = { queries:['','app:slack','is:image','is:img','design Thursday','app:"Visual Studio Code"','is:code const','APP:Safari','is:unknown','العربية'].map(query=>({query,parsed:C.parseQuery(query),filters:C.FILTERS.map(f=>({filter:f.value,ids:C.searchClips(clipboard.entries,f.value,query).map(e=>e.id)}))})), rows:[false,true].flatMap(pinnedFirst=>[false,true].map(sections=>({pinnedFirst,sections,result:C.buildRows(clipboard.entries,{pinnedFirst,sections})}))), entries:clipboard.entries.map(e=>({id:e.id,description:C.describe(e),spoken:C.spokenLabel(e),concealed:C.spokenLabel(e,true),time:C.clipTime(e.copiedAt),exact:C.exactTime(e.copiedAt),expiry:[0,1,7,365].map(days=>({days,label:C.retentionLabel(days),output:C.expiresIn(e,days)}))})), ranges:['banana BANANA','😀 café العربية','x'.repeat(200)].map(text=>({text,terms:['an','a','é','الع','x'],ranges:C.matchRanges(text,['an','a','é','الع','x'])})), bytes:[0,1,1024,1000000,38400000].map(n=>({n,label:C.formatBytes(n)})) }
+outputs.clipboard = { queries:['','app:slack','is:image','is:img','design Thursday','app:"Visual Studio Code"','is:code const','APP:Safari','is:unknown','العربية'].map(query=>({query,parsed:C.parseQuery(query),filters:C.FILTERS.map(f=>({filter:f.value,ids:C.searchClips(clipboard.entries,f.value,query).map(e=>e.id)}))})), rows:[false,true].flatMap(pinnedFirst=>[false,true].map(sections=>({pinnedFirst,sections,result:C.buildRows(clipboard.entries,{pinnedFirst,sections})}))), entries:clipboard.entries.map(e=>({id:e.id,description:C.describe(e),spoken:C.spokenLabel(e),concealed:C.spokenLabel(e,true),time:C.clipTime(e.copiedAt),datedTime:C.clipTime(e.copiedAt,undefined,true),visibility:[false,true].map(showSecrets=>({showSecrets,concealed:C.isSecret(e)&&!showSecrets,spoken:C.spokenLabel(e,C.isSecret(e)&&!showSecrets)})),exact:C.exactTime(e.copiedAt),expiry:[0,1,7,365].map(days=>({days,label:C.retentionLabel(days),output:C.expiresIn(e,days)}))})), ranges:['banana BANANA','😀 café العربية','x'.repeat(200)].map(text=>({text,terms:['an','a','é','الع','x'],ranges:C.matchRanges(text,['an','a','é','الع','x'])})), bytes:[0,1,1024,1280,2304,1310720,1000000,38400000].map(n=>({n,label:C.formatBytes(n)})) }
+// Extra clipboard inputs call the same frozen TypeScript implementation.
+const linkUrls = [
+ 'https://example.com', 'https://example.com/', 'https://example.com?',
+ 'https://example.com/path?', 'https://example.com/?#fragment',
+ 'https://example.com:443/path', 'http://example.com:80/path',
+ 'ftp://example.com:21/path', 'https://example.com:8443/path',
+ 'https://user:pass@example.com/a', 'https://user@example.com/a',
+ 'https://example.com/a/../b', 'https://example.com/a/./b',
+ 'https://example.com/a/%2e%2e/b', 'https://example.com/a/.',
+ 'https://example.com/a/..', 'https://example.com/a//b',
+ 'https://example.com/../../b', 'https://example.com/caf%C3%A9',
+ 'https://example.com/a%2Fb?q=%3F', 'https://example.com/a?x=1#hash',
+ 'https://example.com/a?x=1/', 'https://WWW.example.com:443/',
+ 'www.example.com/path', 'mailto:hello@example.com?subject=Hi',
+ 'HTTPS://EXAMPLE.COM/path', 'https://example.com/%zz',
+ 'https://example.com/a\\b', 'https:\\example.com\\a',
+ 'https://exam\tple.com/a', 'https://example.com/a\nb',
+ 'https://example.com/a\rb', 'https://example.com/a\tb',
+ 'https://例え.テスト/道', 'https://münich.example/café',
+]
+outputs.clipboard.links = linkUrls.map(url=>({url,description:C.describe({...clipboard.entries[0],kind:'link',text:url})}))
+outputs.clipboard.ranges.push(...[
+ {text:'İstanbul İ X',terms:['i','x']},
+ {text:'İİABC',terms:['abc']},
+ {text:'𐐀𐐁 ABC 😀',terms:['𐐨','𐐩','abc']},
+].map(({text,terms})=>({text,terms,ranges:C.matchRanges(text,terms)})))
+outputs.clipboard.days = ['2025-11-11T12:00:00.000Z'].map(iso=>({iso,label:C.dayLabel(Date.parse(iso))}))
 const tags = ['{{date}}','{{time}}','{{clipboard trim=true history=2}}','{{cursor}}',`{{snippet id="${library.snippets[0].id}"}}`,'{{field name="Name" default="Friend"}}','{{choice name="Platform" options="Mac|Linux"}}','{{selection trim=true}}','{{uuid upper=true}}','{{random options="A|B"}}','{{key name="tab" count=2}}','{{delay ms=300}}','{{unknown a="x"}}','{{field}}','\\{{literal}}','😀 {{date format="yyyy-MM-dd"}}','x'.repeat(150)]
 const snippetName=id=>library.snippets.find(s=>s.id===id)?.name
 outputs.template = { presets:T.DATE_FORMAT_PRESETS,cases:tags.map(source=>({source,tokens:T.tokenize(source),chips:T.tokenize(source).filter(t=>t.kind==='tag').map(t=>({label:T.chipLabel(t,snippetName),tone:T.chipTone(t),canonical:T.buildTag(t.name,t.attrs)})),facts:T.analyze(source),summary:T.plainSummary(source,snippetName)})) }

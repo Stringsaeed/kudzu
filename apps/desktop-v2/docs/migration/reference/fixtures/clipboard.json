@@ -20907,6 +20907,19 @@
       "spoken": "Text, Can we move the design review to Thursday at 3? Happy to send a new invite., copied Today at 11:59:24 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Today at 11:59:24 AM, from Slack",
       "time": "Just now",
+      "datedTime": "Just now",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Can we move the design review to Thursday at 3? Happy to send a new invite., copied Today at 11:59:24 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Can we move the design review to Thursday at 3? Happy to send a new invite., copied Today at 11:59:24 AM, from Slack"
+        }
+      ],
       "exact": "Today at 11:59:24 AM",
       "expiry": [
         {
@@ -20940,6 +20953,19 @@
       "spoken": "Link, github.com, copied Today at 11:48:00 AM, from Safari, 3 times",
       "concealed": "Hidden secret, marked as secret, copied Today at 11:48:00 AM, from Safari, 3 times",
       "time": "12m ago",
+      "datedTime": "12m ago",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Link, github.com, copied Today at 11:48:00 AM, from Safari, 3 times"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Link, github.com, copied Today at 11:48:00 AM, from Safari, 3 times"
+        }
+      ],
       "exact": "Today at 11:48:00 AM",
       "expiry": [
         {
@@ -20973,6 +20999,19 @@
       "spoken": "Text, kezwy4-dyxbeR-mosmac, copied Today at 11:36:00 AM, from Safari",
       "concealed": "Hidden secret, looks like a password, copied Today at 11:36:00 AM, from Safari",
       "time": "24m ago",
+      "datedTime": "24m ago",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": true,
+          "spoken": "Hidden secret, looks like a password, copied Today at 11:36:00 AM, from Safari"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, kezwy4-dyxbeR-mosmac, copied Today at 11:36:00 AM, from Safari"
+        }
+      ],
       "exact": "Today at 11:36:00 AM",
       "expiry": [
         {
@@ -21006,6 +21045,19 @@
       "spoken": "Code, export function debounce<T extends (...args: never[]) => void>(fn: T, ms = 120) {, copied Today at 11:24:00 AM, from Visual Studio Code",
       "concealed": "Hidden secret, marked as secret, copied Today at 11:24:00 AM, from Visual Studio Code",
       "time": "36m ago",
+      "datedTime": "36m ago",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Code, export function debounce<T extends (...args: never[]) => void>(fn: T, ms = 120) {, copied Today at 11:24:00 AM, from Visual Studio Code"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Code, export function debounce<T extends (...args: never[]) => void>(fn: T, ms = 120) {, copied Today at 11:24:00 AM, from Visual Studio Code"
+        }
+      ],
       "exact": "Today at 11:24:00 AM",
       "expiry": [
         {
@@ -21039,6 +21091,19 @@
       "spoken": "Code, export OPENAI_API_KEY=sk-proj-Abc123Def456Ghi789Jkl012Mno345, copied Today at 11:06:00 AM, from Terminal",
       "concealed": "Hidden secret, looks like an api key, copied Today at 11:06:00 AM, from Terminal",
       "time": "54m ago",
+      "datedTime": "54m ago",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": true,
+          "spoken": "Hidden secret, looks like an api key, copied Today at 11:06:00 AM, from Terminal"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Code, export OPENAI_API_KEY=sk-proj-Abc123Def456Ghi789Jkl012Mno345, copied Today at 11:06:00 AM, from Terminal"
+        }
+      ],
       "exact": "Today at 11:06:00 AM",
       "expiry": [
         {
@@ -21072,6 +21137,19 @@
       "spoken": "Color, #5B7CFA, copied Today at 10:54:00 AM, from Figma, 3 times",
       "concealed": "Hidden secret, marked as secret, copied Today at 10:54:00 AM, from Figma, 3 times",
       "time": "10:54 AM",
+      "datedTime": "10:54 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Color, #5B7CFA, copied Today at 10:54:00 AM, from Figma, 3 times"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Color, #5B7CFA, copied Today at 10:54:00 AM, from Figma, 3 times"
+        }
+      ],
       "exact": "Today at 10:54:00 AM",
       "expiry": [
         {
@@ -21105,6 +21183,19 @@
       "spoken": "Image, Image  2880 × 1800, copied Today at 10:24:00 AM, from Preview",
       "concealed": "Hidden secret, marked as secret, copied Today at 10:24:00 AM, from Preview",
       "time": "10:24 AM",
+      "datedTime": "10:24 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Image, Image  2880 × 1800, copied Today at 10:24:00 AM, from Preview"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Image, Image  2880 × 1800, copied Today at 10:24:00 AM, from Preview"
+        }
+      ],
       "exact": "Today at 10:24:00 AM",
       "expiry": [
         {
@@ -21138,6 +21229,19 @@
       "spoken": "Code, pnpm tauri build --config src-tauri/tauri.dev.conf.json --bundles app, copied Today at 9:42:00 AM, from Terminal, 4 times",
       "concealed": "Hidden secret, marked as secret, copied Today at 9:42:00 AM, from Terminal, 4 times",
       "time": "9:42 AM",
+      "datedTime": "9:42 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Code, pnpm tauri build --config src-tauri/tauri.dev.conf.json --bundles app, copied Today at 9:42:00 AM, from Terminal, 4 times"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Code, pnpm tauri build --config src-tauri/tauri.dev.conf.json --bundles app, copied Today at 9:42:00 AM, from Terminal, 4 times"
+        }
+      ],
       "exact": "Today at 9:42:00 AM",
       "expiry": [
         {
@@ -21171,6 +21275,19 @@
       "spoken": "File, Kudzu — Services Agreement.pdf, copied Today at 8:36:00 AM, from Finder",
       "concealed": "Hidden secret, marked as secret, copied Today at 8:36:00 AM, from Finder",
       "time": "8:36 AM",
+      "datedTime": "8:36 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "File, Kudzu — Services Agreement.pdf, copied Today at 8:36:00 AM, from Finder"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "File, Kudzu — Services Agreement.pdf, copied Today at 8:36:00 AM, from Finder"
+        }
+      ],
       "exact": "Today at 8:36:00 AM",
       "expiry": [
         {
@@ -21204,6 +21321,19 @@
       "spoken": "Text, Hi Maya,, copied Today at 6:48:00 AM, from Mail, pinned",
       "concealed": "Hidden secret, marked as secret, copied Today at 6:48:00 AM, from Mail, pinned",
       "time": "6:48 AM",
+      "datedTime": "6:48 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Hi Maya,, copied Today at 6:48:00 AM, from Mail, pinned"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Hi Maya,, copied Today at 6:48:00 AM, from Mail, pinned"
+        }
+      ],
       "exact": "Today at 6:48:00 AM",
       "expiry": [
         {
@@ -21237,6 +21367,19 @@
       "spoken": "Color, OKLCH(0.72 0.16 65), copied Today at 5:00:00 AM, from Visual Studio Code",
       "concealed": "Hidden secret, marked as secret, copied Today at 5:00:00 AM, from Visual Studio Code",
       "time": "5:00 AM",
+      "datedTime": "5:00 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Color, OKLCH(0.72 0.16 65), copied Today at 5:00:00 AM, from Visual Studio Code"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Color, OKLCH(0.72 0.16 65), copied Today at 5:00:00 AM, from Visual Studio Code"
+        }
+      ],
       "exact": "Today at 5:00:00 AM",
       "expiry": [
         {
@@ -21270,6 +21413,19 @@
       "spoken": "Link, figma.com, copied Today at 3:00:00 AM, from Figma",
       "concealed": "Hidden secret, marked as secret, copied Today at 3:00:00 AM, from Figma",
       "time": "3:00 AM",
+      "datedTime": "3:00 AM",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Link, figma.com, copied Today at 3:00:00 AM, from Figma"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Link, figma.com, copied Today at 3:00:00 AM, from Figma"
+        }
+      ],
       "exact": "Today at 3:00:00 AM",
       "expiry": [
         {
@@ -21303,6 +21459,19 @@
       "spoken": "Image, Image  1600 × 1067, copied Yesterday at 4:00:00 PM, from Safari",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 4:00:00 PM, from Safari",
       "time": "4:00 PM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Image, Image  1600 × 1067, copied Yesterday at 4:00:00 PM, from Safari"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Image, Image  1600 × 1067, copied Yesterday at 4:00:00 PM, from Safari"
+        }
+      ],
       "exact": "Yesterday at 4:00:00 PM",
       "expiry": [
         {
@@ -21336,6 +21505,19 @@
       "spoken": "Text, 221B Baker Street, London NW1 6XE, copied Yesterday at 1:00:00 PM, from Notes, 3 times, pinned",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 1:00:00 PM, from Notes, 3 times, pinned",
       "time": "1:00 PM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 221B Baker Street, London NW1 6XE, copied Yesterday at 1:00:00 PM, from Notes, 3 times, pinned"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 221B Baker Street, London NW1 6XE, copied Yesterday at 1:00:00 PM, from Notes, 3 times, pinned"
+        }
+      ],
       "exact": "Yesterday at 1:00:00 PM",
       "expiry": [
         {
@@ -21369,6 +21551,19 @@
       "spoken": "Text, Looks good to me 👍, copied Yesterday at 10:00:00 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 10:00:00 AM, from Slack",
       "time": "10:00 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍, copied Yesterday at 10:00:00 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍, copied Yesterday at 10:00:00 AM, from Slack"
+        }
+      ],
       "exact": "Yesterday at 10:00:00 AM",
       "expiry": [
         {
@@ -21402,6 +21597,19 @@
       "spoken": "File, hero@2x.png and 2 more, copied Yesterday at 10:00:00 AM, from Finder",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 10:00:00 AM, from Finder",
       "time": "10:00 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "File, hero@2x.png and 2 more, copied Yesterday at 10:00:00 AM, from Finder"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "File, hero@2x.png and 2 more, copied Yesterday at 10:00:00 AM, from Finder"
+        }
+      ],
       "exact": "Yesterday at 10:00:00 AM",
       "expiry": [
         {
@@ -21435,6 +21643,19 @@
       "spoken": "Text, On my way, copied Yesterday at 7:42:00 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 7:42:00 AM, from Notes",
       "time": "7:42 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way, copied Yesterday at 7:42:00 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way, copied Yesterday at 7:42:00 AM, from Notes"
+        }
+      ],
       "exact": "Yesterday at 7:42:00 AM",
       "expiry": [
         {
@@ -21468,6 +21689,19 @@
       "spoken": "Other, Content from Figma, copied Yesterday at 7:00:00 AM, from Figma",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 7:00:00 AM, from Figma",
       "time": "7:00 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Other, Content from Figma, copied Yesterday at 7:00:00 AM, from Figma"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Other, Content from Figma, copied Yesterday at 7:00:00 AM, from Figma"
+        }
+      ],
       "exact": "Yesterday at 7:00:00 AM",
       "expiry": [
         {
@@ -21501,6 +21735,19 @@
       "spoken": "Text, +44 20 7946 0958, copied Yesterday at 5:24:00 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 5:24:00 AM, from Mail",
       "time": "5:24 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958, copied Yesterday at 5:24:00 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958, copied Yesterday at 5:24:00 AM, from Mail"
+        }
+      ],
       "exact": "Yesterday at 5:24:00 AM",
       "expiry": [
         {
@@ -21534,6 +21781,19 @@
       "spoken": "Code, SELECT id, email, created_at, copied Yesterday at 5:00:00 AM, from Visual Studio Code",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 5:00:00 AM, from Visual Studio Code",
       "time": "5:00 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Code, SELECT id, email, created_at, copied Yesterday at 5:00:00 AM, from Visual Studio Code"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Code, SELECT id, email, created_at, copied Yesterday at 5:00:00 AM, from Visual Studio Code"
+        }
+      ],
       "exact": "Yesterday at 5:00:00 AM",
       "expiry": [
         {
@@ -21567,6 +21827,19 @@
       "spoken": "Text, Meeting notes — Q4 planning, copied Yesterday at 3:06:00 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 3:06:00 AM, from Slack",
       "time": "3:06 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning, copied Yesterday at 3:06:00 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning, copied Yesterday at 3:06:00 AM, from Slack"
+        }
+      ],
       "exact": "Yesterday at 3:06:00 AM",
       "expiry": [
         {
@@ -21600,6 +21873,19 @@
       "spoken": "Text, TODO: follow up with legal, copied Yesterday at 12:48:00 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Yesterday at 12:48:00 AM, from Notes",
       "time": "12:48 AM",
+      "datedTime": "Yesterday",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal, copied Yesterday at 12:48:00 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal, copied Yesterday at 12:48:00 AM, from Notes"
+        }
+      ],
       "exact": "Yesterday at 12:48:00 AM",
       "expiry": [
         {
@@ -21633,6 +21919,19 @@
       "spoken": "Text, ref: KZ-482, copied Nov 9, 2026, 10:30 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 10:30 PM, from Mail",
       "time": "10:30 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482, copied Nov 9, 2026, 10:30 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482, copied Nov 9, 2026, 10:30 PM, from Mail"
+        }
+      ],
       "exact": "Nov 9, 2026, 10:30 PM",
       "expiry": [
         {
@@ -21666,6 +21965,19 @@
       "spoken": "Text, 4111 1111 1111 1111, copied Nov 9, 2026, 8:12 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 8:12 PM, from Slack",
       "time": "8:12 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111, copied Nov 9, 2026, 8:12 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111, copied Nov 9, 2026, 8:12 PM, from Slack"
+        }
+      ],
       "exact": "Nov 9, 2026, 8:12 PM",
       "expiry": [
         {
@@ -21699,6 +22011,19 @@
       "spoken": "Text, Looks good to me 👍 (7), copied Nov 9, 2026, 5:54 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 5:54 PM, from Notes",
       "time": "5:54 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (7), copied Nov 9, 2026, 5:54 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (7), copied Nov 9, 2026, 5:54 PM, from Notes"
+        }
+      ],
       "exact": "Nov 9, 2026, 5:54 PM",
       "expiry": [
         {
@@ -21732,6 +22057,19 @@
       "spoken": "Text, On my way (8), copied Nov 9, 2026, 3:36 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 3:36 PM, from Mail",
       "time": "3:36 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (8), copied Nov 9, 2026, 3:36 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (8), copied Nov 9, 2026, 3:36 PM, from Mail"
+        }
+      ],
       "exact": "Nov 9, 2026, 3:36 PM",
       "expiry": [
         {
@@ -21765,6 +22103,19 @@
       "spoken": "Text, +44 20 7946 0958 (9), copied Nov 9, 2026, 1:18 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 1:18 PM, from Slack",
       "time": "1:18 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (9), copied Nov 9, 2026, 1:18 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (9), copied Nov 9, 2026, 1:18 PM, from Slack"
+        }
+      ],
       "exact": "Nov 9, 2026, 1:18 PM",
       "expiry": [
         {
@@ -21798,6 +22149,19 @@
       "spoken": "Text, INV-2026-0412, copied Nov 9, 2026, 1:00 PM, from Mail, 3 times",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 1:00 PM, from Mail, 3 times",
       "time": "1:00 PM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, INV-2026-0412, copied Nov 9, 2026, 1:00 PM, from Mail, 3 times"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, INV-2026-0412, copied Nov 9, 2026, 1:00 PM, from Mail, 3 times"
+        }
+      ],
       "exact": "Nov 9, 2026, 1:00 PM",
       "expiry": [
         {
@@ -21831,6 +22195,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (10), copied Nov 9, 2026, 11:00 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 11:00 AM, from Notes",
       "time": "11:00 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (10), copied Nov 9, 2026, 11:00 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (10), copied Nov 9, 2026, 11:00 AM, from Notes"
+        }
+      ],
       "exact": "Nov 9, 2026, 11:00 AM",
       "expiry": [
         {
@@ -21864,6 +22241,19 @@
       "spoken": "Text, TODO: follow up with legal (11), copied Nov 9, 2026, 8:42 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 8:42 AM, from Mail",
       "time": "8:42 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (11), copied Nov 9, 2026, 8:42 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (11), copied Nov 9, 2026, 8:42 AM, from Mail"
+        }
+      ],
       "exact": "Nov 9, 2026, 8:42 AM",
       "expiry": [
         {
@@ -21897,6 +22287,19 @@
       "spoken": "Link, hello@kudzu.app, copied Nov 9, 2026, 8:00 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 8:00 AM, from Mail",
       "time": "8:00 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Link, hello@kudzu.app, copied Nov 9, 2026, 8:00 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Link, hello@kudzu.app, copied Nov 9, 2026, 8:00 AM, from Mail"
+        }
+      ],
       "exact": "Nov 9, 2026, 8:00 AM",
       "expiry": [
         {
@@ -21930,6 +22333,19 @@
       "spoken": "Text, ref: KZ-482 (12), copied Nov 9, 2026, 6:24 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 6:24 AM, from Slack",
       "time": "6:24 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (12), copied Nov 9, 2026, 6:24 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (12), copied Nov 9, 2026, 6:24 AM, from Slack"
+        }
+      ],
       "exact": "Nov 9, 2026, 6:24 AM",
       "expiry": [
         {
@@ -21963,6 +22379,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (13), copied Nov 9, 2026, 4:06 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 4:06 AM, from Notes",
       "time": "4:06 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (13), copied Nov 9, 2026, 4:06 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (13), copied Nov 9, 2026, 4:06 AM, from Notes"
+        }
+      ],
       "exact": "Nov 9, 2026, 4:06 AM",
       "expiry": [
         {
@@ -21996,6 +22425,19 @@
       "spoken": "Text, Looks good to me 👍 (14), copied Nov 9, 2026, 1:48 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 9, 2026, 1:48 AM, from Mail",
       "time": "1:48 AM",
+      "datedTime": "Mon",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (14), copied Nov 9, 2026, 1:48 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (14), copied Nov 9, 2026, 1:48 AM, from Mail"
+        }
+      ],
       "exact": "Nov 9, 2026, 1:48 AM",
       "expiry": [
         {
@@ -22029,6 +22471,19 @@
       "spoken": "Text, On my way (15), copied Nov 8, 2026, 11:30 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 11:30 PM, from Slack",
       "time": "11:30 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (15), copied Nov 8, 2026, 11:30 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (15), copied Nov 8, 2026, 11:30 PM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 11:30 PM",
       "expiry": [
         {
@@ -22062,6 +22517,19 @@
       "spoken": "Text, +44 20 7946 0958 (16), copied Nov 8, 2026, 9:12 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 9:12 PM, from Notes",
       "time": "9:12 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (16), copied Nov 8, 2026, 9:12 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (16), copied Nov 8, 2026, 9:12 PM, from Notes"
+        }
+      ],
       "exact": "Nov 8, 2026, 9:12 PM",
       "expiry": [
         {
@@ -22095,6 +22563,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (17), copied Nov 8, 2026, 6:54 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 6:54 PM, from Mail",
       "time": "6:54 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (17), copied Nov 8, 2026, 6:54 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (17), copied Nov 8, 2026, 6:54 PM, from Mail"
+        }
+      ],
       "exact": "Nov 8, 2026, 6:54 PM",
       "expiry": [
         {
@@ -22128,6 +22609,19 @@
       "spoken": "Text, TODO: follow up with legal (18), copied Nov 8, 2026, 4:36 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 4:36 PM, from Slack",
       "time": "4:36 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (18), copied Nov 8, 2026, 4:36 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (18), copied Nov 8, 2026, 4:36 PM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 4:36 PM",
       "expiry": [
         {
@@ -22161,6 +22655,19 @@
       "spoken": "Text, ref: KZ-482 (19), copied Nov 8, 2026, 2:18 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 2:18 PM, from Notes",
       "time": "2:18 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (19), copied Nov 8, 2026, 2:18 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (19), copied Nov 8, 2026, 2:18 PM, from Notes"
+        }
+      ],
       "exact": "Nov 8, 2026, 2:18 PM",
       "expiry": [
         {
@@ -22194,6 +22701,19 @@
       "spoken": "Image, Image  1170 × 2532, copied Nov 8, 2026, 2:00 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 2:00 PM, from Slack",
       "time": "2:00 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Image, Image  1170 × 2532, copied Nov 8, 2026, 2:00 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Image, Image  1170 × 2532, copied Nov 8, 2026, 2:00 PM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 2:00 PM",
       "expiry": [
         {
@@ -22227,6 +22747,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (20), copied Nov 8, 2026, 12:00 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 12:00 PM, from Mail",
       "time": "12:00 PM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (20), copied Nov 8, 2026, 12:00 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (20), copied Nov 8, 2026, 12:00 PM, from Mail"
+        }
+      ],
       "exact": "Nov 8, 2026, 12:00 PM",
       "expiry": [
         {
@@ -22260,6 +22793,19 @@
       "spoken": "Text, Looks good to me 👍 (21), copied Nov 8, 2026, 9:42 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 9:42 AM, from Slack",
       "time": "9:42 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (21), copied Nov 8, 2026, 9:42 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (21), copied Nov 8, 2026, 9:42 AM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 9:42 AM",
       "expiry": [
         {
@@ -22293,6 +22839,19 @@
       "spoken": "Text, Ship it! 🚀 Great work everyone — the new onboarding flow cut drop-off by 18%., copied Nov 8, 2026, 9:00 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 9:00 AM, from Slack",
       "time": "9:00 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Ship it! 🚀 Great work everyone — the new onboarding flow cut drop-off by 18%., copied Nov 8, 2026, 9:00 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Ship it! 🚀 Great work everyone — the new onboarding flow cut drop-off by 18%., copied Nov 8, 2026, 9:00 AM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 9:00 AM",
       "expiry": [
         {
@@ -22326,6 +22885,19 @@
       "spoken": "Text, On my way (22), copied Nov 8, 2026, 7:24 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 7:24 AM, from Notes",
       "time": "7:24 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (22), copied Nov 8, 2026, 7:24 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (22), copied Nov 8, 2026, 7:24 AM, from Notes"
+        }
+      ],
       "exact": "Nov 8, 2026, 7:24 AM",
       "expiry": [
         {
@@ -22359,6 +22931,19 @@
       "spoken": "Text, +44 20 7946 0958 (23), copied Nov 8, 2026, 5:06 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 5:06 AM, from Mail",
       "time": "5:06 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (23), copied Nov 8, 2026, 5:06 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (23), copied Nov 8, 2026, 5:06 AM, from Mail"
+        }
+      ],
       "exact": "Nov 8, 2026, 5:06 AM",
       "expiry": [
         {
@@ -22392,6 +22977,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (24), copied Nov 8, 2026, 2:48 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 2:48 AM, from Slack",
       "time": "2:48 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (24), copied Nov 8, 2026, 2:48 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (24), copied Nov 8, 2026, 2:48 AM, from Slack"
+        }
+      ],
       "exact": "Nov 8, 2026, 2:48 AM",
       "expiry": [
         {
@@ -22425,6 +23023,19 @@
       "spoken": "Text, TODO: follow up with legal (25), copied Nov 8, 2026, 12:30 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 8, 2026, 12:30 AM, from Notes",
       "time": "12:30 AM",
+      "datedTime": "Sun",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (25), copied Nov 8, 2026, 12:30 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (25), copied Nov 8, 2026, 12:30 AM, from Notes"
+        }
+      ],
       "exact": "Nov 8, 2026, 12:30 AM",
       "expiry": [
         {
@@ -22458,6 +23069,19 @@
       "spoken": "Text, ref: KZ-482 (26), copied Nov 7, 2026, 10:12 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 10:12 PM, from Mail",
       "time": "10:12 PM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (26), copied Nov 7, 2026, 10:12 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (26), copied Nov 7, 2026, 10:12 PM, from Mail"
+        }
+      ],
       "exact": "Nov 7, 2026, 10:12 PM",
       "expiry": [
         {
@@ -22491,6 +23115,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (27), copied Nov 7, 2026, 7:54 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 7:54 PM, from Slack",
       "time": "7:54 PM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (27), copied Nov 7, 2026, 7:54 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (27), copied Nov 7, 2026, 7:54 PM, from Slack"
+        }
+      ],
       "exact": "Nov 7, 2026, 7:54 PM",
       "expiry": [
         {
@@ -22524,6 +23161,19 @@
       "spoken": "Text, Looks good to me 👍 (28), copied Nov 7, 2026, 5:36 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 5:36 PM, from Notes",
       "time": "5:36 PM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (28), copied Nov 7, 2026, 5:36 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (28), copied Nov 7, 2026, 5:36 PM, from Notes"
+        }
+      ],
       "exact": "Nov 7, 2026, 5:36 PM",
       "expiry": [
         {
@@ -22557,6 +23207,19 @@
       "spoken": "Text, On my way (29), copied Nov 7, 2026, 3:18 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 3:18 PM, from Mail",
       "time": "3:18 PM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (29), copied Nov 7, 2026, 3:18 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (29), copied Nov 7, 2026, 3:18 PM, from Mail"
+        }
+      ],
       "exact": "Nov 7, 2026, 3:18 PM",
       "expiry": [
         {
@@ -22590,6 +23253,19 @@
       "spoken": "Text, +44 20 7946 0958 (30), copied Nov 7, 2026, 1:00 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 1:00 PM, from Slack",
       "time": "1:00 PM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (30), copied Nov 7, 2026, 1:00 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (30), copied Nov 7, 2026, 1:00 PM, from Slack"
+        }
+      ],
       "exact": "Nov 7, 2026, 1:00 PM",
       "expiry": [
         {
@@ -22623,6 +23299,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (31), copied Nov 7, 2026, 10:42 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 10:42 AM, from Notes",
       "time": "10:42 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (31), copied Nov 7, 2026, 10:42 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (31), copied Nov 7, 2026, 10:42 AM, from Notes"
+        }
+      ],
       "exact": "Nov 7, 2026, 10:42 AM",
       "expiry": [
         {
@@ -22656,6 +23345,19 @@
       "spoken": "Color, RGB(34, 197, 94), copied Nov 7, 2026, 10:00 AM, from Safari",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 10:00 AM, from Safari",
       "time": "10:00 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Color, RGB(34, 197, 94), copied Nov 7, 2026, 10:00 AM, from Safari"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Color, RGB(34, 197, 94), copied Nov 7, 2026, 10:00 AM, from Safari"
+        }
+      ],
       "exact": "Nov 7, 2026, 10:00 AM",
       "expiry": [
         {
@@ -22689,6 +23391,19 @@
       "spoken": "Text, TODO: follow up with legal (32), copied Nov 7, 2026, 8:24 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 8:24 AM, from Mail",
       "time": "8:24 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (32), copied Nov 7, 2026, 8:24 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (32), copied Nov 7, 2026, 8:24 AM, from Mail"
+        }
+      ],
       "exact": "Nov 7, 2026, 8:24 AM",
       "expiry": [
         {
@@ -22722,6 +23437,19 @@
       "spoken": "Text, ref: KZ-482 (33), copied Nov 7, 2026, 6:06 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 6:06 AM, from Slack",
       "time": "6:06 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (33), copied Nov 7, 2026, 6:06 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (33), copied Nov 7, 2026, 6:06 AM, from Slack"
+        }
+      ],
       "exact": "Nov 7, 2026, 6:06 AM",
       "expiry": [
         {
@@ -22755,6 +23483,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (34), copied Nov 7, 2026, 3:48 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 3:48 AM, from Notes",
       "time": "3:48 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (34), copied Nov 7, 2026, 3:48 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (34), copied Nov 7, 2026, 3:48 AM, from Notes"
+        }
+      ],
       "exact": "Nov 7, 2026, 3:48 AM",
       "expiry": [
         {
@@ -22788,6 +23529,19 @@
       "spoken": "Text, Looks good to me 👍 (35), copied Nov 7, 2026, 1:30 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 7, 2026, 1:30 AM, from Mail",
       "time": "1:30 AM",
+      "datedTime": "Sat",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (35), copied Nov 7, 2026, 1:30 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (35), copied Nov 7, 2026, 1:30 AM, from Mail"
+        }
+      ],
       "exact": "Nov 7, 2026, 1:30 AM",
       "expiry": [
         {
@@ -22821,6 +23575,19 @@
       "spoken": "Text, On my way (36), copied Nov 6, 2026, 11:12 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 11:12 PM, from Slack",
       "time": "11:12 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (36), copied Nov 6, 2026, 11:12 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (36), copied Nov 6, 2026, 11:12 PM, from Slack"
+        }
+      ],
       "exact": "Nov 6, 2026, 11:12 PM",
       "expiry": [
         {
@@ -22854,6 +23621,19 @@
       "spoken": "Text, +44 20 7946 0958 (37), copied Nov 6, 2026, 8:54 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 8:54 PM, from Notes",
       "time": "8:54 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (37), copied Nov 6, 2026, 8:54 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (37), copied Nov 6, 2026, 8:54 PM, from Notes"
+        }
+      ],
       "exact": "Nov 6, 2026, 8:54 PM",
       "expiry": [
         {
@@ -22887,6 +23667,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (38), copied Nov 6, 2026, 6:36 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 6:36 PM, from Mail",
       "time": "6:36 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (38), copied Nov 6, 2026, 6:36 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (38), copied Nov 6, 2026, 6:36 PM, from Mail"
+        }
+      ],
       "exact": "Nov 6, 2026, 6:36 PM",
       "expiry": [
         {
@@ -22920,6 +23713,19 @@
       "spoken": "Text, TODO: follow up with legal (39), copied Nov 6, 2026, 4:18 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 4:18 PM, from Slack",
       "time": "4:18 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (39), copied Nov 6, 2026, 4:18 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (39), copied Nov 6, 2026, 4:18 PM, from Slack"
+        }
+      ],
       "exact": "Nov 6, 2026, 4:18 PM",
       "expiry": [
         {
@@ -22953,6 +23759,19 @@
       "spoken": "Text, ref: KZ-482 (40), copied Nov 6, 2026, 2:00 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 2:00 PM, from Notes",
       "time": "2:00 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (40), copied Nov 6, 2026, 2:00 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (40), copied Nov 6, 2026, 2:00 PM, from Notes"
+        }
+      ],
       "exact": "Nov 6, 2026, 2:00 PM",
       "expiry": [
         {
@@ -22986,6 +23805,19 @@
       "spoken": "Code, {, copied Nov 6, 2026, 12:00 PM, from Visual Studio Code",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 12:00 PM, from Visual Studio Code",
       "time": "12:00 PM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Code, {, copied Nov 6, 2026, 12:00 PM, from Visual Studio Code"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Code, {, copied Nov 6, 2026, 12:00 PM, from Visual Studio Code"
+        }
+      ],
       "exact": "Nov 6, 2026, 12:00 PM",
       "expiry": [
         {
@@ -23019,6 +23851,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (41), copied Nov 6, 2026, 11:42 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 11:42 AM, from Mail",
       "time": "11:42 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (41), copied Nov 6, 2026, 11:42 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (41), copied Nov 6, 2026, 11:42 AM, from Mail"
+        }
+      ],
       "exact": "Nov 6, 2026, 11:42 AM",
       "expiry": [
         {
@@ -23052,6 +23897,19 @@
       "spoken": "Text, Looks good to me 👍 (42), copied Nov 6, 2026, 9:24 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 9:24 AM, from Slack",
       "time": "9:24 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (42), copied Nov 6, 2026, 9:24 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (42), copied Nov 6, 2026, 9:24 AM, from Slack"
+        }
+      ],
       "exact": "Nov 6, 2026, 9:24 AM",
       "expiry": [
         {
@@ -23085,6 +23943,19 @@
       "spoken": "Text, On my way (43), copied Nov 6, 2026, 7:06 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 7:06 AM, from Notes",
       "time": "7:06 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (43), copied Nov 6, 2026, 7:06 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (43), copied Nov 6, 2026, 7:06 AM, from Notes"
+        }
+      ],
       "exact": "Nov 6, 2026, 7:06 AM",
       "expiry": [
         {
@@ -23118,6 +23989,19 @@
       "spoken": "Text, +44 20 7946 0958 (44), copied Nov 6, 2026, 4:48 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 4:48 AM, from Mail",
       "time": "4:48 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (44), copied Nov 6, 2026, 4:48 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (44), copied Nov 6, 2026, 4:48 AM, from Mail"
+        }
+      ],
       "exact": "Nov 6, 2026, 4:48 AM",
       "expiry": [
         {
@@ -23151,6 +24035,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (45), copied Nov 6, 2026, 2:30 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 2:30 AM, from Slack",
       "time": "2:30 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (45), copied Nov 6, 2026, 2:30 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (45), copied Nov 6, 2026, 2:30 AM, from Slack"
+        }
+      ],
       "exact": "Nov 6, 2026, 2:30 AM",
       "expiry": [
         {
@@ -23184,6 +24081,19 @@
       "spoken": "Text, TODO: follow up with legal (46), copied Nov 6, 2026, 12:12 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 6, 2026, 12:12 AM, from Notes",
       "time": "12:12 AM",
+      "datedTime": "Fri",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (46), copied Nov 6, 2026, 12:12 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (46), copied Nov 6, 2026, 12:12 AM, from Notes"
+        }
+      ],
       "exact": "Nov 6, 2026, 12:12 AM",
       "expiry": [
         {
@@ -23217,6 +24127,19 @@
       "spoken": "Text, ref: KZ-482 (47), copied Nov 5, 2026, 9:54 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 9:54 PM, from Mail",
       "time": "9:54 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (47), copied Nov 5, 2026, 9:54 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (47), copied Nov 5, 2026, 9:54 PM, from Mail"
+        }
+      ],
       "exact": "Nov 5, 2026, 9:54 PM",
       "expiry": [
         {
@@ -23250,6 +24173,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (48), copied Nov 5, 2026, 7:36 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 7:36 PM, from Slack",
       "time": "7:36 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (48), copied Nov 5, 2026, 7:36 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (48), copied Nov 5, 2026, 7:36 PM, from Slack"
+        }
+      ],
       "exact": "Nov 5, 2026, 7:36 PM",
       "expiry": [
         {
@@ -23283,6 +24219,19 @@
       "spoken": "Text, Looks good to me 👍 (49), copied Nov 5, 2026, 5:18 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 5:18 PM, from Notes",
       "time": "5:18 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (49), copied Nov 5, 2026, 5:18 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (49), copied Nov 5, 2026, 5:18 PM, from Notes"
+        }
+      ],
       "exact": "Nov 5, 2026, 5:18 PM",
       "expiry": [
         {
@@ -23316,6 +24265,19 @@
       "spoken": "Text, The quick brown fox jumps over the lazy dog., copied Nov 5, 2026, 4:00 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 4:00 PM, from Notes",
       "time": "4:00 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, The quick brown fox jumps over the lazy dog., copied Nov 5, 2026, 4:00 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, The quick brown fox jumps over the lazy dog., copied Nov 5, 2026, 4:00 PM, from Notes"
+        }
+      ],
       "exact": "Nov 5, 2026, 4:00 PM",
       "expiry": [
         {
@@ -23349,6 +24311,19 @@
       "spoken": "Text, On my way (50), copied Nov 5, 2026, 3:00 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 3:00 PM, from Mail",
       "time": "3:00 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (50), copied Nov 5, 2026, 3:00 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (50), copied Nov 5, 2026, 3:00 PM, from Mail"
+        }
+      ],
       "exact": "Nov 5, 2026, 3:00 PM",
       "expiry": [
         {
@@ -23382,6 +24357,19 @@
       "spoken": "Text, +44 20 7946 0958 (51), copied Nov 5, 2026, 12:42 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 12:42 PM, from Slack",
       "time": "12:42 PM",
+      "datedTime": "Thu",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (51), copied Nov 5, 2026, 12:42 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (51), copied Nov 5, 2026, 12:42 PM, from Slack"
+        }
+      ],
       "exact": "Nov 5, 2026, 12:42 PM",
       "expiry": [
         {
@@ -23415,6 +24403,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (52), copied Nov 5, 2026, 10:24 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 10:24 AM, from Notes",
       "time": "10:24 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (52), copied Nov 5, 2026, 10:24 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (52), copied Nov 5, 2026, 10:24 AM, from Notes"
+        }
+      ],
       "exact": "Nov 5, 2026, 10:24 AM",
       "expiry": [
         {
@@ -23448,6 +24449,19 @@
       "spoken": "Text, TODO: follow up with legal (53), copied Nov 5, 2026, 8:06 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 8:06 AM, from Mail",
       "time": "8:06 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (53), copied Nov 5, 2026, 8:06 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, TODO: follow up with legal (53), copied Nov 5, 2026, 8:06 AM, from Mail"
+        }
+      ],
       "exact": "Nov 5, 2026, 8:06 AM",
       "expiry": [
         {
@@ -23481,6 +24495,19 @@
       "spoken": "Link, developer.apple.com, copied Nov 5, 2026, 6:00 AM, from Safari",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 6:00 AM, from Safari",
       "time": "6:00 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Link, developer.apple.com, copied Nov 5, 2026, 6:00 AM, from Safari"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Link, developer.apple.com, copied Nov 5, 2026, 6:00 AM, from Safari"
+        }
+      ],
       "exact": "Nov 5, 2026, 6:00 AM",
       "expiry": [
         {
@@ -23514,6 +24541,19 @@
       "spoken": "Text, ref: KZ-482 (54), copied Nov 5, 2026, 5:48 AM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 5:48 AM, from Slack",
       "time": "5:48 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (54), copied Nov 5, 2026, 5:48 AM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, ref: KZ-482 (54), copied Nov 5, 2026, 5:48 AM, from Slack"
+        }
+      ],
       "exact": "Nov 5, 2026, 5:48 AM",
       "expiry": [
         {
@@ -23547,6 +24587,19 @@
       "spoken": "Text, 4111 1111 1111 1111 (55), copied Nov 5, 2026, 3:30 AM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 3:30 AM, from Notes",
       "time": "3:30 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (55), copied Nov 5, 2026, 3:30 AM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, 4111 1111 1111 1111 (55), copied Nov 5, 2026, 3:30 AM, from Notes"
+        }
+      ],
       "exact": "Nov 5, 2026, 3:30 AM",
       "expiry": [
         {
@@ -23580,6 +24633,19 @@
       "spoken": "Text, Looks good to me 👍 (56), copied Nov 5, 2026, 1:12 AM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 5, 2026, 1:12 AM, from Mail",
       "time": "1:12 AM",
+      "datedTime": "Nov 5",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (56), copied Nov 5, 2026, 1:12 AM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Looks good to me 👍 (56), copied Nov 5, 2026, 1:12 AM, from Mail"
+        }
+      ],
       "exact": "Nov 5, 2026, 1:12 AM",
       "expiry": [
         {
@@ -23613,6 +24679,19 @@
       "spoken": "Text, On my way (57), copied Nov 4, 2026, 10:54 PM, from Slack",
       "concealed": "Hidden secret, marked as secret, copied Nov 4, 2026, 10:54 PM, from Slack",
       "time": "10:54 PM",
+      "datedTime": "Nov 4",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, On my way (57), copied Nov 4, 2026, 10:54 PM, from Slack"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, On my way (57), copied Nov 4, 2026, 10:54 PM, from Slack"
+        }
+      ],
       "exact": "Nov 4, 2026, 10:54 PM",
       "expiry": [
         {
@@ -23646,6 +24725,19 @@
       "spoken": "Text, +44 20 7946 0958 (58), copied Nov 4, 2026, 8:36 PM, from Notes",
       "concealed": "Hidden secret, marked as secret, copied Nov 4, 2026, 8:36 PM, from Notes",
       "time": "8:36 PM",
+      "datedTime": "Nov 4",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (58), copied Nov 4, 2026, 8:36 PM, from Notes"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, +44 20 7946 0958 (58), copied Nov 4, 2026, 8:36 PM, from Notes"
+        }
+      ],
       "exact": "Nov 4, 2026, 8:36 PM",
       "expiry": [
         {
@@ -23679,6 +24771,19 @@
       "spoken": "Text, Meeting notes — Q4 planning (59), copied Nov 4, 2026, 6:18 PM, from Mail",
       "concealed": "Hidden secret, marked as secret, copied Nov 4, 2026, 6:18 PM, from Mail",
       "time": "6:18 PM",
+      "datedTime": "Nov 4",
+      "visibility": [
+        {
+          "showSecrets": false,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (59), copied Nov 4, 2026, 6:18 PM, from Mail"
+        },
+        {
+          "showSecrets": true,
+          "concealed": false,
+          "spoken": "Text, Meeting notes — Q4 planning (59), copied Nov 4, 2026, 6:18 PM, from Mail"
+        }
+      ],
       "exact": "Nov 4, 2026, 6:18 PM",
       "expiry": [
         {
@@ -23764,6 +24869,57 @@
           64
         ]
       ]
+    },
+    {
+      "text": "İstanbul İ X",
+      "terms": [
+        "i",
+        "x"
+      ],
+      "ranges": [
+        [
+          0,
+          1
+        ],
+        [
+          10,
+          11
+        ],
+        [
+          13,
+          14
+        ]
+      ]
+    },
+    {
+      "text": "İİABC",
+      "terms": [
+        "abc"
+      ],
+      "ranges": [
+        [
+          4,
+          7
+        ]
+      ]
+    },
+    {
+      "text": "𐐀𐐁 ABC 😀",
+      "terms": [
+        "𐐨",
+        "𐐩",
+        "abc"
+      ],
+      "ranges": [
+        [
+          0,
+          4
+        ],
+        [
+          5,
+          8
+        ]
+      ]
     }
   ],
   "bytes": [
@@ -23780,12 +24936,277 @@
       "label": "1.0 KB"
     },
     {
+      "n": 1280,
+      "label": "1.3 KB"
+    },
+    {
+      "n": 2304,
+      "label": "2.3 KB"
+    },
+    {
+      "n": 1310720,
+      "label": "1.3 MB"
+    },
+    {
       "n": 1000000,
       "label": "977 KB"
     },
     {
       "n": 38400000,
       "label": "37 MB"
+    }
+  ],
+  "links": [
+    {
+      "url": "https://example.com",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://example.com"
+      }
+    },
+    {
+      "url": "https://example.com/",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://example.com/"
+      }
+    },
+    {
+      "url": "https://example.com?",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://example.com?"
+      }
+    },
+    {
+      "url": "https://example.com/path?",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "https://example.com/?#fragment",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://example.com/?#fragment"
+      }
+    },
+    {
+      "url": "https://example.com:443/path",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "http://example.com:80/path",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "ftp://example.com:21/path",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "https://example.com:8443/path",
+      "description": {
+        "title": "example.com:8443",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "https://user:pass@example.com/a",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a"
+      }
+    },
+    {
+      "url": "https://user@example.com/a",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a"
+      }
+    },
+    {
+      "url": "https://example.com/a/../b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/b"
+      }
+    },
+    {
+      "url": "https://example.com/a/./b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a/b"
+      }
+    },
+    {
+      "url": "https://example.com/a/%2e%2e/b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/b"
+      }
+    },
+    {
+      "url": "https://example.com/a/.",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a"
+      }
+    },
+    {
+      "url": "https://example.com/a/..",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://example.com/a/.."
+      }
+    },
+    {
+      "url": "https://example.com/a//b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a//b"
+      }
+    },
+    {
+      "url": "https://example.com/../../b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/b"
+      }
+    },
+    {
+      "url": "https://example.com/caf%C3%A9",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/café"
+      }
+    },
+    {
+      "url": "https://example.com/a%2Fb?q=%3F",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a%2Fb?q=%3F"
+      }
+    },
+    {
+      "url": "https://example.com/a?x=1#hash",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a?x=1"
+      }
+    },
+    {
+      "url": "https://example.com/a?x=1/",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a?x=1"
+      }
+    },
+    {
+      "url": "https://WWW.example.com:443/",
+      "description": {
+        "title": "example.com",
+        "subtitle": "https://WWW.example.com:443/"
+      }
+    },
+    {
+      "url": "www.example.com/path",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "mailto:hello@example.com?subject=Hi",
+      "description": {
+        "title": "hello@example.com",
+        "subtitle": "Email address"
+      }
+    },
+    {
+      "url": "HTTPS://EXAMPLE.COM/path",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/path"
+      }
+    },
+    {
+      "url": "https://example.com/%zz",
+      "description": {
+        "title": "https://example.com/%zz",
+        "subtitle": "https://example.com/%zz"
+      }
+    },
+    {
+      "url": "https://example.com/a\\b",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a/b"
+      }
+    },
+    {
+      "url": "https:\\example.com\\a",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a"
+      }
+    },
+    {
+      "url": "https://exam\tple.com/a",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/a"
+      }
+    },
+    {
+      "url": "https://example.com/a\nb",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/ab"
+      }
+    },
+    {
+      "url": "https://example.com/a\rb",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/ab"
+      }
+    },
+    {
+      "url": "https://example.com/a\tb",
+      "description": {
+        "title": "example.com",
+        "subtitle": "/ab"
+      }
+    },
+    {
+      "url": "https://例え.テスト/道",
+      "description": {
+        "title": "xn--r8jz45g.xn--zckzah",
+        "subtitle": "/道"
+      }
+    },
+    {
+      "url": "https://münich.example/café",
+      "description": {
+        "title": "xn--mnich-kva.example",
+        "subtitle": "/café"
+      }
+    }
+  ],
+  "days": [
+    {
+      "iso": "2025-11-11T12:00:00.000Z",
+      "label": "Tue, Nov 11, 2025"
     }
   ]
 }
