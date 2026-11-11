@@ -112,3 +112,19 @@ fn a_quick_search_insert_into_a_vanished_target_does_nothing() {
         }]
     );
 }
+
+/// The tap reads the front app from the poll's cache (third review). A trigger typed in another
+/// app before the poll notices the switch is credited to the old app, and the worker, which
+/// checks the live front app, inserts nothing into the new one. After a poll tick it expands.
+#[test]
+fn a_trigger_typed_before_the_poll_notices_an_app_switch_inserts_nothing() {
+    let rig = Rig::new(&sig());
+    rig.set_frontmost(Some(super::desk::mail()));
+    rig.type_(";sig");
+    assert_eq!(rig.posted(), []);
+    assert_eq!(rig.host.expansions(), 0);
+    rig.poll_tick();
+    rig.set_doc("");
+    rig.type_(";sig");
+    assert_eq!(rig.host.expansions(), 1);
+}

@@ -130,6 +130,8 @@ pub(super) struct State {
     pub presses: usize,
     pub helds: usize,
     pub activations: usize,
+    /// App observations made from inside the tap callback.
+    pub tap_observations: usize,
     /// The user's events are stamped 1001, 1002, …; the last one received.
     pub next_stamp: u64,
     pub last_stamp: u64,
@@ -251,6 +253,7 @@ impl Desk {
             presses: 0,
             helds: 0,
             activations: 0,
+            tap_observations: 0,
             next_stamp: 1_000,
             last_stamp: 1_000,
             last_key: None,
@@ -581,9 +584,24 @@ impl Desk {
                 .collect()
         });
         let mut swallowed = false;
+        let outer = IN_TAP.replace(true);
         for (mode, handler) in handlers {
             swallowed |= handler(kind, event) && mode == TapMode::Active;
         }
+        IN_TAP.set(outer);
         swallowed
+    }
+}
+
+thread_local! {
+    /// Set while a listener's handler runs: the engine's tap callback.
+    pub(super) static IN_TAP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Counts an app observation the tap callback made (it should make none: NSWorkspace is not
+/// for the tap thread).
+pub(super) fn observed_from_tap(s: &mut State) {
+    if IN_TAP.get() {
+        s.tap_observations += 1;
     }
 }

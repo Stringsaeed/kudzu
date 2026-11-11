@@ -196,10 +196,10 @@ impl Imp {
         } else {
             input
         };
-        let pid = self.observe().frontmost_pid();
+        let (pid, bundle) = self.front_for_tap(core.frontmost_pid);
         if pid != core.frontmost_pid {
             core.frontmost_pid = pid;
-            core.frontmost_bundle = pid.and_then(|pid| self.observe().bundle_id_of(pid));
+            core.frontmost_bundle = bundle;
             core.reset_matcher();
         }
         if pid == Some(self.own_pid) {

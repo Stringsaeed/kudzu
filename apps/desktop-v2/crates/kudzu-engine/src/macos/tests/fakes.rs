@@ -11,7 +11,9 @@ use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use super::desk::{plain, At, BoardOp, Desk, Ev, Key, ListenerOp, Out, Slot, Tick, PLAIN};
+use super::desk::{
+    observed_from_tap, plain, At, BoardOp, Desk, Ev, Key, ListenerOp, Out, Slot, Tick, PLAIN,
+};
 use super::keyboard::{apply_event, apply_key, decode, label, unicode};
 use crate::macos::events::{Events, Listener};
 use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp, CGEventFlags, CGKeyCode};
@@ -253,16 +255,24 @@ impl Clock for FakeObserve {
 
 impl Observe for FakeObserve {
     fn frontmost_pid(&self) -> Option<i32> {
-        self.0.with(|s| s.frontmost.as_ref().and_then(|a| a.pid))
+        self.0.with(|s| {
+            observed_from_tap(s);
+            s.frontmost.as_ref().and_then(|a| a.pid)
+        })
     }
 
     fn frontmost_app(&self) -> Option<AppInfo> {
-        self.0.with(|s| s.frontmost.clone())
+        self.0.with(|s| {
+            observed_from_tap(s);
+            s.frontmost.clone()
+        })
     }
 
     fn app_of(&self, pid: i32) -> Option<AppInfo> {
-        self.0
-            .with(|s| s.running.iter().find(|a| a.pid == Some(pid)).cloned())
+        self.0.with(|s| {
+            observed_from_tap(s);
+            s.running.iter().find(|a| a.pid == Some(pid)).cloned()
+        })
     }
 
     fn bundle_id_of(&self, pid: i32) -> Option<String> {

@@ -48,7 +48,7 @@ mod replace;
 mod session;
 
 use match_flow::Matched;
-use session::{Core, Flags};
+use session::{Core, Flags, Front};
 
 /// Physical input is never held longer than this, whatever the target app does.
 const HOLD_LIMIT: Duration = Duration::from_secs(1);
@@ -134,6 +134,9 @@ pub(crate) struct Imp {
     last_status: Mutex<Option<EngineStatus>>,
     /// Kudzu's own windows, as the host last said; read by the listener on every click.
     kudzu_windows: Mutex<Arc<[KudzuWindow]>>,
+    /// The frontmost app as the poll last saw it, for the tap callback, which never asks
+    /// NSWorkspace itself (see `session::Front`).
+    front: Mutex<Front>,
     own_pid: i32,
     /// Jobs sent and not yet finished, so tests can wait until the worker is idle.
     #[cfg(test)]
@@ -169,6 +172,7 @@ impl Imp {
             flags
                 .input_monitoring
                 .store(observe.permissions().input_monitoring, Ordering::Relaxed);
+            let front = Front::read(observe.as_ref());
             input_source::install();
             let recorder = Arc::new(Recorder::new(host));
             Imp {
@@ -200,6 +204,7 @@ impl Imp {
                 jobs: Mutex::new(spawned.ok().map(|_| sender)),
                 last_status: Mutex::new(None),
                 kudzu_windows: Mutex::new(Arc::from([])),
+                front: Mutex::new(front),
                 own_pid: std::process::id() as i32,
                 #[cfg(test)]
                 in_flight: AtomicUsize::new(0),

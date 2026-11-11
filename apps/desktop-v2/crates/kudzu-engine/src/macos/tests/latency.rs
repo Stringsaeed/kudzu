@@ -122,3 +122,26 @@ fn a_click_during_a_typed_form_stays_within_the_cpu_budget() {
     println!("click during a typed form p99: {cpu_p99:?} thread CPU, {wall_p99:?} wall clock");
     assert_within_budget("click callback", cpu_p99);
 }
+
+/// The tap callback reads the frontmost app from a cache the poll keeps, never NSWorkspace
+/// (third review): typing a trigger, typing while paused, switching apps and clicking during a
+/// typed form make no app observation from the tap thread.
+#[test]
+fn the_tap_callback_makes_no_app_observation() {
+    use super::desk::mail;
+    use super::panels::windows;
+    let rig = Rig::new(&[
+        snippet(";sig", "Best, Sam"),
+        snippet(";addr", "Dear {{field name=who}}, hi"),
+    ]);
+    rig.type_(";sig");
+    rig.set_frontmost(Some(mail()));
+    rig.type_(";s");
+    rig.engine.set_paused(true);
+    rig.type_("ig");
+    rig.engine.set_paused(false);
+    rig.set_frontmost(Some(super::desk::editor()));
+    rig.type_(";addr");
+    rig.click_in(windows::FORM);
+    assert_eq!(rig.with(|s| s.tap_observations), 0);
+}

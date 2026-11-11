@@ -13,6 +13,7 @@ use objc2::rc::autoreleasepool;
 
 use super::super::input_source;
 use super::super::keys::SYNTHETIC_MARKER;
+use super::super::observe::Observe;
 use super::super::tap::{self, HeldEvent};
 use super::form_flow::{FormKind, PendingForm};
 use super::{Imp, HOLD_LIMIT, POLL_TICK, STATUS_EVERY_TICKS};
@@ -141,12 +142,54 @@ pub(super) fn decode(raw: u8) -> TapMode {
     }
 }
 
+/// The frontmost app as the poll thread last read it. The tap callback compares keys against
+/// it instead of asking NSWorkspace on the tap thread under the engine lock. It can lag the
+/// real front app by one poll tick (100 ms); the worker checks the live front app before it
+/// changes anything, so a trigger the tap credits to the previous app is never inserted into
+/// the new one.
+pub(super) struct Front {
+    pid: Option<i32>,
+    bundle: Option<String>,
+}
+
+impl Front {
+    pub(super) fn read(observe: &dyn Observe) -> Front {
+        let pid = observe.frontmost_pid();
+        Front {
+            pid,
+            bundle: pid.and_then(|pid| observe.bundle_id_of(pid)),
+        }
+    }
+}
+
 impl Imp {
+    /// Re-reads the frontmost app for the tap callback (the poll's job; a bundle id only on a
+    /// change).
+    pub(super) fn refresh_front(&self) {
+        let pid = self.observe().frontmost_pid();
+        if lock(&self.front).pid == pid {
+            return;
+        }
+        let bundle = pid.and_then(|pid| self.observe().bundle_id_of(pid));
+        *lock(&self.front) = Front { pid, bundle };
+    }
+
+    /// The cached frontmost pid for the tap callback, and its bundle id when it differs from
+    /// `known` (the pid the typing context belongs to). No system call.
+    pub(super) fn front_for_tap(&self, known: Option<i32>) -> (Option<i32>, Option<String>) {
+        let front = lock(&self.front);
+        let bundle = (front.pid != known).then(|| front.bundle.clone()).flatten();
+        (front.pid, bundle)
+    }
+
     pub fn start(&self) {
         if self.flags.running.swap(true, Ordering::SeqCst) {
             return;
         }
-        autoreleasepool(|_| self.refresh());
+        autoreleasepool(|_| {
+            self.refresh_front();
+            self.refresh();
+        });
         let epoch = self.flags.poll_epoch.fetch_add(1, Ordering::SeqCst) + 1;
         let weak = self.weak.clone();
         let mut tick: u32 = 0;
@@ -160,6 +203,7 @@ impl Imp {
                 return false;
             }
             tick = tick.wrapping_add(1);
+            autoreleasepool(|_| imp.refresh_front());
             if tick.is_multiple_of(STATUS_EVERY_TICKS) {
                 autoreleasepool(|_| imp.refresh());
             }
