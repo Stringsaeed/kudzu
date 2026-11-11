@@ -137,7 +137,9 @@ impl Imp {
                 }
                 Step::Key { key, count } => {
                     self.keep_holding(token, Duration::ZERO);
-                    keys::press_key(self.events(), *key, *count)?;
+                    if !self.post_checked(&step, &keys::key_presses(*key, *count))? {
+                        return stop(self);
+                    }
                     self.observe().sleep(KEY_SETTLE);
                 }
                 Step::Pause(duration) => self.pause(token, *duration),
@@ -158,12 +160,19 @@ impl Imp {
             .filter(|_| !sequence.has_keys)
             .and_then(|t| t.trigger.separator.as_deref());
         if let Some(separator) = separator {
-            keys::retype(self.events(), separator)?;
+            if !self.post_checked(&step, &keys::retype_presses(separator))? {
+                if let Some(t) = &typed {
+                    self.lost(t);
+                }
+                return stop(self);
+            }
             if caret_left > 0 {
                 caret_left += plan::grapheme_count(separator);
             }
         }
-        keys::move_left(self.events(), caret_left)?;
+        if !self.post_checked(&step, &keys::left_presses(caret_left))? {
+            return stop(self);
+        }
         let mut core = lock(&self.core);
         if core.generation == token {
             match &typed {
@@ -201,7 +210,7 @@ impl Imp {
             swallowed,
             live,
         } = typed;
-        let (token, guard) = (live.generation, live.guard);
+        let token = live.generation;
         let text = case_propagation::apply(trigger.case_style, &rendered.text);
         let offset = rendered
             .cursor_offset
@@ -262,13 +271,35 @@ impl Imp {
                 can_undo = false;
             }
         }
-        if !self.is_current(token) || !self.allowed(guard) {
+        // What follows the expansion lands after it, so listen-only typing no longer matters.
+        let after = Live {
+            listen_only: false,
+            ..live
+        };
+        let separator = plan.reemit_separator.as_deref();
+        if !self.still_live(&after) {
+            // The separator the user typed doesn't go back in.
+            if separator.is_some() {
+                self.lost(&typed);
+            }
             return Ok(());
         }
-        if let Some(separator) = &plan.reemit_separator {
-            keys::retype(self.events(), separator)?;
+        if let Some(separator) = separator {
+            match self.post_checked(&after, &keys::retype_presses(separator)) {
+                Ok(true) => {}
+                Ok(false) => {
+                    self.lost(&typed);
+                    return Ok(());
+                }
+                Err(error) => {
+                    self.lost(&typed);
+                    return Err(error.into());
+                }
+            }
         }
-        keys::move_left(self.events(), plan.caret_left_count)?;
+        if !self.post_checked(&after, &keys::left_presses(plan.caret_left_count))? {
+            return Ok(());
+        }
         {
             let mut core = lock(&self.core);
             if core.generation == token && can_undo {

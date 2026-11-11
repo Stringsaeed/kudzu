@@ -7,8 +7,8 @@
 
 use kudzu_core::activity::ActivityOutcome;
 
-use super::desk::{mail, user_clipboard, At, BoardOp, Ev};
-use super::rig::{backspaces, outs, pasted, snippet, Rig};
+use super::desk::{mail, user_clipboard, At, BoardOp, Ev, Out};
+use super::rig::{backspaces, outs, pasted, snippet, whole_word, Rig};
 use crate::{TapMode, TriggerLost};
 
 fn transient(text: &str) -> Ev {
@@ -175,4 +175,71 @@ fn an_app_that_comes_forward_while_quick_search_renders_is_not_adopted() {
     assert_eq!(rig.posted(), []);
     assert_eq!(rig.doc(), "|");
     assert_eq!(rig.host.expansions(), 0);
+}
+
+// MARK: One check per press (re-review major 5)
+
+/// `{{key name=tab count=3}}`: a click after the first Tab stops the other two.
+#[test]
+fn a_key_step_with_a_count_stops_after_the_press_a_click_follows() {
+    let rig = Rig::new(&[snippet(";k", "a{{key name=tab count=3}}b")]);
+    rig.at(At::Press(2), |d| d.clicks());
+    rig.type_(";k");
+    assert_eq!(
+        rig.posted(),
+        [Out::Backspace, Out::Type("a".into()), Out::Tab]
+    );
+    assert_eq!(rig.doc(), "a\t|");
+}
+
+/// Typed text goes out in chunks of 20 UTF-16 units: a click after the first chunk stops the
+/// rest. The trigger is gone and the expansion incomplete, so the host hears.
+#[test]
+fn typed_text_stops_after_the_chunk_a_click_follows() {
+    let rig = Rig::new(&[snippet(";t", "abcdefghijklmnopqrstuvwxyz")]);
+    rig.at(At::Press(1), |d| d.clicks());
+    rig.type_(";t");
+    assert_eq!(
+        rig.posted(),
+        [Out::Backspace, Out::Type("abcdefghijklmnopqrst".into())]
+    );
+    assert_eq!(rig.doc(), "abcdefghijklmnopqrst|");
+    assert_eq!(rig.host.lost.lock().unwrap().len(), 1);
+}
+
+/// Typing a whole-word trigger back after a refused ⌘V is two presses (the text, then Return):
+/// a click after the first stops the second, and the host hears what is missing.
+#[test]
+fn recovery_typing_stops_after_the_press_a_click_follows() {
+    let snippet = kudzu_core::SnippetRecord {
+        insertion: Some(kudzu_core::InsertionMethod::Paste),
+        ..whole_word("sig", "Best, Sam")
+    };
+    let rig = Rig::with(&[snippet], |d| d.with(|s| s.paste_refused = true));
+    rig.at(At::Press(3), |d| d.clicks());
+    rig.type_("sig⏎");
+    assert_eq!(
+        rig.posted(),
+        [backspaces(3), vec![Out::Type("sig".into())]].concat()
+    );
+    assert_eq!(rig.doc(), "sig|");
+    assert_eq!(rig.host.lost.lock().unwrap().len(), 1);
+}
+
+/// After a whole-word expansion the separator is typed again and the caret moved back to
+/// `{{cursor}}`: a click on the separator's press stops the caret moves.
+#[test]
+fn caret_moves_stop_after_the_press_a_click_follows() {
+    let rig = Rig::new(&[whole_word("sig", "Best{{cursor}} regards")]);
+    rig.at(At::Press(4), |d| d.clicks());
+    rig.type_("sig ");
+    assert_eq!(
+        rig.posted(),
+        [
+            backspaces(3),
+            vec![Out::Type("Best regards".into()), Out::Type(" ".into())]
+        ]
+        .concat()
+    );
+    assert_eq!(rig.doc(), "Best regards |");
 }

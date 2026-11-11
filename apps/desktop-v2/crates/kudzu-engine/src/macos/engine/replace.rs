@@ -18,7 +18,7 @@ use kudzu_core::InsertionMethod;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::super::input_source;
-use super::super::keys;
+use super::super::keys::{self, KeyError, Press};
 use super::super::pasteboard::{PasteError, PreparedPaste};
 use super::{Guard, Imp, InsertError};
 use crate::plan::{self, InsertionPlan, PlanMode, Step};
@@ -126,8 +126,20 @@ impl Imp {
         unchanged && self.allowed(live.guard) && self.observe().frontmost_pid() == live.pid
     }
 
-    /// Delivers text by typing or pasting, unless the context changed while preparing: then
-    /// nothing goes in and the answer is `false`.
+    /// Posts `presses` one at a time, re-checking `live` before each: `false` when the context
+    /// changed and the rest weren't posted.
+    pub(super) fn post_checked(&self, live: &Live, presses: &[Press]) -> Result<bool, KeyError> {
+        for press in presses {
+            if !self.still_live(live) {
+                return Ok(false);
+            }
+            press.post(self.events())?;
+        }
+        Ok(true)
+    }
+
+    /// Delivers text by typing or pasting, unless the context changes while preparing or
+    /// between presses: then the rest doesn't go in and the answer is `false`.
     pub(super) fn deliver(
         &self,
         text: &str,
@@ -139,8 +151,7 @@ impl Imp {
         if !self.still_live(live) {
             return Ok(false);
         }
-        self.complete(delivery)?;
-        Ok(true)
+        self.complete(delivery, live)
     }
 
     /// Decides how `text` goes in; a paste saves and writes the clipboard now.
@@ -161,12 +172,20 @@ impl Imp {
         }
     }
 
-    /// Types the text, or presses ⌘V and restores the clipboard.
-    pub(super) fn complete(&self, delivery: Delivery<'_>) -> Result<(), InsertError> {
+    /// Types the text (checking `live` before each chunk; `false` when it stopped partway), or
+    /// presses ⌘V and restores the clipboard.
+    pub(super) fn complete(
+        &self,
+        delivery: Delivery<'_>,
+        live: &Live,
+    ) -> Result<bool, InsertError> {
         match delivery {
-            Delivery::Nothing => Ok(()),
-            Delivery::Type(text) => Ok(keys::type_text(self.events(), text)?),
-            Delivery::Paste(paste) => Ok(paste.paste(self.events(), self.observe())?),
+            Delivery::Nothing => Ok(true),
+            Delivery::Type(text) => Ok(self.post_checked(live, &keys::text_presses(text))?),
+            Delivery::Paste(paste) => {
+                paste.paste(self.events(), self.observe())?;
+                Ok(true)
+            }
         }
     }
 
@@ -179,8 +198,9 @@ impl Imp {
         html: Option<&str>,
         method: InsertionMethod,
     ) -> Result<Delivery<'a>, InsertError> {
-        self.prepare(text, html, method)
-            .inspect_err(|_| self.put_back(t, 0))
+        self.prepare(text, html, method).inspect_err(|_| {
+            self.put_back(t, 0);
+        })
     }
 
     /// Deletes `t`, checking before each Backspace that the context is unchanged (for a
@@ -201,7 +221,7 @@ impl Imp {
                 }
                 return Ok(false);
             }
-            if let Err(error) = keys::delete_backward(self.events(), 1) {
+            if let Err(error) = keys::backspace_presses(1)[0].post(self.events()) {
                 prepared.take();
                 self.put_back(t, deleted);
                 return Err(error.into());
@@ -225,13 +245,20 @@ impl Imp {
             return Ok(false);
         }
         let pastes = matches!(delivery, Delivery::Paste(_));
-        self.complete(delivery)
-            .inspect_err(|_| {
+        match self.complete(delivery, &t.live) {
+            Ok(true) => Ok(true),
+            // Typing stopped partway: the trigger is gone and the expansion incomplete.
+            Ok(false) => {
+                self.lost(t);
+                Ok(false)
+            }
+            Err(error) => {
                 if pastes {
                     self.put_back(t, t.delete_count());
                 }
-            })
-            .map(|()| true)
+                Err(error)
+            }
+        }
     }
 
     /// Prepares the `steps` of a sequence that replaces `t` (its leading pauses already ran):
@@ -268,26 +295,30 @@ impl Imp {
         Ok(first)
     }
 
-    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14), if the context
-    /// is unchanged: never into another app or at a moved caret. When it changed, or typing is
-    /// refused too, the host hears that the trigger is lost.
-    fn put_back(&self, t: &TypedTrigger<'_>, deleted: usize) {
+    /// Types back the withheld key and the last `deleted` graphemes of `t` (D14), re-checking
+    /// the context before each press: never into another app or at a moved caret. Whether the
+    /// document shows the trigger again; when not, the host hears that it is lost.
+    pub(super) fn put_back(&self, t: &TypedTrigger<'_>, deleted: usize) -> bool {
         let text = t.restoration(deleted);
         if text.is_empty() {
-            return;
+            return true;
         }
-        if !self.still_live(&t.live) {
-            self.lost(t);
-            return;
-        }
-        if let Err(error) = keys::retype(self.events(), &text) {
-            log::warn!("could not type the trigger back: {error:?}");
-            self.lost(t);
+        match self.post_checked(&t.live, &keys::retype_presses(&text)) {
+            Ok(true) => true,
+            Ok(false) => {
+                self.lost(t);
+                false
+            }
+            Err(error) => {
+                log::warn!("could not type the trigger back: {error:?}");
+                self.lost(t);
+                false
+            }
         }
     }
 
     /// Tells the host that `t` is missing from the document (D17).
-    fn lost(&self, t: &TypedTrigger<'_>) {
+    pub(super) fn lost(&self, t: &TypedTrigger<'_>) {
         self.host.trigger_lost(TriggerLost {
             snippet_id: t.trigger.snippet_id,
             trigger: t.trigger.trigger.clone(),

@@ -6,7 +6,7 @@ use kudzu_core::matching::TriggerMatch;
 use kudzu_core::SnippetRecord;
 use uuid::Uuid;
 
-use super::super::keys::{self, SYNTHETIC_MARKER};
+use super::super::keys::SYNTHETIC_MARKER;
 use super::super::tap::HeldEvent;
 use super::replace::{Live, TypedTrigger};
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
@@ -73,21 +73,29 @@ impl Imp {
         self.recorder.form_cancelled(token);
     }
 
+    /// Asks for the form of a typed trigger matched as `live` describes.
     pub(super) fn request_typed_form(
         &self,
-        token: u64,
+        live: Live,
         trigger: TriggerMatch,
         snippet: &SnippetRecord,
         fields: Vec<kudzu_core::template::FormFieldSpec>,
         mode: PlanMode,
         swallowed: Option<String>,
     ) -> Result<(), InsertError> {
+        let token = live.generation;
         // Put the withheld key back so the document shows the whole trigger (and separator);
-        // the form submission then deletes it like listen-only would.
-        if mode == PlanMode::Active {
-            if let Some(text) = &swallowed {
-                keys::retype(self.events(), text)?;
-            }
+        // the form submission then deletes it like listen-only would. Not into a changed
+        // context: then the host hears the key is lost, and no form is shown.
+        let typed = TypedTrigger {
+            trigger: &trigger,
+            mode,
+            swallowed: swallowed.as_deref(),
+            live,
+        };
+        if !self.put_back(&typed, 0) {
+            lock(&self.core).reset_matcher();
+            return Ok(());
         }
         let queued = {
             let mut core = lock(&self.core);

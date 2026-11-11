@@ -245,6 +245,13 @@ impl Imp {
             lock(&self.core).reset_matcher();
             return Ok(());
         }
+        let typed_live = Live {
+            generation: token,
+            guard: Guard::Typed,
+            pid: m.pid,
+            listen_only: true,
+            form: None,
+        };
         match m.event {
             MatcherEvent::Expand(trigger) => {
                 let library = self.library();
@@ -254,7 +261,7 @@ impl Imp {
                 let fields = library.form_fields(snippet);
                 if !fields.is_empty() {
                     return self.request_typed_form(
-                        token,
+                        typed_live,
                         trigger,
                         snippet,
                         fields,
@@ -273,13 +280,7 @@ impl Imp {
                     trigger: &trigger,
                     mode: m.mode,
                     swallowed,
-                    live: Live {
-                        generation: token,
-                        guard: Guard::Typed,
-                        pid: m.pid,
-                        listen_only: true,
-                        form: None,
-                    },
+                    live: typed_live,
                 };
                 self.insert_expansion(typed, rendered)
             }

@@ -113,26 +113,57 @@ pub(super) fn post(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Resu
     )
 }
 
-fn repeat(events: &dyn Events, key: CGKeyCode, count: usize) -> Result<(), KeyError> {
-    for _ in 0..count {
-        events.press(key, 0, &[])?;
+/// One synthetic key press: a key, its modifiers and the text it carries. Output that takes
+/// several presses is built as a list of them, so the engine can re-check its context before
+/// each one.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Press {
+    key: CGKeyCode,
+    flags: CGEventFlags,
+    unicode: Vec<u16>,
+}
+
+impl Press {
+    fn key(key: CGKeyCode) -> Self {
+        Press {
+            key,
+            flags: 0,
+            unicode: Vec::new(),
+        }
     }
-    Ok(())
+
+    /// Posts it.
+    pub fn post(&self, events: &dyn Events) -> Result<(), KeyError> {
+        events.press(self.key, self.flags, &self.unicode)
+    }
+}
+
+fn repeat(key: CGKeyCode, count: usize) -> Vec<Press> {
+    vec![Press::key(key); count]
+}
+
+fn post_all(events: &dyn Events, presses: &[Press]) -> Result<(), KeyError> {
+    presses.iter().try_for_each(|press| press.post(events))
+}
+
+/// `count` presses of Delete.
+pub(crate) fn backspace_presses(count: usize) -> Vec<Press> {
+    repeat(KEY_DELETE, count)
+}
+
+/// `count` presses of Left Arrow.
+pub(crate) fn left_presses(count: usize) -> Vec<Press> {
+    repeat(KEY_LEFT, count)
 }
 
 /// Presses Delete `count` times.
 pub(crate) fn delete_backward(events: &dyn Events, count: usize) -> Result<(), KeyError> {
-    repeat(events, KEY_DELETE, count)
-}
-
-/// Presses Left Arrow `count` times.
-pub(crate) fn move_left(events: &dyn Events, count: usize) -> Result<(), KeyError> {
-    repeat(events, KEY_LEFT, count)
+    post_all(events, &backspace_presses(count))
 }
 
 /// Presses Right Arrow `count` times.
 pub(crate) fn move_right(events: &dyn Events, count: usize) -> Result<(), KeyError> {
-    repeat(events, KEY_RIGHT, count)
+    post_all(events, &repeat(KEY_RIGHT, count))
 }
 
 /// The virtual key code of a `{{key}}` tag's key (ANSI layout-independent keys only).
@@ -152,13 +183,9 @@ fn key_code(key: kudzu_core::template::Key) -> CGKeyCode {
     }
 }
 
-/// Presses `key` `count` times, without modifiers.
-pub(crate) fn press_key(
-    events: &dyn Events,
-    key: kudzu_core::template::Key,
-    count: u32,
-) -> Result<(), KeyError> {
-    repeat(events, key_code(key), count as usize)
+/// `count` presses of a `{{key}}` tag's `key`, without modifiers.
+pub(crate) fn key_presses(key: kudzu_core::template::Key, count: u32) -> Vec<Press> {
+    repeat(key_code(key), count as usize)
 }
 
 /// Presses ⌘C: Command with whichever key is "c" on the current layout.
@@ -171,26 +198,35 @@ pub(crate) fn paste(events: &dyn Events) -> Result<(), KeyError> {
     events.press(input_source::paste_key(), kCGEventFlagMaskCommand, &[])
 }
 
-/// Types `text` as Unicode keystrokes, chunked on grapheme boundaries so emoji ZWJ sequences
-/// and combining marks never split across events.
-pub(crate) fn type_text(events: &dyn Events, text: &str) -> Result<(), KeyError> {
-    for chunk in chunks(text) {
-        events.press(0, 0, &chunk)?;
-    }
-    Ok(())
+/// `text` as Unicode keystrokes, chunked on grapheme boundaries so emoji ZWJ sequences and
+/// combining marks never split across events.
+pub(crate) fn text_presses(text: &str) -> Vec<Press> {
+    chunks(text)
+        .into_iter()
+        .map(|unicode| Press {
+            key: 0,
+            flags: 0,
+            unicode,
+        })
+        .collect()
 }
 
-/// Types again what the user typed (a withheld key, a trigger, a separator). Unlike
-/// [`type_text`], Return and Tab are pressed as their own keys, as the user pressed them.
+/// What the user typed, typed again (a withheld key, a trigger, a separator). Unlike
+/// [`text_presses`], Return and Tab are pressed as their own keys, as the user pressed them.
+pub(crate) fn retype_presses(text: &str) -> Vec<Press> {
+    input::retyped(text)
+        .into_iter()
+        .flat_map(|piece| match piece {
+            Retyped::Text(text) => text_presses(text),
+            Retyped::Return => vec![Press::key(KEY_RETURN)],
+            Retyped::Tab => vec![Press::key(KEY_TAB)],
+        })
+        .collect()
+}
+
+/// Types again what the user typed, without checks between presses (an undo).
 pub(crate) fn retype(events: &dyn Events, text: &str) -> Result<(), KeyError> {
-    for piece in input::retyped(text) {
-        match piece {
-            Retyped::Text(text) => type_text(events, text)?,
-            Retyped::Return => events.press(KEY_RETURN, 0, &[])?,
-            Retyped::Tab => events.press(KEY_TAB, 0, &[])?,
-        }
-    }
-    Ok(())
+    post_all(events, &retype_presses(text))
 }
 
 /// UTF-16 chunks of at most [`CHUNK_UTF16`] units (a longer single grapheme goes alone).

@@ -204,7 +204,10 @@ impl Imp {
             Some((rendered.text.clone(), rendered.cursor_offset))
         };
         if let Some((text, Some(offset))) = delivered {
-            keys::move_left(self.events(), plan::graphemes_after_utf16(&text, offset))?;
+            let lefts = keys::left_presses(plan::graphemes_after_utf16(&text, offset));
+            if !self.post_checked(&live, &lefts)? {
+                return Ok(());
+            }
         }
         self.host.expanded(ExpansionEvent {
             snippet_id: snippet.id,
