@@ -3,8 +3,9 @@
 <!--
   iCloud entitlements for release builds (Developer ID + notarized DMG). These are restricted:
   macOS kills a signed app that claims them without the matching embedded provisioning profile,
-  so they're only applied through tauri.icloud.conf.json when Kudzu.provisionprofile exists
-  (see scripts/release/build.sh). Production environment: every distributed build must use it.
+  so `cargo xtask release` applies them only when the provisioning profile exists
+  (assets/Kudzu.provisionprofile, or KUDZU_PROVISIONING_PROFILE; see scripts/release/build.sh).
+  Production environment: every distributed build must use it.
 -->
 <plist version="1.0">
 <dict>

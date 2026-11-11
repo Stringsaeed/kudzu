@@ -32,7 +32,8 @@ cask "kudzu" do
   zap trash: [
     "~/Library/Application Support/sh.saeed.kudzu",
     "~/Library/Caches/sh.saeed.kudzu",
-    "~/Library/LaunchAgents/Kudzu.plist",
+    "~/Library/LaunchAgents/sh.saeed.kudzu.plist",
+    "~/Library/Logs/sh.saeed.kudzu",
     "~/Library/Preferences/sh.saeed.kudzu.plist",
     "~/Library/Saved Application State/sh.saeed.kudzu.savedState",
   ]
