@@ -27,11 +27,35 @@ node apps/desktop-v2/docs/migration/reference/verify.mjs
 
 `determinism.mjs` fixes 2026-11-11 12:00 UTC, UTC timezone, en-US locale, and LCG seed 2352. UUIDs use a separate seeded stream. Browser contexts are fresh per state/theme, with reduced motion, native macOS system fonts and device scale 2. The sample library is injected into mock localStorage from `mock-state.json`; 22 seed-library UUID calls are skipped so clipboard IDs follow the same sequence as Node. Chip scenes change only the first sample snippet's content. All mutations affect isolated browser mock data. The installed app and its data are never opened by these tools.
 
-PNG uses Chromium's lossless PNG encoder; there are no JPEG intermediates. `verify.mjs --dedupe` removes obsolete files and stores identical captures once, preserving aliases in metrics. `STATES.md` maps window-scoped scene names to preview paths; `metrics.json` resolves aliases to actual PNGs. Each metric records logical viewport size, visible DOM landmark rectangles, computed colors, font family/size/weight, radius, padding, shadow and semantic token values. Role/slot/label plus occurrence identify landmarks; the numeric key is only a stable occurrence within that capture. S06 should match semantic landmarks rather than assume DOM indices exist in Rune.
+PNG uses Chromium's lossless PNG encoder; there are no JPEG intermediates. `verify.mjs --dedupe` removes obsolete files and stores identical captures once, preserving aliases in metrics. `STATES.md` maps window-scoped scene names to preview paths; `metrics.json` resolves aliases to actual PNGs. Permission captures remove the browser-only `PermissionPreview` aside before measuring or photographing; revoked remains an alias of missing.
 
-The form uses its measured dialog height + 24 pt browser padding, capped at 640. Other sizes come directly from `tauri.conf.json`, `windows.rs` and `permissions/mod.rs`: main 1180×760, palette 760×480, picker 800×520, permission companion 420×660. These are content viewports, without browser chrome.
+## Semantic metrics (schema 2)
 
-Fixtures call the original implementations. Search includes the entire input library for a seeded 5,000-snippet corpus, ordered hit IDs, scores and UTF-16 name-hit positions. Clipboard covers queries, aliases, filters, sections, labels and ranges. Formatting uses actual CodeMirror state/history transactions through the existing loader. Private colour math is transpiled directly from the original TSX helper source. `color-inputs.json` records browser Canvas sRGB decoding (including invalid CSS falling back to black); `color.json` derives conversions and contrast from those inputs. This division keeps Node independent of a browser canvas implementation. To refresh decoding, remove only `color-inputs.json`, rerun capture, then regenerate fixtures.
+`metrics.json` is compact JSON, bounded below 800,000 bytes by the verifier. Scene viewports and rectangles use logical points, rounded to 0.001 pt. Only visible buttons, inputs (including their semantic ARIA roles), headings, named regions/landmarks and template chips are included. CSS-hidden elements are excluded. Visible controls behind modal overlays remain geometry landmarks even when inert or aria-hidden, so screen comparisons retain the underlying layout. There are no DOM-index keys, data-slot-only nodes, CodeMirror containers or generic role containers.
+
+Each landmark is a tuple following `landmarkColumns`:
+
+```text
+[role, accessibleName, occurrence, [x, y, width, height], styleId]
+```
+
+The first three values form the semantic key. Occurrence is 1-based among visible landmarks sharing the same role/name within the scene, in reading order. Names come from aria-label, aria-labelledby/associated label text, trimmed own text, or the control's single text label span beside its icon. Counts, shortcut groups and arbitrary concatenated descendant text are not used as names. A control without such a name is omitted. Rune compares the resolved semantic key, regardless of how its element tree is structured.
+
+`styleId` indexes `tables.styles`. Each style follows `styleColumns`:
+
+```text
+[fontId, fontSize, fontWeight, radius, padding, foregroundId, backgroundId, shadowId]
+```
+
+Font sizes and weights are numeric. Radius is top-left/top-right/bottom-right/bottom-left; padding is top/right/bottom/left. Computed px lengths are numeric logical points; a non-px radius retains its CSS unit. Font and shadow strings are interned in `tables.fonts` and `tables.shadows`. Colour IDs index `tables.colors`: `[red, green, blue, alpha]`, sRGB integer channels 0–255 and alpha 0–1, resolved through a one-pixel sRGB Canvas readback (8-bit alpha, rounded to 0.001). Repeated style records and colour values are interned too.
+
+`tokens.light` and `tokens.dark` are shared across scenes. Each CSS custom-property name maps to `{source, rgba}`: `source` indexes `tables.colorSources`, holding the exact authored declaration value from `globals.css` (including `var(...)` references); `rgba` indexes the same resolved sRGB colour table. The light declarations come from `:root`; dark overlays only the standalone `.dark` block, inheriting unchanged root values. Motion/font/shadow declarations are excluded from this colour-token map. Token sources are never Chromium-normalized `lab()` text. Shadows retain their computed CSS string as a separate interned style property. `verify.mjs` checks authored token text against the frozen source.
+
+The form uses the native `resize_form` contract: measured dialog height clamped to 160–680, with no extra 24 points. Its browser-only outer padding is removed to match the native `vibrant:p-0` layout before measuring. `dialogHeight` records the clamp input. Other sizes come directly from `tauri.conf.json`, `windows.rs` and `permissions/mod.rs`: main 1180×760, palette 760×480, picker 800×520, permission companion 420×660. These are content viewports, without browser chrome.
+
+A full capture refreshes every scene and the shared dictionaries. For a targeted repeat after that, `ONLY=demo` captures both form themes; comma-separated substrings select several scenes. It reuses schema-2 dictionaries and replaces the selected scene rows. Run verification/deduplication afterwards, then sync the PNGs using the Screenshots command above.
+
+Fixtures call the original implementations. Search includes the entire input library for a seeded 5,000-snippet corpus, ordered hit IDs, scores and UTF-16 name-hit positions. Clipboard covers queries, aliases, filters, sections, labels and ranges. Formatting uses actual CodeMirror state/history transactions through the existing loader, including underline, link creation/editing, clear formatting, image insertion and removing image formatting while retaining its alternative text. Private colour math is transpiled directly from the original TSX helper source. `color-inputs.json` records browser Canvas sRGB decoding (including invalid CSS falling back to black); `color.json` derives conversions and contrast from those inputs. This division keeps Node independent of a browser canvas implementation. To refresh decoding, remove only `color-inputs.json`, rerun capture, then regenerate fixtures.
 
 Limits: browser preview captures do not prove native vibrancy, shadows, clipping, inter-app focus, motion, expansion or permission behavior. See S72 for those. `BASELINE.md` records passive installed-process sampling; launch/palette timings and complete physical footprint remain owner measurements. No Dev build was launched.
 

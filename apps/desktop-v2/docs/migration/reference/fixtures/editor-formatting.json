@@ -70,13 +70,13 @@
     },
     {
       "text": "Hello 😀 {{date}} world",
-      "action": "insert",
-      "doc": "Hi Hello 😀 {{date}} world",
+      "action": "underline",
+      "doc": "Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
-            "anchor": 3,
-            "head": 26
+            "anchor": 0,
+            "head": 23
           }
         ],
         "main": 0
@@ -84,24 +84,136 @@
       "spans": [
         {
           "start": 0,
-          "end": 26,
+          "end": 23,
           "style": {
             "kind": "bold"
           }
         },
         {
           "start": 0,
-          "end": 26,
+          "end": 23,
           "style": {
             "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
           }
         }
       ]
     },
     {
       "text": "Hello 😀 {{date}} world",
-      "action": "bullets",
-      "doc": "• Hi Hello 😀 {{date}} world",
+      "action": "link",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/first"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "edit-link",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 23,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/edited"
+          }
+        }
+      ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "clear",
+      "doc": "Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 23
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "insert-image",
+      "doc": "[Dot]Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
@@ -114,139 +226,119 @@
       "spans": [
         {
           "start": 0,
-          "end": 28,
+          "end": 5,
           "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 28,
-          "style": {
-            "kind": "italic"
+            "kind": "image",
+            "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x8AAAAASUVORK5CYII=",
+            "width": 32
           }
         }
       ]
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "remove-image-formatting",
+      "doc": "[Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 5
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "insert",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "Hello 😀 {{date}} world",
+      "action": "bullets",
+      "doc": "• Hi [Dot]Hello 😀 {{date}} world",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 10
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
     },
     {
       "text": "Hello 😀 {{date}} world",
       "action": "numbers",
-      "doc": "1. Hi Hello 😀 {{date}} world",
+      "doc": "1. Hi [Dot]Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
             "anchor": 6,
-            "head": 29
+            "head": 11
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 29,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 29,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "Hello 😀 {{date}} world",
       "action": "remove-numbers",
-      "doc": "Hi Hello 😀 {{date}} world",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
             "anchor": 3,
-            "head": 26
+            "head": 8
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 26,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 26,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "Hello 😀 {{date}} world",
       "action": "undo",
-      "doc": "1. Hi Hello 😀 {{date}} world",
+      "doc": "1. Hi [Dot]Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
             "anchor": 6,
-            "head": 29
+            "head": 11
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 29,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 29,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "Hello 😀 {{date}} world",
       "action": "redo",
-      "doc": "Hi Hello 😀 {{date}} world",
+      "doc": "Hi [Dot]Hello 😀 {{date}} world",
       "selection": {
         "ranges": [
           {
             "anchor": 3,
-            "head": 26
+            "head": 8
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 26,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 26,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "first\nsecond\nthird",
@@ -318,13 +410,13 @@
     },
     {
       "text": "first\nsecond\nthird",
-      "action": "insert",
-      "doc": "Hi first\nsecond\nthird",
+      "action": "underline",
+      "doc": "first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
-            "anchor": 3,
-            "head": 21
+            "anchor": 0,
+            "head": 18
           }
         ],
         "main": 0
@@ -332,29 +424,141 @@
       "spans": [
         {
           "start": 0,
-          "end": 21,
+          "end": 18,
           "style": {
             "kind": "bold"
           }
         },
         {
           "start": 0,
-          "end": 21,
+          "end": 18,
           "style": {
             "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
           }
         }
       ]
     },
     {
       "text": "first\nsecond\nthird",
-      "action": "bullets",
-      "doc": "• Hi first\n• second\n• third",
+      "action": "link",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/first"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "edit-link",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": [
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "bold"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "italic"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "underline"
+          }
+        },
+        {
+          "start": 0,
+          "end": 18,
+          "style": {
+            "kind": "link",
+            "url": "https://example.com/edited"
+          }
+        }
+      ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "clear",
+      "doc": "first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 18
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "insert-image",
+      "doc": "[Dot]first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
             "anchor": 5,
-            "head": 27
+            "head": 23
           }
         ],
         "main": 0
@@ -362,139 +566,119 @@
       "spans": [
         {
           "start": 0,
-          "end": 27,
+          "end": 5,
           "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 27,
-          "style": {
-            "kind": "italic"
+            "kind": "image",
+            "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x8AAAAASUVORK5CYII=",
+            "width": 32
           }
         }
       ]
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "remove-image-formatting",
+      "doc": "[Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 0,
+            "head": 5
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "insert",
+      "doc": "Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 3,
+            "head": 8
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
+    },
+    {
+      "text": "first\nsecond\nthird",
+      "action": "bullets",
+      "doc": "• Hi [Dot]first\nsecond\nthird",
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 5,
+            "head": 10
+          }
+        ],
+        "main": 0
+      },
+      "spans": []
     },
     {
       "text": "first\nsecond\nthird",
       "action": "numbers",
-      "doc": "1. Hi first\n2. second\n3. third",
+      "doc": "1. Hi [Dot]first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
             "anchor": 6,
-            "head": 30
+            "head": 11
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 30,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 30,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "first\nsecond\nthird",
       "action": "remove-numbers",
-      "doc": "Hi first\nsecond\nthird",
+      "doc": "Hi [Dot]first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
             "anchor": 3,
-            "head": 21
+            "head": 8
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 21,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 21,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "first\nsecond\nthird",
       "action": "undo",
-      "doc": "1. Hi first\n2. second\n3. third",
+      "doc": "1. Hi [Dot]first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
             "anchor": 6,
-            "head": 30
+            "head": 11
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 30,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 30,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     },
     {
       "text": "first\nsecond\nthird",
       "action": "redo",
-      "doc": "Hi first\nsecond\nthird",
+      "doc": "Hi [Dot]first\nsecond\nthird",
       "selection": {
         "ranges": [
           {
             "anchor": 3,
-            "head": 21
+            "head": 8
           }
         ],
         "main": 0
       },
-      "spans": [
-        {
-          "start": 0,
-          "end": 21,
-          "style": {
-            "kind": "bold"
-          }
-        },
-        {
-          "start": 0,
-          "end": 21,
-          "style": {
-            "kind": "italic"
-          }
-        }
-      ]
+      "spans": []
     }
   ],
   "safety": [

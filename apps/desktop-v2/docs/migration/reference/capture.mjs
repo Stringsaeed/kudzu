@@ -3,14 +3,16 @@ import { createRequire } from 'node:module'
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { resolve, delimiter } from 'node:path'
 import { FIXTURE, installDeterminism } from './determinism.mjs'
+import { landmarkColumns, dictionaries, authoredTokenSources, extractLandmarks, packLandmarks, resolveTokens, intern } from './landmarks.mjs'
 const bin = process.env.PATH.split(delimiter).find(p => existsSync(resolve(p,'playwright')))
 if (!bin) throw Error('Run through pnpm dlx --package playwright@1.65.0 -c ...')
 const { chromium } = createRequire(resolve(bin,'../package.json'))('playwright')
 const root = new URL('./',import.meta.url)
 const browser = await chromium.launch({headless:true})
 const base = process.env.REFERENCE_URL ?? 'http://localhost:3042'
-const metrics = { schemaVersion:1, fixture:FIXTURE, browser:browser.version(), scale:2, states:[] }
+const metrics = process.env.ONLY ? JSON.parse(readFileSync(new URL('metrics.json',root))) : { schemaVersion:2, landmarkColumns, styleColumns:['font','fontSize','fontWeight','radius','padding','color','background','shadow'], tables:dictionaries(), tokens:{}, fixture:FIXTURE, browser:browser.version(), scale:2, states:[] }
 const mock = existsSync(new URL('fixtures/mock-state.json',root)) ? JSON.parse(readFileSync(new URL('fixtures/mock-state.json',root))) : null
+const tokenSources=authoredTokenSources()
 const stateList=[]
 const add=(window,state,path='/',action=null,size=null)=>stateList.push({window,state,path,action,size})
 add('main','library')
@@ -57,6 +59,10 @@ for(const [kind,label] of Object.entries({image:'Images',link:'Links',file:'File
 add('main','clipboard-no-match','/?view=clipboard',p=>p.locator('input').first().fill('no-such-reference-item'))
 add('palette','no-match','/palette',p=>p.locator('input').first().fill('no-such-reference-snippet'))
 const sizes={main:[1180,760],palette:[760,480],picker:[800,520],form:[440,640],permissions:[420,660]}
+if(process.env.ONLY) {
+ if(metrics.schemaVersion!==2) throw Error('Run the full capture before selecting states')
+ metrics.states=metrics.states.filter(s=>!process.env.ONLY.split(',').some(term=>s.scene.includes(term)))
+}
 for(const spec of stateList.filter(s=>!process.env.ONLY || process.env.ONLY.split(',').some(term=>s.state.includes(term)))) for(const theme of ['dark','light']) {
  const [width,height]=spec.size??sizes[spec.window]
  const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:2,locale:FIXTURE.locale,timezoneId:FIXTURE.timezone,colorScheme:theme,reducedMotion:'reduce'})
@@ -74,21 +80,15 @@ for(const spec of stateList.filter(s=>!process.env.ONLY || process.env.ONLY.spli
  await p.waitForTimeout(250)
  if(spec.action) await spec.action(p)
  await p.waitForTimeout(250)
- if(spec.window==='form') { const h=Math.min(640,Math.ceil(await p.getByRole('dialog').evaluate(e=>e.getBoundingClientRect().height))+24); await p.setViewportSize({width,height:h}) }
+ if(spec.window==='permissions') await p.locator('aside').filter({hasText:'Preview'}).evaluateAll(nodes=>nodes.forEach(n=>n.remove()))
+ if(spec.window==='form') { await p.getByRole('dialog').evaluate(e=>{e.parentElement.style.padding='0'}); const h=Math.max(160,Math.min(680,Math.ceil(await p.getByRole('dialog').evaluate(e=>e.getBoundingClientRect().height)))); await p.setViewportSize({width,height:h}) }
  if(process.env.INSPECT==='1') { console.log(spec.state,await p.locator('body').innerText()); console.log(await p.locator('button,input,[role="option"]').evaluateAll(es=>es.map(e=>({tag:e.tagName,role:e.getAttribute('role'),label:e.getAttribute('aria-label'),text:e.textContent?.slice(0,60)})))); break }
- const landmarks=await p.evaluate(()=>{
- const selector='button,input,textarea,[role],header,aside,nav,h1,h2,h3,.cm-editor,.kz-chip,[data-slot]'
- return [...document.querySelectorAll(selector)].flatMap((e,i)=>{
- const r=e.getBoundingClientRect(); if(!r.width||!r.height||r.bottom<0||r.top>innerHeight) return []
- const c=getComputedStyle(e)
- return [{key:`${e.tagName.toLowerCase()}:${i}`,role:e.getAttribute('role'),slot:e.getAttribute('data-slot'),label:e.getAttribute('aria-label')||e.getAttribute('placeholder')||e.textContent?.trim().slice(0,100),rect:{x:r.x,y:r.y,width:r.width,height:r.height},color:c.color,background:c.backgroundColor,fontSize:c.fontSize,fontFamily:c.fontFamily,fontWeight:c.fontWeight,borderRadius:c.borderRadius,padding:c.padding,boxShadow:c.boxShadow}]
- })
- })
- const tokens=await p.evaluate(()=>{const c=getComputedStyle(document.documentElement);return Object.fromEntries(['background','foreground','primary','secondary','muted','muted-foreground','accent','border','input','ring','sidebar','iris','surface','hairline'].map(k=>[k,c.getPropertyValue('--'+k).trim()]))})
+ const landmarks=packLandmarks(await p.evaluate(extractLandmarks),metrics.tables)
+ if(!metrics.tokens[theme]) metrics.tokens[theme]=Object.fromEntries((await p.evaluate(resolveTokens,tokenSources[theme])).map(([name,source,color])=>[name,{source:intern(metrics.tables.colorSources,source),rgba:intern(metrics.tables.colors,color)}]))
  mkdirSync(new URL(spec.window+'/',root),{recursive:true})
  const file=`${spec.window}/${spec.state}.${theme}.png`
  await p.screenshot({path:new URL(file,root).pathname,animations:'disabled',caret:'hide',scale:'device'})
- metrics.states.push({window:spec.window,scene:spec.state,theme,file,url:spec.path,viewport:p.viewportSize(),landmarks,tokens})
+ metrics.states.push({window:spec.window,scene:spec.state,theme,file,url:spec.path,viewport:p.viewportSize(),...(spec.window==='form'?{dialogHeight:await p.getByRole('dialog').evaluate(e=>Math.ceil(e.getBoundingClientRect().height))}:{}),landmarks})
  console.log(file,landmarks.length)
  if(!existsSync(new URL('fixtures/color-inputs.json',root))) {
  const inputs=await p.evaluate(()=>['#000','#fff','#6366f1','#ff000080','rebeccapurple','hsl(120 100% 50%)','oklch(0.7 0.1 200)','transparent','invalid-color'].map(css=>{const c=document.createElement('canvas').getContext('2d');c.fillStyle='#000';c.fillStyle=css;c.fillRect(0,0,1,1);return {css,rgba:[...c.getImageData(0,0,1,1).data].map(v=>v/255)}}))
@@ -98,12 +98,7 @@ for(const spec of stateList.filter(s=>!process.env.ONLY || process.env.ONLY.spli
  await context.close()
 }
 await browser.close()
-if(process.env.ONLY && existsSync(new URL('metrics.json',root))) {
- const previous=JSON.parse(readFileSync(new URL('metrics.json',root)))
- const replaced=new Set(metrics.states.map(s=>`${s.window}/${s.scene}/${s.theme}`))
- metrics.states=[...previous.states.filter(s=>!replaced.has(`${s.window}/${s.scene}/${s.theme}`)),...metrics.states]
-}
-writeFileSync(new URL('metrics.json',root),JSON.stringify(metrics,null,2)+'\n')
-writeFileSync(new URL('STATES.md',root),'# Reference scenes\n\nAll dimensions are logical points; PNGs are 2×. Scene names are scoped by window.\n\n| Window | Scene | Preview path | Size | Themes |\n|---|---|---|---|---|\n'+stateList.map(s=>`| ${s.window} | ${s.state} | \`${s.path}\` | ${s.window==='form'?'440 × content (max 640)':sizes[s.window].join(' × ')} | light, dark |`).join('\n')+'\n')
+writeFileSync(new URL('metrics.json',root),JSON.stringify(metrics)+'\n')
+writeFileSync(new URL('STATES.md',root),'# Reference scenes\n\nAll dimensions are logical points; PNGs are 2× and live outside git (README Screenshots). Scene names are scoped by window. metrics.json v2 keys landmarks by role, accessible name and 1-based occurrence; packed columns and intern dictionaries are documented in README. Token tables are shared per theme and store authored CSS plus resolved sRGB.\n\n| Window | Scene | Preview path | Size | Themes |\n|---|---|---|---|---|\n'+stateList.map(s=>`| ${s.window} | ${s.state} | \`${s.path}\` | ${s.window==='form'?'440 × dialog (clamped 160–680)':sizes[s.window].join(' × ')} | light, dark |`).join('\n')+'\n')
 
 if(metrics.states.some(s=>s.error)) process.exitCode=1

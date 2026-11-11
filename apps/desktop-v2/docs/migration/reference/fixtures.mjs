@@ -51,7 +51,8 @@ outputs['group-edge-cases'] = [
 outputs.stats = { usage:[...Stats.usageById(library)], totals:[20,40,80].map(wpm=>({wpm,result:Stats.totals(library,Stats.usageById(library),wpm)})), counts:[0,1,999,1000,999999,1000000].map(input=>({input,output:Stats.formatCount(input)})), durations:[0,0.1,1,59,60,1440].map(input=>({input,output:Stats.formatDuration(input)})), relative:[0,30000,3600000,86400000,86400000*40].map(age=>({age,output:Stats.relativeTime(Date.now()-age)})) }
 outputs.clipboard = { queries:['','app:slack','is:image','is:img','design Thursday','app:"Visual Studio Code"','is:code const','APP:Safari','is:unknown','العربية'].map(query=>({query,parsed:C.parseQuery(query),filters:C.FILTERS.map(f=>({filter:f.value,ids:C.searchClips(clipboard.entries,f.value,query).map(e=>e.id)}))})), rows:[false,true].flatMap(pinnedFirst=>[false,true].map(sections=>({pinnedFirst,sections,result:C.buildRows(clipboard.entries,{pinnedFirst,sections})}))), entries:clipboard.entries.map(e=>({id:e.id,description:C.describe(e),spoken:C.spokenLabel(e),concealed:C.spokenLabel(e,true),time:C.clipTime(e.copiedAt),exact:C.exactTime(e.copiedAt),expiry:[0,1,7,365].map(days=>({days,label:C.retentionLabel(days),output:C.expiresIn(e,days)}))})), ranges:['banana BANANA','😀 café العربية','x'.repeat(200)].map(text=>({text,terms:['an','a','é','الع','x'],ranges:C.matchRanges(text,['an','a','é','الع','x'])})), bytes:[0,1,1024,1000000,38400000].map(n=>({n,label:C.formatBytes(n)})) }
 const tags = ['{{date}}','{{time}}','{{clipboard trim=true history=2}}','{{cursor}}',`{{snippet id="${library.snippets[0].id}"}}`,'{{field name="Name" default="Friend"}}','{{choice name="Platform" options="Mac|Linux"}}','{{selection trim=true}}','{{uuid upper=true}}','{{random options="A|B"}}','{{key name="tab" count=2}}','{{delay ms=300}}','{{unknown a="x"}}','{{field}}','\\{{literal}}','😀 {{date format="yyyy-MM-dd"}}','x'.repeat(150)]
-outputs.template = { presets:T.DATE_FORMAT_PRESETS,cases:tags.map(source=>({source,tokens:T.tokenize(source),chips:T.tokenize(source).filter(t=>t.kind==='tag').map(t=>({label:T.chipLabel(t,id=>library.snippets.find(s=>s.id===id)?.name),tone:T.chipTone(t),canonical:T.buildTag(t.name,t.attrs)})),facts:T.analyze(source),summary:T.plainSummary(source)})) }
+const snippetName=id=>library.snippets.find(s=>s.id===id)?.name
+outputs.template = { presets:T.DATE_FORMAT_PRESETS,cases:tags.map(source=>({source,tokens:T.tokenize(source),chips:T.tokenize(source).filter(t=>t.kind==='tag').map(t=>({label:T.chipLabel(t,snippetName),tone:T.chipTone(t),canonical:T.buildTag(t.name,t.attrs)})),facts:T.analyze(source),summary:T.plainSummary(source,snippetName)})) }
 outputs.keys = { labels:['mod+k','mod+shift+p','Control+Alt+Space','CommandOrControl+Shift+F12','Ctrl+Alt+V'].map(input=>({input,keys:K.keyLabels(input),accelerator:K.acceleratorLabels(input)})),recorder:[{key:'a'},{key:'a',shiftKey:true},{key:'a',metaKey:true},{key:'F5'},{key:'Shift',shiftKey:true},{key:' ',ctrlKey:true,altKey:true},{key:'Escape'},{key:'ArrowLeft',ctrlKey:true}].map(event=>({event:{...event,code:event.key==='a'?'KeyA':event.key===' '?'Space':event.key},result:K.acceleratorFromEvent({ctrlKey:false,altKey:false,metaKey:false,shiftKey:false,code:event.key==='a'?'KeyA':event.key===' '?'Space':event.key,...event})})) }
 outputs['release-notes'] = [null,'',mockState.updateAvailable.notes,'# Release\n\n### Fixes\n- **bold** and [link](https://example.com) (`abcdef1`)\n* second item'].map(input=>({input,result:U.parseNotes(input)}))
 const transactions=[]
@@ -62,6 +63,14 @@ for (const text of ['Hello 😀 {{date}} world','first\nsecond\nthird']) {
  view.dispatch({effects:E.setFormatting.of([])}); snap('enable')
  E.changeFormat(view,{kind:'bold'}); snap('bold')
  E.changeFormat(view,{kind:'italic'}); snap('italic')
+ E.changeFormat(view,{kind:'underline'}); snap('underline')
+ E.changeFormat(view,{kind:'link',url:'https://example.com/first'}); snap('link')
+ E.changeFormat(view,{kind:'link',url:'https://example.com/edited'}); snap('edit-link')
+ E.changeFormat(view,'clear'); snap('clear')
+ const image={kind:'image',dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a6x8AAAAASUVORK5CYII=',width:32}
+ view.dispatch({changes:{from:0,insert:'[Dot]'},effects:E.setFormatting.of([{start:0,end:5,style:image}])}); snap('insert-image')
+ view.dispatch({selection:{anchor:0,head:5}})
+ E.changeFormat(view,'clear'); snap('remove-image-formatting')
  view.dispatch({changes:{from:0,insert:'Hi '}}); snap('insert')
  E.toggleList(view,false); snap('bullets')
  E.toggleList(view,true); snap('numbers')

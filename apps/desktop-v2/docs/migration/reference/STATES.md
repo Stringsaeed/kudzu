@@ -1,6 +1,6 @@
 # Reference scenes
 
-All dimensions are logical points; PNGs are 2×. Scene names are scoped by window.
+All dimensions are logical points; PNGs are 2× and live outside git (README Screenshots). Scene names are scoped by window. metrics.json v2 keys landmarks by role, accessible name and 1-based occurrence; packed columns and intern dictionaries are documented in README. Token tables are shared per theme and store authored CSS plus resolved sRGB.
 
 | Window | Scene | Preview path | Size | Themes |
 |---|---|---|---|---|
@@ -30,7 +30,7 @@ All dimensions are logical points; PNGs are 2×. Scene names are scoped by windo
 | picker | history | `/clipboard` | 800 × 520 | light, dark |
 | picker | clips-5000 | `/clipboard?clips=5000` | 800 × 520 | light, dark |
 | picker | empty | `/clipboard?emptyclips` | 800 × 520 | light, dark |
-| form | demo | `/form?demo` | 440 × content (max 640) | light, dark |
+| form | demo | `/form?demo` | 440 × dialog (clamped 160–680) | light, dark |
 | permissions | missing | `/permissions` | 420 × 660 | light, dark |
 | permissions | allowed | `/permissions` | 420 × 660 | light, dark |
 | permissions | revoked | `/permissions` | 420 × 660 | light, dark |
