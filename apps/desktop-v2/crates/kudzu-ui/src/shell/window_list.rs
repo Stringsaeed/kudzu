@@ -69,10 +69,13 @@ mod tests {
             || (),
             |_, _| rune::col(),
         ));
-        let (_, handle) = host.window(rune::WindowSpec::new(
+        let closed = rune::App::new(rune::AppSpec::new(
             "closed",
-            rune::AppSpec::new("closed", (10.0, 10.0), || (), |_, _| rune::col()),
+            (10.0, 10.0),
+            || (),
+            |_, _| rune::col(),
         ));
+        let (_, handle) = host.window(crate::theme::window::spec("closed", closed));
         list.track(&handle);
         assert_eq!(list.handles.lock().unwrap().len(), 0);
         assert_eq!(
