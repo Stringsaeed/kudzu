@@ -32,7 +32,7 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex, PoisonError, Weak,
     },
 };
 use uuid::Uuid;
@@ -46,9 +46,37 @@ pub struct EngineAdapter {
     running: AtomicBool,
 }
 
+/// Each composition's newest native engine. The native engine owns a session event tap, so
+/// only the newest adapter on an `EngineInstances` may keep one running.
+type Live = Vec<(Weak<EngineInstances>, Weak<dyn Native>)>;
+static LIVE: Mutex<Live> = Mutex::new(Vec::new());
+
+/// Stops the native engines of earlier adapters on `instances`, which retiring them alone
+/// would leave matching and inserting. No lock is held while they stop.
+fn stop_previous(instances: &Arc<EngineInstances>) {
+    let previous: Vec<Arc<dyn Native>> = {
+        let mut live = LIVE.lock().unwrap_or_else(PoisonError::into_inner);
+        live.retain(|(owner, native)| owner.strong_count() > 0 && native.strong_count() > 0);
+        let (same, rest): (Live, Live) = live.drain(..).partition(|(owner, _)| {
+            owner
+                .upgrade()
+                .is_some_and(|owner| Arc::ptr_eq(&owner, instances))
+        });
+        *live = rest;
+        same.into_iter()
+            .filter_map(|(_, native)| native.upgrade())
+            .collect()
+    };
+    for native in previous {
+        native.stop();
+    }
+}
+
 impl EngineAdapter {
-    /// A stopped engine on the real system, with the next instance from `instances`. Stop the
-    /// previous adapter first: allocating retires it, and its late callbacks are dropped.
+    /// A stopped engine on the real system, with the next instance from `instances`. Creating
+    /// it retires the previous adapter on the same `instances` (its late callbacks are dropped)
+    /// and stops that adapter's native engine, so only one event tap runs. S40 should still
+    /// `stop` the previous adapter first, which also detaches its sink.
     pub fn new(instances: Arc<EngineInstances>) -> Self {
         Self::with_native(instances, |host| {
             Arc::new(native::System(kudzu_engine::Engine::new(host)))
@@ -60,8 +88,12 @@ impl EngineAdapter {
         build: impl FnOnce(Arc<dyn kudzu_engine::EngineHost>) -> Arc<dyn Native>,
     ) -> Self {
         let instance = instances.next_engine();
+        stop_previous(&instances);
         let host = Arc::new(ForwardingHost::new(instance, instances.clone()));
         let native = build(host.clone());
+        LIVE.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((Arc::downgrade(&instances), Arc::downgrade(&native)));
         Self {
             native,
             host,

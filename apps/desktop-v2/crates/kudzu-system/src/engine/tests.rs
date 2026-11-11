@@ -359,3 +359,21 @@ fn nothing_is_admitted_until_the_native_engine_has_started() {
     assert_eq!(adapter.insert(Uuid::nil(), None, None), Ok(()));
     adapter.stop();
 }
+
+/// The S35 review: a new adapter retired the old engine instance but left its native engine
+/// (and so its event tap) running. Creating the next adapter stops it.
+#[test]
+fn a_new_adapter_stops_the_previous_ones_native_engine() {
+    let instances = Arc::new(EngineInstances::default());
+    let old = Forwarding::new(instances.clone());
+    old.adapter
+        .start(Arc::new(FakeEngineEvents::default()))
+        .unwrap();
+    let new = Forwarding::new(instances.clone());
+    assert_eq!(old.native.state().stops, 1, "the old native engine stopped");
+    assert_eq!(new.native.state().stops, 0);
+    // Another composition's adapter is left alone.
+    let other = Forwarding::new(Arc::new(EngineInstances::default()));
+    assert_eq!(new.native.state().stops, 0);
+    drop(other);
+}
