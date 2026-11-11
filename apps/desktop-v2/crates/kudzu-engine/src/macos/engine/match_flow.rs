@@ -285,13 +285,19 @@ impl Imp {
                 self.insert_expansion(typed, rendered)
             }
             MatcherEvent::Undo(undo) => {
-                let events = self.events();
-                keys::move_right(events, m.undo_caret)?;
                 // A listen-only backspace already reached the document.
                 let already = usize::from(m.mode == PlanMode::ListenOnly);
-                keys::delete_backward(events, undo.delete_count.saturating_sub(already))?;
-                keys::retype(events, &undo.retype)?;
-                self.recorder.undone();
+                let presses = [
+                    keys::right_presses(m.undo_caret),
+                    keys::backspace_presses(undo.delete_count.saturating_sub(already)),
+                    keys::retype_presses(&undo.retype),
+                ]
+                .concat();
+                // Each press re-checks that nothing changed: a click or another app in front
+                // stops the undo where it is, never deleting or typing at the new place.
+                if self.post_checked(&typed_live, &presses)? {
+                    self.recorder.undone();
+                }
                 Ok(())
             }
         }

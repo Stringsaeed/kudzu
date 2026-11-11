@@ -142,10 +142,6 @@ fn repeat(key: CGKeyCode, count: usize) -> Vec<Press> {
     vec![Press::key(key); count]
 }
 
-fn post_all(events: &dyn Events, presses: &[Press]) -> Result<(), KeyError> {
-    presses.iter().try_for_each(|press| press.post(events))
-}
-
 /// `count` presses of Delete.
 pub(crate) fn backspace_presses(count: usize) -> Vec<Press> {
     repeat(KEY_DELETE, count)
@@ -156,14 +152,9 @@ pub(crate) fn left_presses(count: usize) -> Vec<Press> {
     repeat(KEY_LEFT, count)
 }
 
-/// Presses Delete `count` times.
-pub(crate) fn delete_backward(events: &dyn Events, count: usize) -> Result<(), KeyError> {
-    post_all(events, &backspace_presses(count))
-}
-
-/// Presses Right Arrow `count` times.
-pub(crate) fn move_right(events: &dyn Events, count: usize) -> Result<(), KeyError> {
-    post_all(events, &repeat(KEY_RIGHT, count))
+/// `count` presses of Right Arrow.
+pub(crate) fn right_presses(count: usize) -> Vec<Press> {
+    repeat(KEY_RIGHT, count)
 }
 
 /// The virtual key code of a `{{key}}` tag's key (ANSI layout-independent keys only).
@@ -222,11 +213,6 @@ pub(crate) fn retype_presses(text: &str) -> Vec<Press> {
             Retyped::Tab => vec![Press::key(KEY_TAB)],
         })
         .collect()
-}
-
-/// Types again what the user typed, without checks between presses (an undo).
-pub(crate) fn retype(events: &dyn Events, text: &str) -> Result<(), KeyError> {
-    post_all(events, &retype_presses(text))
 }
 
 /// UTF-16 chunks of at most [`CHUNK_UTF16`] units (a longer single grapheme goes alone).
