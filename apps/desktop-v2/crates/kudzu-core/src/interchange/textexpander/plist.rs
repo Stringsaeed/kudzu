@@ -250,7 +250,9 @@ fn tokenize(xml: &str) -> Result<Vec<Token>, String> {
             rest = &after[end + 1..];
         } else {
             let end = rest.find('<').unwrap_or(rest.len());
-            tokens.push(Token::Text(decode_entities(&normalize_newlines(&rest[..end]))));
+            tokens.push(Token::Text(decode_entities(&normalize_newlines(
+                &rest[..end],
+            ))));
             rest = &rest[end..];
         }
     }
@@ -341,7 +343,8 @@ mod tests {
 
     #[test]
     fn keeps_whitespace_and_cdata_inside_strings() {
-        let xml = "<plist><dict><key>t</key><string>  a\n  <![CDATA[<b>]]> </string></dict></plist>";
+        let xml =
+            "<plist><dict><key>t</key><string>  a\n  <![CDATA[<b>]]> </string></dict></plist>";
         let value = parse(xml).unwrap();
         assert_eq!(value.get("t").and_then(Value::as_str), Some("  a\n  <b> "));
     }
@@ -350,7 +353,10 @@ mod tests {
     fn normalizes_line_endings_but_keeps_character_references() {
         let xml = "<plist><dict><key>t</key><string>a\r\nb\rc&#13;d&#0;e</string></dict></plist>";
         let value = parse(xml).unwrap();
-        assert_eq!(value.get("t").and_then(Value::as_str), Some("a\nb\nc\rd&#0;e"));
+        assert_eq!(
+            value.get("t").and_then(Value::as_str),
+            Some("a\nb\nc\rd&#0;e")
+        );
     }
 
     #[test]

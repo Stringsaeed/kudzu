@@ -77,7 +77,11 @@ pub enum InsertFailure {
 
 /// What happened to a fully matched trigger, or to the engine itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ActivityOutcome {
     Expanded,
     /// Backspace right after the expansion put the trigger back.
@@ -85,18 +89,32 @@ pub enum ActivityOutcome {
     Paused,
     SnippetOff,
     /// `group_id` is the nearest group that is turned off.
-    GroupOff { group_id: Uuid },
+    GroupOff {
+        group_id: Uuid,
+    },
     /// `group_id` is the group whose rule decided, at [`RuleLevel::Group`].
-    AppRule { level: RuleLevel, group_id: Option<Uuid> },
+    AppRule {
+        level: RuleLevel,
+        group_id: Option<Uuid>,
+    },
     /// `owner` is the app holding Secure Input, when macOS reports it.
-    SecureInput { owner: Option<String> },
-    MissingPermission { permission: Permission },
+    SecureInput {
+        owner: Option<String>,
+    },
+    MissingPermission {
+        permission: Permission,
+    },
     FormCancelled,
-    InsertionFailed { error: InsertFailure },
+    InsertionFailed {
+        error: InsertFailure,
+    },
     /// Typing, a click or an app switch got in before the insertion could start.
     Interrupted,
     /// Health: macOS disabled the keyboard tap; `reenabled` when Kudzu turned it back on.
-    TapDisabled { cause: TapDisabledCause, reenabled: bool },
+    TapDisabled {
+        cause: TapDisabledCause,
+        reenabled: bool,
+    },
     /// Health: the keyboard tap was removed because its permissions went away.
     ListenerLost,
     /// Health: the engine was stopped.
@@ -106,7 +124,10 @@ pub enum ActivityOutcome {
 impl ActivityOutcome {
     /// Whether this describes the engine rather than one snippet.
     pub fn is_health(&self) -> bool {
-        matches!(self, Self::TapDisabled { .. } | Self::ListenerLost | Self::EngineStopped)
+        matches!(
+            self,
+            Self::TapDisabled { .. } | Self::ListenerLost | Self::EngineStopped
+        )
     }
 }
 
@@ -139,13 +160,35 @@ pub struct ActivityEvent {
 
 impl ActivityEvent {
     /// An attempt on `snippet_id`, stamped now.
-    pub fn attempt(source: ActivitySource, snippet_id: Uuid, trigger: Option<String>, app: Option<ActivityApp>, outcome: ActivityOutcome) -> Self {
-        Self { id: 0, at: Utc::now(), source: Some(source), snippet_id: Some(snippet_id), trigger, app, outcome }
+    pub fn attempt(
+        source: ActivitySource,
+        snippet_id: Uuid,
+        trigger: Option<String>,
+        app: Option<ActivityApp>,
+        outcome: ActivityOutcome,
+    ) -> Self {
+        Self {
+            id: 0,
+            at: Utc::now(),
+            source: Some(source),
+            snippet_id: Some(snippet_id),
+            trigger,
+            app,
+            outcome,
+        }
     }
 
     /// An engine health event, stamped now.
     pub fn health(outcome: ActivityOutcome) -> Self {
-        Self { id: 0, at: Utc::now(), source: None, snippet_id: None, trigger: None, app: None, outcome }
+        Self {
+            id: 0,
+            at: Utc::now(),
+            source: None,
+            snippet_id: None,
+            trigger: None,
+            app: None,
+            outcome,
+        }
     }
 }
 
@@ -166,7 +209,11 @@ impl ActivityLog {
     /// A log holding at most `capacity` events (at least one).
     pub fn with_capacity(capacity: usize) -> Self {
         let capacity = capacity.max(1);
-        Self { events: VecDeque::with_capacity(capacity), capacity, next_id: 1 }
+        Self {
+            events: VecDeque::with_capacity(capacity),
+            capacity,
+            next_id: 1,
+        }
     }
 
     /// Appends `event`, dropping the oldest when full. Returns it with its id.
@@ -223,7 +270,11 @@ pub enum Tone {
 
 /// The action that removes the cause of a skip.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum Fix {
     /// Resume expanding.
     Resume,
@@ -231,11 +282,15 @@ pub enum Fix {
     /// Open the snippet, where its app rule is edited.
     OpenSnippet,
     /// Open the group's settings (on/off switch and app rule).
-    OpenGroup { group_id: Uuid },
+    OpenGroup {
+        group_id: Uuid,
+    },
     /// Open Settings ▸ Apps.
     OpenAppSettings,
     /// Open the permission companion.
-    OpenPermissions { permission: Permission },
+    OpenPermissions {
+        permission: Permission,
+    },
     /// Explain what Secure Input is and how to release it.
     ExplainSecureInput,
 }
@@ -253,7 +308,11 @@ pub struct Explanation {
 
 /// Explains `event` for the Activity pane.
 pub fn explain(event: &ActivityEvent) -> Explanation {
-    let app = event.app.as_ref().map(|a| a.name.as_str()).filter(|n| !n.is_empty());
+    let app = event
+        .app
+        .as_ref()
+        .map(|a| a.name.as_str())
+        .filter(|n| !n.is_empty());
     let this_app = app.unwrap_or("this app");
     let (label, tone, sentence, fix): (&str, Tone, Option<String>, Option<Fix>) = match &event.outcome {
         ActivityOutcome::Expanded => ("Expanded", Tone::Ok, None, None),
@@ -348,7 +407,12 @@ pub fn explain(event: &ActivityEvent) -> Explanation {
         ),
         ActivityOutcome::EngineStopped => ("Stopped", Tone::Blocked, Some("The expansion engine was stopped, so no trigger can expand.".into()), None),
     };
-    Explanation { label: label.into(), tone, sentence, fix }
+    Explanation {
+        label: label.into(),
+        tone,
+        sentence,
+        fix,
+    }
 }
 
 /// An event with its explanation: what the Activity pane renders.
@@ -372,11 +436,21 @@ mod tests {
     use super::*;
 
     fn app(name: &str) -> Option<ActivityApp> {
-        Some(ActivityApp { bundle_id: format!("com.example.{}", name.to_lowercase()), name: name.into(), path: None })
+        Some(ActivityApp {
+            bundle_id: format!("com.example.{}", name.to_lowercase()),
+            name: name.into(),
+            path: None,
+        })
     }
 
     fn typed(outcome: ActivityOutcome) -> ActivityEvent {
-        ActivityEvent::attempt(ActivitySource::Typed, Uuid::nil(), Some(";sig".into()), app("Slack"), outcome)
+        ActivityEvent::attempt(
+            ActivitySource::Typed,
+            Uuid::nil(),
+            Some(";sig".into()),
+            app("Slack"),
+            outcome,
+        )
     }
 
     fn every_outcome() -> Vec<ActivityOutcome> {
@@ -385,22 +459,49 @@ mod tests {
             ActivityOutcome::Undone,
             ActivityOutcome::Paused,
             ActivityOutcome::SnippetOff,
-            ActivityOutcome::GroupOff { group_id: Uuid::nil() },
+            ActivityOutcome::GroupOff {
+                group_id: Uuid::nil(),
+            },
             ActivityOutcome::SecureInput { owner: None },
-            ActivityOutcome::SecureInput { owner: Some("Terminal".into()) },
-            ActivityOutcome::MissingPermission { permission: Permission::Accessibility },
-            ActivityOutcome::MissingPermission { permission: Permission::InputMonitoring },
+            ActivityOutcome::SecureInput {
+                owner: Some("Terminal".into()),
+            },
+            ActivityOutcome::MissingPermission {
+                permission: Permission::Accessibility,
+            },
+            ActivityOutcome::MissingPermission {
+                permission: Permission::InputMonitoring,
+            },
             ActivityOutcome::FormCancelled,
             ActivityOutcome::Interrupted,
-            ActivityOutcome::TapDisabled { cause: TapDisabledCause::Timeout, reenabled: true },
-            ActivityOutcome::TapDisabled { cause: TapDisabledCause::UserInput, reenabled: false },
+            ActivityOutcome::TapDisabled {
+                cause: TapDisabledCause::Timeout,
+                reenabled: true,
+            },
+            ActivityOutcome::TapDisabled {
+                cause: TapDisabledCause::UserInput,
+                reenabled: false,
+            },
             ActivityOutcome::ListenerLost,
             ActivityOutcome::EngineStopped,
         ];
-        for level in [RuleLevel::Snippet, RuleLevel::Group, RuleLevel::AppSetting, RuleLevel::Default] {
-            all.push(ActivityOutcome::AppRule { level, group_id: (level == RuleLevel::Group).then(Uuid::nil) });
+        for level in [
+            RuleLevel::Snippet,
+            RuleLevel::Group,
+            RuleLevel::AppSetting,
+            RuleLevel::Default,
+        ] {
+            all.push(ActivityOutcome::AppRule {
+                level,
+                group_id: (level == RuleLevel::Group).then(Uuid::nil),
+            });
         }
-        for error in [InsertFailure::NotAllowed, InsertFailure::EventCreation, InsertFailure::PasteUnavailable, InsertFailure::TargetGone] {
+        for error in [
+            InsertFailure::NotAllowed,
+            InsertFailure::EventCreation,
+            InsertFailure::PasteUnavailable,
+            InsertFailure::TargetGone,
+        ] {
             all.push(ActivityOutcome::InsertionFailed { error });
         }
         all
@@ -426,7 +527,10 @@ mod tests {
             log.push(typed(ActivityOutcome::Expanded));
         }
         assert_eq!(log.len(), 3);
-        assert_eq!(log.recent().iter().map(|e| e.id).collect::<Vec<_>>(), [10, 9, 8]);
+        assert_eq!(
+            log.recent().iter().map(|e| e.id).collect::<Vec<_>>(),
+            [10, 9, 8]
+        );
     }
 
     #[test]
@@ -460,14 +564,37 @@ mod tests {
 
     #[test]
     fn an_event_serializes_only_the_fields_the_privacy_contract_allows() {
-        let mut event = typed(ActivityOutcome::AppRule { level: RuleLevel::Group, group_id: Some(Uuid::nil()) });
+        let mut event = typed(ActivityOutcome::AppRule {
+            level: RuleLevel::Group,
+            group_id: Some(Uuid::nil()),
+        });
         event.id = 7;
         let json = serde_json::to_value(ActivityEntry::from(event)).unwrap();
-        let mut keys: Vec<&str> = json.as_object().unwrap().keys().map(String::as_str).collect();
+        let mut keys: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
         keys.sort_unstable();
-        assert_eq!(keys, ["app", "at", "explanation", "id", "outcome", "snippetId", "source", "trigger"]);
+        assert_eq!(
+            keys,
+            [
+                "app",
+                "at",
+                "explanation",
+                "id",
+                "outcome",
+                "snippetId",
+                "source",
+                "trigger"
+            ]
+        );
         assert_eq!(json["source"], "typed");
-        assert_eq!(json["outcome"], serde_json::json!({ "kind": "appRule", "level": "group", "groupId": Uuid::nil() }));
+        assert_eq!(
+            json["outcome"],
+            serde_json::json!({ "kind": "appRule", "level": "group", "groupId": Uuid::nil() })
+        );
         assert_eq!(json["app"]["bundleId"], "com.example.slack");
     }
 
@@ -475,7 +602,11 @@ mod tests {
     fn outcomes_round_trip_through_json() {
         for outcome in every_outcome() {
             let json = serde_json::to_string(&outcome).unwrap();
-            assert_eq!(serde_json::from_str::<ActivityOutcome>(&json).unwrap(), outcome, "{json}");
+            assert_eq!(
+                serde_json::from_str::<ActivityOutcome>(&json).unwrap(),
+                outcome,
+                "{json}"
+            );
         }
     }
 
@@ -483,7 +614,10 @@ mod tests {
     fn health_events_name_no_snippet_or_app() {
         let event = ActivityEvent::health(ActivityOutcome::ListenerLost);
         assert!(event.outcome.is_health());
-        assert_eq!((event.source, event.snippet_id, event.trigger, event.app), (None, None, None, None));
+        assert_eq!(
+            (event.source, event.snippet_id, event.trigger, event.app),
+            (None, None, None, None)
+        );
         assert!(!ActivityOutcome::Paused.is_health());
     }
 
@@ -494,7 +628,11 @@ mod tests {
         for outcome in every_outcome() {
             let explanation = explain(&typed(outcome.clone()));
             assert!(!explanation.label.is_empty());
-            assert_eq!(explanation.sentence.is_none(), outcome == ActivityOutcome::Expanded, "{outcome:?}");
+            assert_eq!(
+                explanation.sentence.is_none(),
+                outcome == ActivityOutcome::Expanded,
+                "{outcome:?}"
+            );
             if let Some(sentence) = &explanation.sentence {
                 assert!(sentence.ends_with('.'), "{sentence}");
             }
@@ -508,7 +646,10 @@ mod tests {
         assert_eq!(fix(ActivityOutcome::Paused), Some(Fix::Resume));
         assert_eq!(fix(ActivityOutcome::SnippetOff), Some(Fix::TurnOnSnippet));
         let group_id = Uuid::new_v4();
-        assert_eq!(fix(ActivityOutcome::GroupOff { group_id }), Some(Fix::OpenGroup { group_id }));
+        assert_eq!(
+            fix(ActivityOutcome::GroupOff { group_id }),
+            Some(Fix::OpenGroup { group_id })
+        );
         assert_eq!(fix(ActivityOutcome::Expanded), None);
         assert_eq!(fix(ActivityOutcome::FormCancelled), None);
         assert_eq!(fix(ActivityOutcome::Interrupted), None);
@@ -520,11 +661,20 @@ mod tests {
         let rule = |level, group_id| explain(&typed(ActivityOutcome::AppRule { level, group_id }));
         let snippet = rule(RuleLevel::Snippet, None);
         assert_eq!(snippet.fix, Some(Fix::OpenSnippet));
-        assert_eq!(snippet.sentence.as_deref(), Some("This snippet's app rule doesn't allow it in Slack."));
-        assert_eq!(rule(RuleLevel::Group, Some(group_id)).fix, Some(Fix::OpenGroup { group_id }));
+        assert_eq!(
+            snippet.sentence.as_deref(),
+            Some("This snippet's app rule doesn't allow it in Slack.")
+        );
+        assert_eq!(
+            rule(RuleLevel::Group, Some(group_id)).fix,
+            Some(Fix::OpenGroup { group_id })
+        );
         let setting = rule(RuleLevel::AppSetting, None);
         assert_eq!(setting.fix, Some(Fix::OpenAppSettings));
-        assert_eq!(setting.sentence.as_deref(), Some("Slack is on your list of apps where nothing expands."));
+        assert_eq!(
+            setting.sentence.as_deref(),
+            Some("Slack is on your list of apps where nothing expands.")
+        );
         let default = rule(RuleLevel::Default, None);
         assert_eq!(default.fix, Some(Fix::OpenAppSettings));
         assert!(default.sentence.unwrap().contains("excluded by default"));
@@ -533,12 +683,20 @@ mod tests {
 
     #[test]
     fn secure_input_names_its_owner_when_known() {
-        let known = explain(&typed(ActivityOutcome::SecureInput { owner: Some("Terminal".into()) }));
-        assert!(known.sentence.unwrap().starts_with("Terminal has Secure Input on"));
+        let known = explain(&typed(ActivityOutcome::SecureInput {
+            owner: Some("Terminal".into()),
+        }));
+        assert!(known
+            .sentence
+            .unwrap()
+            .starts_with("Terminal has Secure Input on"));
         assert_eq!(known.fix, Some(Fix::ExplainSecureInput));
         assert_eq!(known.tone, Tone::Blocked);
         let unknown = explain(&typed(ActivityOutcome::SecureInput { owner: None }));
-        assert!(unknown.sentence.unwrap().starts_with("A password field or app has Secure Input on"));
+        assert!(unknown
+            .sentence
+            .unwrap()
+            .starts_with("A password field or app has Secure Input on"));
     }
 
     #[test]
@@ -553,27 +711,58 @@ mod tests {
     #[test]
     fn failures_say_what_failed() {
         let failed = |error| explain(&typed(ActivityOutcome::InsertionFailed { error }));
-        assert_eq!(failed(InsertFailure::NotAllowed).fix, Some(Fix::OpenPermissions { permission: Permission::Accessibility }));
-        assert_eq!(failed(InsertFailure::TargetGone).sentence.as_deref(), Some("Slack didn't come back to the front, so nothing was inserted."));
+        assert_eq!(
+            failed(InsertFailure::NotAllowed).fix,
+            Some(Fix::OpenPermissions {
+                permission: Permission::Accessibility
+            })
+        );
+        assert_eq!(
+            failed(InsertFailure::TargetGone).sentence.as_deref(),
+            Some("Slack didn't come back to the front, so nothing was inserted.")
+        );
         assert_eq!(failed(InsertFailure::PasteUnavailable).tone, Tone::Failed);
     }
 
     #[test]
     fn sentences_read_naturally_without_an_app() {
-        let mut event = typed(ActivityOutcome::AppRule { level: RuleLevel::AppSetting, group_id: None });
+        let mut event = typed(ActivityOutcome::AppRule {
+            level: RuleLevel::AppSetting,
+            group_id: None,
+        });
         event.app = None;
-        assert_eq!(explain(&event).sentence.as_deref(), Some("This app is on your list of apps where nothing expands."));
-        event.outcome = ActivityOutcome::AppRule { level: RuleLevel::Snippet, group_id: None };
-        assert_eq!(explain(&event).sentence.as_deref(), Some("This snippet's app rule doesn't allow it in this app."));
+        assert_eq!(
+            explain(&event).sentence.as_deref(),
+            Some("This app is on your list of apps where nothing expands.")
+        );
+        event.outcome = ActivityOutcome::AppRule {
+            level: RuleLevel::Snippet,
+            group_id: None,
+        };
+        assert_eq!(
+            explain(&event).sentence.as_deref(),
+            Some("This snippet's app rule doesn't allow it in this app.")
+        );
     }
 
     #[test]
     fn a_tap_reset_is_informational_once_it_is_back() {
-        let back = explain(&ActivityEvent::health(ActivityOutcome::TapDisabled { cause: TapDisabledCause::Timeout, reenabled: true }));
+        let back = explain(&ActivityEvent::health(ActivityOutcome::TapDisabled {
+            cause: TapDisabledCause::Timeout,
+            reenabled: true,
+        }));
         assert_eq!(back.tone, Tone::Info);
         assert!(back.sentence.unwrap().contains("answered too slowly"));
-        let gone = explain(&ActivityEvent::health(ActivityOutcome::TapDisabled { cause: TapDisabledCause::UserInput, reenabled: false }));
+        let gone = explain(&ActivityEvent::health(ActivityOutcome::TapDisabled {
+            cause: TapDisabledCause::UserInput,
+            reenabled: false,
+        }));
         assert_eq!(gone.tone, Tone::Blocked);
-        assert_eq!(explain(&ActivityEvent::health(ActivityOutcome::ListenerLost)).fix, Some(Fix::OpenPermissions { permission: Permission::Accessibility }));
+        assert_eq!(
+            explain(&ActivityEvent::health(ActivityOutcome::ListenerLost)).fix,
+            Some(Fix::OpenPermissions {
+                permission: Permission::Accessibility
+            })
+        );
     }
 }

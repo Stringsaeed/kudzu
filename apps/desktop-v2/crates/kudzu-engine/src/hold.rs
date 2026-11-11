@@ -18,7 +18,10 @@ pub(crate) struct HoldReplayQueue<T> {
 
 impl<T> Default for HoldReplayQueue<T> {
     fn default() -> Self {
-        Self { state: HoldState::Idle, elements: VecDeque::new() }
+        Self {
+            state: HoldState::Idle,
+            elements: VecDeque::new(),
+        }
     }
 }
 

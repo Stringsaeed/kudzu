@@ -39,10 +39,21 @@ impl Library {
     pub fn new(library: &EngineLibrary, fallback_locale: impl FnOnce() -> String) -> Self {
         let mut snippets = HashMap::with_capacity(library.snippets.len());
         for snippet in &library.snippets {
-            snippets.entry(snippet.id).or_insert_with(|| snippet.clone());
+            snippets
+                .entry(snippet.id)
+                .or_insert_with(|| snippet.clone());
         }
-        let locale = if library.locale.trim().is_empty() { fallback_locale() } else { library.locale.clone() };
-        Self { snippets, groups: library.groups.clone(), config: library.config.clone(), locale }
+        let locale = if library.locale.trim().is_empty() {
+            fallback_locale()
+        } else {
+            library.locale.clone()
+        };
+        Self {
+            snippets,
+            groups: library.groups.clone(),
+            config: library.config.clone(),
+            locale,
+        }
     }
 
     /// Template source of snippet `id`.
@@ -61,7 +72,12 @@ impl Library {
         self.source_uses_clipboard(&snippet.content, &mut visited, 0)
     }
 
-    fn source_uses_clipboard(&self, source: &str, visited: &mut HashSet<Uuid>, depth: usize) -> bool {
+    fn source_uses_clipboard(
+        &self,
+        source: &str,
+        visited: &mut HashSet<Uuid>,
+        depth: usize,
+    ) -> bool {
         for node in template::parse(source).nodes {
             let Node::Tag(tag) = node else { continue };
             match template::typed(&tag) {
@@ -111,7 +127,9 @@ impl Library {
             if (rule.is_some() && insertion.is_some()) || !visited.insert(id) {
                 break;
             }
-            let Some(group) = self.groups.iter().find(|g| g.id == id) else { break };
+            let Some(group) = self.groups.iter().find(|g| g.id == id) else {
+                break;
+            };
             if rule.is_none() {
                 rule = group.rule.clone();
             }
@@ -125,7 +143,11 @@ impl Library {
 
     /// Insertion method for `snippet` in `bundle_id`: rule's per-app override ▸ snippet/group ▸
     /// global per-app ▸ global default.
-    pub fn insertion_for(&self, snippet: &SnippetRecord, bundle_id: Option<&str>) -> InsertionMethod {
+    pub fn insertion_for(
+        &self,
+        snippet: &SnippetRecord,
+        bundle_id: Option<&str>,
+    ) -> InsertionMethod {
         let (rule, insertion) = self.inherited(snippet);
         if let (Some(rule), Some(bundle)) = (&rule, bundle_id) {
             if let Some(method) = rule.insertion {
@@ -150,10 +172,17 @@ impl Library {
 }
 
 /// `values` completed with each field's default, else its first choice, else empty text.
-pub(crate) fn with_defaults(fields: &[FormFieldSpec], mut values: HashMap<String, String>) -> HashMap<String, String> {
+pub(crate) fn with_defaults(
+    fields: &[FormFieldSpec],
+    mut values: HashMap<String, String>,
+) -> HashMap<String, String> {
     for field in fields {
         values.entry(field.name.clone()).or_insert_with(|| {
-            field.default_value.clone().or_else(|| field.options.first().cloned()).unwrap_or_default()
+            field
+                .default_value
+                .clone()
+                .or_else(|| field.options.first().cloned())
+                .unwrap_or_default()
         });
     }
     values
@@ -171,7 +200,12 @@ mod tests {
     use kudzu_core::types::AppRuleMode;
 
     fn library(snippets: Vec<SnippetRecord>, groups: Vec<GroupRecord>) -> Library {
-        let lib = EngineLibrary { snippets, groups, config: MatchingConfig::default(), locale: String::new() };
+        let lib = EngineLibrary {
+            snippets,
+            groups,
+            config: MatchingConfig::default(),
+            locale: String::new(),
+        };
         Library::new(&lib, || "en_GB".into())
     }
 
@@ -185,7 +219,9 @@ mod tests {
         );
         let lib = library(vec![snippet.clone(), nested.clone()], vec![]);
         assert!(lib.uses_clipboard(&snippet) && lib.uses_clipboard(&nested));
-        let history = |index: usize, current: Option<&str>| Some(format!("{}-{index}", current.unwrap_or("none")));
+        let history = |index: usize, current: Option<&str>| {
+            Some(format!("{}-{index}", current.unwrap_or("none")))
+        };
         let inputs = |selection: Option<&str>| RenderInputs {
             now: now(),
             clipboard: Some("clip".into()),
@@ -199,7 +235,10 @@ mod tests {
         assert!(parts[4] == "x" || parts[4] == "y");
         assert!(Uuid::parse_str(parts[5]).is_ok_and(|u| !u.is_nil()));
         // A typed trigger has no selection.
-        assert!(lib.render(&snippet, inputs(None)).text.starts_with("|clip|"));
+        assert!(lib
+            .render(&snippet, inputs(None))
+            .text
+            .starts_with("|clip|"));
     }
 
     #[test]
@@ -224,7 +263,10 @@ mod tests {
         let lib = library(vec![snippet.clone()], vec![parent.clone(), child.clone()]);
 
         // Inherited from the grandparent group, even in a terminal.
-        assert_eq!(lib.insertion_for(&snippet, Some("com.apple.Terminal")), InsertionMethod::Type);
+        assert_eq!(
+            lib.insertion_for(&snippet, Some("com.apple.Terminal")),
+            InsertionMethod::Type
+        );
 
         // Snippet override beats the group.
         let mut own = snippet.clone();
@@ -237,17 +279,32 @@ mod tests {
             bundle_ids: vec!["com.example.app".into()],
             insertion: Some(InsertionMethod::Type),
         });
-        assert_eq!(lib.insertion_for(&own, Some("com.example.app")), InsertionMethod::Type);
-        assert_eq!(lib.insertion_for(&own, Some("com.other")), InsertionMethod::Paste);
+        assert_eq!(
+            lib.insertion_for(&own, Some("com.example.app")),
+            InsertionMethod::Type
+        );
+        assert_eq!(
+            lib.insertion_for(&own, Some("com.other")),
+            InsertionMethod::Paste
+        );
     }
 
     #[test]
     fn insertion_falls_back_to_global_settings() {
         let snippet = SnippetRecord::new("s", vec!["s".into()], "x");
         let lib = library(vec![snippet.clone()], vec![]);
-        assert_eq!(lib.insertion_for(&snippet, Some("com.apple.Terminal")), InsertionMethod::Paste);
-        assert_eq!(lib.insertion_for(&snippet, Some("com.apple.TextEdit")), InsertionMethod::Automatic);
-        assert_eq!(lib.insertion_for(&snippet, None), InsertionMethod::Automatic);
+        assert_eq!(
+            lib.insertion_for(&snippet, Some("com.apple.Terminal")),
+            InsertionMethod::Paste
+        );
+        assert_eq!(
+            lib.insertion_for(&snippet, Some("com.apple.TextEdit")),
+            InsertionMethod::Automatic
+        );
+        assert_eq!(
+            lib.insertion_for(&snippet, None),
+            InsertionMethod::Automatic
+        );
     }
 
     #[test]
@@ -259,7 +316,10 @@ mod tests {
         let mut snippet = SnippetRecord::new("s", vec!["s".into()], "x");
         snippet.group_id = Some(a.id);
         let lib = library(vec![snippet.clone()], vec![a, b]);
-        assert_eq!(lib.insertion_for(&snippet, None), InsertionMethod::Automatic);
+        assert_eq!(
+            lib.insertion_for(&snippet, None),
+            InsertionMethod::Automatic
+        );
     }
 
     #[test]
@@ -273,11 +333,29 @@ mod tests {
     #[test]
     fn defaults_fill_missing_values_only() {
         let fields = vec![
-            FormFieldSpec { name: "a".into(), kind: FormFieldKind::Text, options: vec![], default_value: Some("A".into()) },
-            FormFieldSpec { name: "b".into(), kind: FormFieldKind::Choice, options: vec!["x".into(), "y".into()], default_value: None },
-            FormFieldSpec { name: "c".into(), kind: FormFieldKind::Text, options: vec![], default_value: None },
+            FormFieldSpec {
+                name: "a".into(),
+                kind: FormFieldKind::Text,
+                options: vec![],
+                default_value: Some("A".into()),
+            },
+            FormFieldSpec {
+                name: "b".into(),
+                kind: FormFieldKind::Choice,
+                options: vec!["x".into(), "y".into()],
+                default_value: None,
+            },
+            FormFieldSpec {
+                name: "c".into(),
+                kind: FormFieldKind::Text,
+                options: vec![],
+                default_value: None,
+            },
         ];
-        let values = with_defaults(&fields, HashMap::from([("a".to_string(), "given".to_string())]));
+        let values = with_defaults(
+            &fields,
+            HashMap::from([("a".to_string(), "given".to_string())]),
+        );
         assert_eq!(values["a"], "given");
         assert_eq!(values["b"], "x");
         assert_eq!(values["c"], "");

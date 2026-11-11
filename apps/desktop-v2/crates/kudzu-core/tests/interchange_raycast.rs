@@ -29,7 +29,10 @@ mod interchange {
             resolve_snippet: &resolve,
             resolve_formatting: None,
             root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+            selection: None,
+            clipboard_history: None,
+            new_uuid: None,
+            pick: None,
         };
         template::render(source, &context).text
     }
@@ -206,7 +209,11 @@ mod interchange {
 
     #[test]
     fn accepts_a_byte_order_mark() {
-        let result = raycast::import_json("\u{feff}[{\"name\":\"a\",\"text\":\"b\",\"keyword\":\"c\"}]", "x.json").unwrap();
+        let result = raycast::import_json(
+            "\u{feff}[{\"name\":\"a\",\"text\":\"b\",\"keyword\":\"c\"}]",
+            "x.json",
+        )
+        .unwrap();
         assert_eq!(result.library.snippets.len(), 1);
     }
 
@@ -217,7 +224,11 @@ mod interchange {
         let raycast_file = dir.join("snippets.json");
         let kudzu_file = dir.join("library.json");
         std::fs::write(&raycast_file, EXPORT).unwrap();
-        std::fs::write(&kudzu_file, "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}").unwrap();
+        std::fs::write(
+            &kudzu_file,
+            "{\"formatVersion\":1,\"groups\":[],\"snippets\":[]}",
+        )
+        .unwrap();
         assert_eq!(
             coordinator::detect_import_source(&raycast_file).unwrap(),
             coordinator::ImportSource::Raycast
@@ -226,7 +237,14 @@ mod interchange {
             coordinator::detect_import_source(&kudzu_file).unwrap(),
             coordinator::ImportSource::Kudzu
         );
-        assert_eq!(coordinator::load_import(&raycast_file).unwrap().library.snippets.len(), 9);
+        assert_eq!(
+            coordinator::load_import(&raycast_file)
+                .unwrap()
+                .library
+                .snippets
+                .len(),
+            9
+        );
         let _ = std::fs::remove_dir_all(dir);
     }
 }

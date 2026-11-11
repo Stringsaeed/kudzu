@@ -99,8 +99,18 @@ pub enum Key {
 
 impl Key {
     /// Every key, in the order the editor lists them.
-    pub const ALL: [Key; 10] =
-        [Key::Tab, Key::Return, Key::Escape, Key::Space, Key::Backspace, Key::Delete, Key::Left, Key::Right, Key::Up, Key::Down];
+    pub const ALL: [Key; 10] = [
+        Key::Tab,
+        Key::Return,
+        Key::Escape,
+        Key::Space,
+        Key::Backspace,
+        Key::Delete,
+        Key::Left,
+        Key::Right,
+        Key::Up,
+        Key::Down,
+    ];
 
     /// Parses a `name` attribute. `enter` and `esc` are accepted spellings of `return` and `escape`.
     pub fn parse(name: &str) -> Option<Key> {
@@ -148,24 +158,56 @@ pub const MAX_CLIPBOARD_HISTORY: u32 = 99;
 /// Typed view of a tag using v1 defaults.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TemplateTag {
-    Date { format: String, offset: Option<DateOffset>, locale: Option<String> },
-    Time { format: String, offset: Option<DateOffset>, locale: Option<String> },
+    Date {
+        format: String,
+        offset: Option<DateOffset>,
+        locale: Option<String>,
+    },
+    Time {
+        format: String,
+        offset: Option<DateOffset>,
+        locale: Option<String>,
+    },
     /// `history` 0 is the current clipboard; N is the Nth item before it.
-    Clipboard { trim: bool, history: u32 },
+    Clipboard {
+        trim: bool,
+        history: u32,
+    },
     /// The text selected in the target app (empty for a typed trigger).
-    Selection { trim: bool },
+    Selection {
+        trim: bool,
+    },
     /// A random UUID v4.
-    Uuid { upper: bool },
+    Uuid {
+        upper: bool,
+    },
     /// One of `options`, picked at random.
-    Random { options: Vec<String> },
+    Random {
+        options: Vec<String>,
+    },
     /// Presses `key` `count` times at this point of the insertion.
-    Key { key: Key, count: u32 },
+    Key {
+        key: Key,
+        count: u32,
+    },
     /// Pauses the insertion for `ms` milliseconds.
-    Delay { ms: u32 },
+    Delay {
+        ms: u32,
+    },
     Cursor,
-    Snippet { id: Uuid },
-    Field { name: String, default: Option<String>, multiline: bool },
-    Choice { name: String, options: Vec<String>, default: Option<String> },
+    Snippet {
+        id: Uuid,
+    },
+    Field {
+        name: String,
+        default: Option<String>,
+        multiline: bool,
+    },
+    Choice {
+        name: String,
+        options: Vec<String>,
+        default: Option<String>,
+    },
     Unknown,
 }
 
@@ -270,7 +312,9 @@ pub struct RenderResult {
 impl RenderResult {
     /// Whether inserting this needs key presses, so it can't be delivered as one piece of text.
     pub fn has_key_presses(&self) -> bool {
-        self.actions.iter().any(|a| matches!(a.action, ActionKind::Key { .. }))
+        self.actions
+            .iter()
+            .any(|a| matches!(a.action, ActionKind::Key { .. }))
     }
 }
 
@@ -294,28 +338,48 @@ pub fn typed(tag: &Tag) -> TemplateTag {
     match tag.name.as_str() {
         "date" | "time" => {
             let is_date = tag.name == "date";
-            let format = string("format").unwrap_or_else(|| if is_date { "yyyy-MM-dd" } else { "HH:mm" }.to_string());
+            let format = string("format")
+                .unwrap_or_else(|| if is_date { "yyyy-MM-dd" } else { "HH:mm" }.to_string());
             let offset = tag_string(tag, "offset").and_then(DateOffset::parse);
             let locale = string("locale");
             if is_date {
-                TemplateTag::Date { format, offset, locale }
+                TemplateTag::Date {
+                    format,
+                    offset,
+                    locale,
+                }
             } else {
-                TemplateTag::Time { format, offset, locale }
+                TemplateTag::Time {
+                    format,
+                    offset,
+                    locale,
+                }
             }
         }
         "clipboard" => TemplateTag::Clipboard {
             trim: tag_bool(tag, "trim"),
             history: tag_integer(tag, "history", 0, MAX_CLIPBOARD_HISTORY, 0).0,
         },
-        "selection" => TemplateTag::Selection { trim: tag_bool(tag, "trim") },
-        "uuid" => TemplateTag::Uuid { upper: tag_bool(tag, "upper") },
-        "random" => TemplateTag::Random { options: split_options(tag_string(tag, "options").unwrap_or("")) },
+        "selection" => TemplateTag::Selection {
+            trim: tag_bool(tag, "trim"),
+        },
+        "uuid" => TemplateTag::Uuid {
+            upper: tag_bool(tag, "upper"),
+        },
+        "random" => TemplateTag::Random {
+            options: split_options(tag_string(tag, "options").unwrap_or("")),
+        },
         "key" => match tag_string(tag, "name").and_then(Key::parse) {
-            Some(key) => TemplateTag::Key { key, count: tag_integer(tag, "count", 1, MAX_KEY_COUNT, 1).0 },
+            Some(key) => TemplateTag::Key {
+                key,
+                count: tag_integer(tag, "count", 1, MAX_KEY_COUNT, 1).0,
+            },
             None => TemplateTag::Unknown,
         },
         "delay" => match tag.attributes.iter().any(|a| a.name == "ms") {
-            true => TemplateTag::Delay { ms: tag_integer(tag, "ms", 1, MAX_DELAY_MS, 1).0 },
+            true => TemplateTag::Delay {
+                ms: tag_integer(tag, "ms", 1, MAX_DELAY_MS, 1).0,
+            },
             false => TemplateTag::Unknown,
         },
         "cursor" => TemplateTag::Cursor,
@@ -324,7 +388,11 @@ pub fn typed(tag: &Tag) -> TemplateTag {
             None => TemplateTag::Unknown,
         },
         "field" => match string("name") {
-            Some(name) => TemplateTag::Field { name, default: string("default"), multiline: tag_bool(tag, "multiline") },
+            Some(name) => TemplateTag::Field {
+                name,
+                default: string("default"),
+                multiline: tag_bool(tag, "multiline"),
+            },
             None => TemplateTag::Unknown,
         },
         "choice" => match string("name") {
@@ -367,7 +435,11 @@ pub fn render(source: &str, context: &RenderContext<'_>) -> RenderResult {
 }
 
 /// Renders formatting only when it belongs to this exact template source.
-pub fn render_formatted(source: &str, formatting: Option<&crate::formatting::Formatting>, context: &RenderContext<'_>) -> RenderResult {
+pub fn render_formatted(
+    source: &str,
+    formatting: Option<&crate::formatting::Formatting>,
+    context: &RenderContext<'_>,
+) -> RenderResult {
     render::render(source, formatting.filter(|f| f.source == source), context)
 }
 
@@ -377,7 +449,10 @@ pub fn analyze(parsed: &ParsedTemplate) -> TemplateInfo {
 }
 
 /// Form fields of `source` including nested snippets (depth-first, cycle-safe, depth ≤ 8).
-pub fn form_fields(source: &str, resolve_snippet: &dyn Fn(Uuid) -> Option<String>) -> Vec<FormFieldSpec> {
+pub fn form_fields(
+    source: &str,
+    resolve_snippet: &dyn Fn(Uuid) -> Option<String>,
+) -> Vec<FormFieldSpec> {
     analysis::form_fields(source, resolve_snippet)
 }
 
@@ -409,18 +484,29 @@ pub struct FormMemory {
 
 impl FormMemory {
     /// Valid remembered values, then defaults, then the first choice, else empty text.
-    pub fn initial_values(&self, snippet_id: Uuid, fields: &[FormFieldSpec]) -> HashMap<String, String> {
+    pub fn initial_values(
+        &self,
+        snippet_id: Uuid,
+        fields: &[FormFieldSpec],
+    ) -> HashMap<String, String> {
         let remembered = self.values.get(&snippet_id);
         fields
             .iter()
             .map(|field| {
                 let is_choice = field.kind == FormFieldKind::Choice;
-                let candidates = [remembered.and_then(|r| r.get(&field.name)), field.default_value.as_ref()];
+                let candidates = [
+                    remembered.and_then(|r| r.get(&field.name)),
+                    field.default_value.as_ref(),
+                ];
                 let value = candidates
                     .into_iter()
                     .flatten()
                     .find(|v| !is_choice || field.options.contains(v))
-                    .or(if is_choice { field.options.first() } else { None })
+                    .or(if is_choice {
+                        field.options.first()
+                    } else {
+                        None
+                    })
                     .cloned()
                     .unwrap_or_default();
                 (field.name.clone(), value)

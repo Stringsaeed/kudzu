@@ -167,7 +167,12 @@ pub struct UsageRecord {
     pub count: i64,
     #[serde(rename = "charsSaved", default)]
     pub chars_saved: i64,
-    #[serde(rename = "lastUsedAt", with = "iso8601_opt", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "lastUsedAt",
+        with = "iso8601_opt",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_used_at: Option<DateTime<Utc>>,
 }
 
@@ -191,7 +196,12 @@ impl KudzuLibrary {
 
 impl Default for KudzuLibrary {
     fn default() -> Self {
-        Self { format_version: Self::CURRENT_FORMAT_VERSION, groups: vec![], snippets: vec![], usage: vec![] }
+        Self {
+            format_version: Self::CURRENT_FORMAT_VERSION,
+            groups: vec![],
+            snippets: vec![],
+            usage: vec![],
+        }
     }
 }
 
@@ -216,7 +226,9 @@ pub mod iso8601 {
 
     /// Parses an RFC 3339 / ISO-8601 timestamp.
     pub fn parse(s: &str) -> Option<DateTime<Utc>> {
-        DateTime::parse_from_rfc3339(s).ok().map(|d| d.with_timezone(&Utc))
+        DateTime::parse_from_rfc3339(s)
+            .ok()
+            .map(|d| d.with_timezone(&Utc))
     }
 
     pub fn serialize<S: Serializer>(date: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {

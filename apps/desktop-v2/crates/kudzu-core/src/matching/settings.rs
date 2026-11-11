@@ -189,7 +189,10 @@ fn walk(
 }
 
 /// The nearest group at or above `group_id` that is turned off (cycle-safe).
-pub(crate) fn nearest_disabled_group(group_id: Option<Uuid>, groups: &[GroupRecord]) -> Option<Uuid> {
+pub(crate) fn nearest_disabled_group(
+    group_id: Option<Uuid>,
+    groups: &[GroupRecord],
+) -> Option<Uuid> {
     let mut visited: Vec<Uuid> = Vec::new();
     let mut next = group_id;
     while let Some(id) = next {

@@ -131,16 +131,27 @@ pub fn redact(text: &str) -> Redacted {
         covered = f.range.end;
     }
     whole &= text[covered..].trim().is_empty();
-    Redacted { text: out, kinds, whole }
+    Redacted {
+        text: out,
+        kinds,
+        whole,
+    }
 }
 
 fn merge(mut found: Vec<Finding>) -> Vec<Finding> {
     found.retain(|f| f.range.start < f.range.end);
-    found.sort_by(|a, b| a.range.start.cmp(&b.range.start).then(b.range.end.cmp(&a.range.end)));
+    found.sort_by(|a, b| {
+        a.range
+            .start
+            .cmp(&b.range.start)
+            .then(b.range.end.cmp(&a.range.end))
+    });
     let mut out: Vec<Finding> = Vec::with_capacity(found.len());
     for f in found {
         match out.last_mut() {
-            Some(last) if f.range.start < last.range.end => last.range.end = last.range.end.max(f.range.end),
+            Some(last) if f.range.start < last.range.end => {
+                last.range.end = last.range.end.max(f.range.end)
+            }
             _ => out.push(f),
         }
     }
@@ -153,13 +164,21 @@ fn private_keys(text: &str, out: &mut Vec<Finding>) {
     const BEGIN: &str = "-----BEGIN ";
     let mut from = 0;
     while let Some(i) = text[from..].find(BEGIN).map(|i| i + from) {
-        let header_end = text[i + BEGIN.len()..].find("-----").map(|j| i + BEGIN.len() + j + 5);
+        let header_end = text[i + BEGIN.len()..]
+            .find("-----")
+            .map(|j| i + BEGIN.len() + j + 5);
         let Some(header_end) = header_end else { break };
         let label = &text[i + BEGIN.len()..header_end - 5];
         if label.ends_with("PRIVATE KEY") || label == "PGP PRIVATE KEY BLOCK" {
             let end_marker = format!("-----END {label}-----");
-            let end = text[header_end..].find(&end_marker).map(|j| header_end + j + end_marker.len()).unwrap_or(text.len());
-            out.push(Finding { range: i..end, kind: SecretKind::PrivateKey });
+            let end = text[header_end..]
+                .find(&end_marker)
+                .map(|j| header_end + j + end_marker.len())
+                .unwrap_or(text.len());
+            out.push(Finding {
+                range: i..end,
+                kind: SecretKind::PrivateKey,
+            });
             from = end;
         } else {
             from = header_end;
@@ -179,11 +198,21 @@ fn jwts(text: &str, out: &mut Vec<Finding>) {
         if i > 0 && is_word_byte(bytes[i - 1]) {
             continue;
         }
-        let end = i + bytes[i..].iter().take_while(|&&b| is_word_byte(b) || b == b'.' || b == b'=').count();
+        let end = i + bytes[i..]
+            .iter()
+            .take_while(|&&b| is_word_byte(b) || b == b'.' || b == b'=')
+            .count();
         let token = &text[i..end];
         let parts: Vec<&str> = token.split('.').collect();
-        if parts.len() >= 3 && parts[0].len() >= 10 && parts[1].starts_with("eyJ") && parts[1].len() >= 4 {
-            out.push(Finding { range: i..end, kind: SecretKind::Token });
+        if parts.len() >= 3
+            && parts[0].len() >= 10
+            && parts[1].starts_with("eyJ")
+            && parts[1].len() >= 4
+        {
+            out.push(Finding {
+                range: i..end,
+                kind: SecretKind::Token,
+            });
             from = end;
         }
     }
@@ -197,14 +226,23 @@ fn sendgrid(text: &str, out: &mut Vec<Finding>) {
         if i > 0 && is_word_byte(bytes[i - 1]) {
             continue;
         }
-        let a = bytes[i + 3..].iter().take_while(|&&b| is_word_byte(b)).count();
+        let a = bytes[i + 3..]
+            .iter()
+            .take_while(|&&b| is_word_byte(b))
+            .count();
         let dot = i + 3 + a;
         if a != 22 || bytes.get(dot) != Some(&b'.') {
             continue;
         }
-        let b = bytes[dot + 1..].iter().take_while(|&&b| is_word_byte(b)).count();
+        let b = bytes[dot + 1..]
+            .iter()
+            .take_while(|&&b| is_word_byte(b))
+            .count();
         if b == 43 {
-            out.push(Finding { range: i..dot + 1 + b, kind: SecretKind::ApiKey });
+            out.push(Finding {
+                range: i..dot + 1 + b,
+                kind: SecretKind::ApiKey,
+            });
         }
     }
 }
@@ -278,7 +316,10 @@ fn words(text: &str, out: &mut Vec<Finding>) {
     for r in runs(text, is_word_byte) {
         let word = &text[r.clone()];
         if vendor_key(word) {
-            out.push(Finding { range: r, kind: SecretKind::ApiKey });
+            out.push(Finding {
+                range: r,
+                kind: SecretKind::ApiKey,
+            });
         }
     }
     for r in runs(text, is_b64_byte) {
@@ -291,16 +332,23 @@ fn words(text: &str, out: &mut Vec<Finding>) {
         }
         let range = r.start + lead..r.end - trail;
         if looks_random(&text[range.clone()]) {
-            out.push(Finding { range, kind: SecretKind::ApiKey });
+            out.push(Finding {
+                range,
+                kind: SecretKind::ApiKey,
+            });
         }
     }
 }
 
 fn vendor_key(word: &str) -> bool {
     // AWS access key ids and Google API keys have fixed shapes.
-    let aws = ["AKIA", "ASIA", "ABIA", "ACCA"].iter().any(|p| word.starts_with(p))
+    let aws = ["AKIA", "ASIA", "ABIA", "ACCA"]
+        .iter()
+        .any(|p| word.starts_with(p))
         && word.len() == 20
-        && word.bytes().all(|b| b.is_ascii_uppercase() || b.is_ascii_digit());
+        && word
+            .bytes()
+            .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit());
     let google = word.starts_with("AIza") && word.len() == 39;
     if aws || google {
         return true;
@@ -308,7 +356,8 @@ fn vendor_key(word: &str) -> bool {
     PREFIXES.iter().any(|(prefix, min)| {
         word.len() >= *min && word.starts_with(prefix) && {
             let rest = &word[prefix.len()..];
-            rest.bytes().any(|b| b.is_ascii_digit()) && rest.bytes().any(|b| b.is_ascii_alphabetic())
+            rest.bytes().any(|b| b.is_ascii_digit())
+                && rest.bytes().any(|b| b.is_ascii_alphabetic())
         }
     })
 }
@@ -346,7 +395,10 @@ impl Classes {
     }
 
     fn count(&self) -> usize {
-        [self.lower, self.upper, self.digit, self.symbol].iter().filter(|&&n| n > 0).count()
+        [self.lower, self.upper, self.digit, self.symbol]
+            .iter()
+            .filter(|&&n| n > 0)
+            .count()
     }
 }
 
@@ -362,10 +414,13 @@ fn relative_entropy(s: &str, alphabet: f64) -> f64 {
         return 0.0;
     }
     let len = n as f64;
-    let h: f64 = counts.values().map(|&c| {
-        let p = c as f64 / len;
-        -p * p.log2()
-    }).sum();
+    let h: f64 = counts
+        .values()
+        .map(|&c| {
+            let p = c as f64 / len;
+            -p * p.log2()
+        })
+        .sum();
     h / len.min(alphabet).log2()
 }
 
@@ -375,12 +430,16 @@ fn is_hex(s: &str) -> bool {
 
 fn is_uuid(s: &str) -> bool {
     let parts: Vec<&str> = s.split('-').collect();
-    parts.len() == 5 && parts.iter().map(|p| p.len()).eq([8, 4, 4, 4, 12]) && parts.iter().all(|p| is_hex(p))
+    parts.len() == 5
+        && parts.iter().map(|p| p.len()).eq([8, 4, 4, 4, 12])
+        && parts.iter().all(|p| is_hex(p))
 }
 
 /// A git commit id: 40 lowercase hex digits. Common on developers' clipboards and not secret.
 fn is_commit_id(s: &str) -> bool {
-    s.len() == 40 && s.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    s.len() == 40
+        && s.bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
 /// A long run of characters that looks generated rather than written.
@@ -414,18 +473,38 @@ fn lone_word(text: &str, out: &mut Vec<Finding>) {
         return;
     }
     let start = text.len() - text.trim_start().len();
-    out.push(Finding { range: start..start + trimmed.len(), kind: SecretKind::Password });
+    out.push(Finding {
+        range: start..start + trimmed.len(),
+        kind: SecretKind::Password,
+    });
 }
 
 fn looks_like_password(s: &str) -> bool {
     let lower = s.to_ascii_lowercase();
     let is_url = lower.contains("://") || lower.starts_with("www.");
-    let is_path = s.starts_with('/') || s.starts_with('~') || s.starts_with("./") || s.starts_with("../") || s.contains('\\');
+    let is_path = s.starts_with('/')
+        || s.starts_with('~')
+        || s.starts_with("./")
+        || s.starts_with("../")
+        || s.contains('\\');
     let is_email = s.split_once('@').is_some_and(|(local, domain)| {
-        !local.is_empty() && domain.contains('.') && domain.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
+        !local.is_empty()
+            && domain.contains('.')
+            && domain
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'-')
     });
-    let is_number = s.chars().all(|c| c.is_ascii_digit() || ",.+-%$€£".contains(c));
-    if is_url || is_path || is_email || is_number || is_uuid(s) || is_commit_id(s) || s.starts_with('#') {
+    let is_number = s
+        .chars()
+        .all(|c| c.is_ascii_digit() || ",.+-%$€£".contains(c));
+    if is_url
+        || is_path
+        || is_email
+        || is_number
+        || is_uuid(s)
+        || is_commit_id(s)
+        || s.starts_with('#')
+    {
         return false;
     }
     let c = Classes::of(s);
@@ -438,8 +517,16 @@ fn looks_like_password(s: &str) -> bool {
     }
     // Lowercase letters and digits mixed throughout (not `release2024notes`).
     let alnum: Vec<char> = s.chars().filter(char::is_ascii_alphanumeric).collect();
-    let switches = alnum.windows(2).filter(|w| w[0].is_ascii_digit() != w[1].is_ascii_digit()).count();
-    if len >= 12 && c.digit >= 3 && c.lower + c.upper > 0 && switches >= 6 && relative_entropy(s, 36.0) >= 0.85 {
+    let switches = alnum
+        .windows(2)
+        .filter(|w| w[0].is_ascii_digit() != w[1].is_ascii_digit())
+        .count();
+    if len >= 12
+        && c.digit >= 3
+        && c.lower + c.upper > 0
+        && switches >= 6
+        && relative_entropy(s, 36.0) >= 0.85
+    {
         return true;
     }
     looks_random(s)
@@ -453,12 +540,18 @@ fn url_credentials(text: &str, out: &mut Vec<Finding>) {
     let mut from = 0;
     while let Some(i) = text[from..].find("://").map(|i| i + from) {
         from = i + 3;
-        let scheme_len = bytes[..i].iter().rev().take_while(|b| b.is_ascii_alphanumeric() || **b == b'+' || **b == b'.' || **b == b'-').count();
+        let scheme_len = bytes[..i]
+            .iter()
+            .rev()
+            .take_while(|b| b.is_ascii_alphanumeric() || **b == b'+' || **b == b'.' || **b == b'-')
+            .count();
         if scheme_len == 0 {
             continue;
         }
         let rest = &text[i + 3..];
-        let url_len = rest.find(|c: char| c.is_whitespace() || "\"'<>`)]".contains(c)).unwrap_or(rest.len());
+        let url_len = rest
+            .find(|c: char| c.is_whitespace() || "\"'<>`)]".contains(c))
+            .unwrap_or(rest.len());
         let authority_len = rest[..url_len].find(['/', '?', '#']).unwrap_or(url_len);
         let authority = &rest[..authority_len];
         if let Some(at) = authority.rfind('@') {
@@ -466,7 +559,10 @@ fn url_credentials(text: &str, out: &mut Vec<Finding>) {
                 let start = i + 3 + colon + 1;
                 let end = i + 3 + at;
                 if end > start {
-                    out.push(Finding { range: start..end, kind: SecretKind::Credential });
+                    out.push(Finding {
+                        range: start..end,
+                        kind: SecretKind::Credential,
+                    });
                 }
             }
         }
@@ -474,10 +570,14 @@ fn url_credentials(text: &str, out: &mut Vec<Finding>) {
         let host = &lower[i + 3..i + 3 + authority_len];
         let path = &lower[i + 3 + authority_len..i + 3 + url_len];
         let webhook = (host.ends_with("hooks.slack.com") && path.starts_with("/services/"))
-            || ((host.ends_with("discord.com") || host.ends_with("discordapp.com")) && path.starts_with("/api/webhooks/"));
+            || ((host.ends_with("discord.com") || host.ends_with("discordapp.com"))
+                && path.starts_with("/api/webhooks/"));
         if webhook {
             let start = i + 3 + authority_len + path[1..].find('/').map(|j| j + 2).unwrap_or(1);
-            out.push(Finding { range: start..i + 3 + url_len, kind: SecretKind::Credential });
+            out.push(Finding {
+                range: start..i + 3 + url_len,
+                kind: SecretKind::Credential,
+            });
         }
         from = i + 3 + url_len.max(1).min(rest.len());
     }
@@ -497,28 +597,60 @@ fn authorization(text: &str, out: &mut Vec<Finding>) {
                 continue;
             }
             let start = from + lower[from..].len() - lower[from..].trim_start_matches(' ').len();
-            let len = text[start..].bytes().take_while(|&b| is_b64_byte(b) || b == b'.' || b == b'~' || b == b'=').count();
+            let len = text[start..]
+                .bytes()
+                .take_while(|&b| is_b64_byte(b) || b == b'.' || b == b'~' || b == b'=')
+                .count();
             if len >= 8 {
-                out.push(Finding { range: start..start + len, kind: SecretKind::Token });
+                out.push(Finding {
+                    range: start..start + len,
+                    kind: SecretKind::Token,
+                });
             }
         }
     }
 }
 
 /// Key names whose value is a secret, compared after lowercasing and dropping punctuation.
-const SECRET_LABELS: [&str; 10] =
-    ["password", "passwd", "passphrase", "secret", "token", "apikey", "accesskey", "privatekey", "credential", "authkey"];
+const SECRET_LABELS: [&str; 10] = [
+    "password",
+    "passwd",
+    "passphrase",
+    "secret",
+    "token",
+    "apikey",
+    "accesskey",
+    "privatekey",
+    "credential",
+    "authkey",
+];
 const PASSWORD_LABELS: [&str; 3] = ["password", "passwd", "passphrase"];
 const SHORT_LABELS: [&str; 4] = ["pwd", "pass", "pw", "pin"];
 
 /// Values that stand in for a secret rather than being one: types, placeholders, references.
 fn is_placeholder(value: &str) -> bool {
     let v = value.to_ascii_lowercase();
-    const WORDS: [&str; 14] =
-        ["string", "str", "null", "none", "nil", "true", "false", "undefined", "required", "optional", "number", "boolean", "redacted", "hidden"];
+    const WORDS: [&str; 14] = [
+        "string",
+        "str",
+        "null",
+        "none",
+        "nil",
+        "true",
+        "false",
+        "undefined",
+        "required",
+        "optional",
+        "number",
+        "boolean",
+        "redacted",
+        "hidden",
+    ];
     WORDS.contains(&v.as_str())
         || value.starts_with(['$', '%', '{', '<', '(', '[', '*', '&'])
-        || value.chars().all(|c| c == 'x' || c == 'X' || c == '*' || c == '.' || c == '•')
+        || value
+            .chars()
+            .all(|c| c == 'x' || c == 'X' || c == '*' || c == '.' || c == '•')
         || v.starts_with("process.env")
         || v.starts_with("os.environ")
         || v.starts_with("env.")
@@ -538,14 +670,27 @@ fn labelled(text: &str, out: &mut Vec<Finding>) {
         if b == b'=' && (next == Some(b'=') || matches!(prev, b'=' | b'!' | b'<' | b'>')) {
             continue;
         }
-        let Some(key) = key_before(text, i) else { continue };
-        let normalized: String = key.chars().filter(char::is_ascii_alphanumeric).collect::<String>().to_ascii_lowercase();
-        let short = key.chars().filter(char::is_ascii_alphanumeric).collect::<String>().to_ascii_lowercase();
-        let secret = SECRET_LABELS.iter().any(|l| normalized.contains(l)) || SHORT_LABELS.contains(&short.as_str());
+        let Some(key) = key_before(text, i) else {
+            continue;
+        };
+        let normalized: String = key
+            .chars()
+            .filter(char::is_ascii_alphanumeric)
+            .collect::<String>()
+            .to_ascii_lowercase();
+        let short = key
+            .chars()
+            .filter(char::is_ascii_alphanumeric)
+            .collect::<String>()
+            .to_ascii_lowercase();
+        let secret = SECRET_LABELS.iter().any(|l| normalized.contains(l))
+            || SHORT_LABELS.contains(&short.as_str());
         if !secret {
             continue;
         }
-        let Some(value) = value_after(text, i, next == Some(b'>')) else { continue };
+        let Some(value) = value_after(text, i, next == Some(b'>')) else {
+            continue;
+        };
         let v = &text[value.clone()];
         if v.chars().count() < 4 || is_placeholder(v) {
             continue;
@@ -554,7 +699,9 @@ fn labelled(text: &str, out: &mut Vec<Finding>) {
         if normalized.contains("token") && v.bytes().all(|b| b.is_ascii_digit()) {
             continue;
         }
-        let kind = if PASSWORD_LABELS.iter().any(|l| normalized.contains(l)) || SHORT_LABELS.contains(&short.as_str()) {
+        let kind = if PASSWORD_LABELS.iter().any(|l| normalized.contains(l))
+            || SHORT_LABELS.contains(&short.as_str())
+        {
             SecretKind::Password
         } else {
             SecretKind::Credential
@@ -589,7 +736,10 @@ fn value_after(text: &str, sep: usize, arrow: bool) -> Option<Range<usize>> {
     while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
         i += 1;
     }
-    let quote = bytes.get(i).copied().filter(|&b| b == b'"' || b == b'\'' || b == b'`');
+    let quote = bytes
+        .get(i)
+        .copied()
+        .filter(|&b| b == b'"' || b == b'\'' || b == b'`');
     if let Some(q) = quote {
         let start = i + 1;
         let mut j = start;
@@ -600,7 +750,9 @@ fn value_after(text: &str, sep: usize, arrow: bool) -> Option<Range<usize>> {
         return (end > start).then_some(start..end);
     }
     let start = i;
-    let len = text[start..].find(|c: char| c.is_whitespace() || ",;)}]\"'".contains(c)).unwrap_or(text.len() - start);
+    let len = text[start..]
+        .find(|c: char| c.is_whitespace() || ",;)}]\"'".contains(c))
+        .unwrap_or(text.len() - start);
     (len > 0).then_some(start..start + len)
 }
 
@@ -640,7 +792,11 @@ mod tests {
             "The author: Jane Doe",
             "Use Bearer auth",
         ] {
-            assert!(kinds(text).is_empty(), "flagged {text:?} as {:?}", kinds(text));
+            assert!(
+                kinds(text).is_empty(),
+                "flagged {text:?} as {:?}",
+                kinds(text)
+            );
         }
     }
 
@@ -648,11 +804,17 @@ mod tests {
     fn vendor_keys() {
         for key in [
             concat!("ghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx"),
-            concat!("github", "_pat_11ABCDEFG0abcdefghijkl_mnopqrstuvwxyz0123456789ABCDEF"),
+            concat!(
+                "github",
+                "_pat_11ABCDEFG0abcdefghijkl_mnopqrstuvwxyz0123456789ABCDEF"
+            ),
             concat!("sk-ant", "-api03-abcDEF123456ghiJKL789012mnoPQR345678"),
             concat!("sk-proj", "-Abc123Def456Ghi789Jkl012Mno345"),
             concat!("sk_live", "_4eC39HqLyjWDarjtT1zdp7dc"),
-            concat!("xoxb", "-123456789012-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx"),
+            concat!(
+                "xoxb",
+                "-123456789012-1234567890123-AbCdEfGhIjKlMnOpQrStUvWx"
+            ),
             "AKIAIOSFODNN7EXAMPLE",
             concat!("AIza", "SyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI"),
             "glpat-xxxxxxxxxxxxxxxx2xxx",
@@ -670,33 +832,69 @@ mod tests {
         // A public key or certificate is fine.
         assert!(kinds("-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----").is_empty());
         // An unterminated block is withheld to the end.
-        assert_eq!(redacted("-----BEGIN RSA PRIVATE KEY-----\nMIIE"), "[redacted: private key]");
+        assert_eq!(
+            redacted("-----BEGIN RSA PRIVATE KEY-----\nMIIE"),
+            "[redacted: private key]"
+        );
     }
 
     #[test]
     fn jwt_and_authorization() {
         let jwt = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
-        assert_eq!(redacted(&format!("token {jwt}")), "token [redacted: access token]");
-        assert_eq!(redacted("curl -H 'Authorization: Bearer abc.def-123_xyz'"), "curl -H 'Authorization: Bearer [redacted: access token]'");
-        assert_eq!(redacted("Authorization: token deadbeefcafe"), "Authorization: token [redacted: access token]");
+        assert_eq!(
+            redacted(&format!("token {jwt}")),
+            "token [redacted: access token]"
+        );
+        assert_eq!(
+            redacted("curl -H 'Authorization: Bearer abc.def-123_xyz'"),
+            "curl -H 'Authorization: Bearer [redacted: access token]'"
+        );
+        assert_eq!(
+            redacted("Authorization: token deadbeefcafe"),
+            "Authorization: token [redacted: access token]"
+        );
     }
 
     #[test]
     fn labelled_values() {
-        assert_eq!(redacted("DB_PASSWORD=correct-horse"), "DB_PASSWORD=[redacted: password]");
-        assert_eq!(redacted(r#"{"api_key": "abcd1234", "name": "x"}"#), r#"{"api_key": "[redacted: secret]", "name": "x"}"#);
-        assert_eq!(redacted("export GITHUB_TOKEN=abc123xyz"), "export GITHUB_TOKEN=[redacted: secret]");
-        assert_eq!(redacted("Wi-Fi password: purple monkey"), "Wi-Fi password: [redacted: password] monkey");
-        assert_eq!(redacted("The password is: Summer2024"), "The password is: [redacted: password]");
+        assert_eq!(
+            redacted("DB_PASSWORD=correct-horse"),
+            "DB_PASSWORD=[redacted: password]"
+        );
+        assert_eq!(
+            redacted(r#"{"api_key": "abcd1234", "name": "x"}"#),
+            r#"{"api_key": "[redacted: secret]", "name": "x"}"#
+        );
+        assert_eq!(
+            redacted("export GITHUB_TOKEN=abc123xyz"),
+            "export GITHUB_TOKEN=[redacted: secret]"
+        );
+        assert_eq!(
+            redacted("Wi-Fi password: purple monkey"),
+            "Wi-Fi password: [redacted: password] monkey"
+        );
+        assert_eq!(
+            redacted("The password is: Summer2024"),
+            "The password is: [redacted: password]"
+        );
         assert_eq!(redacted("API Key: q8w7e6r5"), "API Key: [redacted: secret]");
-        assert_eq!(redacted("--password=hunter22 --user bob"), "--password=[redacted: password] --user bob");
+        assert_eq!(
+            redacted("--password=hunter22 --user bob"),
+            "--password=[redacted: password] --user bob"
+        );
         assert_eq!(redacted("pin: 4821"), "pin: [redacted: password]");
-        assert_eq!(redacted("client_secret => 'zz9plural'"), "client_secret => '[redacted: secret]'");
+        assert_eq!(
+            redacted("client_secret => 'zz9plural'"),
+            "client_secret => '[redacted: secret]'"
+        );
     }
 
     #[test]
     fn url_credentials_and_webhooks() {
-        assert_eq!(redacted("postgres://admin:s3cr3t@db.local:5432/app"), "postgres://admin:[redacted: secret]@db.local:5432/app");
+        assert_eq!(
+            redacted("postgres://admin:s3cr3t@db.local:5432/app"),
+            "postgres://admin:[redacted: secret]@db.local:5432/app"
+        );
         assert!(kinds("https://user@example.com/path").is_empty());
         assert_eq!(
             redacted("hook https://hooks.slack.com/services/T000/B000/XXXXXXXX done"),
@@ -706,7 +904,13 @@ mod tests {
 
     #[test]
     fn lone_passwords() {
-        for pw in ["P@ssw0rd!", "Tr0ub4dor&3", "kezwy4-dyxbeR-mosmac", "qT7xLm9vR2bN", "a8f3k2m9x7q1z5w4"] {
+        for pw in [
+            "P@ssw0rd!",
+            "Tr0ub4dor&3",
+            "kezwy4-dyxbeR-mosmac",
+            "qT7xLm9vR2bN",
+            "a8f3k2m9x7q1z5w4",
+        ] {
             let r = redact(pw);
             assert!(r.whole, "{pw} not flagged");
             assert_eq!(r.text, "[redacted: password]");
@@ -719,8 +923,14 @@ mod tests {
 
     #[test]
     fn random_runs_inside_text() {
-        assert_eq!(redacted("secret is wJalrXUtnFEMI/K7MDENG/bPxRfiCY3XAMPL9KEY ok"), "secret is [redacted: API key] ok");
-        assert_eq!(redacted("hex 7f3a9c2e5b8d1f4a6c0e9b2d5f8a1c4e"), "hex [redacted: API key]");
+        assert_eq!(
+            redacted("secret is wJalrXUtnFEMI/K7MDENG/bPxRfiCY3XAMPL9KEY ok"),
+            "secret is [redacted: API key] ok"
+        );
+        assert_eq!(
+            redacted("hex 7f3a9c2e5b8d1f4a6c0e9b2d5f8a1c4e"),
+            "hex [redacted: API key]"
+        );
         // Long code identifiers stay.
         assert!(kinds("fn handle_incoming_connection_request(stream: UnixStream) {}").is_empty());
     }
@@ -730,13 +940,20 @@ mod tests {
         let r = redact("password=abcd1234 for the staging box");
         assert!(!r.whole);
         assert_eq!(r.kinds, vec![SecretKind::Password]);
-        let r = redact(concat!("sk_live", "_4eC39HqLyjWDarjtT1zdp7dc\nghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx"));
+        let r = redact(concat!(
+            "sk_live",
+            "_4eC39HqLyjWDarjtT1zdp7dc\nghp",
+            "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx"
+        ));
         assert!(r.whole);
     }
 
     #[test]
     fn handles_non_ascii() {
         assert!(kinds("Grüße aus Köln — schöne Woche! 🌿").is_empty());
-        assert_eq!(redacted("Passwort-Hinweis — password: Zürich#2024"), "Passwort-Hinweis — password: [redacted: password]");
+        assert_eq!(
+            redacted("Passwort-Hinweis — password: Zürich#2024"),
+            "Passwort-Hinweis — password: [redacted: password]"
+        );
     }
 }

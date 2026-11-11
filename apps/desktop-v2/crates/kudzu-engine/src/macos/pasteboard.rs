@@ -80,8 +80,14 @@ pub(crate) fn read_items() -> Vec<Vec<(String, Vec<u8>)>> {
         let mut items = Vec::new();
         if let Some(list) = board.pasteboardItems() {
             for item in list.iter() {
-                let entries: Vec<(String, Vec<u8>)> =
-                    item.types().iter().filter_map(|kind| item.dataForType(&kind).map(|data| (kind.to_string(), data.to_vec()))).collect();
+                let entries: Vec<(String, Vec<u8>)> = item
+                    .types()
+                    .iter()
+                    .filter_map(|kind| {
+                        item.dataForType(&kind)
+                            .map(|data| (kind.to_string(), data.to_vec()))
+                    })
+                    .collect();
                 if !entries.is_empty() {
                     items.push(entries);
                 }
@@ -122,7 +128,11 @@ fn write_raw(items: &[Vec<(String, Vec<u8>)>]) {
 
 /// Plain-text contents.
 pub(crate) fn read_string() -> Option<String> {
-    autoreleasepool(|_| general().stringForType(unsafe { NSPasteboardTypeString }).map(|s| s.to_string()))
+    autoreleasepool(|_| {
+        general()
+            .stringForType(unsafe { NSPasteboardTypeString })
+            .map(|s| s.to_string())
+    })
 }
 
 /// Writes plain text as the only item.
@@ -141,10 +151,24 @@ fn write_transient(text: &str, html: Option<&str>) -> bool {
     autoreleasepool(|_| {
         let item = NSPasteboardItem::new();
         let empty = NSData::new();
-        let ok = item.setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString })
-            && item.setData_forType(&empty, &NSString::from_str("org.nspasteboard.TransientType"))
-            && item.setData_forType(&empty, &NSString::from_str("org.nspasteboard.ConcealedType"));
-        if !ok || html.is_some_and(|html| !item.setString_forType(&NSString::from_str(html), &NSString::from_str("public.html"))) {
+        let ok = item
+            .setString_forType(&NSString::from_str(text), unsafe { NSPasteboardTypeString })
+            && item.setData_forType(
+                &empty,
+                &NSString::from_str("org.nspasteboard.TransientType"),
+            )
+            && item.setData_forType(
+                &empty,
+                &NSString::from_str("org.nspasteboard.ConcealedType"),
+            );
+        if !ok
+            || html.is_some_and(|html| {
+                !item.setString_forType(
+                    &NSString::from_str(html),
+                    &NSString::from_str("public.html"),
+                )
+            })
+        {
             return false;
         }
         let board = general();
@@ -182,7 +206,9 @@ pub(crate) fn paste_text(text: &str, html: Option<&str>) -> Result<(), PasteErro
 
 /// Restores the clipboard a paste replaced, unless the user copied something since.
 pub(crate) fn restore_pending() {
-    let Some((saved, count)) = lock(&PENDING_RESTORE).take() else { return };
+    let Some((saved, count)) = lock(&PENDING_RESTORE).take() else {
+        return;
+    };
     if change_count() == count {
         restore(&saved);
     }

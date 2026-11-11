@@ -45,9 +45,15 @@ impl BackupReason {
 
     /// Parses a filename/JSON name.
     pub fn parse(s: &str) -> Option<Self> {
-        [Self::Daily, Self::PreImport, Self::PreRestore, Self::Manual, Self::PreUpdate]
-            .into_iter()
-            .find(|r| r.as_str() == s)
+        [
+            Self::Daily,
+            Self::PreImport,
+            Self::PreRestore,
+            Self::Manual,
+            Self::PreUpdate,
+        ]
+        .into_iter()
+        .find(|r| r.as_str() == s)
     }
 }
 

@@ -147,10 +147,16 @@ mod interchange {
 
         // Markdown and HTML become Formatted snippets (see interchange_rich_text.rs).
         assert_eq!(t[":rich_md"].content, "This text is bold");
-        assert_eq!(t[":rich_md"].formatting.as_ref().map(|f| f.spans.len()), Some(2));
+        assert_eq!(
+            t[":rich_md"].formatting.as_ref().map(|f| f.spans.len()),
+            Some(2)
+        );
         assert!(!has_warning(&result, ":rich_md"));
         assert_eq!(t[":rich_html"].content, "Hello world");
-        assert_eq!(t[":rich_html"].formatting.as_ref().map(|f| f.spans.len()), Some(1));
+        assert_eq!(
+            t[":rich_html"].formatting.as_ref().map(|f| f.spans.len()),
+            Some(1)
+        );
         assert!(!has_warning(&result, ":rich_html"));
 
         for (trigger, content) in [
@@ -324,8 +330,12 @@ mod interchange {
                 clipboard: None,
                 form_values: HashMap::new(),
                 resolve_snippet: &resolve,
-                resolve_formatting: None, root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+                resolve_formatting: None,
+                root_snippet_id: None,
+                selection: None,
+                clipboard_history: None,
+                new_uuid: None,
+                pick: None,
             };
             template::render(&s.content, &ctx).text
         };

@@ -66,7 +66,13 @@ impl Imp {
 
     pub fn cancel_form(&self, _token: u64) {}
 
-    pub fn insert_snippet(&self, _snippet_id: Uuid, _target: Option<AppInfo>, _selection: Option<String>) {}
+    pub fn insert_snippet(
+        &self,
+        _snippet_id: Uuid,
+        _target: Option<AppInfo>,
+        _selection: Option<String>,
+    ) {
+    }
 
     pub fn host(&self) -> &dyn EngineHost {
         self.host.as_ref()

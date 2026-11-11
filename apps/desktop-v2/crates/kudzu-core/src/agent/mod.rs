@@ -45,7 +45,11 @@ pub struct Access {
 impl Access {
     /// Everything allowed: what an offline bridge advertises.
     pub fn all() -> Self {
-        Self { clipboard: true, write: true, trigger_prefix: ";".into() }
+        Self {
+            clipboard: true,
+            write: true,
+            trigger_prefix: ";".into(),
+        }
     }
 }
 
@@ -97,7 +101,11 @@ impl Host for Offline {
         Err(OFFLINE_MESSAGE.into())
     }
     fn render_env(&self) -> RenderEnv {
-        RenderEnv { now: chrono::Local::now().fixed_offset(), locale: "en_US".into(), clipboard: None }
+        RenderEnv {
+            now: chrono::Local::now().fixed_offset(),
+            locale: "en_US".into(),
+            clipboard: None,
+        }
     }
 }
 
@@ -134,24 +142,50 @@ pub fn handle(host: &dyn Host, server_version: &str, message: &str) -> Option<St
     let reply = match serde_json::from_str::<Value>(message) {
         Err(_) => Some(error(Value::Null, -32700, "Parse error")),
         Ok(Value::Object(m)) => dispatch(host, server_version, &m),
-        Ok(_) => Some(error(Value::Null, -32600, "Invalid request: expected one JSON-RPC object")),
+        Ok(_) => Some(error(
+            Value::Null,
+            -32600,
+            "Invalid request: expected one JSON-RPC object",
+        )),
     };
     reply.map(|v| v.to_string())
 }
 
-fn dispatch(host: &dyn Host, server_version: &str, m: &serde_json::Map<String, Value>) -> Option<Value> {
+fn dispatch(
+    host: &dyn Host,
+    server_version: &str,
+    m: &serde_json::Map<String, Value>,
+) -> Option<Value> {
     let method = match m.get("method") {
         Some(Value::String(method)) => method.as_str(),
-        Some(_) => return m.get("id").map(|id| error(id.clone(), -32600, "Invalid request: method must be a string")),
+        Some(_) => {
+            return m.get("id").map(|id| {
+                error(
+                    id.clone(),
+                    -32600,
+                    "Invalid request: method must be a string",
+                )
+            })
+        }
         // A response to a request this server never sends: nothing to say back.
-        None => return (!is_response(m)).then(|| error(m.get("id").cloned().unwrap_or(Value::Null), -32600, "Invalid request")),
+        None => {
+            return (!is_response(m)).then(|| {
+                error(
+                    m.get("id").cloned().unwrap_or(Value::Null),
+                    -32600,
+                    "Invalid request",
+                )
+            })
+        }
     };
     let id = m.get("id").cloned();
     let params = m.get("params").cloned().unwrap_or_else(|| json!({}));
     let result = match method {
         "initialize" => Ok(initialize(&params, server_version)),
         "ping" => Ok(json!({})),
-        "tools/list" => Ok(json!({ "tools": definitions(&host.access().unwrap_or_else(|_| Access::all())) })),
+        "tools/list" => {
+            Ok(json!({ "tools": definitions(&host.access().unwrap_or_else(|_| Access::all())) }))
+        }
         "tools/call" => tools::call(host, &params),
         "resources/list" => Ok(json!({ "resources": [skill_resource()] })),
         "resources/read" => read_resource(&params),
@@ -168,8 +202,15 @@ fn dispatch(host: &dyn Host, server_version: &str, m: &serde_json::Map<String, V
 }
 
 fn initialize(params: &Value, server_version: &str) -> Value {
-    let requested = params.get("protocolVersion").and_then(Value::as_str).unwrap_or_default();
-    let version = PROTOCOL_VERSIONS.iter().find(|v| **v == requested).copied().unwrap_or(PROTOCOL_VERSIONS[0]);
+    let requested = params
+        .get("protocolVersion")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let version = PROTOCOL_VERSIONS
+        .iter()
+        .find(|v| **v == requested)
+        .copied()
+        .unwrap_or(PROTOCOL_VERSIONS[0]);
     json!({
         "protocolVersion": version,
         "capabilities": { "tools": { "listChanged": false }, "resources": { "subscribe": false, "listChanged": false } },
@@ -190,7 +231,10 @@ fn skill_resource() -> Value {
 }
 
 fn read_resource(params: &Value) -> Result<Value, (i64, String)> {
-    let uri = params.get("uri").and_then(Value::as_str).ok_or((-32602, "Missing resource uri".to_string()))?;
+    let uri = params
+        .get("uri")
+        .and_then(Value::as_str)
+        .ok_or((-32602, "Missing resource uri".to_string()))?;
     if uri != SKILL_URI {
         return Err((-32002, format!("Resource not found: {uri}")));
     }

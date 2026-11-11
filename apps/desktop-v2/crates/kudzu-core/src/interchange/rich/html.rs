@@ -18,7 +18,9 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
             rest = after.find("-->").map_or("", |end| &after[end + 3..]);
         } else if rest.starts_with("<!") || rest.starts_with("<?") {
             rest = rest.find('>').map_or("", |end| &rest[end + 1..]);
-        } else if rest.starts_with('<') && rest[1..].starts_with(|c: char| c.is_ascii_alphabetic() || c == '/') {
+        } else if rest.starts_with('<')
+            && rest[1..].starts_with(|c: char| c.is_ascii_alphabetic() || c == '/')
+        {
             let Some(end) = tag_end(rest) else {
                 // Never closed: the rest is text.
                 reader.text(&decode_entities(rest));
@@ -71,7 +73,21 @@ fn tag_end(s: &str) -> Option<usize> {
 fn raw_text_end(name: &str, rest: &str) -> Option<usize> {
     if !matches!(
         name,
-        "script" | "style" | "head" | "title" | "template" | "noscript" | "svg" | "math" | "iframe" | "object" | "video" | "audio" | "canvas" | "select" | "textarea"
+        "script"
+            | "style"
+            | "head"
+            | "title"
+            | "template"
+            | "noscript"
+            | "svg"
+            | "math"
+            | "iframe"
+            | "object"
+            | "video"
+            | "audio"
+            | "canvas"
+            | "select"
+            | "textarea"
     ) {
         return None;
     }
@@ -80,7 +96,10 @@ fn raw_text_end(name: &str, rest: &str) -> Option<usize> {
     let mut from = 0;
     while let Some(p) = rest[from..].find("</") {
         let at = from + p;
-        if bytes.get(at..at + close.len()).is_some_and(|b| b.eq_ignore_ascii_case(close.as_bytes())) {
+        if bytes
+            .get(at..at + close.len())
+            .is_some_and(|b| b.eq_ignore_ascii_case(close.as_bytes()))
+        {
             return Some(rest[at..].find('>').map_or(rest.len(), |e| at + e + 1));
         }
         from = at + 2;
@@ -97,7 +116,10 @@ struct Tag {
 
 impl Tag {
     fn attr(&self, name: &str) -> Option<&str> {
-        self.attrs.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+        self.attrs
+            .iter()
+            .find(|(k, _)| k == name)
+            .map(|(_, v)| v.as_str())
     }
 }
 
@@ -105,7 +127,9 @@ fn parse_tag(body: &str) -> Tag {
     let closing = body.starts_with('/');
     let body = body.trim_start_matches('/');
     let self_closing = body.trim_end().ends_with('/');
-    let name_len = body.find(|c: char| c.is_whitespace() || c == '/').unwrap_or(body.len());
+    let name_len = body
+        .find(|c: char| c.is_whitespace() || c == '/')
+        .unwrap_or(body.len());
     let name = body[..name_len].to_ascii_lowercase();
     let mut attrs = Vec::new();
     let chars: Vec<char> = body[name_len..].chars().collect();
@@ -118,7 +142,10 @@ fn parse_tag(body: &str) -> Tag {
         while i < chars.len() && !chars[i].is_whitespace() && !matches!(chars[i], '=' | '/' | '>') {
             i += 1;
         }
-        let key: String = chars[start..i].iter().collect::<String>().to_ascii_lowercase();
+        let key: String = chars[start..i]
+            .iter()
+            .collect::<String>()
+            .to_ascii_lowercase();
         while i < chars.len() && chars[i].is_whitespace() {
             i += 1;
         }
@@ -150,7 +177,12 @@ fn parse_tag(body: &str) -> Tag {
             attrs.push((key, decode_entities(&value)));
         }
     }
-    Tag { name, closing, self_closing, attrs }
+    Tag {
+        name,
+        closing,
+        self_closing,
+        attrs,
+    }
 }
 
 struct Open {
@@ -181,13 +213,43 @@ struct Reader {
 }
 
 const VOID: &[&str] = &[
-    "br", "img", "hr", "input", "meta", "link", "wbr", "col", "area", "base", "embed", "source", "track", "param",
+    "br", "img", "hr", "input", "meta", "link", "wbr", "col", "area", "base", "embed", "source",
+    "track", "param",
 ];
 
 const BLOCKS: &[&str] = &[
-    "div", "section", "article", "header", "footer", "nav", "main", "aside", "address", "figure",
-    "figcaption", "center", "dl", "dt", "dd", "form", "fieldset", "blockquote", "ul", "ol", "li", "table",
-    "tr", "caption", "pre", "h1", "h2", "h3", "h4", "h5", "h6", "p",
+    "div",
+    "section",
+    "article",
+    "header",
+    "footer",
+    "nav",
+    "main",
+    "aside",
+    "address",
+    "figure",
+    "figcaption",
+    "center",
+    "dl",
+    "dt",
+    "dd",
+    "form",
+    "fieldset",
+    "blockquote",
+    "ul",
+    "ol",
+    "li",
+    "table",
+    "tr",
+    "caption",
+    "pre",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "p",
 ];
 
 impl Reader {
@@ -204,7 +266,13 @@ impl Reader {
     /// waiting for their first character.
     fn materialize(&mut self) {
         if self.pending_break > 0 && !self.out.text.is_empty() {
-            let have = self.out.text.chars().rev().take_while(|c| *c == '\n').count();
+            let have = self
+                .out
+                .text
+                .chars()
+                .rev()
+                .take_while(|c| *c == '\n')
+                .count();
             for _ in have..self.pending_break {
                 self.out.push_char('\n');
             }
@@ -249,19 +317,26 @@ impl Reader {
     fn skipped(&mut self, name: &str) {
         match name {
             "svg" | "canvas" => self.out.drop(Dropped::ImagesUnsupported),
-            "iframe" | "object" | "video" | "audio" | "select" | "textarea" | "math" => self.out.drop(Dropped::Html),
+            "iframe" | "object" | "video" | "audio" | "select" | "textarea" | "math" => {
+                self.out.drop(Dropped::Html)
+            }
             _ => {}
         }
     }
 
     fn style_attribute(&mut self, css: &str, styles: &mut Vec<FormatStyle>) {
         for declaration in css.split(';') {
-            let Some((property, value)) = declaration.split_once(':') else { continue };
+            let Some((property, value)) = declaration.split_once(':') else {
+                continue;
+            };
             let property = property.trim().to_ascii_lowercase();
             let value = value.trim().to_ascii_lowercase();
             match property.as_str() {
                 "font-weight" => {
-                    if value == "bold" || value == "bolder" || value.parse::<u32>().is_ok_and(|w| w >= 600) {
+                    if value == "bold"
+                        || value == "bolder"
+                        || value.parse::<u32>().is_ok_and(|w| w >= 600)
+                    {
                         styles.push(FormatStyle::Bold);
                     }
                 }
@@ -284,10 +359,14 @@ impl Reader {
                     self.out.drop(Dropped::Fonts);
                     self.out.drop(Dropped::TextSizes);
                 }
-                "text-align" if !matches!(value.as_str(), "left" | "start" | "initial" | "inherit") => {
+                "text-align"
+                    if !matches!(value.as_str(), "left" | "start" | "initial" | "inherit") =>
+                {
                     self.out.drop(Dropped::Alignment);
                 }
-                "vertical-align" if matches!(value.as_str(), "super" | "sub") => self.out.drop(Dropped::Scripts),
+                "vertical-align" if matches!(value.as_str(), "super" | "sub") => {
+                    self.out.drop(Dropped::Scripts)
+                }
                 _ => {}
             }
         }
@@ -360,7 +439,9 @@ impl Reader {
             "i" | "em" | "cite" | "var" | "dfn" => styles.push(FormatStyle::Italic),
             "u" | "ins" => styles.push(FormatStyle::Underline),
             "a" => match tag.attr("href").map(str::trim) {
-                Some(url) if safe_link(url) => styles.push(FormatStyle::Link { url: url.to_string() }),
+                Some(url) if safe_link(url) => styles.push(FormatStyle::Link {
+                    url: url.to_string(),
+                }),
                 Some(_) => self.out.drop(Dropped::Links),
                 None => {}
             },
@@ -392,8 +473,12 @@ impl Reader {
                 return Ok(());
             }
             "img" => {
-                let data = tag.attr("src").map_or(Err(Dropped::ImagesNotEmbedded), image::data_url_bytes);
-                let width = tag.attr("width").and_then(|w| w.trim().trim_end_matches("px").parse::<u32>().ok());
+                let data = tag
+                    .attr("src")
+                    .map_or(Err(Dropped::ImagesNotEmbedded), image::data_url_bytes);
+                let width = tag
+                    .attr("width")
+                    .and_then(|w| w.trim().trim_end_matches("px").parse::<u32>().ok());
                 let style = self.out.image_style(data, width);
                 let label = image_label(tag.attr("alt").unwrap_or(""), style.is_some());
                 if !label.is_empty() {
@@ -432,8 +517,14 @@ impl Reader {
                 if !self.lists.is_empty() {
                     self.out.drop(Dropped::NestedLists);
                 }
-                let start = tag.attr("start").and_then(|s| s.trim().parse::<i64>().ok()).unwrap_or(1);
-                self.lists.push(List { ordered: name == "ol", next: start });
+                let start = tag
+                    .attr("start")
+                    .and_then(|s| s.trim().parse::<i64>().ok())
+                    .unwrap_or(1);
+                self.lists.push(List {
+                    ordered: name == "ol",
+                    next: start,
+                });
             }
             "li" => breaks = 1,
             "table" => {
@@ -464,7 +555,10 @@ impl Reader {
         }
         if name == "li" {
             let marker = match self.lists.last_mut() {
-                Some(List { ordered: true, next }) => {
+                Some(List {
+                    ordered: true,
+                    next,
+                }) => {
                     *next += 1;
                     format!("{}. ", *next - 1)
                 }
@@ -483,7 +577,14 @@ impl Reader {
             return Err("it's nested too deeply".into());
         }
         self.unstarted += 1;
-        self.stack.push(Open { name: name.to_string(), start: None, styles, breaks, list, pre });
+        self.stack.push(Open {
+            name: name.to_string(),
+            start: None,
+            styles,
+            breaks,
+            list,
+            pre,
+        });
         Ok(())
     }
 }
@@ -586,7 +687,10 @@ mod tests {
     fn implicit_closes_and_entities() {
         assert_eq!(render("<ul><li>a<li>b</ul>").0, "• a\n• b");
         assert_eq!(render("<p>a<p>b").0, "a\n\nb");
-        assert_eq!(render("Tom &amp; Jerry &copy; &#x1F600; &bogus; &").0, "Tom & Jerry © 😀 &bogus; &");
+        assert_eq!(
+            render("Tom &amp; Jerry &copy; &#x1F600; &bogus; &").0,
+            "Tom & Jerry © 😀 &bogus; &"
+        );
         assert_eq!(render("<!-- c --><!DOCTYPE html>x<?php ?>y").0, "xy");
         assert_eq!(render("<a href=\"javascript:x\">t</a>").1, vec![]);
     }

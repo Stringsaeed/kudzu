@@ -115,7 +115,10 @@ mod tests {
     fn delimiters_inside_quotes_do_not_count() {
         assert_eq!(
             parse("sig,\"Hello; how; are; you\",Signature\nb,plain,Lab"),
-            vec![vec!["sig", "Hello; how; are; you", "Signature"], vec!["b", "plain", "Lab"]]
+            vec![
+                vec!["sig", "Hello; how; are; you", "Signature"],
+                vec!["b", "plain", "Lab"]
+            ]
         );
     }
 

@@ -8,10 +8,12 @@ use std::sync::Arc;
 use std::thread;
 
 use core_foundation_sys::base::{CFRelease, CFRetain};
-use core_foundation_sys::mach_port::{CFMachPortCreateRunLoopSource, CFMachPortInvalidate, CFMachPortRef};
+use core_foundation_sys::mach_port::{
+    CFMachPortCreateRunLoopSource, CFMachPortInvalidate, CFMachPortRef,
+};
 use core_foundation_sys::runloop::{
-    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFRunLoopAddSource, CFRunLoopGetCurrent, CFRunLoopRemoveSource,
-    CFRunLoopRunInMode, CFRunLoopSourceRef,
+    kCFRunLoopCommonModes, kCFRunLoopDefaultMode, CFRunLoopAddSource, CFRunLoopGetCurrent,
+    CFRunLoopRemoveSource, CFRunLoopRunInMode, CFRunLoopSourceRef,
 };
 use kudzu_core::matching::KeyInput;
 
@@ -28,7 +30,12 @@ struct Context {
     stopped: Arc<AtomicBool>,
 }
 
-unsafe extern "C" fn callback(_proxy: CGEventTapProxy, kind: CGEventType, event: CGEventRef, user_info: *mut c_void) -> CGEventRef {
+unsafe extern "C" fn callback(
+    _proxy: CGEventTapProxy,
+    kind: CGEventType,
+    event: CGEventRef,
+    user_info: *mut c_void,
+) -> CGEventRef {
     // SAFETY: `user_info` is the Context owned by the tap thread, alive while its run loop runs.
     let context = unsafe { &*(user_info as *const Context) };
     if kind == kCGEventTapDisabledByTimeout || kind == kCGEventTapDisabledByUserInput {
@@ -38,7 +45,8 @@ unsafe extern "C" fn callback(_proxy: CGEventTapProxy, kind: CGEventType, event:
         }
     }
     // A panic must never unwind into CoreGraphics.
-    let swallow = catch_unwind(AssertUnwindSafe(|| (context.handler)(kind, event))).unwrap_or(false);
+    let swallow =
+        catch_unwind(AssertUnwindSafe(|| (context.handler)(kind, event))).unwrap_or(false);
     if swallow && context.active {
         ptr::null_mut()
     } else {
@@ -84,7 +92,14 @@ impl TapHandle {
         }));
         // SAFETY: plain CF calls; `context` outlives the tap (freed by the tap thread after invalidation).
         unsafe {
-            let port = CGEventTapCreate(kCGSessionEventTap, kCGTailAppendEventTap, options, EVENT_MASK, callback, context as *mut c_void);
+            let port = CGEventTapCreate(
+                kCGSessionEventTap,
+                kCGTailAppendEventTap,
+                options,
+                EVENT_MASK,
+                callback,
+                context as *mut c_void,
+            );
             if port.is_null() {
                 drop(Box::from_raw(context));
                 return None;
@@ -92,7 +107,9 @@ impl TapHandle {
             // A new tap starts enabled; an enabled active tap whose run loop isn't serviced yet
             // would stall every keystroke, so keep it off until the caller enables it.
             CGEventTapEnable(port, false);
-            (*context).port.store(port as *mut c_void, Ordering::Release);
+            (*context)
+                .port
+                .store(port as *mut c_void, Ordering::Release);
             let source = CFMachPortCreateRunLoopSource(ptr::null(), port, 0);
             if source.is_null() {
                 CFMachPortInvalidate(port);
@@ -101,13 +118,23 @@ impl TapHandle {
                 return None;
             }
             CFRetain(port as _); // the handle's reference
-            let (port_ptr, source_ptr, context_ptr) =
-                (SendPtr(port as *mut c_void), SendPtr(source as *mut c_void), SendPtr(context as *mut c_void));
+            let (port_ptr, source_ptr, context_ptr) = (
+                SendPtr(port as *mut c_void),
+                SendPtr(source as *mut c_void),
+                SendPtr(context as *mut c_void),
+            );
             let flag = stopped.clone();
-            let spawned = thread::Builder::new().name("kudzu-event-tap".into()).spawn(move || {
-                let (port, source, context) = (port_ptr, source_ptr, context_ptr);
-                run(port.0 as CFMachPortRef, source.0 as CFRunLoopSourceRef, context.0 as *mut Context, &flag);
-            });
+            let spawned = thread::Builder::new()
+                .name("kudzu-event-tap".into())
+                .spawn(move || {
+                    let (port, source, context) = (port_ptr, source_ptr, context_ptr);
+                    run(
+                        port.0 as CFMachPortRef,
+                        source.0 as CFRunLoopSourceRef,
+                        context.0 as *mut Context,
+                        &flag,
+                    );
+                });
             if spawned.is_err() {
                 CFMachPortInvalidate(port);
                 CFRelease(source as _);
@@ -116,7 +143,11 @@ impl TapHandle {
                 drop(Box::from_raw(context));
                 return None;
             }
-            Some(TapHandle { port, stopped, mode })
+            Some(TapHandle {
+                port,
+                stopped,
+                mode,
+            })
         }
     }
 
@@ -146,7 +177,12 @@ impl Drop for TapHandle {
 }
 
 /// Tap thread body: service the source until stopped, then free everything it owns.
-unsafe fn run(port: CFMachPortRef, source: CFRunLoopSourceRef, context: *mut Context, stopped: &AtomicBool) {
+unsafe fn run(
+    port: CFMachPortRef,
+    source: CFRunLoopSourceRef,
+    context: *mut Context,
+    stopped: &AtomicBool,
+) {
     unsafe {
         let run_loop = CFRunLoopGetCurrent();
         CFRunLoopAddSource(run_loop, source, kCFRunLoopCommonModes);
@@ -175,7 +211,10 @@ impl HeldEvent {
     /// Copies `event` (the original continues through the tap).
     pub fn copy(event: CGEventRef, key_down: bool) -> Option<Self> {
         let copy = unsafe { CGEventCreateCopy(event) };
-        (!copy.is_null()).then_some(HeldEvent { event: copy, key_down })
+        (!copy.is_null()).then_some(HeldEvent {
+            event: copy,
+            key_down,
+        })
     }
 
     /// Whether this is a key-down (as opposed to key-up).
@@ -220,7 +259,9 @@ pub(crate) fn classify(event: CGEventRef) -> Option<KeyInput> {
     let key = key_code(event);
     let mut buffer = [0u16; 16];
     let mut length = 0usize;
-    unsafe { CGEventKeyboardGetUnicodeString(event, buffer.len(), &mut length, buffer.as_mut_ptr()) };
+    unsafe {
+        CGEventKeyboardGetUnicodeString(event, buffer.len(), &mut length, buffer.as_mut_ptr())
+    };
     classify_parts(flags, key, &buffer[..length.min(buffer.len())])
 }
 
@@ -241,8 +282,11 @@ pub(crate) fn classify_parts(flags: CGEventFlags, key: i64, text: &[u16]) -> Opt
     if text.is_empty() {
         return None;
     }
-    let Ok(text) = String::from_utf16(text) else { return Some(KeyInput::Reset) };
-    let control = |c: char| (c as u32) < 32 || c == '\u{7F}' || (0xF700..=0xF8FF).contains(&(c as u32));
+    let Ok(text) = String::from_utf16(text) else {
+        return Some(KeyInput::Reset);
+    };
+    let control =
+        |c: char| (c as u32) < 32 || c == '\u{7F}' || (0xF700..=0xF8FF).contains(&(c as u32));
     if text.chars().any(control) {
         return Some(KeyInput::Reset);
     }
@@ -259,8 +303,14 @@ mod tests {
 
     #[test]
     fn shortcuts_and_navigation_reset() {
-        assert_eq!(classify_parts(kCGEventFlagMaskCommand, 0, &utf16("a")), Some(KeyInput::Reset));
-        assert_eq!(classify_parts(kCGEventFlagMaskControl, 0, &utf16("a")), Some(KeyInput::Reset));
+        assert_eq!(
+            classify_parts(kCGEventFlagMaskCommand, 0, &utf16("a")),
+            Some(KeyInput::Reset)
+        );
+        assert_eq!(
+            classify_parts(kCGEventFlagMaskControl, 0, &utf16("a")),
+            Some(KeyInput::Reset)
+        );
         assert_eq!(classify_parts(0, 123, &[0xF702]), Some(KeyInput::Reset));
         assert_eq!(classify_parts(0, 53, &[0x1B]), Some(KeyInput::Reset));
         assert_eq!(classify_parts(0, 122, &[0xF704]), Some(KeyInput::Reset)); // F1
@@ -269,16 +319,31 @@ mod tests {
     #[test]
     fn editing_keys() {
         assert_eq!(classify_parts(0, 51, &[0x7F]), Some(KeyInput::Backspace));
-        assert_eq!(classify_parts(0, 36, &[0x0D]), Some(KeyInput::Character("\n".into())));
-        assert_eq!(classify_parts(0, 48, &[0x09]), Some(KeyInput::Character("\t".into())));
+        assert_eq!(
+            classify_parts(0, 36, &[0x0D]),
+            Some(KeyInput::Character("\n".into()))
+        );
+        assert_eq!(
+            classify_parts(0, 48, &[0x09]),
+            Some(KeyInput::Character("\t".into()))
+        );
     }
 
     #[test]
     fn text_keys() {
         // Shift and Option still produce text.
-        assert_eq!(classify_parts(1 << 17, 0, &utf16("A")), Some(KeyInput::Character("A".into())));
-        assert_eq!(classify_parts(1 << 19, 0, &utf16("å")), Some(KeyInput::Character("å".into())));
-        assert_eq!(classify_parts(0, 0, &utf16("😀")), Some(KeyInput::Character("😀".into())));
+        assert_eq!(
+            classify_parts(1 << 17, 0, &utf16("A")),
+            Some(KeyInput::Character("A".into()))
+        );
+        assert_eq!(
+            classify_parts(1 << 19, 0, &utf16("å")),
+            Some(KeyInput::Character("å".into()))
+        );
+        assert_eq!(
+            classify_parts(0, 0, &utf16("😀")),
+            Some(KeyInput::Character("😀".into()))
+        );
         // Dead key: no text yet, no context change.
         assert_eq!(classify_parts(1 << 19, 14, &[]), None);
     }

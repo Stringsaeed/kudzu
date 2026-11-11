@@ -36,8 +36,12 @@ pub(crate) mod system {
 
     pub fn open_settings(pane: &str) {
         let url = match pane {
-            "accessibility" => "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
-            "inputMonitoring" => "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent",
+            "accessibility" => {
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+            }
+            "inputMonitoring" => {
+                "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+            }
             "loginItems" => "x-apple.systempreferences:com.apple.LoginItems-Settings.extension",
             _ => "x-apple.systempreferences:com.apple.preference.security",
         };
@@ -94,8 +98,17 @@ pub(crate) mod system {
         autoreleasepool(|_| {
             let identifier = NSLocale::currentLocale().localeIdentifier().to_string();
             // Drop keyword suffixes such as `@rg=gbzzzz`.
-            let base = identifier.split('@').next().unwrap_or_default().trim().to_string();
-            if base.is_empty() { "en_US".to_string() } else { base }
+            let base = identifier
+                .split('@')
+                .next()
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            if base.is_empty() {
+                "en_US".to_string()
+            } else {
+                base
+            }
         })
     }
 }

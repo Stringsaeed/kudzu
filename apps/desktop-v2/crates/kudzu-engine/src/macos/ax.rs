@@ -17,7 +17,12 @@ const AX_TIMEOUT_SECONDS: f32 = 0.2;
 
 /// Accessibility and Input Monitoring grants.
 pub(crate) fn permissions() -> PermissionStatus {
-    unsafe { PermissionStatus { accessibility: AXIsProcessTrusted() != 0, input_monitoring: CGPreflightListenEventAccess() } }
+    unsafe {
+        PermissionStatus {
+            accessibility: AXIsProcessTrusted() != 0,
+            input_monitoring: CGPreflightListenEventAccess(),
+        }
+    }
 }
 
 /// Whether we may post synthetic events.
@@ -53,7 +58,8 @@ pub(crate) fn secure_input() -> (bool, Option<i32>) {
     if dict.is_null() {
         return (true, None);
     }
-    let dict: CFDictionary<CFString, CFType> = unsafe { CFDictionary::wrap_under_create_rule(dict) };
+    let dict: CFDictionary<CFString, CFType> =
+        unsafe { CFDictionary::wrap_under_create_rule(dict) };
     let pid = dict
         .find(CFString::from_static_string("kCGSSessionSecureInputPID"))
         .and_then(|value| value.downcast::<CFNumber>())
@@ -66,9 +72,14 @@ fn attribute(element: &CFType, name: &'static str) -> Option<CFType> {
     let mut value: CFTypeRef = std::ptr::null();
     let key = CFString::from_static_string(name);
     let error = unsafe {
-        AXUIElementCopyAttributeValue(element.as_CFTypeRef() as AXUIElementRef, key.as_concrete_TypeRef(), &mut value)
+        AXUIElementCopyAttributeValue(
+            element.as_CFTypeRef() as AXUIElementRef,
+            key.as_concrete_TypeRef(),
+            &mut value,
+        )
     };
-    (error == kAXErrorSuccess && !value.is_null()).then(|| unsafe { CFType::wrap_under_create_rule(value) })
+    (error == kAXErrorSuccess && !value.is_null())
+        .then(|| unsafe { CFType::wrap_under_create_rule(value) })
 }
 
 fn focused_element() -> Option<CFType> {
@@ -77,12 +88,16 @@ fn focused_element() -> Option<CFType> {
         return None;
     }
     let system = unsafe { CFType::wrap_under_create_rule(system as CFTypeRef) };
-    unsafe { AXUIElementSetMessagingTimeout(system.as_CFTypeRef() as AXUIElementRef, AX_TIMEOUT_SECONDS) };
+    unsafe {
+        AXUIElementSetMessagingTimeout(system.as_CFTypeRef() as AXUIElementRef, AX_TIMEOUT_SECONDS)
+    };
     let focused = attribute(&system, "AXFocusedUIElement")?;
     if focused.type_of() != unsafe { AXUIElementGetTypeID() } {
         return None;
     }
-    unsafe { AXUIElementSetMessagingTimeout(focused.as_CFTypeRef() as AXUIElementRef, AX_TIMEOUT_SECONDS) };
+    unsafe {
+        AXUIElementSetMessagingTimeout(focused.as_CFTypeRef() as AXUIElementRef, AX_TIMEOUT_SECONDS)
+    };
     Some(focused)
 }
 
@@ -91,17 +106,33 @@ fn ax_value<T: Default>(value: &CFType, kind: u32) -> Option<T> {
         return None;
     }
     let mut out = T::default();
-    let ok = unsafe { AXValueGetValue(value.as_CFTypeRef() as AXValueRef, kind, &mut out as *mut T as *mut c_void) };
+    let ok = unsafe {
+        AXValueGetValue(
+            value.as_CFTypeRef() as AXValueRef,
+            kind,
+            &mut out as *mut T as *mut c_void,
+        )
+    };
     (ok != 0).then_some(out)
 }
 
 fn valid(rect: &CGRect) -> bool {
-    let values = [rect.origin.x, rect.origin.y, rect.size.width, rect.size.height];
+    let values = [
+        rect.origin.x,
+        rect.origin.y,
+        rect.size.width,
+        rect.size.height,
+    ];
     values.iter().all(|v| v.is_finite()) && rect.size.width >= 0.0 && rect.size.height > 0.0
 }
 
 fn to_rect(rect: CGRect) -> Rect {
-    Rect { x: rect.origin.x, y: rect.origin.y, width: rect.size.width, height: rect.size.height }
+    Rect {
+        x: rect.origin.x,
+        y: rect.origin.y,
+        width: rect.size.width,
+        height: rect.size.height,
+    }
 }
 
 /// Caret bounds of the focused text element (global, top-left origin), else the element's frame.
@@ -150,11 +181,16 @@ pub(crate) struct CaretSnapshot {
 
 #[repr(C)]
 #[derive(Default)]
-struct TextRange { location: isize, length: isize }
+struct TextRange {
+    location: isize,
+    length: isize,
+}
 
 fn collapsed_offset(element: &CFType) -> Option<usize> {
     let range = ax_value::<TextRange>(&attribute(element, "AXSelectedTextRange")?, 4)?;
-    (range.length == 0).then(|| usize::try_from(range.location).ok()).flatten()
+    (range.length == 0)
+        .then(|| usize::try_from(range.location).ok())
+        .flatten()
 }
 
 /// Only offsets are read; the user's surrounding text is never captured.
@@ -167,7 +203,9 @@ pub(crate) fn caret_snapshot() -> Option<CaretSnapshot> {
 impl CaretSnapshot {
     pub(crate) fn inserted_utf16(&self) -> Option<usize> {
         let focused = focused_element()?;
-        if focused != self.element { return None; }
+        if focused != self.element {
+            return None;
+        }
         collapsed_offset(&focused)?.checked_sub(self.location)
     }
 }

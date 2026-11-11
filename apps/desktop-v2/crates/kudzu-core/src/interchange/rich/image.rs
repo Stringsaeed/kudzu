@@ -60,14 +60,20 @@ pub(super) fn decode_base64(text: &str) -> Option<Vec<u8>> {
 /// bytes themselves decide PNG or JPEG later.
 pub(super) fn data_url_bytes(url: &str) -> Result<Vec<u8>, Dropped> {
     let url = url.trim();
-    let Some(rest) = url.get(..5).filter(|p| p.eq_ignore_ascii_case("data:")).map(|_| &url[5..]) else {
+    let Some(rest) = url
+        .get(..5)
+        .filter(|p| p.eq_ignore_ascii_case("data:"))
+        .map(|_| &url[5..])
+    else {
         return Err(Dropped::ImagesNotEmbedded);
     };
     let (meta, data) = rest.split_once(',').ok_or(Dropped::ImagesUnsupported)?;
     let meta = meta.to_ascii_lowercase();
     let mut parts = meta.split(';');
     let mime = parts.next().unwrap_or("").trim();
-    if !matches!(mime, "image/png" | "image/jpeg" | "image/jpg") || !parts.any(|p| p.trim() == "base64") {
+    if !matches!(mime, "image/png" | "image/jpeg" | "image/jpg")
+        || !parts.any(|p| p.trim() == "base64")
+    {
         return Err(Dropped::ImagesUnsupported);
     }
     if data.len() > 4 * 196_608 {
@@ -82,7 +88,9 @@ pub(super) fn sniff(bytes: &[u8]) -> Option<(&'static str, u32, u32)> {
         Some(u32::from_be_bytes(bytes.get(at..at + 4)?.try_into().ok()?))
     };
     let be16 = |at: usize| -> Option<u32> {
-        Some(u32::from(u16::from_be_bytes(bytes.get(at..at + 2)?.try_into().ok()?)))
+        Some(u32::from(u16::from_be_bytes(
+            bytes.get(at..at + 2)?.try_into().ok()?,
+        )))
     };
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
         if bytes.get(12..16)? != b"IHDR" {
@@ -139,7 +147,8 @@ mod tests {
         assert_eq!(sniff(&png), Some(("image/png", 1, 1)));
         // SOI, an APP0 segment, then SOF0 with height 3 and width 7.
         let jpeg = [
-            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x03, 0x00, 0x07,
+            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x00, 0x00, 0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00,
+            0x03, 0x00, 0x07,
         ];
         assert_eq!(sniff(&jpeg), Some(("image/jpeg", 7, 3)));
         assert_eq!(sniff(b"GIF89a"), None);
@@ -148,9 +157,21 @@ mod tests {
 
     #[test]
     fn data_urls() {
-        assert_eq!(data_url_bytes("https://x/y.png"), Err(Dropped::ImagesNotEmbedded));
-        assert_eq!(data_url_bytes("data:image/gif;base64,R0lG"), Err(Dropped::ImagesUnsupported));
-        assert_eq!(data_url_bytes("data:image/svg+xml,<svg/>"), Err(Dropped::ImagesUnsupported));
-        assert_eq!(data_url_bytes("DATA:Image/PNG;Base64,YWI="), Ok(b"ab".to_vec()));
+        assert_eq!(
+            data_url_bytes("https://x/y.png"),
+            Err(Dropped::ImagesNotEmbedded)
+        );
+        assert_eq!(
+            data_url_bytes("data:image/gif;base64,R0lG"),
+            Err(Dropped::ImagesUnsupported)
+        );
+        assert_eq!(
+            data_url_bytes("data:image/svg+xml,<svg/>"),
+            Err(Dropped::ImagesUnsupported)
+        );
+        assert_eq!(
+            data_url_bytes("DATA:Image/PNG;Base64,YWI="),
+            Ok(b"ab".to_vec())
+        );
     }
 }

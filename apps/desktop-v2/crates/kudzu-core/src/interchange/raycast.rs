@@ -14,8 +14,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use super::espanso::tags;
-use super::template_out::TemplateOut;
 use super::espanso::ImportWarning;
+use super::template_out::TemplateOut;
 use super::{ImportResult, InterchangeError};
 use crate::types::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
 
@@ -61,7 +61,10 @@ pub fn import_json(json: &str, file_name: &str) -> Result<ImportResult, Intercha
             message,
         };
         let Some(object) = item.as_object() else {
-            warnings.push(warn(None, format!("Entry {index} isn't a snippet and was skipped.")));
+            warnings.push(warn(
+                None,
+                format!("Entry {index} isn't a snippet and was skipped."),
+            ));
             continue;
         };
         let string = |key: &str| object.get(key).and_then(Value::as_str);
@@ -151,7 +154,11 @@ pub fn import_json(json: &str, file_name: &str) -> Result<ImportResult, Intercha
 
     Ok(ImportResult {
         library: KudzuLibrary {
-            groups: if snippets.is_empty() { vec![] } else { vec![group] },
+            groups: if snippets.is_empty() {
+                vec![]
+            } else {
+                vec![group]
+            },
             snippets,
             ..KudzuLibrary::default()
         },
@@ -235,7 +242,9 @@ fn convert(raw: &str, snippets: &HashMap<String, Uuid>, problems: &mut Vec<Strin
                 None => out.text(&source),
             },
             None => {
-                problems.push(format!("Couldn't read the placeholder {source}; kept as text."));
+                problems.push(format!(
+                    "Couldn't read the placeholder {source}; kept as text."
+                ));
                 out.text(&source);
             }
         }
@@ -251,10 +260,7 @@ fn placeholder_span(chars: &[char], open: usize) -> Option<(usize, String)> {
     }
     let close = find_close(chars, open + 1)?;
     let inner: String = chars[open + 1..close].iter().collect();
-    let name: String = inner
-        .chars()
-        .take_while(char::is_ascii_lowercase)
-        .collect();
+    let name: String = inner.chars().take_while(char::is_ascii_lowercase).collect();
     let known = NAMES.contains(&name.as_str())
         && inner[name.len()..]
             .chars()
@@ -336,7 +342,10 @@ fn parse_placeholder(name: &str, rest: &str) -> Option<Placeholder> {
                 }
             }
         } else {
-            while chars.get(i).is_some_and(|c| !c.is_whitespace() && *c != '|') {
+            while chars
+                .get(i)
+                .is_some_and(|c| !c.is_whitespace() && *c != '|')
+            {
                 value.push(chars[i]);
                 i += 1;
             }
@@ -370,7 +379,11 @@ fn placeholder_tag(
             match p.attr("offset").map(str::trim).filter(|o| *o != "0") {
                 None => tags::clipboard_tag(trim),
                 // Raycast's offset counts copies back from the current clipboard, as `history` does.
-                Some(offset) => match offset.parse::<u32>().ok().filter(|n| (1..=crate::template::MAX_CLIPBOARD_HISTORY).contains(n)) {
+                Some(offset) => match offset
+                    .parse::<u32>()
+                    .ok()
+                    .filter(|n| (1..=crate::template::MAX_CLIPBOARD_HISTORY).contains(n))
+                {
                     Some(history) => tags::clipboard_history_tag(history, trim),
                     None => {
                         problems.push(format!("{label} has offset={offset}, which isn't a clipboard history position Kudzu can read; kept as text."));
@@ -396,7 +409,10 @@ fn placeholder_tag(
                 "datetime" => "d MMM yyyy 'at' HH:mm",
                 _ => "EEEE",
             };
-            let format = p.attr("format").filter(|f| !f.is_empty()).unwrap_or(default);
+            let format = p
+                .attr("format")
+                .filter(|f| !f.is_empty())
+                .unwrap_or(default);
             let offset = match p.attr("offset").filter(|o| !o.trim().is_empty()) {
                 None => None,
                 Some(raw) => match convert_offset(raw) {
@@ -421,7 +437,9 @@ fn placeholder_tag(
                 }
                 None => {
                     problems.push(match p.attr("name") {
-                        Some(n) => format!("{label} refers to \"{n}\", which isn't in this export; kept as text."),
+                        Some(n) => format!(
+                            "{label} refers to \"{n}\", which isn't in this export; kept as text."
+                        ),
                         None => format!("{label} has no name; kept as text."),
                     });
                     return None;

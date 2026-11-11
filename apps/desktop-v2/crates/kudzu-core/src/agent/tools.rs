@@ -14,7 +14,12 @@ use crate::template::{self, FormFieldKind, FormMemory, RenderContext};
 use crate::types::iso8601;
 use crate::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
 
-const READ: [&str; 4] = ["list_snippets", "get_snippet", "expand_snippet", "list_groups"];
+const READ: [&str; 4] = [
+    "list_snippets",
+    "get_snippet",
+    "expand_snippet",
+    "list_groups",
+];
 const WRITE: [&str; 2] = ["create_snippet", "update_snippet"];
 const CLIPBOARD: [&str; 2] = ["list_clipboard", "get_clipboard_item"];
 
@@ -137,8 +142,16 @@ pub fn definitions(access: &Access) -> Vec<Value> {
     tools
 }
 
-fn tool(name: &str, title: &str, description: &str, properties: Value, required: &[&str], read_only: bool) -> Value {
-    let mut schema = json!({ "type": "object", "properties": properties, "additionalProperties": false });
+fn tool(
+    name: &str,
+    title: &str,
+    description: &str,
+    properties: Value,
+    required: &[&str],
+    read_only: bool,
+) -> Value {
+    let mut schema =
+        json!({ "type": "object", "properties": properties, "additionalProperties": false });
     if !required.is_empty() {
         schema["required"] = json!(required);
     }
@@ -153,8 +166,16 @@ fn tool(name: &str, title: &str, description: &str, properties: Value, required:
 /// Runs a `tools/call`. Tool failures are results with `isError`; only a malformed call is a
 /// protocol error.
 pub(super) fn call(host: &dyn Host, params: &Value) -> Result<Value, (i64, String)> {
-    let name = params.get("name").and_then(Value::as_str).ok_or((-32602, "Missing tool name".to_string()))?;
-    if !READ.iter().chain(&WRITE).chain(&CLIPBOARD).any(|t| *t == name) {
+    let name = params
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or((-32602, "Missing tool name".to_string()))?;
+    if !READ
+        .iter()
+        .chain(&WRITE)
+        .chain(&CLIPBOARD)
+        .any(|t| *t == name)
+    {
         return Err((-32602, format!("Unknown tool: {name}")));
     }
     let empty = Map::new();
@@ -169,7 +190,9 @@ pub(super) fn call(host: &dyn Host, params: &Value) -> Result<Value, (i64, Strin
             "structuredContent": value,
             "isError": false,
         }),
-        Err(message) => json!({ "content": [{ "type": "text", "text": message }], "isError": true }),
+        Err(message) => {
+            json!({ "content": [{ "type": "text", "text": message }], "isError": true })
+        }
     })
 }
 
@@ -178,7 +201,9 @@ type Args = Map<String, Value>;
 fn run(host: &dyn Host, name: &str, args: &Args) -> Result<Value, String> {
     let access = host.access()?;
     if WRITE.contains(&name) && !access.write {
-        return Err("Creating and editing snippets is turned off in Kudzu (Settings ▸ AI agents).".into());
+        return Err(
+            "Creating and editing snippets is turned off in Kudzu (Settings ▸ AI agents).".into(),
+        );
     }
     if CLIPBOARD.contains(&name) && !access.clipboard {
         return Err("Clipboard history isn't shared with agents. The user can turn it on in Kudzu (Settings ▸ AI agents).".into());
@@ -187,7 +212,11 @@ fn run(host: &dyn Host, name: &str, args: &Args) -> Result<Value, String> {
     match name {
         "list_snippets" => list_snippets(&host.library()?, args, &access),
         "get_snippet" => get_snippet(&host.library()?, args),
-        "expand_snippet" => expand_snippet(&host.library()?, args, host.render_env(), &|n, current| older_copy(host, &access, n, current)),
+        "expand_snippet" => {
+            expand_snippet(&host.library()?, args, host.render_env(), &|n, current| {
+                older_copy(host, &access, n, current)
+            })
+        }
         "list_groups" => Ok(list_groups(&host.library()?)),
         "create_snippet" => host.edit_library(&mut |lib| create_snippet(lib, args, now)),
         "update_snippet" => host.edit_library(&mut |lib| update_snippet(lib, args, now)),
@@ -218,7 +247,10 @@ fn boolean(args: &Args, key: &str) -> Result<Option<bool>, String> {
 fn count(args: &Args, key: &str, default: usize, max: usize) -> Result<usize, String> {
     match args.get(key) {
         None | Some(Value::Null) => Ok(default),
-        Some(v) => v.as_u64().map(|n| (n as usize).min(max)).ok_or_else(|| format!("`{key}` must be a whole number.")),
+        Some(v) => v
+            .as_u64()
+            .map(|n| (n as usize).min(max))
+            .ok_or_else(|| format!("`{key}` must be a whole number.")),
     }
 }
 
@@ -228,7 +260,11 @@ fn triggers(args: &Args) -> Result<Option<Vec<String>>, String> {
         Some(Value::String(s)) => Ok(Some(vec![s.clone()])),
         Some(Value::Array(items)) => items
             .iter()
-            .map(|v| v.as_str().map(String::from).ok_or_else(|| "`triggers` must be a list of strings.".to_string()))
+            .map(|v| {
+                v.as_str()
+                    .map(String::from)
+                    .ok_or_else(|| "`triggers` must be a list of strings.".to_string())
+            })
             .collect::<Result<_, _>>()
             .map(Some),
         Some(_) => Err("`triggers` must be a list of strings.".into()),
@@ -240,7 +276,11 @@ fn fire_mode(args: &Args) -> Result<Option<FireMode>, String> {
         None => None,
         Some("immediate") => Some(FireMode::Immediate),
         Some("wholeWord") => Some(FireMode::WholeWord),
-        Some(other) => return Err(format!("Unknown fireMode “{other}”: use immediate or wholeWord.")),
+        Some(other) => {
+            return Err(format!(
+                "Unknown fireMode “{other}”: use immediate or wholeWord."
+            ))
+        }
     })
 }
 
@@ -249,12 +289,17 @@ fn case_mode(args: &Args) -> Result<Option<CaseMode>, String> {
         None => None,
         Some("propagate") => Some(CaseMode::Propagate),
         Some("exact") => Some(CaseMode::Exact),
-        Some(other) => return Err(format!("Unknown caseMode “{other}”: use propagate or exact.")),
+        Some(other) => {
+            return Err(format!(
+                "Unknown caseMode “{other}”: use propagate or exact."
+            ))
+        }
     })
 }
 
 fn parse_id(raw: &str, what: &str) -> Result<Uuid, String> {
-    Uuid::parse_str(raw.trim()).map_err(|_| format!("“{raw}” isn't a {what} id. Ids come from the list tools."))
+    Uuid::parse_str(raw.trim())
+        .map_err(|_| format!("“{raw}” isn't a {what} id. Ids come from the list tools."))
 }
 
 // MARK: Library helpers
@@ -278,17 +323,29 @@ fn group_path(groups: &[GroupRecord], id: Option<Uuid>) -> Option<String> {
 fn find_group(groups: &[GroupRecord], query: &str) -> Result<Option<Uuid>, String> {
     let q = query.trim();
     if let Ok(id) = Uuid::parse_str(q) {
-        return groups.iter().find(|g| g.id == id).map(|g| Some(g.id)).ok_or_else(|| format!("No group has the id {q}."));
+        return groups
+            .iter()
+            .find(|g| g.id == id)
+            .map(|g| Some(g.id))
+            .ok_or_else(|| format!("No group has the id {q}."));
     }
     let wanted = q.trim_matches('/').to_lowercase();
-    if let Some(g) = groups.iter().find(|g| group_path(groups, Some(g.id)).is_some_and(|p| p.to_lowercase() == wanted)) {
+    if let Some(g) = groups
+        .iter()
+        .find(|g| group_path(groups, Some(g.id)).is_some_and(|p| p.to_lowercase() == wanted))
+    {
         return Ok(Some(g.id));
     }
-    let named: Vec<&GroupRecord> = groups.iter().filter(|g| g.name.to_lowercase() == wanted).collect();
+    let named: Vec<&GroupRecord> = groups
+        .iter()
+        .filter(|g| g.name.to_lowercase() == wanted)
+        .collect();
     match named.as_slice() {
         [] => Ok(None),
         [g] => Ok(Some(g.id)),
-        _ => Err(format!("More than one group is called “{q}”. Use its path or id from list_groups.")),
+        _ => Err(format!(
+            "More than one group is called “{q}”. Use its path or id from list_groups."
+        )),
     }
 }
 
@@ -299,12 +356,26 @@ fn ensure_group(lib: &mut KudzuLibrary, query: &str) -> Result<Uuid, String> {
     }
     let mut parent: Option<Uuid> = None;
     for name in query.split('/').map(str::trim).filter(|n| !n.is_empty()) {
-        let existing = lib.groups.iter().find(|g| g.parent_id == parent && g.name.to_lowercase() == name.to_lowercase()).map(|g| g.id);
+        let existing = lib
+            .groups
+            .iter()
+            .find(|g| g.parent_id == parent && g.name.to_lowercase() == name.to_lowercase())
+            .map(|g| g.id);
         parent = Some(match existing {
             Some(id) => id,
             None => {
-                let sort_index = lib.groups.iter().filter(|g| g.parent_id == parent).map(|g| g.sort_index + 1).max().unwrap_or(0);
-                let g = GroupRecord { parent_id: parent, sort_index, ..GroupRecord::new(name) };
+                let sort_index = lib
+                    .groups
+                    .iter()
+                    .filter(|g| g.parent_id == parent)
+                    .map(|g| g.sort_index + 1)
+                    .max()
+                    .unwrap_or(0);
+                let g = GroupRecord {
+                    parent_id: parent,
+                    sort_index,
+                    ..GroupRecord::new(name)
+                };
                 let id = g.id;
                 lib.groups.push(g);
                 id
@@ -342,7 +413,11 @@ fn uses(lib: &KudzuLibrary) -> HashMap<Uuid, (i64, Option<chrono::DateTime<Utc>>
 fn find_snippet<'a>(lib: &'a KudzuLibrary, args: &Args) -> Result<&'a SnippetRecord, String> {
     if let Some(raw) = string(args, "id")? {
         let id = parse_id(raw, "snippet")?;
-        return lib.snippets.iter().find(|s| s.id == id).ok_or_else(|| format!("No snippet has the id {id}. It may have been deleted."));
+        return lib
+            .snippets
+            .iter()
+            .find(|s| s.id == id)
+            .ok_or_else(|| format!("No snippet has the id {id}. It may have been deleted."));
     }
     let Some(trigger) = string(args, "trigger")? else {
         return Err("Pass the snippet's `id` or one of its `trigger`s.".into());
@@ -351,7 +426,13 @@ fn find_snippet<'a>(lib: &'a KudzuLibrary, args: &Args) -> Result<&'a SnippetRec
     lib.snippets
         .iter()
         .find(|s| s.triggers.iter().any(|x| x == t))
-        .or_else(|| lib.snippets.iter().find(|s| s.triggers.iter().any(|x| x.to_lowercase() == t.to_lowercase())))
+        .or_else(|| {
+            lib.snippets.iter().find(|s| {
+                s.triggers
+                    .iter()
+                    .any(|x| x.to_lowercase() == t.to_lowercase())
+            })
+        })
         .ok_or_else(|| format!("No snippet has the trigger “{t}”."))
 }
 
@@ -375,9 +456,15 @@ fn has_redaction_marker(text: &str) -> bool {
     text.contains("[redacted:")
 }
 
-fn summary(lib: &KudzuLibrary, s: &SnippetRecord, usage: &HashMap<Uuid, (i64, Option<chrono::DateTime<Utc>>)>) -> Value {
+fn summary(
+    lib: &KudzuLibrary,
+    s: &SnippetRecord,
+    usage: &HashMap<Uuid, (i64, Option<chrono::DateTime<Utc>>)>,
+) -> Value {
     let r = secrets::redact(&s.content);
-    let form = !template::analyze(&template::parse(&s.content)).form_fields.is_empty();
+    let form = !template::analyze(&template::parse(&s.content))
+        .form_fields
+        .is_empty();
     let mut v = json!({
         "id": s.id,
         "name": s.name,
@@ -403,19 +490,27 @@ fn list_snippets(lib: &KudzuLibrary, args: &Args, access: &Access) -> Result<Val
     let favorites = boolean(args, "favoritesOnly")?.unwrap_or(false);
     let in_groups = match string(args, "group")? {
         Some(g) if !g.trim().is_empty() => {
-            let id = find_group(&lib.groups, g)?.ok_or_else(|| format!("No group is called “{g}”. list_groups shows them all."))?;
+            let id = find_group(&lib.groups, g)?
+                .ok_or_else(|| format!("No group is called “{g}”. list_groups shows them all."))?;
             Some(descendants(&lib.groups, id))
         }
         _ => None,
     };
-    let query = string(args, "query")?.unwrap_or_default().trim().to_lowercase();
+    let query = string(args, "query")?
+        .unwrap_or_default()
+        .trim()
+        .to_lowercase();
     let terms: Vec<&str> = query.split_whitespace().collect();
 
     let mut hits: Vec<(u32, &SnippetRecord)> = lib
         .snippets
         .iter()
         .filter(|s| !favorites || s.is_favorite)
-        .filter(|s| in_groups.as_ref().is_none_or(|set| s.group_id.is_some_and(|g| set.contains(&g))))
+        .filter(|s| {
+            in_groups
+                .as_ref()
+                .is_none_or(|set| s.group_id.is_some_and(|g| set.contains(&g)))
+        })
         .filter_map(|s| {
             if terms.is_empty() {
                 return Some((0, s));
@@ -443,7 +538,12 @@ fn list_snippets(lib: &KudzuLibrary, args: &Args, access: &Access) -> Result<Val
     hits.sort_by_key(|h| std::cmp::Reverse(h.0));
     let usage = uses(lib);
     let total = hits.len();
-    let page: Vec<Value> = hits.into_iter().skip(offset).take(limit).map(|(_, s)| summary(lib, s, &usage)).collect();
+    let page: Vec<Value> = hits
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .map(|(_, s)| summary(lib, s, &usage))
+        .collect();
     Ok(json!({
         "total": total,
         "returned": page.len(),
@@ -457,7 +557,11 @@ fn get_snippet(lib: &KudzuLibrary, args: &Args) -> Result<Value, String> {
     let usage = uses(lib);
     let r = secrets::redact(&s.content);
     // Fields come from the scrubbed template too, so a default or option can't carry a secret.
-    let by_id: HashMap<Uuid, String> = lib.snippets.iter().map(|s| (s.id, scrubbed(&s.content))).collect();
+    let by_id: HashMap<Uuid, String> = lib
+        .snippets
+        .iter()
+        .map(|s| (s.id, scrubbed(&s.content)))
+        .collect();
     let resolve = |id: Uuid| by_id.get(&id).cloned();
     let mut v = summary(lib, s, &usage);
     v["content"] = json!(r.text);
@@ -468,7 +572,10 @@ fn get_snippet(lib: &KudzuLibrary, args: &Args) -> Result<Value, String> {
     v["fields"] = json!(template::form_fields(&scrubbed(&s.content), &resolve));
     v["createdAt"] = json!(iso8601::format(&s.created_at));
     v["updatedAt"] = json!(iso8601::format(&s.updated_at));
-    v["lastUsedAt"] = json!(usage.get(&s.id).and_then(|u| u.1).map(|d| iso8601::format(&d)));
+    v["lastUsedAt"] = json!(usage
+        .get(&s.id)
+        .and_then(|u| u.1)
+        .map(|d| iso8601::format(&d)));
     if let Some(obj) = v.as_object_mut() {
         obj.remove("preview");
     }
@@ -497,9 +604,17 @@ fn older_copy(host: &dyn Host, access: &Access, n: usize, current: Option<&str>)
     }
     let mut entries = host.clipboard().ok()?;
     entries.sort_by_key(|e| std::cmp::Reverse(e.copied_at));
-    let history = crate::clipboard::History { entries, ..Default::default() };
-    let entry = history.before_current(n, current).filter(|e| !e.is_secret())?;
-    host.clipboard_text(entry.id).ok().flatten().or_else(|| entry.text.clone())
+    let history = crate::clipboard::History {
+        entries,
+        ..Default::default()
+    };
+    let entry = history
+        .before_current(n, current)
+        .filter(|e| !e.is_secret())?;
+    host.clipboard_text(entry.id)
+        .ok()
+        .flatten()
+        .or_else(|| entry.text.clone())
 }
 
 /// What a `{{key}}` or `{{delay}}` tag does, in words an agent can relay ("Tab ×2").
@@ -511,7 +626,12 @@ fn describe_action(action: &template::ActionKind) -> String {
     }
 }
 
-fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv, older: &dyn Fn(usize, Option<&str>) -> Option<String>) -> Result<Value, String> {
+fn expand_snippet(
+    lib: &KudzuLibrary,
+    args: &Args,
+    env: RenderEnv,
+    older: &dyn Fn(usize, Option<&str>) -> Option<String>,
+) -> Result<Value, String> {
     let s = find_snippet(lib, args)?;
     let mut given = Values::new();
     match args.get("values") {
@@ -528,7 +648,11 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv, older: &dyn F
         }
         Some(_) => return Err("`values` must be an object of field names to text.".into()),
     }
-    let by_id: HashMap<Uuid, String> = lib.snippets.iter().map(|s| (s.id, scrubbed(&s.content))).collect();
+    let by_id: HashMap<Uuid, String> = lib
+        .snippets
+        .iter()
+        .map(|s| (s.id, scrubbed(&s.content)))
+        .collect();
     let resolve = |id: Uuid| by_id.get(&id).cloned();
     let source = by_id.get(&s.id).cloned().unwrap_or_default();
     let fields = template::form_fields(&source, &resolve);
@@ -538,11 +662,17 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv, older: &dyn F
         match given.remove(&f.name) {
             Some(v) => {
                 if f.kind == FormFieldKind::Choice && !f.options.contains(&v) {
-                    return Err(format!("“{v}” isn't an option for “{}”. Choose one of: {}.", f.name, f.options.join(", ")));
+                    return Err(format!(
+                        "“{v}” isn't an option for “{}”. Choose one of: {}.",
+                        f.name,
+                        f.options.join(", ")
+                    ));
                 }
                 form_values.insert(f.name.clone(), v);
             }
-            None if f.kind != FormFieldKind::Choice && f.default_value.is_none() => missing.push(f.name.clone()),
+            None if f.kind != FormFieldKind::Choice && f.default_value.is_none() => {
+                missing.push(f.name.clone())
+            }
             None => {}
         }
     }
@@ -598,7 +728,12 @@ fn expand_snippet(lib: &KudzuLibrary, args: &Args, env: RenderEnv, older: &dyn F
 /// Characters in the first `offset` UTF-16 units of `text` (offsets agents see count characters).
 fn template_prefix_chars(text: &str, offset: usize) -> usize {
     let mut units = 0;
-    text.chars().take_while(|c| { units += c.len_utf16(); units <= offset }).count()
+    text.chars()
+        .take_while(|c| {
+            units += c.len_utf16();
+            units <= offset
+        })
+        .count()
 }
 
 fn list_groups(lib: &KudzuLibrary) -> Value {
@@ -622,18 +757,39 @@ fn list_groups(lib: &KudzuLibrary) -> Value {
             })
         })
         .collect();
-    groups.sort_by(|a, b| a["path"].as_str().unwrap_or_default().to_lowercase().cmp(&b["path"].as_str().unwrap_or_default().to_lowercase()));
+    groups.sort_by(|a, b| {
+        a["path"]
+            .as_str()
+            .unwrap_or_default()
+            .to_lowercase()
+            .cmp(&b["path"].as_str().unwrap_or_default().to_lowercase())
+    });
     let ungrouped = lib.snippets.iter().filter(|s| s.group_id.is_none()).count();
     json!({ "groups": groups, "ungroupedSnippets": ungrouped })
 }
 
 /// Checks new triggers for `id` against each other and the rest of the library.
-fn checked_triggers(lib: &KudzuLibrary, id: Option<Uuid>, raw: &[String], case: CaseMode) -> Result<Vec<String>, String> {
+fn checked_triggers(
+    lib: &KudzuLibrary,
+    id: Option<Uuid>,
+    raw: &[String],
+    case: CaseMode,
+) -> Result<Vec<String>, String> {
     let mut accepted: Vec<String> = Vec::new();
     for t in raw {
-        let t = validate_trigger(t, &accepted, case == CaseMode::Exact).map_err(|e| format!("Trigger “{t}”: {}", e.message()))?;
-        if let Some(other) = lib.snippets.iter().find(|s| Some(s.id) != id && s.triggers.iter().any(|x| x.to_lowercase() == t.to_lowercase())) {
-            let name = if other.name.is_empty() { "another snippet".to_string() } else { format!("“{}”", other.name) };
+        let t = validate_trigger(t, &accepted, case == CaseMode::Exact)
+            .map_err(|e| format!("Trigger “{t}”: {}", e.message()))?;
+        if let Some(other) = lib.snippets.iter().find(|s| {
+            Some(s.id) != id
+                && s.triggers
+                    .iter()
+                    .any(|x| x.to_lowercase() == t.to_lowercase())
+        }) {
+            let name = if other.name.is_empty() {
+                "another snippet".to_string()
+            } else {
+                format!("“{}”", other.name)
+            };
             return Err(format!("“{t}” is already the trigger of {name} (id {}). Choose another trigger, or edit that snippet instead.", other.id));
         }
         accepted.push(t);
@@ -646,9 +802,14 @@ fn checked_triggers(lib: &KudzuLibrary, id: Option<Uuid>, raw: &[String], case: 
 
 /// Template diagnostics and trigger overlaps worth telling the agent about.
 fn warnings(lib: &KudzuLibrary, s: &SnippetRecord) -> Vec<String> {
-    let mut out: Vec<String> = template::parse(&s.content).diagnostics.into_iter().map(|d| d.message).collect();
+    let mut out: Vec<String> = template::parse(&s.content)
+        .diagnostics
+        .into_iter()
+        .map(|d| d.message)
+        .collect();
     for c in find_conflicts(&lib.snippets, &lib.groups) {
-        if c.kind != ConflictKind::Shadowing || (c.snippet_id != s.id && c.other_snippet_id != s.id) {
+        if c.kind != ConflictKind::Shadowing || (c.snippet_id != s.id && c.other_snippet_id != s.id)
+        {
             continue;
         }
         out.push(format!("“{}” fires before “{}” can be typed, so the longer trigger never expands. Consider wholeWord or a different trigger.", c.trigger, c.other_trigger));
@@ -663,7 +824,11 @@ fn check_content(content: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn create_snippet(lib: &mut KudzuLibrary, args: &Args, now: chrono::DateTime<Utc>) -> Result<Value, String> {
+fn create_snippet(
+    lib: &mut KudzuLibrary,
+    args: &Args,
+    now: chrono::DateTime<Utc>,
+) -> Result<Value, String> {
     let name = string(args, "name")?.map(str::trim).unwrap_or_default();
     if name.is_empty() {
         return Err("Give the snippet a `name`.".into());
@@ -678,7 +843,9 @@ fn create_snippet(lib: &mut KudzuLibrary, args: &Args, now: chrono::DateTime<Utc
     let triggers = checked_triggers(lib, None, &raw, case)?;
     let fire = fire_mode(args)?.unwrap_or_default();
     let favorite = boolean(args, "favorite")?.unwrap_or(false);
-    let group = string(args, "group")?.map(str::trim).filter(|g| !g.is_empty());
+    let group = string(args, "group")?
+        .map(str::trim)
+        .filter(|g| !g.is_empty());
     if let Some(g) = group {
         find_group(&lib.groups, g)?; // report ambiguity before changing anything
     }
@@ -700,10 +867,19 @@ fn create_snippet(lib: &mut KudzuLibrary, args: &Args, now: chrono::DateTime<Utc
     Ok(v)
 }
 
-fn update_snippet(lib: &mut KudzuLibrary, args: &Args, now: chrono::DateTime<Utc>) -> Result<Value, String> {
+fn update_snippet(
+    lib: &mut KudzuLibrary,
+    args: &Args,
+    now: chrono::DateTime<Utc>,
+) -> Result<Value, String> {
     let raw_id = string(args, "id")?.ok_or("Pass the `id` of the snippet to edit.")?;
     let id = parse_id(raw_id, "snippet")?;
-    let mut s = lib.snippets.iter().find(|s| s.id == id).cloned().ok_or_else(|| format!("No snippet has the id {id}."))?;
+    let mut s = lib
+        .snippets
+        .iter()
+        .find(|s| s.id == id)
+        .cloned()
+        .ok_or_else(|| format!("No snippet has the id {id}."))?;
     let before = s.clone();
 
     if let Some(name) = string(args, "name")? {
@@ -744,7 +920,9 @@ fn update_snippet(lib: &mut KudzuLibrary, args: &Args, now: chrono::DateTime<Utc
         s.is_favorite = favorite;
     }
     if args.contains_key("group") {
-        let g = string(args, "group")?.map(str::trim).filter(|g| !g.is_empty());
+        let g = string(args, "group")?
+            .map(str::trim)
+            .filter(|g| !g.is_empty());
         if let Some(g) = g {
             find_group(&lib.groups, g)?;
         }
@@ -785,8 +963,16 @@ fn redact_entry_text(text: &str, complete: bool) -> Redacted {
 /// "hide it" is withheld whole.
 fn entry_redaction(e: &ClipEntry, text: &str, complete: bool) -> Redacted {
     match e.secret_override {
-        Some(false) => Redacted { text: text.to_string(), kinds: vec![], whole: false },
-        Some(true) => Redacted { text: String::new(), kinds: vec![e.secret.unwrap_or(secrets::SecretKind::Credential)], whole: true },
+        Some(false) => Redacted {
+            text: text.to_string(),
+            kinds: vec![],
+            whole: false,
+        },
+        Some(true) => Redacted {
+            text: String::new(),
+            kinds: vec![e.secret.unwrap_or(secrets::SecretKind::Credential)],
+            whole: true,
+        },
         None => redact_entry_text(text, complete),
     }
 }
@@ -823,8 +1009,12 @@ fn clip_summary(e: &ClipEntry, text: Option<&str>, complete: bool, max: usize) -
                 obj.remove("lines");
             }
             v["withheld"] = json!(match e.secret_override {
-                Some(true) => "The user marked this as a secret, so Kudzu doesn't share it.".to_string(),
-                _ => format!("This looks like a {}, so Kudzu doesn't share it.", r.kinds.first().map(|k| k.label()).unwrap_or("secret")),
+                Some(true) =>
+                    "The user marked this as a secret, so Kudzu doesn't share it.".to_string(),
+                _ => format!(
+                    "This looks like a {}, so Kudzu doesn't share it.",
+                    r.kinds.first().map(|k| k.label()).unwrap_or("secret")
+                ),
             });
         } else {
             let (shown, cut) = truncate(&r.text, max);
@@ -841,14 +1031,19 @@ fn clip_summary(e: &ClipEntry, text: Option<&str>, complete: bool, max: usize) -
 }
 
 fn parse_kind(raw: &str) -> Result<ClipKind, String> {
-    serde_json::from_value(json!(raw)).map_err(|_| format!("Unknown kind “{raw}”: use text, code, link, color, image, file or other."))
+    serde_json::from_value(json!(raw)).map_err(|_| {
+        format!("Unknown kind “{raw}”: use text, code, link, color, image, file or other.")
+    })
 }
 
 fn list_clipboard(mut entries: Vec<ClipEntry>, args: &Args) -> Result<Value, String> {
     let limit = count(args, "limit", 20, 100)?.max(1);
     let kind = string(args, "kind")?.map(parse_kind).transpose()?;
     let pinned = boolean(args, "pinnedOnly")?.unwrap_or(false);
-    let query = string(args, "query")?.unwrap_or_default().trim().to_lowercase();
+    let query = string(args, "query")?
+        .unwrap_or_default()
+        .trim()
+        .to_lowercase();
     let terms: Vec<&str> = query.split_whitespace().collect();
     entries.sort_by_key(|e| std::cmp::Reverse(e.copied_at));
     let mut total = 0;
@@ -860,25 +1055,49 @@ fn list_clipboard(mut entries: Vec<ClipEntry>, args: &Args) -> Result<Value, Str
         let complete = e.text_len <= TEXT_EXCERPT_LIMIT;
         if !terms.is_empty() {
             // Search the redacted text, so a query can't confirm a secret.
-            let text = e.text.as_deref().map(|t| entry_redaction(e, t, complete)).filter(|r| !r.whole).map(|r| r.text).unwrap_or_default();
-            let hay = format!("{}\n{}\n{}", text, e.files.join("\n"), e.source.as_ref().map(|s| s.name.as_str()).unwrap_or_default()).to_lowercase();
+            let text = e
+                .text
+                .as_deref()
+                .map(|t| entry_redaction(e, t, complete))
+                .filter(|r| !r.whole)
+                .map(|r| r.text)
+                .unwrap_or_default();
+            let hay = format!(
+                "{}\n{}\n{}",
+                text,
+                e.files.join("\n"),
+                e.source
+                    .as_ref()
+                    .map(|s| s.name.as_str())
+                    .unwrap_or_default()
+            )
+            .to_lowercase();
             if !terms.iter().all(|t| hay.contains(t)) {
                 continue;
             }
         }
         total += 1;
         if items.len() < limit {
-            items.push(clip_summary(e, e.text.as_deref(), complete, PREVIEW_CHARS * 2));
+            items.push(clip_summary(
+                e,
+                e.text.as_deref(),
+                complete,
+                PREVIEW_CHARS * 2,
+            ));
         }
     }
     Ok(json!({ "total": total, "returned": items.len(), "items": items }))
 }
 
 fn get_clipboard_item(host: &dyn Host, args: &Args) -> Result<Value, String> {
-    let raw = string(args, "id")?.ok_or("Pass the `id` of a clipboard item from list_clipboard.")?;
+    let raw =
+        string(args, "id")?.ok_or("Pass the `id` of a clipboard item from list_clipboard.")?;
     let id = parse_id(raw, "clipboard item")?;
     let entries = host.clipboard()?;
-    let e = entries.iter().find(|e| e.id == id).ok_or("That item is no longer in the clipboard history.")?;
+    let e = entries
+        .iter()
+        .find(|e| e.id == id)
+        .ok_or("That item is no longer in the clipboard history.")?;
     let full = host.clipboard_text(id)?;
     let (text, complete) = match full {
         Some(t) => (Some(t), true),

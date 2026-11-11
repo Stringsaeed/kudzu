@@ -14,13 +14,16 @@ fn bold(start: usize, end: usize) -> FormatSpan {
 
 #[test]
 fn old_libraries_remain_plain_and_formatting_round_trips() {
-    let mut snippet: SnippetRecord = serde_json::from_str(r#"{"id":"00000000-0000-0000-0000-000000000001","content":"Hello"}"#).unwrap();
+    let mut snippet: SnippetRecord =
+        serde_json::from_str(r#"{"id":"00000000-0000-0000-0000-000000000001","content":"Hello"}"#)
+            .unwrap();
     assert!(snippet.formatting.is_none());
     snippet.formatting = Some(Formatting {
         source: "Hello".into(),
         spans: vec![bold(0, 5)],
     });
-    let restored: SnippetRecord = serde_json::from_str(&serde_json::to_string(&snippet).unwrap()).unwrap();
+    let restored: SnippetRecord =
+        serde_json::from_str(&serde_json::to_string(&snippet).unwrap()).unwrap();
     assert_eq!(restored.formatting, snippet.formatting);
     assert_eq!(restored.content, "Hello");
 }
@@ -42,14 +45,20 @@ fn formatting_tracks_templates_escapes_unicode_and_the_cursor() {
         resolve_snippet: &|_| None,
         resolve_formatting: None,
         root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+        selection: None,
+        clipboard_history: None,
+        new_uuid: None,
+        pick: None,
     };
     let result = template::render_formatted(source, Some(&formatting), &ctx);
     assert_eq!(result.text, "😀 {{literal}} <Sam & سلمى>!");
     assert_eq!(result.cursor_offset, Some(27));
     assert_eq!(result.formatting, Some(vec![bold(15, 27)]));
     let html = formatting::html(&result.text, result.formatting.as_deref().unwrap());
-    assert!(html.contains("<strong>&lt;Sam &amp; سلمى&gt;</strong>!"), "{html}");
+    assert!(
+        html.contains("<strong>&lt;Sam &amp; سلمى&gt;</strong>!"),
+        "{html}"
+    );
 }
 
 #[test]
@@ -62,7 +71,10 @@ fn stale_formatting_does_not_style_edits_from_an_older_mac() {
         resolve_snippet: &|_| None,
         resolve_formatting: None,
         root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+        selection: None,
+        clipboard_history: None,
+        new_uuid: None,
+        pick: None,
     };
     let formatting = Formatting {
         source: "before".into(),
@@ -83,8 +95,13 @@ fn html_handles_overlaps_and_rejects_active_links_and_invalid_ranges() {
             style: FormatStyle::Italic,
         },
     ];
-    assert!(formatting::html("abc", &spans).contains("<strong>a</strong><strong><em>b</em></strong><em>c</em>"));
-    for url in ["javascript:alert(1)", "data:text/html,bad", "https://ok\" onmouseover=\"bad"] {
+    assert!(formatting::html("abc", &spans)
+        .contains("<strong>a</strong><strong><em>b</em></strong><em>c</em>"));
+    for url in [
+        "javascript:alert(1)",
+        "data:text/html,bad",
+        "https://ok\" onmouseover=\"bad",
+    ] {
         let html = formatting::html(
             "safe",
             &[FormatSpan {
@@ -136,7 +153,10 @@ fn a_formatted_reply_preserves_its_nested_signature_but_a_plain_reply_does_not()
         resolve_snippet: &resolve,
         resolve_formatting: Some(&resolve_formatting),
         root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+        selection: None,
+        clipboard_history: None,
+        new_uuid: None,
+        pick: None,
     };
     let rich = template::render_formatted(
         &source,
@@ -183,7 +203,9 @@ fn embedded_images_round_trip_with_a_plain_text_alternative() {
     );
     assert_eq!(formatting::insertion_offset(9, &[image]), 4);
     assert!(!formatting::safe_image("https://example.com/image.png"));
-    assert!(!formatting::safe_image("data:image/svg+xml;base64,PHN2Zz4="));
+    assert!(!formatting::safe_image(
+        "data:image/svg+xml;base64,PHN2Zz4="
+    ));
 }
 
 #[test]
@@ -200,7 +222,9 @@ fn distinct_formatting_is_not_deduplicated_and_removal_syncs() {
         snippets: vec![plain, rich.clone()],
         ..Default::default()
     };
-    assert!(dedupe::plan(&library, &HashMap::new()).snippet_merges.is_empty());
+    assert!(dedupe::plan(&library, &HashMap::new())
+        .snippet_merges
+        .is_empty());
     let name = sync::snippet_name(rich.id);
     let mut index = sync::SyncIndex::default();
     let record = sync::encode(&name, &library, &index, "test").unwrap();

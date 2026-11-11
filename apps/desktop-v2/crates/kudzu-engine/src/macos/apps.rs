@@ -9,41 +9,66 @@ use std::time::{Duration, Instant};
 use objc2::rc::{autoreleasepool, Retained};
 use objc2::AnyThread;
 use objc2_app_kit::{
-    NSApplicationActivationOptions, NSBitmapImageFileType, NSBitmapImageRep, NSCompositingOperation, NSDeviceRGBColorSpace,
-    NSGraphicsContext, NSImage, NSImageInterpolation, NSRunningApplication, NSWorkspace,
+    NSApplicationActivationOptions, NSBitmapImageFileType, NSBitmapImageRep,
+    NSCompositingOperation, NSDeviceRGBColorSpace, NSGraphicsContext, NSImage,
+    NSImageInterpolation, NSRunningApplication, NSWorkspace,
 };
 use objc2_foundation::{NSDictionary, NSPoint, NSRect, NSSize, NSString, NSURL};
 
 use crate::AppInfo;
 
 fn info(app: &NSRunningApplication) -> AppInfo {
-    let path = app.bundleURL().and_then(|url| url.path()).map(|p| p.to_string());
-    let bundle_id = app.bundleIdentifier().map(|s| s.to_string()).unwrap_or_default();
+    let path = app
+        .bundleURL()
+        .and_then(|url| url.path())
+        .map(|p| p.to_string());
+    let bundle_id = app
+        .bundleIdentifier()
+        .map(|s| s.to_string())
+        .unwrap_or_default();
     let name = app
         .localizedName()
         .map(|s| s.to_string())
         .or_else(|| path.as_deref().map(display_name_from_path))
         .unwrap_or_else(|| bundle_id.clone());
-    AppInfo { bundle_id, name, pid: Some(app.processIdentifier()), path }
+    AppInfo {
+        bundle_id,
+        name,
+        pid: Some(app.processIdentifier()),
+        path,
+    }
 }
 
 fn display_name_from_path(path: &str) -> String {
-    Path::new(path).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
+    Path::new(path)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// The frontmost application.
 pub(crate) fn frontmost_app() -> Option<AppInfo> {
-    autoreleasepool(|_| NSWorkspace::sharedWorkspace().frontmostApplication().map(|app| info(&app)))
+    autoreleasepool(|_| {
+        NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .map(|app| info(&app))
+    })
 }
 
 /// Pid of the frontmost application (cheap; safe from the tap thread).
 pub(crate) fn frontmost_pid() -> Option<i32> {
-    autoreleasepool(|_| NSWorkspace::sharedWorkspace().frontmostApplication().map(|app| app.processIdentifier()))
+    autoreleasepool(|_| {
+        NSWorkspace::sharedWorkspace()
+            .frontmostApplication()
+            .map(|app| app.processIdentifier())
+    })
 }
 
 /// The running process `pid`.
 pub(crate) fn app_of(pid: i32) -> Option<AppInfo> {
-    autoreleasepool(|_| NSRunningApplication::runningApplicationWithProcessIdentifier(pid).map(|app| info(&app)))
+    autoreleasepool(|_| {
+        NSRunningApplication::runningApplicationWithProcessIdentifier(pid).map(|app| info(&app))
+    })
 }
 
 /// Bundle id of the running process `pid`.
@@ -65,18 +90,27 @@ pub(crate) fn name_of(pid: i32) -> Option<String> {
 }
 
 fn running(app: &AppInfo) -> Option<Retained<NSRunningApplication>> {
-    if let Some(found) = app.pid.and_then(NSRunningApplication::runningApplicationWithProcessIdentifier) {
+    if let Some(found) = app
+        .pid
+        .and_then(NSRunningApplication::runningApplicationWithProcessIdentifier)
+    {
         return Some(found);
     }
     if app.bundle_id.is_empty() {
         return None;
     }
-    NSRunningApplication::runningApplicationsWithBundleIdentifier(&NSString::from_str(&app.bundle_id)).firstObject()
+    NSRunningApplication::runningApplicationsWithBundleIdentifier(&NSString::from_str(
+        &app.bundle_id,
+    ))
+    .firstObject()
 }
 
 /// Brings `app` to the front (by pid, else bundle id). Returns whether the request was accepted.
 pub(crate) fn activate(app: &AppInfo) -> bool {
-    autoreleasepool(|_| running(app).is_some_and(|found| found.activateWithOptions(NSApplicationActivationOptions::empty())))
+    autoreleasepool(|_| {
+        running(app)
+            .is_some_and(|found| found.activateWithOptions(NSApplicationActivationOptions::empty()))
+    })
 }
 
 /// Pid `app` resolves to when running.
@@ -86,7 +120,9 @@ pub(crate) fn resolve_pid(app: &AppInfo) -> Option<i32> {
 
 /// Activates `app` and waits (≤ `timeout`) until it is frontmost.
 pub(crate) fn activate_and_wait(app: &AppInfo, timeout: Duration) -> bool {
-    let Some(pid) = resolve_pid(app) else { return false };
+    let Some(pid) = resolve_pid(app) else {
+        return false;
+    };
     if frontmost_pid() == Some(pid) {
         return true;
     }
@@ -104,15 +140,21 @@ pub(crate) fn activate_and_wait(app: &AppInfo, timeout: Duration) -> bool {
 /// Opens a URL with its default handler.
 pub(crate) fn open_url(url: &str) -> bool {
     autoreleasepool(|_| {
-        NSURL::URLWithString(&NSString::from_str(url)).is_some_and(|url| NSWorkspace::sharedWorkspace().openURL(&url))
+        NSURL::URLWithString(&NSString::from_str(url))
+            .is_some_and(|url| NSWorkspace::sharedWorkspace().openURL(&url))
     })
 }
 
 fn application_roots() -> Vec<PathBuf> {
-    let mut roots: Vec<PathBuf> = ["/Applications", "/Applications/Utilities", "/System/Applications", "/System/Applications/Utilities"]
-        .into_iter()
-        .map(PathBuf::from)
-        .collect();
+    let mut roots: Vec<PathBuf> = [
+        "/Applications",
+        "/Applications/Utilities",
+        "/System/Applications",
+        "/System/Applications/Utilities",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect();
     if let Some(home) = std::env::var_os("HOME") {
         roots.push(PathBuf::from(home).join("Applications"));
     }
@@ -120,13 +162,16 @@ fn application_roots() -> Vec<PathBuf> {
 }
 
 fn is_app(path: &Path) -> bool {
-    path.extension().is_some_and(|e| e.eq_ignore_ascii_case("app"))
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("app"))
 }
 
 /// `.app` bundles directly in `root` and in its plain sub-folders (one level deep).
 fn app_bundles(root: &Path) -> Vec<PathBuf> {
     let mut found = Vec::new();
-    let Ok(entries) = fs::read_dir(root) else { return found };
+    let Ok(entries) = fs::read_dir(root) else {
+        return found;
+    };
     for entry in entries.flatten() {
         let path = entry.path();
         if is_app(&path) {
@@ -143,13 +188,23 @@ fn app_bundles(root: &Path) -> Vec<PathBuf> {
 fn read_bundle(path: &Path) -> Option<AppInfo> {
     let plist = plist::Value::from_file(path.join("Contents/Info.plist")).ok()?;
     let dict = plist.as_dictionary()?;
-    let string = |key: &str| dict.get(key).and_then(|v| v.as_string()).map(str::trim).filter(|s| !s.is_empty());
+    let string = |key: &str| {
+        dict.get(key)
+            .and_then(|v| v.as_string())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
     let bundle_id = string("CFBundleIdentifier")?.to_string();
     let name = string("CFBundleDisplayName")
         .or_else(|| string("CFBundleName"))
         .map(String::from)
         .unwrap_or_else(|| display_name_from_path(&path.to_string_lossy()));
-    Some(AppInfo { bundle_id, name, pid: None, path: Some(path.to_string_lossy().into_owned()) })
+    Some(AppInfo {
+        bundle_id,
+        name,
+        pid: None,
+        path: Some(path.to_string_lossy().into_owned()),
+    })
 }
 
 /// Installed apps, deduped by bundle id (first root wins), sorted by name.
@@ -168,7 +223,12 @@ pub(crate) fn installed_apps() -> Vec<AppInfo> {
         }
     }
     let mut apps: Vec<AppInfo> = by_id.into_values().collect();
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()).then_with(|| a.bundle_id.cmp(&b.bundle_id)));
+    apps.sort_by(|a, b| {
+        a.name
+            .to_lowercase()
+            .cmp(&b.name.to_lowercase())
+            .then_with(|| a.bundle_id.cmp(&b.bundle_id))
+    });
     apps
 }
 
@@ -212,10 +272,17 @@ pub(crate) fn draw_png(image: &NSImage, width: u32, height: u32) -> Option<Vec<u
     NSGraphicsContext::setCurrentContext(Some(&context));
     context.setImageInterpolation(NSImageInterpolation::High);
     let target = NSRect::new(NSPoint::new(0.0, 0.0), points);
-    image.drawInRect_fromRect_operation_fraction(target, NSRect::ZERO, NSCompositingOperation::Copy, 1.0);
+    image.drawInRect_fromRect_operation_fraction(
+        target,
+        NSRect::ZERO,
+        NSCompositingOperation::Copy,
+        1.0,
+    );
     context.flushGraphics();
     NSGraphicsContext::restoreGraphicsState_class();
-    let data = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }?;
+    let data = unsafe {
+        rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
+    }?;
     Some(data.to_vec())
 }
 
@@ -240,7 +307,9 @@ mod tests {
 
     #[test]
     fn icon_is_png() {
-        let Some(app) = installed_apps().into_iter().find(|a| a.path.is_some()) else { return };
+        let Some(app) = installed_apps().into_iter().find(|a| a.path.is_some()) else {
+            return;
+        };
         let png = icon_png(app.path.as_deref().unwrap(), 32).expect("icon");
         assert_eq!(&png[..8], b"\x89PNG\r\n\x1a\n");
         assert!(icon_png("/definitely/not/here.app", 32).is_none());

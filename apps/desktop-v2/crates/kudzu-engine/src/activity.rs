@@ -29,13 +29,23 @@ pub(crate) struct Subject {
 
 impl Subject {
     fn event(self, outcome: ActivityOutcome) -> ActivityEvent {
-        ActivityEvent::attempt(self.source, self.snippet_id, self.trigger, self.app, outcome)
+        ActivityEvent::attempt(
+            self.source,
+            self.snippet_id,
+            self.trigger,
+            self.app,
+            outcome,
+        )
     }
 }
 
 /// An [`AppInfo`] as the activity log stores it.
 pub(crate) fn activity_app(app: &AppInfo) -> ActivityApp {
-    ActivityApp { bundle_id: app.bundle_id.clone(), name: app.name.clone(), path: app.path.clone() }
+    ActivityApp {
+        bundle_id: app.bundle_id.clone(),
+        name: app.name.clone(),
+        path: app.path.clone(),
+    }
 }
 
 #[derive(Debug)]
@@ -63,7 +73,10 @@ pub(crate) struct Recorder {
 
 impl Recorder {
     pub fn new(host: Arc<dyn EngineHost>) -> Self {
-        Self { host, state: Mutex::new(State::default()) }
+        Self {
+            host,
+            state: Mutex::new(State::default()),
+        }
     }
 
     /// Reports `outcome` for `subject` right away (a trigger that matched but never started).
@@ -83,17 +96,28 @@ impl Recorder {
             // A new trigger fired, so the previous expansion can no longer be undone.
             state.last_expansion = None;
         }
-        state.attempt = subject.map(|subject| Attempt { subject, outcome: None, awaiting_form: false });
+        state.attempt = subject.map(|subject| Attempt {
+            subject,
+            outcome: None,
+            awaiting_form: false,
+        });
     }
 
     /// Opens an attempt for the submitted form `token`, if that form is the one on screen.
     pub fn begin_form(&self, token: u64) {
         let mut state = lock(&self.state);
-        let subject = state.forms.remove(&token).map(|subject| Subject { source: ActivitySource::Form, ..subject });
+        let subject = state.forms.remove(&token).map(|subject| Subject {
+            source: ActivitySource::Form,
+            ..subject
+        });
         if subject.is_some() {
             state.last_expansion = None;
         }
-        state.attempt = subject.map(|subject| Attempt { subject, outcome: None, awaiting_form: false });
+        state.attempt = subject.map(|subject| Attempt {
+            subject,
+            outcome: None,
+            awaiting_form: false,
+        });
     }
 
     /// Records why the open attempt ended. The first reason wins, except that a completed
@@ -107,7 +131,9 @@ impl Recorder {
     /// Closes the open attempt and reports it. `unresolved` supplies the outcome when nothing
     /// along the way did; it runs with no lock held.
     pub fn finish(&self, unresolved: impl FnOnce() -> ActivityOutcome) {
-        let Some(attempt) = lock(&self.state).attempt.take() else { return };
+        let Some(attempt) = lock(&self.state).attempt.take() else {
+            return;
+        };
         if attempt.awaiting_form {
             return;
         }
@@ -127,7 +153,13 @@ impl Recorder {
     pub fn form_cancelled(&self, token: u64) {
         let form = lock(&self.state).forms.remove(&token);
         if let Some(subject) = form {
-            self.host.activity(Subject { source: ActivitySource::Form, ..subject }.event(ActivityOutcome::FormCancelled));
+            self.host.activity(
+                Subject {
+                    source: ActivitySource::Form,
+                    ..subject
+                }
+                .event(ActivityOutcome::FormCancelled),
+            );
         }
     }
 }
@@ -202,16 +234,38 @@ mod tests {
     }
 
     fn typed(id: Uuid) -> Subject {
-        let app = ActivityApp { bundle_id: "com.apple.mail".into(), name: "Mail".into(), path: None };
-        Subject { source: ActivitySource::Typed, snippet_id: id, trigger: Some(";sig".into()), app: Some(app) }
+        let app = ActivityApp {
+            bundle_id: "com.apple.mail".into(),
+            name: "Mail".into(),
+            path: None,
+        };
+        Subject {
+            source: ActivitySource::Typed,
+            snippet_id: id,
+            trigger: Some(";sig".into()),
+            app: Some(app),
+        }
     }
 
     fn outcomes(host: &Host) -> Vec<ActivityOutcome> {
-        host.events.lock().unwrap().iter().map(|e| e.outcome.clone()).collect()
+        host.events
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|e| e.outcome.clone())
+            .collect()
     }
 
     fn form(token: u64, id: Uuid) -> FormRequest {
-        FormRequest { token, snippet_id: id, snippet_name: "s".into(), fields: vec![], caret: None, target_app: None, selection: None }
+        FormRequest {
+            token,
+            snippet_id: id,
+            snippet_name: "s".into(),
+            fields: vec![],
+            caret: None,
+            target_app: None,
+            selection: None,
+        }
     }
 
     fn unreachable_fallback() -> ActivityOutcome {
@@ -223,13 +277,23 @@ mod tests {
         let (host, recorder) = setup();
         let id = Uuid::new_v4();
         recorder.begin(Some(typed(id)));
-        recorder.expanded(ExpansionEvent { snippet_id: id, chars_saved: 8 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: id,
+            chars_saved: 8,
+        });
         assert!(outcomes(&host).is_empty());
         recorder.finish(unreachable_fallback);
         assert_eq!(outcomes(&host), [ActivityOutcome::Expanded]);
         assert_eq!(host.expansions.lock().unwrap().len(), 1);
         let events = host.events.lock().unwrap();
-        assert_eq!((events[0].snippet_id, events[0].trigger.as_deref(), events[0].source), (Some(id), Some(";sig"), Some(ActivitySource::Typed)));
+        assert_eq!(
+            (
+                events[0].snippet_id,
+                events[0].trigger.as_deref(),
+                events[0].source
+            ),
+            (Some(id), Some(";sig"), Some(ActivitySource::Typed))
+        );
         assert_eq!(events[0].app.as_ref().unwrap().name, "Mail");
     }
 
@@ -250,13 +314,21 @@ mod tests {
         let id = Uuid::new_v4();
         recorder.begin(Some(typed(id)));
         recorder.resolve(ActivityOutcome::Paused);
-        recorder.resolve(ActivityOutcome::InsertionFailed { error: InsertFailure::NotAllowed });
+        recorder.resolve(ActivityOutcome::InsertionFailed {
+            error: InsertFailure::NotAllowed,
+        });
         recorder.finish(unreachable_fallback);
         recorder.begin(Some(typed(id)));
         recorder.resolve(ActivityOutcome::Interrupted);
-        recorder.expanded(ExpansionEvent { snippet_id: id, chars_saved: 0 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: id,
+            chars_saved: 0,
+        });
         recorder.finish(unreachable_fallback);
-        assert_eq!(outcomes(&host), [ActivityOutcome::Paused, ActivityOutcome::Expanded]);
+        assert_eq!(
+            outcomes(&host),
+            [ActivityOutcome::Paused, ActivityOutcome::Expanded]
+        );
     }
 
     #[test]
@@ -265,7 +337,10 @@ mod tests {
         recorder.resolve(ActivityOutcome::Paused);
         recorder.begin(None);
         recorder.finish(unreachable_fallback);
-        recorder.expanded(ExpansionEvent { snippet_id: Uuid::nil(), chars_saved: 0 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: Uuid::nil(),
+            chars_saved: 0,
+        });
         assert!(outcomes(&host).is_empty());
         assert_eq!(host.expansions.lock().unwrap().len(), 1);
     }
@@ -276,14 +351,20 @@ mod tests {
         let id = Uuid::new_v4();
         recorder.undone();
         recorder.begin(Some(typed(id)));
-        recorder.expanded(ExpansionEvent { snippet_id: id, chars_saved: 0 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: id,
+            chars_saved: 0,
+        });
         recorder.finish(unreachable_fallback);
         // The undo runs as its own job with nothing to report up front.
         recorder.begin(None);
         recorder.undone();
         recorder.finish(unreachable_fallback);
         recorder.undone();
-        assert_eq!(outcomes(&host), [ActivityOutcome::Expanded, ActivityOutcome::Undone]);
+        assert_eq!(
+            outcomes(&host),
+            [ActivityOutcome::Expanded, ActivityOutcome::Undone]
+        );
         assert_eq!(host.events.lock().unwrap()[1].snippet_id, Some(id));
     }
 
@@ -292,12 +373,18 @@ mod tests {
         let (host, recorder) = setup();
         let id = Uuid::new_v4();
         recorder.begin(Some(typed(id)));
-        recorder.expanded(ExpansionEvent { snippet_id: id, chars_saved: 0 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: id,
+            chars_saved: 0,
+        });
         recorder.finish(unreachable_fallback);
         recorder.begin(Some(typed(Uuid::new_v4())));
         recorder.finish(|| ActivityOutcome::Interrupted);
         recorder.undone();
-        assert_eq!(outcomes(&host), [ActivityOutcome::Expanded, ActivityOutcome::Interrupted]);
+        assert_eq!(
+            outcomes(&host),
+            [ActivityOutcome::Expanded, ActivityOutcome::Interrupted]
+        );
     }
 
     #[test]
@@ -311,27 +398,40 @@ mod tests {
         assert_eq!(*host.forms.lock().unwrap(), [7]);
 
         recorder.begin_form(7);
-        recorder.expanded(ExpansionEvent { snippet_id: id, chars_saved: 3 });
+        recorder.expanded(ExpansionEvent {
+            snippet_id: id,
+            chars_saved: 3,
+        });
         recorder.finish(unreachable_fallback);
         let events = host.events.lock().unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].outcome, ActivityOutcome::Expanded);
         // Still names the stored trigger that opened the form.
-        assert_eq!((events[0].source, events[0].trigger.as_deref()), (Some(ActivitySource::Form), Some(";sig")));
+        assert_eq!(
+            (events[0].source, events[0].trigger.as_deref()),
+            (Some(ActivitySource::Form), Some(";sig"))
+        );
     }
 
     #[test]
     fn a_cancelled_form_is_reported_once() {
         let (host, recorder) = setup();
         let id = Uuid::new_v4();
-        recorder.begin(Some(Subject { source: ActivitySource::QuickSearch, trigger: None, ..typed(id) }));
+        recorder.begin(Some(Subject {
+            source: ActivitySource::QuickSearch,
+            trigger: None,
+            ..typed(id)
+        }));
         recorder.form_requested(form(3, id));
         recorder.finish(unreachable_fallback);
         recorder.form_cancelled(99);
         recorder.form_cancelled(3);
         recorder.form_cancelled(3);
         assert_eq!(outcomes(&host), [ActivityOutcome::FormCancelled]);
-        assert_eq!(host.events.lock().unwrap()[0].source, Some(ActivitySource::Form));
+        assert_eq!(
+            host.events.lock().unwrap()[0].source,
+            Some(ActivitySource::Form)
+        );
         // Submitting a form that is gone opens no attempt.
         recorder.begin_form(3);
         recorder.finish(unreachable_fallback);

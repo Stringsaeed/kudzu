@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 use super::key_buffer::{folded_key, folded_string, nfc, KeyBuffer};
 use super::settings::{nearest_disabled_group, resolve_insertion, EffectiveSnippet, GroupResolver};
-use super::{case_propagation, CaseStyle, KeyInput, MatchingConfig, SkipCause, SkippedMatch, TriggerMatch};
+use super::{
+    case_propagation, CaseStyle, KeyInput, MatchingConfig, SkipCause, SkippedMatch, TriggerMatch,
+};
 use crate::activity::RuleLevel;
 use crate::types::{
     AppRule, AppRuleMode, CaseMode, FireMode, GroupRecord, InsertionMethod, SnippetRecord,
@@ -181,7 +183,12 @@ impl IndexData {
                 Some(SkipCause::SnippetOff)
             } else {
                 // Disabled only through its ancestry; an unresolvable group reads as the snippet.
-                Some(nearest_disabled_group(snippet.group_id, groups).map_or(SkipCause::SnippetOff, |group_id| SkipCause::GroupOff { group_id }))
+                Some(
+                    nearest_disabled_group(snippet.group_id, groups)
+                        .map_or(SkipCause::SnippetOff, |group_id| SkipCause::GroupOff {
+                            group_id,
+                        }),
+                )
             };
             let propagate = snippet.case_mode == CaseMode::Propagate;
             let mut seen = HashSet::new();
@@ -288,7 +295,10 @@ impl IndexData {
         last_input: &KeyInput,
         bundle_id: Option<&str>,
     ) -> Option<SkippedMatch> {
-        if !matches!(last_input, KeyInput::Character(_)) || self.entries.is_empty() || buffer.is_empty() {
+        if !matches!(last_input, KeyInput::Character(_))
+            || self.entries.is_empty()
+            || buffer.is_empty()
+        {
             return None;
         }
         let (best, _) = self.best(buffer, bundle_id, Pass::Explain);
@@ -296,25 +306,52 @@ impl IndexData {
         let snippet = &self.snippets[entry.snippet as usize];
         // Checked in the order the engine applies them: excluded apps first, then enablement,
         // then the snippet's (own or inherited) rule.
-        let cause = if let Some(id) = bundle_id.filter(|id| self.config.denied_bundle_ids.contains(*id)) {
-            let level = if MatchingConfig::default_denied_bundle_ids().contains(id) { RuleLevel::Default } else { RuleLevel::AppSetting };
-            SkipCause::Rule { level, group_id: None }
-        } else if let Some(off) = &snippet.off {
-            off.clone()
-        } else if snippet.rule.as_ref().is_some_and(|rule| !rule.permits(bundle_id)) {
-            match snippet.rule_group {
-                Some(group_id) => SkipCause::Rule { level: RuleLevel::Group, group_id: Some(group_id) },
-                None => SkipCause::Rule { level: RuleLevel::Snippet, group_id: None },
-            }
-        } else {
-            // It may fire: the caller asked without `find_match` having returned `None`.
-            return None;
-        };
-        Some(SkippedMatch { snippet_id: snippet.id, trigger: entry.trigger.clone(), cause })
+        let cause =
+            if let Some(id) = bundle_id.filter(|id| self.config.denied_bundle_ids.contains(*id)) {
+                let level = if MatchingConfig::default_denied_bundle_ids().contains(id) {
+                    RuleLevel::Default
+                } else {
+                    RuleLevel::AppSetting
+                };
+                SkipCause::Rule {
+                    level,
+                    group_id: None,
+                }
+            } else if let Some(off) = &snippet.off {
+                off.clone()
+            } else if snippet
+                .rule
+                .as_ref()
+                .is_some_and(|rule| !rule.permits(bundle_id))
+            {
+                match snippet.rule_group {
+                    Some(group_id) => SkipCause::Rule {
+                        level: RuleLevel::Group,
+                        group_id: Some(group_id),
+                    },
+                    None => SkipCause::Rule {
+                        level: RuleLevel::Snippet,
+                        group_id: None,
+                    },
+                }
+            } else {
+                // It may fire: the caller asked without `find_match` having returned `None`.
+                return None;
+            };
+        Some(SkippedMatch {
+            snippet_id: snippet.id,
+            trigger: entry.trigger.clone(),
+            cause,
+        })
     }
 
     /// The best-ranked trigger ending at the last keystroke, plus that keystroke's cluster.
-    fn best<'b>(&self, buffer: &'b KeyBuffer, bundle_id: Option<&str>, pass: Pass) -> (Option<Candidate>, &'b String) {
+    fn best<'b>(
+        &self,
+        buffer: &'b KeyBuffer,
+        bundle_id: Option<&str>,
+        pass: Pass,
+    ) -> (Option<Candidate>, &'b String) {
         let count = buffer.len();
         let mut best = None;
         self.search(buffer, count, false, bundle_id, pass, &mut best);

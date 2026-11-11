@@ -74,12 +74,23 @@ pub(crate) fn selection_tag() -> String {
 
 /// `{{uuid}}` or `{{uuid upper=true}}`.
 pub(crate) fn uuid_tag(upper: bool) -> String {
-    source("uuid", if upper { vec![bool_attr("upper", true)] } else { vec![] })
+    source(
+        "uuid",
+        if upper {
+            vec![bool_attr("upper", true)]
+        } else {
+            vec![]
+        },
+    )
 }
 
 /// `{{random options="a|b"}}`; a `|` inside an option is written as `\|`.
 pub(crate) fn random_tag(options: &[String]) -> String {
-    let encoded = options.iter().map(|o| o.replace('|', "\\|")).collect::<Vec<_>>().join("|");
+    let encoded = options
+        .iter()
+        .map(|o| o.replace('|', "\\|"))
+        .collect::<Vec<_>>()
+        .join("|");
     source("random", vec![string_attr("options", &encoded)])
 }
 

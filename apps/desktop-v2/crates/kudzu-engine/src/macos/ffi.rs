@@ -22,8 +22,12 @@ pub type CGKeyCode = u16;
 pub type TISInputSourceRef = *mut c_void;
 pub type OSStatus = i32;
 
-pub type CGEventTapCallBack =
-    unsafe extern "C" fn(proxy: CGEventTapProxy, kind: CGEventType, event: CGEventRef, user_info: *mut c_void) -> CGEventRef;
+pub type CGEventTapCallBack = unsafe extern "C" fn(
+    proxy: CGEventTapProxy,
+    kind: CGEventType,
+    event: CGEventRef,
+    user_info: *mut c_void,
+) -> CGEventRef;
 
 // CGEventType
 pub const kCGEventLeftMouseDown: CGEventType = 1;
@@ -100,9 +104,18 @@ extern "C" {
     pub fn CGEventSetIntegerValueField(event: CGEventRef, field: u32, value: i64);
     pub fn CGEventGetFlags(event: CGEventRef) -> CGEventFlags;
     pub fn CGEventSetFlags(event: CGEventRef, flags: CGEventFlags);
-    pub fn CGEventKeyboardGetUnicodeString(event: CGEventRef, max_len: usize, actual_len: *mut usize, buffer: *mut u16);
+    pub fn CGEventKeyboardGetUnicodeString(
+        event: CGEventRef,
+        max_len: usize,
+        actual_len: *mut usize,
+        buffer: *mut u16,
+    );
     pub fn CGEventKeyboardSetUnicodeString(event: CGEventRef, len: usize, buffer: *const u16);
-    pub fn CGEventCreateKeyboardEvent(source: CGEventSourceRef, key: CGKeyCode, key_down: bool) -> CGEventRef;
+    pub fn CGEventCreateKeyboardEvent(
+        source: CGEventSourceRef,
+        key: CGKeyCode,
+        key_down: bool,
+    ) -> CGEventRef;
     pub fn CGEventCreateCopy(event: CGEventRef) -> CGEventRef;
     pub fn CGEventPost(tap: u32, event: CGEventRef);
     pub fn CGEventSourceCreate(state: i32) -> CGEventSourceRef;
@@ -119,7 +132,11 @@ extern "C" {
     pub fn AXUIElementCreateSystemWide() -> AXUIElementRef;
     pub fn AXUIElementGetTypeID() -> CFTypeID;
     pub fn AXUIElementSetMessagingTimeout(element: AXUIElementRef, seconds: f32) -> AXError;
-    pub fn AXUIElementCopyAttributeValue(element: AXUIElementRef, attribute: CFStringRef, value: *mut CFTypeRef) -> AXError;
+    pub fn AXUIElementCopyAttributeValue(
+        element: AXUIElementRef,
+        attribute: CFStringRef,
+        value: *mut CFTypeRef,
+    ) -> AXError;
     pub fn AXUIElementCopyParameterizedAttributeValue(
         element: AXUIElementRef,
         attribute: CFStringRef,
@@ -181,6 +198,10 @@ pub struct DispatchQueue {
 extern "C" {
     /// The main queue object; `dispatch_get_main_queue()` is an inline function returning its address.
     pub static _dispatch_main_q: DispatchQueue;
-    pub fn dispatch_async_f(queue: *const DispatchQueue, context: *mut c_void, work: DispatchFunction);
+    pub fn dispatch_async_f(
+        queue: *const DispatchQueue,
+        context: *mut c_void,
+        work: DispatchFunction,
+    );
     pub fn pthread_main_np() -> i32;
 }

@@ -82,7 +82,10 @@ mod interchange {
             resolve_snippet: &resolve,
             resolve_formatting: None,
             root_snippet_id: None,
-            selection: None, clipboard_history: None, new_uuid: None, pick: None,
+            selection: None,
+            clipboard_history: None,
+            new_uuid: None,
+            pick: None,
         };
         template::render(source, &context).text
     }
@@ -165,14 +168,22 @@ mod interchange {
     fn csv_with_header_groups_and_multiline_cells() {
         let csv = "\u{feff}Abbreviation,Content,Label,Group\r\n;hi,\"Hello,\r\nworld %Y\",Greeting,Chat\r\n;bye,Bye,,Chat\r\n;x,X,,Other\r\n;no,,,\r\n";
         let result = textexpander::import_data(csv.as_bytes(), "export.csv").unwrap();
-        let names: Vec<_> = result.library.groups.iter().map(|g| g.name.as_str()).collect();
+        let names: Vec<_> = result
+            .library
+            .groups
+            .iter()
+            .map(|g| g.name.as_str())
+            .collect();
         assert_eq!(names, vec!["Chat", "Other"]);
         assert_eq!(result.library.snippets.len(), 3);
         let hi = snippet(&result, "Greeting");
         assert_eq!(hi.triggers, vec![";hi"]);
         assert_eq!(hi.content, "Hello,\nworld {{date format=\"yyyy\"}}");
         assert_eq!(snippet(&result, ";bye").content, "Bye");
-        assert!(result.warnings.iter().any(|w| w.message.contains("no content")));
+        assert!(result
+            .warnings
+            .iter()
+            .any(|w| w.message.contains("no content")));
     }
 
     #[test]
@@ -191,7 +202,9 @@ mod interchange {
 
     #[test]
     fn csv_semicolons_inside_quotes_do_not_change_the_delimiter() {
-        let result = textexpander::import_data(b"sig,\"Hi; there; you\",Signature\nb,plain,Lab\n", "x.csv").unwrap();
+        let result =
+            textexpander::import_data(b"sig,\"Hi; there; you\",Signature\nb,plain,Lab\n", "x.csv")
+                .unwrap();
         assert_eq!(snippet(&result, "Signature").content, "Hi; there; you");
         assert_eq!(result.library.snippets.len(), 2);
     }
@@ -210,7 +223,9 @@ mod interchange {
         assert!(binary.to_string().contains("CSV"));
         let zip = textexpander::import_data(b"PK\x03\x04rest", "x.textexpander").unwrap_err();
         assert!(zip.to_string().contains("CSV"));
-        assert!(textexpander::import_data(b"<plist><dict></dict></plist>", "x.textexpander").is_err());
+        assert!(
+            textexpander::import_data(b"<plist><dict></dict></plist>", "x.textexpander").is_err()
+        );
         assert!(textexpander::import_data(b"<plist><dict>", "x.textexpander").is_err());
         assert!(textexpander::import_data(b"", "x.csv").is_err());
     }
@@ -225,7 +240,14 @@ mod interchange {
             coordinator::detect_import_source(&file).unwrap(),
             coordinator::ImportSource::TextExpander
         );
-        assert_eq!(coordinator::load_import(&file).unwrap().library.snippets.len(), 5);
+        assert_eq!(
+            coordinator::load_import(&file)
+                .unwrap()
+                .library
+                .snippets
+                .len(),
+            5
+        );
         assert!(textexpander::import_file(&dir).is_err());
         let other = dir.join("notes.txt");
         std::fs::write(&other, "x").unwrap();

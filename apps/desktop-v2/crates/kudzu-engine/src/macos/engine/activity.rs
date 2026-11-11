@@ -6,11 +6,16 @@
 
 use std::sync::atomic::Ordering;
 
-use kudzu_core::activity::{ActivityApp, ActivityOutcome, ActivitySource, InsertFailure, Permission, RuleLevel, TapDisabledCause};
+use kudzu_core::activity::{
+    ActivityApp, ActivityOutcome, ActivitySource, InsertFailure, Permission, RuleLevel,
+    TapDisabledCause,
+};
 use kudzu_core::matching::{MatcherEvent, MatchingConfig, SkipCause, SkippedMatch};
 use uuid::Uuid;
 
-use super::{apps, ax, tap, CGEventRef, CGEventType, Core, Imp, InsertError, KeyError, Matched, PasteError};
+use super::{
+    apps, ax, tap, CGEventRef, CGEventType, Core, Imp, InsertError, KeyError, Matched, PasteError,
+};
 use super::{kCGEventTapDisabledByTimeout, AppInfo};
 use crate::activity::{activity_app, Subject};
 use crate::library::Library;
@@ -19,31 +24,59 @@ use crate::library::Library;
 /// only ids; the app is looked up when it is emitted on the worker.
 pub(super) enum Note {
     Health(ActivityOutcome),
-    Trigger { snippet_id: Uuid, trigger: String, pid: Option<i32>, outcome: ActivityOutcome },
+    Trigger {
+        snippet_id: Uuid,
+        trigger: String,
+        pid: Option<i32>,
+        outcome: ActivityOutcome,
+    },
 }
 
 impl Note {
     /// macOS disabled the tap; the tap thread has already re-enabled it.
     pub fn tap_disabled(kind: CGEventType) -> Option<Note> {
-        let cause = if kind == kCGEventTapDisabledByTimeout { TapDisabledCause::Timeout } else { TapDisabledCause::UserInput };
-        Some(Note::Health(ActivityOutcome::TapDisabled { cause, reenabled: true }))
+        let cause = if kind == kCGEventTapDisabledByTimeout {
+            TapDisabledCause::Timeout
+        } else {
+            TapDisabledCause::UserInput
+        };
+        Some(Note::Health(ActivityOutcome::TapDisabled {
+            cause,
+            reenabled: true,
+        }))
     }
 
     /// A trigger typed in full that is turned off or not allowed in this app.
     pub fn skipped(skipped: Option<SkippedMatch>, pid: Option<i32>) -> Option<Note> {
-        let SkippedMatch { snippet_id, trigger, cause } = skipped?;
+        let SkippedMatch {
+            snippet_id,
+            trigger,
+            cause,
+        } = skipped?;
         let outcome = match cause {
             SkipCause::SnippetOff => ActivityOutcome::SnippetOff,
             SkipCause::GroupOff { group_id } => ActivityOutcome::GroupOff { group_id },
             SkipCause::Rule { level, group_id } => ActivityOutcome::AppRule { level, group_id },
         };
-        Some(Note::Trigger { snippet_id, trigger, pid, outcome })
+        Some(Note::Trigger {
+            snippet_id,
+            trigger,
+            pid,
+            outcome,
+        })
     }
 
     /// A trigger that fired while another insertion was still in flight, so it was dropped.
     pub fn dropped(event: &MatcherEvent, pid: Option<i32>) -> Option<Note> {
-        let MatcherEvent::Expand(m) = event else { return None };
-        Some(Note::Trigger { snippet_id: m.snippet_id, trigger: m.trigger.clone(), pid, outcome: ActivityOutcome::Interrupted })
+        let MatcherEvent::Expand(m) = event else {
+            return None;
+        };
+        Some(Note::Trigger {
+            snippet_id: m.snippet_id,
+            trigger: m.trigger.clone(),
+            pid,
+            outcome: ActivityOutcome::Interrupted,
+        })
     }
 }
 
@@ -63,13 +96,22 @@ pub(super) fn failed(error: &InsertError) -> ActivityOutcome {
 
 /// The target app never came to the front.
 pub(super) fn target_gone() -> ActivityOutcome {
-    ActivityOutcome::InsertionFailed { error: InsertFailure::TargetGone }
+    ActivityOutcome::InsertionFailed {
+        error: InsertFailure::TargetGone,
+    }
 }
 
 /// `bundle_id` is an app where nothing expands: built in, or added by the user in Settings.
 pub(super) fn excluded(bundle_id: &str) -> ActivityOutcome {
-    let level = if MatchingConfig::default_denied_bundle_ids().contains(bundle_id) { RuleLevel::Default } else { RuleLevel::AppSetting };
-    ActivityOutcome::AppRule { level, group_id: None }
+    let level = if MatchingConfig::default_denied_bundle_ids().contains(bundle_id) {
+        RuleLevel::Default
+    } else {
+        RuleLevel::AppSetting
+    };
+    ActivityOutcome::AppRule {
+        level,
+        group_id: None,
+    }
 }
 
 fn app_of(pid: Option<i32>) -> Option<ActivityApp> {
@@ -85,7 +127,9 @@ impl Imp {
         } else if self.flags.secure_input.load(Ordering::SeqCst) {
             Some(ActivityOutcome::SecureInput { owner: None })
         } else if !self.flags.post_event.load(Ordering::SeqCst) {
-            Some(ActivityOutcome::MissingPermission { permission: Permission::Accessibility })
+            Some(ActivityOutcome::MissingPermission {
+                permission: Permission::Accessibility,
+            })
         } else {
             None
         }
@@ -94,7 +138,9 @@ impl Imp {
     /// Names the app holding Secure Input, when macOS reports one.
     fn with_owner(outcome: ActivityOutcome) -> ActivityOutcome {
         match outcome {
-            ActivityOutcome::SecureInput { owner: None } => ActivityOutcome::SecureInput { owner: ax::secure_input().1.and_then(apps::name_of) },
+            ActivityOutcome::SecureInput { owner: None } => ActivityOutcome::SecureInput {
+                owner: ax::secure_input().1.and_then(apps::name_of),
+            },
             other => other,
         }
     }
@@ -102,19 +148,39 @@ impl Imp {
     /// The outcome of an attempt that ended without saying why: whatever blocks insertion now,
     /// else the user's own typing, click or app switch got in first.
     pub(super) fn unresolved(&self) -> ActivityOutcome {
-        self.blocked().map_or(ActivityOutcome::Interrupted, Self::with_owner)
+        self.blocked()
+            .map_or(ActivityOutcome::Interrupted, Self::with_owner)
     }
 
     /// The attempt a matched trigger starts; `None` for an undo.
     pub(super) fn typed_subject(&self, m: &Matched) -> Option<Subject> {
-        let MatcherEvent::Expand(trigger) = &m.event else { return None };
-        Some(Subject { source: ActivitySource::Typed, snippet_id: trigger.snippet_id, trigger: Some(trigger.trigger.clone()), app: app_of(m.pid) })
+        let MatcherEvent::Expand(trigger) = &m.event else {
+            return None;
+        };
+        Some(Subject {
+            source: ActivitySource::Typed,
+            snippet_id: trigger.snippet_id,
+            trigger: Some(trigger.trigger.clone()),
+            app: app_of(m.pid),
+        })
     }
 
     /// The attempt a Quick Search insert starts.
-    pub(super) fn palette_subject(&self, snippet_id: Uuid, target: Option<&AppInfo>) -> Option<Subject> {
-        let app = target.cloned().or_else(apps::frontmost_app).map(|app| activity_app(&app));
-        Some(Subject { source: ActivitySource::QuickSearch, snippet_id, trigger: None, app })
+    pub(super) fn palette_subject(
+        &self,
+        snippet_id: Uuid,
+        target: Option<&AppInfo>,
+    ) -> Option<Subject> {
+        let app = target
+            .cloned()
+            .or_else(apps::frontmost_app)
+            .map(|app| activity_app(&app));
+        Some(Subject {
+            source: ActivitySource::QuickSearch,
+            snippet_id,
+            trigger: None,
+            app,
+        })
     }
 
     /// Resolves the open attempt when `bundle_id` is excluded. Returns whether it is.
@@ -130,8 +196,15 @@ impl Imp {
     /// simply dropped, as before. While paused or without permission to type, the matcher keeps
     /// following the keys for one purpose: to note a trigger that would otherwise have fired.
     /// Nothing is swallowed, inserted or stored, and only a full match produces a note.
-    pub(super) fn observe_blocked(&self, core: &mut Core, key_down: bool, event: CGEventRef) -> Option<Note> {
-        let outcome = self.blocked().filter(|_| !self.flags.suppressed.load(Ordering::SeqCst));
+    pub(super) fn observe_blocked(
+        &self,
+        core: &mut Core,
+        key_down: bool,
+        event: CGEventRef,
+    ) -> Option<Note> {
+        let outcome = self
+            .blocked()
+            .filter(|_| !self.flags.suppressed.load(Ordering::SeqCst));
         let Some(outcome) = outcome else {
             core.reset_matcher();
             return None;
@@ -152,7 +225,12 @@ impl Imp {
         }
         let bundle = core.frontmost_bundle.clone();
         match core.matcher.handle(input, bundle.as_deref())? {
-            MatcherEvent::Expand(m) => Some(Note::Trigger { snippet_id: m.snippet_id, trigger: m.trigger, pid, outcome }),
+            MatcherEvent::Expand(m) => Some(Note::Trigger {
+                snippet_id: m.snippet_id,
+                trigger: m.trigger,
+                pid,
+                outcome,
+            }),
             MatcherEvent::Undo(_) => {
                 core.reset_matcher();
                 None
@@ -164,8 +242,18 @@ impl Imp {
     pub(super) fn emit(&self, note: Note) {
         match note {
             Note::Health(outcome) => self.recorder.health(outcome),
-            Note::Trigger { snippet_id, trigger, pid, outcome } => {
-                let subject = Subject { source: ActivitySource::Typed, snippet_id, trigger: Some(trigger), app: app_of(pid) };
+            Note::Trigger {
+                snippet_id,
+                trigger,
+                pid,
+                outcome,
+            } => {
+                let subject = Subject {
+                    source: ActivitySource::Typed,
+                    snippet_id,
+                    trigger: Some(trigger),
+                    app: app_of(pid),
+                };
                 self.recorder.note(subject, Self::with_owner(outcome));
             }
         }

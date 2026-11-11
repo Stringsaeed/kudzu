@@ -120,7 +120,8 @@ pub(crate) fn parse(source: &str) -> ParsedTemplate {
                             cursor_voided = true;
                             out.diagnostics.push(Diagnostic {
                                 severity: Severity::Warning,
-                                message: "A key press after the cursor cancels the cursor position".into(),
+                                message: "A key press after the cursor cancels the cursor position"
+                                    .into(),
                                 range: range.clone(),
                             });
                         }
@@ -231,7 +232,13 @@ pub(crate) fn tag_bool(tag: &Tag, key: &str) -> bool {
 /// written value had to be adjusted (a fraction dropped, or clamped into range). An absent or
 /// non-numeric attribute is `default`.
 pub(crate) fn tag_integer(tag: &Tag, key: &str, min: u32, max: u32, default: u32) -> (u32, bool) {
-    match tag.attributes.iter().rev().find(|a| a.name == key).map(|a| &a.value) {
+    match tag
+        .attributes
+        .iter()
+        .rev()
+        .find(|a| a.name == key)
+        .map(|a| &a.value)
+    {
         Some(AttributeValue::Number(n)) => {
             let whole = n.floor().clamp(f64::from(min), f64::from(max));
             (whole as u32, whole != *n)
@@ -297,16 +304,24 @@ fn validate(tag: &Tag) -> Option<String> {
         let name = attribute.name.as_str();
         let is_string = strings.contains(&name);
         let is_bool = bools.contains(&name);
-        let is_number = integer_attributes(&tag.name).iter().any(|(key, ..)| *key == name);
+        let is_number = integer_attributes(&tag.name)
+            .iter()
+            .any(|(key, ..)| *key == name);
         match attribute.value {
             AttributeValue::String(_) if is_string => {}
             AttributeValue::Bool(_) if is_bool => {}
             AttributeValue::Number(_) if is_number => {}
-            _ if is_string || is_bool || is_number => return Some(format!("Invalid type for '{name}'")),
+            _ if is_string || is_bool || is_number => {
+                return Some(format!("Invalid type for '{name}'"))
+            }
             _ => {}
         }
     }
-    if tag.name == "key" && tag_string(tag, "name").and_then(super::Key::parse).is_none() {
+    if tag.name == "key"
+        && tag_string(tag, "name")
+            .and_then(super::Key::parse)
+            .is_none()
+    {
         return Some("key requires a known key name".into());
     }
     if tag.name == "delay" && !tag.attributes.iter().any(|a| a.name == "ms") {

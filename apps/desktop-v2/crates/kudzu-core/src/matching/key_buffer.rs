@@ -55,7 +55,10 @@ fn fold_special(lowered: String) -> String {
     if !lowered.contains(['\u{307}', 'ı', 'ς']) {
         return lowered;
     }
-    lowered.replace("i\u{307}", "i").replace('ı', "i").replace('ς', "σ")
+    lowered
+        .replace("i\u{307}", "i")
+        .replace('ı', "i")
+        .replace('ς', "σ")
 }
 
 /// Canonical composition, borrowing when the text is already NFC.

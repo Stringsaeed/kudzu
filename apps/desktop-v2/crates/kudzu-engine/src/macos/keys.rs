@@ -42,7 +42,9 @@ unsafe impl Sync for Source {}
 fn source() -> CGEventSourceRef {
     static SOURCE: OnceLock<Source> = OnceLock::new();
     // A private state source, so modifiers the user is physically holding don't leak into our keys.
-    SOURCE.get_or_init(|| Source(unsafe { CGEventSourceCreate(kCGEventSourceStatePrivate) })).0
+    SOURCE
+        .get_or_init(|| Source(unsafe { CGEventSourceCreate(kCGEventSourceStatePrivate) }))
+        .0
 }
 
 /// Whether synthetic input can reach other apps right now.
@@ -172,7 +174,10 @@ mod tests {
 
     #[test]
     fn every_template_key_has_its_own_key_code() {
-        let codes: std::collections::HashSet<CGKeyCode> = kudzu_core::template::Key::ALL.into_iter().map(key_code).collect();
+        let codes: std::collections::HashSet<CGKeyCode> = kudzu_core::template::Key::ALL
+            .into_iter()
+            .map(key_code)
+            .collect();
         assert_eq!(codes.len(), kudzu_core::template::Key::ALL.len());
         assert_eq!(key_code(kudzu_core::template::Key::Tab), 48);
         assert_eq!(key_code(kudzu_core::template::Key::Return), 36);
@@ -188,7 +193,13 @@ mod tests {
         let lengths: Vec<usize> = parts.iter().map(Vec::len).collect();
         assert_eq!(lengths, vec![10, 11, 11]);
         assert_eq!(String::from_utf16(&parts[1]).unwrap(), family);
-        assert_eq!(chunks(&"x".repeat(45)).iter().map(Vec::len).collect::<Vec<_>>(), vec![20, 20, 5]);
+        assert_eq!(
+            chunks(&"x".repeat(45))
+                .iter()
+                .map(Vec::len)
+                .collect::<Vec<_>>(),
+            vec![20, 20, 5]
+        );
         assert!(chunks("").is_empty());
         let joined: Vec<u16> = parts.concat();
         assert_eq!(String::from_utf16(&joined).unwrap(), text);

@@ -73,7 +73,10 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
 enum Block {
     Para(String),
     Heading(String),
-    Item { marker: String, text: String },
+    Item {
+        marker: String,
+        text: String,
+    },
     Code(String),
     Table(Vec<Vec<String>>),
     Blank,
@@ -129,14 +132,21 @@ fn table_delimiter(line: &str) -> bool {
         && t.contains('-')
         && t.split('|').all(|cell| {
             let c = cell.trim();
-            !c.is_empty() && c.trim_start_matches(':').trim_end_matches(':').chars().all(|ch| ch == '-')
+            !c.is_empty()
+                && c.trim_start_matches(':')
+                    .trim_end_matches(':')
+                    .chars()
+                    .all(|ch| ch == '-')
         })
 }
 
 fn table_cells(line: &str) -> Vec<String> {
     let t = line.trim();
     let t = t.strip_prefix('|').unwrap_or(t);
-    let t = t.strip_suffix('|').filter(|s| !s.ends_with('\\')).unwrap_or(t);
+    let t = t
+        .strip_suffix('|')
+        .filter(|s| !s.ends_with('\\'))
+        .unwrap_or(t);
     let mut cells = vec![String::new()];
     let mut escaped = false;
     for c in t.chars() {
@@ -171,7 +181,9 @@ fn blocks(source: &str, out: &mut RichText) -> Vec<Block> {
         i += 1;
         if let Some((c, n, buffer)) = &mut code {
             let t = raw.trim_start();
-            if fence(t).is_some_and(|(fc, fnum)| fc == *c && fnum >= *n) && t.trim_start_matches(*c).trim().is_empty() {
+            if fence(t).is_some_and(|(fc, fnum)| fc == *c && fnum >= *n)
+                && t.trim_start_matches(*c).trim().is_empty()
+            {
                 let text = std::mem::take(buffer);
                 code = None;
                 blocks.push(Block::Code(text));
@@ -207,7 +219,9 @@ fn blocks(source: &str, out: &mut RichText) -> Vec<Block> {
             }
         }
         let hashes = line.chars().take_while(|c| *c == '#').count();
-        if (1..=6).contains(&hashes) && (line.len() == hashes || line[hashes..].starts_with([' ', '\t'])) {
+        if (1..=6).contains(&hashes)
+            && (line.len() == hashes || line[hashes..].starts_with([' ', '\t']))
+        {
             let text = line[hashes..].trim();
             let text = text.trim_end_matches('#').trim_end();
             out.drop(Dropped::Headings);
@@ -246,7 +260,10 @@ fn blocks(source: &str, out: &mut RichText) -> Vec<Block> {
             if indent >= 2 && !quoted {
                 out.drop(Dropped::NestedLists);
             }
-            blocks.push(Block::Item { marker, text: strip_hard_break(rest).to_string() });
+            blocks.push(Block::Item {
+                marker,
+                text: strip_hard_break(rest).to_string(),
+            });
             continue;
         }
         let text = strip_hard_break(line);
@@ -275,7 +292,13 @@ enum Piece {
 
 enum Item {
     Piece(Piece),
-    Delim { ch: char, count: usize, orig: usize, open: bool, close: bool },
+    Delim {
+        ch: char,
+        count: usize,
+        orig: usize,
+        open: bool,
+        close: bool,
+    },
 }
 
 /// Style table shared by an inline block and the link text nested in it; `None` keeps text only.
@@ -385,7 +408,10 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
     while i < n {
         let c = chars[i];
         match c {
-            '\\' if chars.get(i + 1).is_some_and(|next| ESCAPABLE.contains(*next)) => {
+            '\\' if chars
+                .get(i + 1)
+                .is_some_and(|next| ESCAPABLE.contains(*next)) =>
+            {
                 text.push(chars[i + 1]);
                 i += 2;
             }
@@ -395,7 +421,8 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                     Some(Some(c)) if c >= i + 2 => Some(c),
                     Some(None) => None,
                     _ => {
-                        let found = (i + 2..n.saturating_sub(1)).find(|&k| chars[k] == '}' && chars[k + 1] == '}');
+                        let found = (i + 2..n.saturating_sub(1))
+                            .find(|&k| chars[k] == '}' && chars[k + 1] == '}');
                         next_close = Some(found);
                         found
                     }
@@ -410,7 +437,8 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                     Some(&close) => {
                         let inner: String = chars[i + run..close].iter().collect();
                         let inner = inner.replace('\n', " ");
-                        let inner = match inner.strip_prefix(' ').and_then(|s| s.strip_suffix(' ')) {
+                        let inner = match inner.strip_prefix(' ').and_then(|s| s.strip_suffix(' '))
+                        {
                             Some(stripped) if !inner.trim().is_empty() => stripped.to_string(),
                             _ => inner,
                         };
@@ -432,15 +460,26 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                     delimiters += 1;
                     let before = if i == 0 { ' ' } else { chars[i - 1] };
                     let after = chars.get(i + run).copied().unwrap_or(' ');
-                    let left = !after.is_whitespace() && (!is_punct(after) || before.is_whitespace() || is_punct(before));
-                    let right = !before.is_whitespace() && (!is_punct(before) || after.is_whitespace() || is_punct(after));
+                    let left = !after.is_whitespace()
+                        && (!is_punct(after) || before.is_whitespace() || is_punct(before));
+                    let right = !before.is_whitespace()
+                        && (!is_punct(before) || after.is_whitespace() || is_punct(after));
                     let (open, close) = if c == '_' {
-                        (left && (!right || is_punct(before)), right && (!left || is_punct(after)))
+                        (
+                            left && (!right || is_punct(before)),
+                            right && (!left || is_punct(after)),
+                        )
                     } else {
                         (left, right)
                     };
                     flush(&mut text, &mut items);
-                    items.push(Item::Delim { ch: c, count: run, orig: run, open, close });
+                    items.push(Item::Delim {
+                        ch: c,
+                        count: run,
+                        orig: run,
+                        open,
+                        close,
+                    });
                 }
                 i += run;
             }
@@ -496,7 +535,9 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                 let inner: String = chars[i + 1..end].iter().collect();
                 let lower = inner.to_ascii_lowercase();
                 let autolink = !inner.contains(char::is_whitespace)
-                    && (lower.starts_with("http://") || lower.starts_with("https://") || lower.starts_with("mailto:")
+                    && (lower.starts_with("http://")
+                        || lower.starts_with("https://")
+                        || lower.starts_with("mailto:")
                         || (inner.contains('@') && !inner.contains(':')));
                 let tag_name: String = lower
                     .trim_start_matches('/')
@@ -515,7 +556,9 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                     items.push(Item::Piece(Piece::Open(id)));
                     items.push(Item::Piece(Piece::Text(inner)));
                     items.push(Item::Piece(Piece::Close(id)));
-                } else if !tag_name.is_empty() && lower.starts_with(|c: char| c.is_ascii_alphabetic() || c == '/') {
+                } else if !tag_name.is_empty()
+                    && lower.starts_with(|c: char| c.is_ascii_alphabetic() || c == '/')
+                {
                     let closing = lower.starts_with('/');
                     let style = match tag_name.as_str() {
                         "b" | "strong" => Some(FormatStyle::Bold),
@@ -531,7 +574,9 @@ fn parse_inline(source: &str, out: &mut RichText, styles: &mut Styles, links: bo
                         items.push(Item::Piece(Piece::Open(id)));
                         html_stack.push((tag_name, id));
                     } else if style.is_some() {
-                        if let Some(pos) = html_stack.iter().rposition(|(name, _)| *name == tag_name) {
+                        if let Some(pos) =
+                            html_stack.iter().rposition(|(name, _)| *name == tag_name)
+                        {
                             for (_, id) in html_stack.drain(pos..).rev() {
                                 items.push(Item::Piece(Piece::Close(id)));
                             }
@@ -572,22 +617,39 @@ fn resolve_emphasis(mut items: Vec<Item>, out: &mut RichText, styles: &mut Style
     let mut closes: HashMap<usize, Vec<usize>> = HashMap::new();
     for ci in 0..delims.len() {
         let c = delims[ci];
-        while let Item::Delim { ch, count, orig, close: true, open: c_open } = items[c] {
+        while let Item::Delim {
+            ch,
+            count,
+            orig,
+            close: true,
+            open: c_open,
+        } = items[c]
+        {
             if count == 0 {
                 break;
             }
             let found = (0..ci).rev().find(|&oi| match items[delims[oi]] {
-                Item::Delim { ch: och, count: ocount, orig: oorig, open: true, close: o_close } => {
+                Item::Delim {
+                    ch: och,
+                    count: ocount,
+                    orig: oorig,
+                    open: true,
+                    close: o_close,
+                } => {
                     och == ch
                         && ocount > 0
                         && (ch != '~' || (ocount >= 2 && count >= 2))
-                        && !((o_close || c_open) && (oorig + orig) % 3 == 0 && !(oorig % 3 == 0 && orig % 3 == 0))
+                        && !((o_close || c_open)
+                            && (oorig + orig) % 3 == 0
+                            && !(oorig % 3 == 0 && orig % 3 == 0))
                 }
                 _ => false,
             });
             let Some(oi) = found else { break };
             let o = delims[oi];
-            let Item::Delim { count: ocount, .. } = items[o] else { break };
+            let Item::Delim { count: ocount, .. } = items[o] else {
+                break;
+            };
             let used = if ocount >= 2 && count >= 2 { 2 } else { 1 };
             let style = match (ch, used) {
                 ('~', _) => {
@@ -655,8 +717,20 @@ mod tests {
     fn emphasis_rules() {
         assert_eq!(render("a * b * c").1, vec![]);
         assert_eq!(render("snake_case_name").1, vec![]);
-        assert_eq!(render("**a *b* c**").1, vec![("a b c".into(), FormatStyle::Bold), ("b".into(), FormatStyle::Italic)]);
-        assert_eq!(render("*a **b** c*").1, vec![("a b c".into(), FormatStyle::Italic), ("b".into(), FormatStyle::Bold)]);
+        assert_eq!(
+            render("**a *b* c**").1,
+            vec![
+                ("a b c".into(), FormatStyle::Bold),
+                ("b".into(), FormatStyle::Italic)
+            ]
+        );
+        assert_eq!(
+            render("*a **b** c*").1,
+            vec![
+                ("a b c".into(), FormatStyle::Italic),
+                ("b".into(), FormatStyle::Bold)
+            ]
+        );
         assert_eq!(render("**unclosed").0, "**unclosed");
         assert_eq!(render("2 * 3 = 6 and 4*5").0, "2 * 3 = 6 and 4*5");
         assert_eq!(render("_a_b").0, "_a_b");
@@ -672,7 +746,12 @@ mod tests {
             vec![
                 ("u".into(), FormatStyle::Underline),
                 ("x".into(), FormatStyle::Bold),
-                ("x".into(), FormatStyle::Link { url: "https://a.b".into() }),
+                (
+                    "x".into(),
+                    FormatStyle::Link {
+                        url: "https://a.b".into()
+                    }
+                ),
             ]
         );
         assert_eq!(render("[a] (b) [c](d e)").0, "[a] (b) c");

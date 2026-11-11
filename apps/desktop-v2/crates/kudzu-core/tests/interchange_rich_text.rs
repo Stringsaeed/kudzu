@@ -55,7 +55,8 @@ mod interchange {
         spans
             .iter()
             .map(|span| {
-                let text = String::from_utf16(&utf16[span.start..span.end]).expect("span on a char boundary");
+                let text = String::from_utf16(&utf16[span.start..span.end])
+                    .expect("span on a char boundary");
                 let style = match &span.style {
                     FormatStyle::Bold => "b".to_string(),
                     FormatStyle::Italic => "i".to_string(),
@@ -69,7 +70,10 @@ mod interchange {
     }
 
     fn pairs(list: &[(&str, &str)]) -> Vec<(String, String)> {
-        let mut out: Vec<_> = list.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect();
+        let mut out: Vec<_> = list
+            .iter()
+            .map(|(a, b)| (a.to_string(), b.to_string()))
+            .collect();
         out.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
         out
     }
@@ -87,8 +91,15 @@ mod interchange {
             .into_iter()
             .filter(|d| d.severity == Severity::Error)
             .collect();
-        assert!(errors.is_empty(), "{:?}: {} → {errors:?}", s.triggers, s.content);
-        let Some(formatting) = &s.formatting else { return };
+        assert!(
+            errors.is_empty(),
+            "{:?}: {} → {errors:?}",
+            s.triggers,
+            s.content
+        );
+        let Some(formatting) = &s.formatting else {
+            return;
+        };
         assert_eq!(formatting.source, s.content, "{:?}", s.triggers);
         let resolve = |_: uuid::Uuid| None;
         let context = RenderContext {
@@ -146,11 +157,21 @@ mod interchange {
                 ("a https://kudzu.site", "a link"),
             ])
         );
-        assert!(warnings_for(&result, ":md").is_empty(), "{:?}", warnings_for(&result, ":md"));
+        assert!(
+            warnings_for(&result, ":md").is_empty(),
+            "{:?}",
+            warnings_for(&result, ":md")
+        );
 
         let plain = &t[":md_plain"];
         assert_eq!(plain.content, "Nothing special");
-        assert_eq!(plain.formatting, Some(Formatting { source: "Nothing special".into(), spans: vec![] }));
+        assert_eq!(
+            plain.formatting,
+            Some(Formatting {
+                source: "Nothing special".into(),
+                spans: vec![]
+            })
+        );
     }
 
     #[test]
@@ -170,7 +191,10 @@ mod interchange {
 
         let braces = &t[":md_braces"];
         assert_eq!(braces.content, "a { b \\{{x}} and \\{{ c and back\\\\slash");
-        assert_eq!(sorted(styled(braces)), pairs(&[("b", "a { b"), ("i", "\\{{ c")]));
+        assert_eq!(
+            sorted(styled(braces)),
+            pairs(&[("b", "a { b"), ("i", "\\{{ c")])
+        );
     }
 
     #[test]
@@ -196,8 +220,20 @@ mod interchange {
         assert_eq!(sorted(styled(s)), pairs(&[("b", "Title"), ("b", "two")]));
         let warnings = warnings_for(&result, ":md_blocks");
         assert_eq!(warnings.len(), 1, "{warnings:?}");
-        for dropped in ["heading", "nested list", "block quote", "code", "strikethrough", "horizontal rule", "table"] {
-            assert!(warnings[0].contains(dropped), "{dropped} missing from {}", warnings[0]);
+        for dropped in [
+            "heading",
+            "nested list",
+            "block quote",
+            "code",
+            "strikethrough",
+            "horizontal rule",
+            "table",
+        ] {
+            assert!(
+                warnings[0].contains(dropped),
+                "{dropped} missing from {}",
+                warnings[0]
+            );
         }
     }
 
@@ -210,11 +246,25 @@ mod interchange {
         let spans = &s.formatting.as_ref().unwrap().spans;
         assert_eq!(spans.len(), 1);
         assert_eq!((spans[0].start, spans[0].end), (0, 5));
-        assert_eq!(spans[0].style, FormatStyle::Image { data_url: DOT.into(), width: 16 });
+        assert_eq!(
+            spans[0].style,
+            FormatStyle::Image {
+                data_url: DOT.into(),
+                width: 16
+            }
+        );
         let warnings = warnings_for(&result, ":md_images");
         assert_eq!(warnings.len(), 1, "{warnings:?}");
-        assert!(warnings[0].contains("images that aren't embedded"), "{}", warnings[0]);
-        assert!(warnings[0].contains("images larger than"), "{}", warnings[0]);
+        assert!(
+            warnings[0].contains("images that aren't embedded"),
+            "{}",
+            warnings[0]
+        );
+        assert!(
+            warnings[0].contains("images larger than"),
+            "{}",
+            warnings[0]
+        );
     }
 
     #[test]
@@ -223,7 +273,10 @@ mod interchange {
         let t = by_trigger(&result);
         let s = &t[":md_unsafe"];
         assert_eq!(s.content, "click https://auto.link/x plain");
-        assert_eq!(styled(s), pairs(&[("a https://auto.link/x", "https://auto.link/x")]));
+        assert_eq!(
+            styled(s),
+            pairs(&[("a https://auto.link/x", "https://auto.link/x")])
+        );
         assert!(warnings_for(&result, ":md_unsafe")[0].contains("links"));
     }
 
@@ -236,7 +289,12 @@ mod interchange {
         assert_eq!(html.content, "Hello world & you\n\nmail under");
         assert_eq!(
             sorted(styled(html)),
-            pairs(&[("b", "world"), ("i", "you"), ("a mailto:a@b.c", "mail"), ("u", "under")])
+            pairs(&[
+                ("b", "world"),
+                ("i", "you"),
+                ("a mailto:a@b.c", "mail"),
+                ("u", "under")
+            ])
         );
         assert!(warnings_for(&result, ":html").is_empty());
 
@@ -246,7 +304,11 @@ mod interchange {
         let warnings = warnings_for(&result, ":html_style");
         assert_eq!(warnings.len(), 1);
         for dropped in ["fonts", "text sizes", "colors"] {
-            assert!(warnings[0].contains(dropped), "{dropped} missing from {}", warnings[0]);
+            assert!(
+                warnings[0].contains(dropped),
+                "{dropped} missing from {}",
+                warnings[0]
+            );
         }
 
         let lists = &t[":html_lists"];
@@ -257,7 +319,11 @@ mod interchange {
         assert_eq!(broken.content, "unclosed tags link");
         assert_eq!(
             sorted(styled(broken)),
-            pairs(&[("b", "unclosed tags link"), ("i", "tags link"), ("a https://x.y/", "link")])
+            pairs(&[
+                ("b", "unclosed tags link"),
+                ("i", "tags link"),
+                ("a https://x.y/", "link")
+            ])
         );
 
         let table = &t[":html_table"];
@@ -296,7 +362,11 @@ mod interchange {
         write_files(temp.path(), &files);
         let started = Instant::now();
         let result = espanso::import_dir(temp.path()).unwrap();
-        assert!(started.elapsed() < Duration::from_secs(20), "took {:?}", started.elapsed());
+        assert!(
+            started.elapsed() < Duration::from_secs(20),
+            "took {:?}",
+            started.elapsed()
+        );
         let t = by_trigger(&result);
         for s in result.library.snippets.iter() {
             assert_formatting_is_valid(s);
@@ -327,8 +397,18 @@ mod interchange {
         // A real export's shape: one font, paragraph indents, nothing Kudzu needs to warn about.
         let flip = &t[";flip"];
         assert_eq!(flip.content, "(╯°□°）╯︵ ┻━┻");
-        assert_eq!(flip.formatting, Some(Formatting { source: flip.content.clone(), spans: vec![] }));
-        assert!(warnings_for(&result, ";flip").is_empty(), "{:?}", warnings_for(&result, ";flip"));
+        assert_eq!(
+            flip.formatting,
+            Some(Formatting {
+                source: flip.content.clone(),
+                spans: vec![]
+            })
+        );
+        assert!(
+            warnings_for(&result, ";flip").is_empty(),
+            "{:?}",
+            warnings_for(&result, ";flip")
+        );
 
         let styled_snippet = &t[";styled"];
         assert_eq!(
@@ -346,7 +426,11 @@ mod interchange {
             ])
         );
         // A bold face of the same family is not a font change; link styling is not a color.
-        assert!(warnings_for(&result, ";styled").is_empty(), "{:?}", warnings_for(&result, ";styled"));
+        assert!(
+            warnings_for(&result, ";styled").is_empty(),
+            "{:?}",
+            warnings_for(&result, ";styled")
+        );
     }
 
     #[test]
@@ -358,8 +442,18 @@ mod interchange {
         assert!(loud.formatting.as_ref().unwrap().spans.is_empty());
         let warnings = warnings_for(&result, ";loud");
         assert_eq!(warnings.len(), 1, "{warnings:?}");
-        for dropped in ["fonts", "text sizes", "colors", "strikethrough", "alignment"] {
-            assert!(warnings[0].contains(dropped), "{dropped} missing from {}", warnings[0]);
+        for dropped in [
+            "fonts",
+            "text sizes",
+            "colors",
+            "strikethrough",
+            "alignment",
+        ] {
+            assert!(
+                warnings[0].contains(dropped),
+                "{dropped} missing from {}",
+                warnings[0]
+            );
         }
 
         let pic = &t[";pic"];
@@ -367,7 +461,10 @@ mod interchange {
         assert_eq!(styled(pic), pairs(&[("img 40", "[Image]")]));
         assert_eq!(
             pic.formatting.as_ref().unwrap().spans[0].style,
-            FormatStyle::Image { data_url: DOT.into(), width: 40 }
+            FormatStyle::Image {
+                data_url: DOT.into(),
+                width: 40
+            }
         );
         assert!(warnings_for(&result, ";pic")[0].contains("images that aren't embedded"));
     }
@@ -400,16 +497,30 @@ mod interchange {
             )
         };
         let cases = [
-            (format!("{{\\rtf1 {}x{}}}", "{".repeat(50_000), "}".repeat(50_000)), "x".to_string()),
+            (
+                format!("{{\\rtf1 {}x{}}}", "{".repeat(50_000), "}".repeat(50_000)),
+                "x".to_string(),
+            ),
             ("{\\rtf1 \\bin999999999 x}".to_string(), "x".to_string()),
-            ("{\\rtf1 \\u99999999999999999999 x}".to_string(), "x".to_string()),
-            ("{\\rtf1 {\\pict\\pngblip zz}x}".to_string(), "x".to_string()),
-            (format!("{{\\rtf1 {}}}", "\\b x ".repeat(200_000)), "x".repeat(200_000)),
+            (
+                "{\\rtf1 \\u99999999999999999999 x}".to_string(),
+                "x".to_string(),
+            ),
+            (
+                "{\\rtf1 {\\pict\\pngblip zz}x}".to_string(),
+                "x".to_string(),
+            ),
+            (
+                format!("{{\\rtf1 {}}}", "\\b x ".repeat(200_000)),
+                "x".repeat(200_000),
+            ),
             ("{\\rtf1 \\'zz\\'".to_string(), "x".to_string()),
         ];
         for (rtf, plain) in cases {
             let started = Instant::now();
-            let result = textexpander::import_data(plist(&rtf, &plain).as_bytes(), "x.textexpander").unwrap();
+            let result =
+                textexpander::import_data(plist(&rtf, &plain).as_bytes(), "x.textexpander")
+                    .unwrap();
             assert!(started.elapsed() < Duration::from_secs(10));
             for s in &result.library.snippets {
                 assert_formatting_is_valid(s);

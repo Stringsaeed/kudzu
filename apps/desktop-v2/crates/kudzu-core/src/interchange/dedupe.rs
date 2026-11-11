@@ -245,7 +245,11 @@ pub fn plan(library: &KudzuLibrary, aliases: &HashMap<Uuid, Uuid>) -> DedupePlan
     let mut snippet_buckets: HashMap<_, Vec<&SnippetRecord>> = HashMap::new();
     for s in snippets_by_id.values() {
         snippet_buckets
-            .entry((normalized_triggers(&s.triggers), s.content.as_str(), s.formatting.as_ref()))
+            .entry((
+                normalized_triggers(&s.triggers),
+                s.content.as_str(),
+                s.formatting.as_ref(),
+            ))
             .or_default()
             .push(s);
     }

@@ -167,7 +167,9 @@ pub struct Engine {
 impl Engine {
     /// Creates a stopped engine.
     pub fn new(host: Arc<dyn EngineHost>) -> Arc<Engine> {
-        Arc::new(Engine { imp: platform::Imp::new(host) })
+        Arc::new(Engine {
+            imp: platform::Imp::new(host),
+        })
     }
 
     /// Starts the tap and the 1 s status poll (attaches the tap once permissions allow). Idempotent.
@@ -218,18 +220,32 @@ impl Engine {
 
     /// [`Engine::insert_snippet`] with the text that was selected in `target` before the palette took
     /// focus (see [`system::selection_for_insert`]); `{{selection}}` renders it.
-    pub fn insert_snippet_with_selection(&self, snippet_id: Uuid, target: Option<AppInfo>, selection: Option<String>) {
+    pub fn insert_snippet_with_selection(
+        &self,
+        snippet_id: Uuid,
+        target: Option<AppInfo>,
+        selection: Option<String>,
+    ) {
         self.imp.insert_snippet(snippet_id, target, selection);
     }
 
     /// Renders a snippet to plain text (no cursor tag, no form → defaults) for "copy" actions.
-    pub fn render_snippet(&self, snippet_id: Uuid, form_values: HashMap<String, String>) -> Option<String> {
-        self.render_snippet_formatted(snippet_id, form_values).map(|r| r.text)
+    pub fn render_snippet(
+        &self,
+        snippet_id: Uuid,
+        form_values: HashMap<String, String>,
+    ) -> Option<String> {
+        self.render_snippet_formatted(snippet_id, form_values)
+            .map(|r| r.text)
     }
 
     /// Renders both clipboard flavors for explicit copy actions. Key presses and pauses are in
     /// the result's `actions`, never in its text.
-    pub fn render_snippet_formatted(&self, snippet_id: Uuid, form_values: HashMap<String, String>) -> Option<kudzu_core::template::RenderResult> {
+    pub fn render_snippet_formatted(
+        &self,
+        snippet_id: Uuid,
+        form_values: HashMap<String, String>,
+    ) -> Option<kudzu_core::template::RenderResult> {
         self.render_snippet_with_selection(snippet_id, form_values, None)
     }
 
@@ -243,10 +259,23 @@ impl Engine {
         let library = self.imp.library();
         let snippet = library.snippets.get(&snippet_id)?;
         let values = library::with_defaults(&library.form_fields(snippet), form_values);
-        let clipboard = if library.uses_clipboard(snippet) { system::read_clipboard() } else { None };
+        let clipboard = if library.uses_clipboard(snippet) {
+            system::read_clipboard()
+        } else {
+            None
+        };
         let host = self.imp.host();
         let history = |index: usize, current: Option<&str>| host.clipboard_history(index, current);
-        Some(library.render(snippet, library::RenderInputs { now: library::now(), clipboard, selection, form_values: values, history: &history }))
+        Some(library.render(
+            snippet,
+            library::RenderInputs {
+                now: library::now(),
+                clipboard,
+                selection,
+                form_values: values,
+                history: &history,
+            },
+        ))
     }
 }
 
@@ -258,7 +287,9 @@ impl Drop for Engine {
 
 /// Locks `mutex`, recovering from poisoning (a panicking callback must not wedge the engine).
 pub(crate) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Clipboard history plumbing (macOS; inert elsewhere). The model lives in `kudzu_core::clipboard`.

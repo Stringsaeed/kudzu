@@ -17,7 +17,8 @@ use core_foundation_sys::base::{CFEqual, CFGetTypeID, CFRelease, CFTypeRef};
 use core_foundation_sys::data::{CFDataGetBytePtr, CFDataGetLength, CFDataGetTypeID, CFDataRef};
 use core_foundation_sys::dictionary::CFDictionaryRef;
 use core_foundation_sys::notification_center::{
-    CFNotificationCenterAddObserver, CFNotificationCenterGetDistributedCenter, CFNotificationCenterRef, CFNotificationName,
+    CFNotificationCenterAddObserver, CFNotificationCenterGetDistributedCenter,
+    CFNotificationCenterRef, CFNotificationName,
     CFNotificationSuspensionBehaviorDeliverImmediately,
 };
 use core_foundation_sys::number::{kCFBooleanTrue, CFBooleanGetTypeID};
@@ -126,7 +127,10 @@ fn refresh() {
         let (composing, id) = if source.is_null() {
             (false, None)
         } else {
-            let described = (composes(source), string_property(source, kTISPropertyInputSourceID));
+            let described = (
+                composes(source),
+                string_property(source, kTISPropertyInputSourceID),
+            );
             CFRelease(source as CFTypeRef);
             described
         };
@@ -153,20 +157,34 @@ pub(crate) unsafe fn composes(source: TISInputSourceRef) -> bool {
         let is = |name: CFStringRef| !kind.is_null() && CFEqual(kind, name as CFTypeRef) != 0;
         let kind = if is(kTISTypeKeyboardLayout) {
             SourceKind::Layout
-        } else if is(kTISTypeKeyboardInputMode) || is(kTISTypeKeyboardInputMethodWithoutModes) || is(kTISTypeKeyboardInputMethodModeEnabled) {
+        } else if is(kTISTypeKeyboardInputMode)
+            || is(kTISTypeKeyboardInputMethodWithoutModes)
+            || is(kTISTypeKeyboardInputMethodModeEnabled)
+        {
             SourceKind::InputMethod
         } else {
             SourceKind::Unknown
         };
-        let ascii = TISGetInputSourceProperty(source, kTISPropertyInputSourceIsASCIICapable) as CFTypeRef;
-        let ascii_capable = !ascii.is_null() && CFGetTypeID(ascii) == CFBooleanGetTypeID() && CFEqual(ascii, kCFBooleanTrue as CFTypeRef) != 0;
+        let ascii =
+            TISGetInputSourceProperty(source, kTISPropertyInputSourceIsASCIICapable) as CFTypeRef;
+        let ascii_capable = !ascii.is_null()
+            && CFGetTypeID(ascii) == CFBooleanGetTypeID()
+            && CFEqual(ascii, kCFBooleanTrue as CFTypeRef) != 0;
         let input_mode = string_property(source, kTISPropertyInputModeID);
-        InputSource { kind, ascii_capable, input_mode: input_mode.as_deref() }.composes()
+        InputSource {
+            kind,
+            ascii_capable,
+            input_mode: input_mode.as_deref(),
+        }
+        .composes()
     }
 }
 
 /// A string property of `source` (not null), copied out. Main thread only.
-pub(crate) unsafe fn string_property(source: TISInputSourceRef, key: CFStringRef) -> Option<String> {
+pub(crate) unsafe fn string_property(
+    source: TISInputSourceRef,
+    key: CFStringRef,
+) -> Option<String> {
     unsafe {
         let value = TISGetInputSourceProperty(source, key) as CFTypeRef;
         if value.is_null() || CFGetTypeID(value) != CFStringGetTypeID() {
@@ -196,7 +214,10 @@ pub(crate) unsafe fn shortcut_keys(layout: TISInputSourceRef) -> Option<(CGKeyCo
     unsafe {
         // Get rule: the data belongs to `layout`, which the caller keeps alive.
         let data = TISGetInputSourceProperty(layout, kTISPropertyUnicodeKeyLayoutData) as CFDataRef;
-        if data.is_null() || CFGetTypeID(data as CFTypeRef) != CFDataGetTypeID() || CFDataGetLength(data) <= 0 {
+        if data.is_null()
+            || CFGetTypeID(data as CFTypeRef) != CFDataGetTypeID()
+            || CFDataGetLength(data) <= 0
+        {
             return None;
         }
         let bytes = CFDataGetBytePtr(data) as *const c_void;
@@ -225,6 +246,9 @@ pub(crate) unsafe fn shortcut_keys(layout: TISInputSourceRef) -> Option<(CGKeyCo
             }
             char::from_u32(u32::from(buffer[0]))
         };
-        Some((input::shortcut_key(under_command, 'v', ANSI_V), input::shortcut_key(under_command, 'c', ANSI_C)))
+        Some((
+            input::shortcut_key(under_command, 'v', ANSI_V),
+            input::shortcut_key(under_command, 'c', ANSI_C),
+        ))
     }
 }

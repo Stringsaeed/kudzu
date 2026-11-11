@@ -20,8 +20,8 @@ pub mod raycast;
 mod rich;
 pub mod stats;
 pub mod strftime;
-pub mod textexpander;
 mod template_out;
+pub mod textexpander;
 pub mod unique_name;
 
 /// A library built from another app's export, plus everything that didn't convert cleanly.

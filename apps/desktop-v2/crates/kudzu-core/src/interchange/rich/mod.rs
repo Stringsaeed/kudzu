@@ -199,7 +199,11 @@ impl RichText {
             }
         }
         ours.push_str(&self.text[at..]);
-        let alnum = |s: &str| s.chars().filter(|c| c.is_alphanumeric()).collect::<String>();
+        let alnum = |s: &str| {
+            s.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+        };
         alnum(&ours) == alnum(plain)
     }
 }
@@ -209,12 +213,22 @@ impl RichText {
 pub(crate) fn image_label(alt: &str, embedded: bool) -> String {
     let clean: String = alt
         .chars()
-        .map(|c| if matches!(c, '{' | '}' | '\r' | '\n') { ' ' } else { c })
+        .map(|c| {
+            if matches!(c, '{' | '}' | '\r' | '\n') {
+                ' '
+            } else {
+                c
+            }
+        })
         .take(200)
         .collect();
     let clean = clean.trim();
     if clean.is_empty() {
-        if embedded { "[Image]".into() } else { String::new() }
+        if embedded {
+            "[Image]".into()
+        } else {
+            String::new()
+        }
     } else {
         format!("[{clean}]")
     }
@@ -266,7 +280,9 @@ pub(crate) fn to_template(
                 end = a.end;
             }
             start = graphemes[graphemes.partition_point(|&g| g <= start) - 1];
-            end = graphemes[graphemes.partition_point(|&g| g < end).min(graphemes.len() - 1)];
+            end = graphemes[graphemes
+                .partition_point(|&g| g < end)
+                .min(graphemes.len() - 1)];
             if before == (start, end) {
                 break;
             }
@@ -302,13 +318,20 @@ pub(crate) fn to_template(
     let valid = valid_boundaries(&content);
     let mut out: Vec<FormatSpan> = spans
         .into_iter()
-        .map(|(s, e, style)| FormatSpan { start: at(s), end: at(e), style: style.clone() })
+        .map(|(s, e, style)| FormatSpan {
+            start: at(s),
+            end: at(e),
+            style: style.clone(),
+        })
         .filter(|s| s.start < s.end && valid[s.start] && valid[s.end])
         .collect();
     out.sort();
     out.dedup();
     Converted {
-        formatting: Formatting { source: content.clone(), spans: out },
+        formatting: Formatting {
+            source: content.clone(),
+            spans: out,
+        },
         content,
     }
 }
@@ -385,7 +408,12 @@ pub(crate) fn espanso_atoms(text: &str) -> Vec<Range<usize>> {
 /// of date specifiers (`%@+1D%m/%d/%Y`) that the importer joins into one tag.
 pub(crate) fn textexpander_atoms(text: &str) -> Vec<Range<usize>> {
     let bytes = text.as_bytes();
-    let next_percent = |from: usize| bytes[from.min(bytes.len())..].iter().position(|&b| b == b'%').map(|p| p + from);
+    let next_percent = |from: usize| {
+        bytes[from.min(bytes.len())..]
+            .iter()
+            .position(|&b| b == b'%')
+            .map(|p| p + from)
+    };
     let mut out = Vec::new();
     let mut fillpart_end: Option<Option<usize>> = None;
     let mut i = 0;
@@ -405,13 +433,18 @@ pub(crate) fn textexpander_atoms(text: &str) -> Vec<Range<usize>> {
                     found
                 }
             };
-            close.map(|c| c + "%fillpartend%".len()).or_else(|| next_percent(i + 1).map(|c| c + 1))
+            close
+                .map(|c| c + "%fillpartend%".len())
+                .or_else(|| next_percent(i + 1).map(|c| c + 1))
         } else if rest.starts_with(b"%clipboard") {
             Some(i + "%clipboard".len())
         } else if rest.starts_with(b"%|") {
             Some(i + 2)
         } else if rest.len() > 1 && rest[1].is_ascii_alphabetic() && {
-            let name_len = rest[1..].iter().take_while(|b| b.is_ascii_alphabetic()).count();
+            let name_len = rest[1..]
+                .iter()
+                .take_while(|b| b.is_ascii_alphabetic())
+                .count();
             rest.get(1 + name_len) == Some(&b':')
         } {
             next_percent(i + 1).map(|c| c + 1)
@@ -494,7 +527,8 @@ fn valid_boundaries(source: &str) -> Vec<bool> {
                 while i < graphemes.len() {
                     let escaped = graphemes[i] == "\\"
                         && (graphemes.get(i + 1) == Some(&"\\")
-                            || (graphemes.get(i + 1) == Some(&"{") && graphemes.get(i + 2) == Some(&"{")));
+                            || (graphemes.get(i + 1) == Some(&"{")
+                                && graphemes.get(i + 2) == Some(&"{")));
                     if escaped {
                         at += 1;
                         i += 1;
@@ -517,7 +551,10 @@ mod tests {
 
     fn identity(rich: &RichText) -> Converted {
         to_template(rich, &[], |s| {
-            crate::template::serialize(&[Node::Text { text: s.to_string(), range: 0..0 }])
+            crate::template::serialize(&[Node::Text {
+                text: s.to_string(),
+                range: 0..0,
+            }])
         })
     }
 
@@ -529,9 +566,18 @@ mod tests {
         rich.span(4, 13, FormatStyle::Bold);
         let atoms = espanso_atoms(&rich.text);
         assert_eq!(atoms, vec![2..10]);
-        let out = to_template(&rich, &atoms, |s| s.replace("{{date}}", "{{date format=\"y\"}}"));
+        let out = to_template(&rich, &atoms, |s| {
+            s.replace("{{date}}", "{{date format=\"y\"}}")
+        });
         assert_eq!(out.content, "a {{date format=\"y\"}} e\u{301}x");
-        assert_eq!(out.formatting.spans, vec![FormatSpan { start: 2, end: 24, style: FormatStyle::Bold }]);
+        assert_eq!(
+            out.formatting.spans,
+            vec![FormatSpan {
+                start: 2,
+                end: 24,
+                style: FormatStyle::Bold
+            }]
+        );
     }
 
     #[test]
@@ -541,7 +587,14 @@ mod tests {
         rich.span(2, 4, FormatStyle::Italic);
         let out = identity(&rich);
         assert_eq!(out.content, "x\\{{y");
-        assert_eq!(out.formatting.spans, vec![FormatSpan { start: 1, end: 5, style: FormatStyle::Italic }]);
+        assert_eq!(
+            out.formatting.spans,
+            vec![FormatSpan {
+                start: 1,
+                end: 5,
+                style: FormatStyle::Italic
+            }]
+        );
     }
 
     #[test]
@@ -557,10 +610,19 @@ mod tests {
     #[test]
     fn textexpander_atoms_cover_macros() {
         let text = "a %filltext:name=x% %m/%d/%Y b %@+1D%A %fillpart:n%in%fillpartend% 50% %|";
-        let atoms: Vec<&str> = textexpander_atoms(text).into_iter().map(|r| &text[r]).collect();
+        let atoms: Vec<&str> = textexpander_atoms(text)
+            .into_iter()
+            .map(|r| &text[r])
+            .collect();
         assert_eq!(
             atoms,
-            vec!["%filltext:name=x%", "%m/%d/%Y", "%@+1D%A", "%fillpart:n%in%fillpartend%", "%|"]
+            vec![
+                "%filltext:name=x%",
+                "%m/%d/%Y",
+                "%@+1D%A",
+                "%fillpart:n%in%fillpartend%",
+                "%|"
+            ]
         );
     }
 

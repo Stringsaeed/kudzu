@@ -102,7 +102,10 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
         return Err("its rich text isn't RTF".into());
     }
     let chars: Vec<char> = source.trim_start().chars().collect();
-    let mut reader = Reader { default_font: 0, ..Reader::default() };
+    let mut reader = Reader {
+        default_font: 0,
+        ..Reader::default()
+    };
     let mut stack: Vec<State> = Vec::new();
     let mut state = State::default();
     let mut star = false;
@@ -141,7 +144,8 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
                         i += 1;
                     }
                     let word: String = chars[start..i.min(start + 32)].iter().collect();
-                    let negative = chars.get(i) == Some(&'-') && chars.get(i + 1).is_some_and(char::is_ascii_digit);
+                    let negative = chars.get(i) == Some(&'-')
+                        && chars.get(i + 1).is_some_and(char::is_ascii_digit);
                     if negative {
                         i += 1;
                     }
@@ -150,8 +154,16 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
                         i += 1;
                     }
                     let param = (i > digits).then(|| {
-                        let value: i64 = chars[digits..i.min(digits + 10)].iter().collect::<String>().parse().unwrap_or(0);
-                        if negative { -value } else { value }
+                        let value: i64 = chars[digits..i.min(digits + 10)]
+                            .iter()
+                            .collect::<String>()
+                            .parse()
+                            .unwrap_or(0);
+                        if negative {
+                            -value
+                        } else {
+                            value
+                        }
                     });
                     if chars.get(i) == Some(&' ') {
                         i += 1;
@@ -212,8 +224,9 @@ pub(crate) fn read(source: &str) -> Result<RichText, String> {
 
 fn cp1252(byte: u8) -> char {
     const HIGH: [char; 32] = [
-        '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž', '\u{8f}',
-        '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}', 'ž', 'Ÿ',
+        '€', '\u{81}', '‚', 'ƒ', '„', '…', '†', '‡', 'ˆ', '‰', 'Š', '‹', 'Œ', '\u{8d}', 'Ž',
+        '\u{8f}', '\u{90}', '‘', '’', '“', '”', '•', '–', '—', '˜', '™', 'š', '›', 'œ', '\u{9d}',
+        'ž', 'Ÿ',
     ];
     if (0x80..0xA0).contains(&byte) {
         HIGH[usize::from(byte - 0x80)]
@@ -263,11 +276,12 @@ impl Reader {
                 self.colors.clear();
                 self.color = None;
             }
-            "stylesheet" | "info" | "listtable" | "listoverridetable" | "revtbl" | "header" | "headerl"
-            | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf" | "footnote"
-            | "nonshppict" | "themedata" | "colorschememapping" | "latentstyles" | "datastore"
-            | "xmlnstbl" | "rsidtbl" | "generator" | "mmathPr" | "pgdsctbl" | "expandedcolortbl"
-            | "fldtype" | "bkmkstart" | "bkmkend" | "annotation" | "atnid" | "atnauthor" => state.dest = Dest::Skip,
+            "stylesheet" | "info" | "listtable" | "listoverridetable" | "revtbl" | "header"
+            | "headerl" | "headerr" | "headerf" | "footer" | "footerl" | "footerr" | "footerf"
+            | "footnote" | "nonshppict" | "themedata" | "colorschememapping" | "latentstyles"
+            | "datastore" | "xmlnstbl" | "rsidtbl" | "generator" | "mmathPr" | "pgdsctbl"
+            | "expandedcolortbl" | "fldtype" | "bkmkstart" | "bkmkend" | "annotation" | "atnid"
+            | "atnauthor" => state.dest = Dest::Skip,
             "object" => {
                 self.out.drop(Dropped::Html);
                 state.dest = Dest::Skip;
@@ -346,7 +360,13 @@ impl Reader {
             "nosupersub" => state.script = false,
             "up" | "dn" => state.script = param.unwrap_or(6) != 0,
             "plain" => {
-                let keep = (state.dest, state.unicode_skip, state.link.clone(), state.aligned, state.list_level);
+                let keep = (
+                    state.dest,
+                    state.unicode_skip,
+                    state.link.clone(),
+                    state.aligned,
+                    state.list_level,
+                );
                 *state = State {
                     dest: keep.0,
                     unicode_skip: keep.1,
@@ -438,7 +458,8 @@ impl Reader {
             }
             Dest::FontTable if !self.font_name.trim().is_empty() => {
                 let name = std::mem::take(&mut self.font_name);
-                self.fonts.insert(self.font_definition, name.trim().to_string());
+                self.fonts
+                    .insert(self.font_definition, name.trim().to_string());
             }
             _ => {}
         }
@@ -469,7 +490,8 @@ impl Reader {
             Dest::FontTable => {
                 if c == ';' {
                     let name = std::mem::take(&mut self.font_name);
-                    self.fonts.insert(self.font_definition, name.trim().to_string());
+                    self.fonts
+                        .insert(self.font_definition, name.trim().to_string());
                 } else {
                     self.font_name.push(c);
                 }
@@ -511,19 +533,27 @@ impl Reader {
             self.out.span(start, end, FormatStyle::Italic);
         }
         match &state.link {
-            Some(url) => self.out.span(start, end, FormatStyle::Link { url: url.clone() }),
+            Some(url) => self
+                .out
+                .span(start, end, FormatStyle::Link { url: url.clone() }),
             None if state.underline => self.out.span(start, end, FormatStyle::Underline),
             None => {}
         }
     }
 
     fn note_dropped(&mut self, state: &State) {
-        let name = self.fonts.get(&state.font).map_or_else(|| state.font.to_string(), String::clone);
+        let name = self
+            .fonts
+            .get(&state.font)
+            .map_or_else(|| state.font.to_string(), String::clone);
         let family = name.split('-').next().unwrap_or("").trim().to_string();
         self.families.insert(family);
         self.sizes.insert(state.size);
         let color = |index: i64| -> Option<(i64, i64, i64)> {
-            usize::try_from(index).ok().filter(|i| *i > 0).and_then(|i| self.colors.get(i).copied().flatten())
+            usize::try_from(index)
+                .ok()
+                .filter(|i| *i > 0)
+                .and_then(|i| self.colors.get(i).copied().flatten())
         };
         // Link text is colored by the app that shows it, so its color isn't a loss.
         if state.link.is_none() && color(state.foreground).is_some_and(|c| c != (0, 0, 0)) {
@@ -561,7 +591,9 @@ mod tests {
 
     #[test]
     fn characters_and_escapes() {
-        let (text, _, _) = render(r"{\rtf1\ansi caf\'e9 \'93q\'94 \{x\} a\\b\tab c\line d\~e\u8364?f\uc0\u55357\u56832 }");
+        let (text, _, _) = render(
+            r"{\rtf1\ansi caf\'e9 \'93q\'94 \{x\} a\\b\tab c\line d\~e\u8364?f\uc0\u55357\u56832 }",
+        );
         assert_eq!(text, "café “q” {x} a\\b\tc\nd\u{a0}e€f😀");
     }
 
@@ -581,7 +613,8 @@ mod tests {
 
     #[test]
     fn unsafe_links_keep_their_text() {
-        let (text, spans, dropped) = render(r#"{\rtf1 {\field{\*\fldinst{HYPERLINK "file:///etc"}}{\fldrslt here}}}"#);
+        let (text, spans, dropped) =
+            render(r#"{\rtf1 {\field{\*\fldinst{HYPERLINK "file:///etc"}}{\fldrslt here}}}"#);
         assert_eq!(text, "here");
         assert!(spans.is_empty());
         assert_eq!(dropped, vec![Dropped::Links]);

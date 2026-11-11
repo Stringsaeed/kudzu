@@ -68,7 +68,9 @@ impl RecordKind {
 
     /// Parses a CloudKit record type name.
     pub fn from_record_type(s: &str) -> Option<Self> {
-        [Self::Snippet, Self::Group, Self::Usage, Self::Meta].into_iter().find(|k| k.record_type() == s)
+        [Self::Snippet, Self::Group, Self::Usage, Self::Meta]
+            .into_iter()
+            .find(|k| k.record_type() == s)
     }
 }
 
@@ -155,10 +157,30 @@ fn merge_json<T: Serialize>(value: &T, base: Option<&str>, known: &[&str]) -> St
 }
 
 const SNIPPET_KEYS: &[&str] = &[
-    "id", "name", "triggers", "content", "formatting", "groupID", "fireMode", "caseMode", "insertion", "rule", "isFavorite",
-    "isEnabled", "createdAt", "updatedAt",
+    "id",
+    "name",
+    "triggers",
+    "content",
+    "formatting",
+    "groupID",
+    "fireMode",
+    "caseMode",
+    "insertion",
+    "rule",
+    "isFavorite",
+    "isEnabled",
+    "createdAt",
+    "updatedAt",
 ];
-const GROUP_KEYS: &[&str] = &["id", "name", "parentID", "sortIndex", "isEnabled", "insertion", "rule"];
+const GROUP_KEYS: &[&str] = &[
+    "id",
+    "name",
+    "parentID",
+    "sortIndex",
+    "isEnabled",
+    "insertion",
+    "rule",
+];
 
 #[derive(Serialize, Deserialize)]
 struct UsagePayload {
@@ -175,32 +197,80 @@ struct MetaPayload {
 
 /// The payload for record `name` from the current library, or `None` if it no longer exists
 /// locally (so there's nothing to send).
-pub fn encode(name: &str, library: &KudzuLibrary, index: &SyncIndex, device_id: &str) -> Option<RemoteRecord> {
+pub fn encode(
+    name: &str,
+    library: &KudzuLibrary,
+    index: &SyncIndex,
+    device_id: &str,
+) -> Option<RemoteRecord> {
     let base = index.records.get(name).map(|r| r.payload.as_str());
     if name == META_RECORD {
         let version = index.server_sync_version.max(SYNC_VERSION);
-        let payload = merge_json(&MetaPayload { sync_version: version }, base, &["syncVersion"]);
-        return Some(RemoteRecord { kind: RecordKind::Meta, name: name.into(), payload });
+        let payload = merge_json(
+            &MetaPayload {
+                sync_version: version,
+            },
+            base,
+            &["syncVersion"],
+        );
+        return Some(RemoteRecord {
+            kind: RecordKind::Meta,
+            name: name.into(),
+            payload,
+        });
     }
     if name == usage_name(device_id) {
-        let mut rows: Vec<UsageRecord> = library.usage.iter().filter(|u| u.device_id == device_id).cloned().collect();
+        let mut rows: Vec<UsageRecord> = library
+            .usage
+            .iter()
+            .filter(|u| u.device_id == device_id)
+            .cloned()
+            .collect();
         rows.sort_by_key(|u| u.snippet_id);
-        let payload = merge_json(&UsagePayload { device_id: device_id.into(), rows }, base, &["deviceID", "rows"]);
-        return Some(RemoteRecord { kind: RecordKind::Usage, name: name.into(), payload });
+        let payload = merge_json(
+            &UsagePayload {
+                device_id: device_id.into(),
+                rows,
+            },
+            base,
+            &["deviceID", "rows"],
+        );
+        return Some(RemoteRecord {
+            kind: RecordKind::Usage,
+            name: name.into(),
+            payload,
+        });
     }
-    if let Some(id) = name.strip_prefix("snippet-").and_then(|s| Uuid::parse_str(s).ok()) {
+    if let Some(id) = name
+        .strip_prefix("snippet-")
+        .and_then(|s| Uuid::parse_str(s).ok())
+    {
         let s = library.snippets.iter().find(|s| s.id == id)?;
-        return Some(RemoteRecord { kind: RecordKind::Snippet, name: name.into(), payload: merge_json(s, base, SNIPPET_KEYS) });
+        return Some(RemoteRecord {
+            kind: RecordKind::Snippet,
+            name: name.into(),
+            payload: merge_json(s, base, SNIPPET_KEYS),
+        });
     }
-    if let Some(id) = name.strip_prefix("group-").and_then(|s| Uuid::parse_str(s).ok()) {
+    if let Some(id) = name
+        .strip_prefix("group-")
+        .and_then(|s| Uuid::parse_str(s).ok())
+    {
         let g = library.groups.iter().find(|g| g.id == id)?;
-        return Some(RemoteRecord { kind: RecordKind::Group, name: name.into(), payload: merge_json(g, base, GROUP_KEYS) });
+        return Some(RemoteRecord {
+            kind: RecordKind::Group,
+            name: name.into(),
+            payload: merge_json(g, base, GROUP_KEYS),
+        });
     }
     None
 }
 
 fn same_json(a: &str, b: &str) -> bool {
-    match (serde_json::from_str::<Value>(a), serde_json::from_str::<Value>(b)) {
+    match (
+        serde_json::from_str::<Value>(a),
+        serde_json::from_str::<Value>(b),
+    ) {
         (Ok(x), Ok(y)) => x == y,
         _ => a == b,
     }
@@ -214,17 +284,22 @@ pub fn local_changes(library: &KudzuLibrary, index: &SyncIndex, device_id: &str)
     if index.blocked_by_newer_format() {
         return out;
     }
-    let mut names: Vec<String> = Vec::with_capacity(library.snippets.len() + library.groups.len() + 2);
+    let mut names: Vec<String> =
+        Vec::with_capacity(library.snippets.len() + library.groups.len() + 2);
     names.extend(library.groups.iter().map(|g| group_name(g.id)));
     names.extend(library.snippets.iter().map(|s| snippet_name(s.id)));
-    if library.usage.iter().any(|u| u.device_id == device_id) || index.records.contains_key(&usage_name(device_id)) {
+    if library.usage.iter().any(|u| u.device_id == device_id)
+        || index.records.contains_key(&usage_name(device_id))
+    {
         names.push(usage_name(device_id));
     }
     if index.server_sync_version < SYNC_VERSION {
         names.push(META_RECORD.into());
     }
     for name in names {
-        let Some(rec) = encode(&name, library, index, device_id) else { continue };
+        let Some(rec) = encode(&name, library, index, device_id) else {
+            continue;
+        };
         match index.records.get(&name) {
             Some(known) if same_json(&known.payload, &rec.payload) => {}
             _ => out.saves.push(name),
@@ -246,7 +321,13 @@ pub fn local_changes(library: &KudzuLibrary, index: &SyncIndex, device_id: &str)
 
 /// Records that the server accepted `record` (a save finished).
 pub fn record_saved(index: &mut SyncIndex, record: &RemoteRecord) {
-    index.records.insert(record.name.clone(), IndexedRecord { kind: record.kind, payload: record.payload.clone() });
+    index.records.insert(
+        record.name.clone(),
+        IndexedRecord {
+            kind: record.kind,
+            payload: record.payload.clone(),
+        },
+    );
     if record.kind == RecordKind::Meta {
         if let Ok(m) = serde_json::from_str::<MetaPayload>(&record.payload) {
             index.server_sync_version = index.server_sync_version.max(m.sync_version);
@@ -270,7 +351,10 @@ pub struct Applied {
 
 /// Whether the local copy of `name` has edits the server hasn't seen yet.
 fn has_unsent_edit(name: &str, library: &KudzuLibrary, index: &SyncIndex, device_id: &str) -> bool {
-    match (encode(name, library, index, device_id), index.records.get(name)) {
+    match (
+        encode(name, library, index, device_id),
+        index.records.get(name),
+    ) {
         (Some(local), Some(known)) => !same_json(&local.payload, &known.payload),
         (Some(_), None) => true,
         _ => false,
@@ -295,14 +379,29 @@ pub fn apply_remote(
                 if let Ok(m) = serde_json::from_str::<MetaPayload>(&rec.payload) {
                     index.server_sync_version = index.server_sync_version.max(m.sync_version);
                 }
-                index.records.insert(rec.name.clone(), IndexedRecord { kind: rec.kind, payload: rec.payload.clone() });
+                index.records.insert(
+                    rec.name.clone(),
+                    IndexedRecord {
+                        kind: rec.kind,
+                        payload: rec.payload.clone(),
+                    },
+                );
             }
             RecordKind::Snippet => {
-                let Ok(remote) = serde_json::from_str::<SnippetRecord>(&rec.payload) else { continue };
+                let Ok(remote) = serde_json::from_str::<SnippetRecord>(&rec.payload) else {
+                    continue;
+                };
                 let unsent = has_unsent_edit(&rec.name, library, index, device_id);
                 let pos = library.snippets.iter().position(|s| s.id == remote.id);
-                let keep_local = unsent && pos.is_some_and(|i| library.snippets[i].updated_at > remote.updated_at);
-                index.records.insert(rec.name.clone(), IndexedRecord { kind: rec.kind, payload: rec.payload.clone() });
+                let keep_local = unsent
+                    && pos.is_some_and(|i| library.snippets[i].updated_at > remote.updated_at);
+                index.records.insert(
+                    rec.name.clone(),
+                    IndexedRecord {
+                        kind: rec.kind,
+                        payload: rec.payload.clone(),
+                    },
+                );
                 if keep_local {
                     continue;
                 }
@@ -319,11 +418,19 @@ pub fn apply_remote(
                 }
             }
             RecordKind::Group => {
-                let Ok(remote) = serde_json::from_str::<GroupRecord>(&rec.payload) else { continue };
+                let Ok(remote) = serde_json::from_str::<GroupRecord>(&rec.payload) else {
+                    continue;
+                };
                 // Groups carry no timestamp: an unsent local edit wins, otherwise the server does.
                 let unsent = has_unsent_edit(&rec.name, library, index, device_id);
                 let pos = library.groups.iter().position(|g| g.id == remote.id);
-                index.records.insert(rec.name.clone(), IndexedRecord { kind: rec.kind, payload: rec.payload.clone() });
+                index.records.insert(
+                    rec.name.clone(),
+                    IndexedRecord {
+                        kind: rec.kind,
+                        payload: rec.payload.clone(),
+                    },
+                );
                 if unsent && pos.is_some() {
                     continue;
                 }
@@ -340,14 +447,26 @@ pub fn apply_remote(
                 }
             }
             RecordKind::Usage => {
-                let Ok(remote) = serde_json::from_str::<UsagePayload>(&rec.payload) else { continue };
-                index.records.insert(rec.name.clone(), IndexedRecord { kind: rec.kind, payload: rec.payload.clone() });
+                let Ok(remote) = serde_json::from_str::<UsagePayload>(&rec.payload) else {
+                    continue;
+                };
+                index.records.insert(
+                    rec.name.clone(),
+                    IndexedRecord {
+                        kind: rec.kind,
+                        payload: rec.payload.clone(),
+                    },
+                );
                 if remote.device_id == device_id {
                     // Our own record coming back (e.g. after a reinstall kept the device id):
                     // never lose counts, take the larger of each.
                     let mut changed = false;
                     for row in remote.rows {
-                        match library.usage.iter_mut().find(|u| u.device_id == device_id && u.snippet_id == row.snippet_id) {
+                        match library
+                            .usage
+                            .iter_mut()
+                            .find(|u| u.device_id == device_id && u.snippet_id == row.snippet_id)
+                        {
                             Some(u) if u.count >= row.count => {}
                             Some(u) => {
                                 *u = row;
@@ -361,10 +480,16 @@ pub fn apply_remote(
                     }
                     out.library_changed |= changed;
                 } else {
-                    let before: Vec<&UsageRecord> = library.usage.iter().filter(|u| u.device_id == remote.device_id).collect();
+                    let before: Vec<&UsageRecord> = library
+                        .usage
+                        .iter()
+                        .filter(|u| u.device_id == remote.device_id)
+                        .collect();
                     let mut rows = remote.rows;
-                    rows.iter_mut().for_each(|r| r.device_id = remote.device_id.clone());
-                    if before.len() != rows.len() || before.iter().zip(&rows).any(|(a, b)| *a != b) {
+                    rows.iter_mut()
+                        .for_each(|r| r.device_id = remote.device_id.clone());
+                    if before.len() != rows.len() || before.iter().zip(&rows).any(|(a, b)| *a != b)
+                    {
                         library.usage.retain(|u| u.device_id != remote.device_id);
                         library.usage.extend(rows);
                         out.library_changed = true;
@@ -375,20 +500,34 @@ pub fn apply_remote(
     }
     for name in deleted {
         index.records.remove(name);
-        if let Some(id) = name.strip_prefix("snippet-").and_then(|s| Uuid::parse_str(s).ok()) {
+        if let Some(id) = name
+            .strip_prefix("snippet-")
+            .and_then(|s| Uuid::parse_str(s).ok())
+        {
             let before = library.snippets.len();
             library.snippets.retain(|s| s.id != id);
             out.library_changed |= library.snippets.len() != before;
-        } else if let Some(id) = name.strip_prefix("group-").and_then(|s| Uuid::parse_str(s).ok()) {
+        } else if let Some(id) = name
+            .strip_prefix("group-")
+            .and_then(|s| Uuid::parse_str(s).ok())
+        {
             let before = library.groups.len();
             library.groups.retain(|g| g.id != id);
             if library.groups.len() != before {
                 out.library_changed = true;
                 // Children and snippets of a group deleted elsewhere move up rather than vanish.
-                for g in library.groups.iter_mut().filter(|g| g.parent_id == Some(id)) {
+                for g in library
+                    .groups
+                    .iter_mut()
+                    .filter(|g| g.parent_id == Some(id))
+                {
                     g.parent_id = None;
                 }
-                for s in library.snippets.iter_mut().filter(|s| s.group_id == Some(id)) {
+                for s in library
+                    .snippets
+                    .iter_mut()
+                    .filter(|s| s.group_id == Some(id))
+                {
                     s.group_id = None;
                 }
             }
@@ -427,7 +566,11 @@ mod tests {
     }
 
     fn snippet(n: u64, trigger: &str, minutes: i64) -> SnippetRecord {
-        let mut s = SnippetRecord::new(format!("S{n}"), vec![trigger.into()], format!("content {n}"));
+        let mut s = SnippetRecord::new(
+            format!("S{n}"),
+            vec![trigger.into()],
+            format!("content {n}"),
+        );
         s.id = uuid(n);
         let t = Utc.timestamp_opt(1_780_000_000, 0).unwrap() + Duration::minutes(minutes);
         s.created_at = t;
@@ -436,11 +579,18 @@ mod tests {
     }
 
     fn lib(snippets: Vec<SnippetRecord>) -> KudzuLibrary {
-        KudzuLibrary { snippets, ..Default::default() }
+        KudzuLibrary {
+            snippets,
+            ..Default::default()
+        }
     }
 
     /// Simulates a full successful send of `changes`.
-    fn send(library: &KudzuLibrary, index: &mut SyncIndex, changes: &LocalChanges) -> Vec<RemoteRecord> {
+    fn send(
+        library: &KudzuLibrary,
+        index: &mut SyncIndex,
+        changes: &LocalChanges,
+    ) -> Vec<RemoteRecord> {
         let mut sent = vec![];
         for name in &changes.saves {
             let rec = encode(name, library, index, ME).unwrap();
@@ -458,7 +608,14 @@ mod tests {
         let library = lib(vec![snippet(1, ";a", 0), snippet(2, ";b", 0)]);
         let mut index = SyncIndex::default();
         let changes = local_changes(&library, &index, ME);
-        assert_eq!(changes.saves, vec![snippet_name(uuid(1)), snippet_name(uuid(2)), META_RECORD.to_string()]);
+        assert_eq!(
+            changes.saves,
+            vec![
+                snippet_name(uuid(1)),
+                snippet_name(uuid(2)),
+                META_RECORD.to_string()
+            ]
+        );
         send(&library, &mut index, &changes);
         assert!(local_changes(&library, &index, ME).is_empty());
     }
@@ -484,7 +641,11 @@ mod tests {
         // A newer Kudzu wrote the snippet with a field this build doesn't know.
         let mut json: Value = serde_json::to_value(&library.snippets[0]).unwrap();
         json["color"] = Value::String("green".into());
-        let remote = RemoteRecord { kind: RecordKind::Snippet, name: snippet_name(uuid(1)), payload: json.to_string() };
+        let remote = RemoteRecord {
+            kind: RecordKind::Snippet,
+            name: snippet_name(uuid(1)),
+            payload: json.to_string(),
+        };
         apply_remote(&mut library, &mut index, &[remote], &[], ME);
 
         library.snippets[0].content = "edited here".into();
@@ -517,11 +678,18 @@ mod tests {
 
         let mut theirs = snippet(1, ";a", 5);
         theirs.content = "from the other Mac".into();
-        let rec = RemoteRecord { kind: RecordKind::Snippet, name: snippet_name(uuid(1)), payload: serde_json::to_string(&theirs).unwrap() };
+        let rec = RemoteRecord {
+            kind: RecordKind::Snippet,
+            name: snippet_name(uuid(1)),
+            payload: serde_json::to_string(&theirs).unwrap(),
+        };
         let applied = apply_remote(&mut library, &mut index, &[rec], &[], ME);
         assert!(applied.library_changed);
         assert_eq!(library.snippets[0].content, "from the other Mac");
-        assert!(local_changes(&library, &index, ME).is_empty(), "applying remote data must not trigger a re-send");
+        assert!(
+            local_changes(&library, &index, ME).is_empty(),
+            "applying remote data must not trigger a re-send"
+        );
     }
 
     #[test]
@@ -536,10 +704,24 @@ mod tests {
         library.snippets[0].updated_at += Duration::minutes(10);
         let mut theirs = snippet(1, ";a", 5);
         theirs.content = "theirs".into();
-        let rec = RemoteRecord { kind: RecordKind::Snippet, name: snippet_name(uuid(1)), payload: serde_json::to_string(&theirs).unwrap() };
-        apply_remote(&mut library, &mut index, std::slice::from_ref(&rec), &[], ME);
+        let rec = RemoteRecord {
+            kind: RecordKind::Snippet,
+            name: snippet_name(uuid(1)),
+            payload: serde_json::to_string(&theirs).unwrap(),
+        };
+        apply_remote(
+            &mut library,
+            &mut index,
+            std::slice::from_ref(&rec),
+            &[],
+            ME,
+        );
         assert_eq!(library.snippets[0].content, "mine");
-        assert_eq!(local_changes(&library, &index, ME).saves, vec![snippet_name(uuid(1))], "still needs sending");
+        assert_eq!(
+            local_changes(&library, &index, ME).saves,
+            vec![snippet_name(uuid(1))],
+            "still needs sending"
+        );
 
         // Now an older local edit (minute 2) loses to the server's minute-5 version.
         let mut library = lib(vec![snippet(1, ";a", 0)]);
@@ -558,7 +740,11 @@ mod tests {
         g.id = uuid(50);
         let mut s = snippet(1, ";a", 0);
         s.group_id = Some(g.id);
-        let mut library = KudzuLibrary { groups: vec![g], snippets: vec![s], ..Default::default() };
+        let mut library = KudzuLibrary {
+            groups: vec![g],
+            snippets: vec![s],
+            ..Default::default()
+        };
         let mut index = SyncIndex::default();
         let c = local_changes(&library, &index, ME);
         send(&library, &mut index, &c);
@@ -573,7 +759,13 @@ mod tests {
     #[test]
     fn usage_is_per_mac_and_never_overwritten() {
         let mut library = lib(vec![snippet(1, ";a", 0)]);
-        library.usage.push(UsageRecord { snippet_id: uuid(1), device_id: ME.into(), count: 3, chars_saved: 30, last_used_at: None });
+        library.usage.push(UsageRecord {
+            snippet_id: uuid(1),
+            device_id: ME.into(),
+            count: 3,
+            chars_saved: 30,
+            last_used_at: None,
+        });
         let mut index = SyncIndex::default();
         let c = local_changes(&library, &index, ME);
         assert!(c.saves.contains(&usage_name(ME)));
@@ -582,9 +774,19 @@ mod tests {
         // The other Mac's counts arrive; ours are untouched and nothing is re-sent.
         let theirs = UsagePayload {
             device_id: OTHER.into(),
-            rows: vec![UsageRecord { snippet_id: uuid(1), device_id: OTHER.into(), count: 7, chars_saved: 70, last_used_at: None }],
+            rows: vec![UsageRecord {
+                snippet_id: uuid(1),
+                device_id: OTHER.into(),
+                count: 7,
+                chars_saved: 70,
+                last_used_at: None,
+            }],
         };
-        let rec = RemoteRecord { kind: RecordKind::Usage, name: usage_name(OTHER), payload: serde_json::to_string(&theirs).unwrap() };
+        let rec = RemoteRecord {
+            kind: RecordKind::Usage,
+            name: usage_name(OTHER),
+            payload: serde_json::to_string(&theirs).unwrap(),
+        };
         apply_remote(&mut library, &mut index, &[rec], &[], ME);
         let total: i64 = library.usage.iter().map(|u| u.count).sum();
         assert_eq!(total, 10);
@@ -599,7 +801,11 @@ mod tests {
     fn a_newer_sync_format_stops_sending() {
         let mut library = lib(vec![snippet(1, ";a", 0)]);
         let mut index = SyncIndex::default();
-        let meta = RemoteRecord { kind: RecordKind::Meta, name: META_RECORD.into(), payload: r#"{"syncVersion":2}"#.into() };
+        let meta = RemoteRecord {
+            kind: RecordKind::Meta,
+            name: META_RECORD.into(),
+            payload: r#"{"syncVersion":2}"#.into(),
+        };
         let applied = apply_remote(&mut library, &mut index, &[meta], &[], ME);
         assert!(applied.needs_update);
         library.snippets[0].content = "edited".into();
@@ -632,7 +838,10 @@ mod tests {
     fn records_for_missing_items_are_skipped() {
         let library = lib(vec![]);
         assert!(encode(&snippet_name(uuid(1)), &library, &SyncIndex::default(), ME).is_none());
-        assert_eq!(RecordKind::from_record_type("KudzuSnippet"), Some(RecordKind::Snippet));
+        assert_eq!(
+            RecordKind::from_record_type("KudzuSnippet"),
+            Some(RecordKind::Snippet)
+        );
         assert_eq!(RecordKind::from_record_type("Nope"), None);
     }
 }

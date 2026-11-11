@@ -1,20 +1,24 @@
 //! Recursive renderer and calendar offsets.
 
-use chrono::{DateTime, Duration, FixedOffset, Months};
-use uuid::Uuid;
-use unicode_segmentation::UnicodeSegmentation;
 use crate::formatting::{FormatSpan, Formatting};
+use chrono::{DateTime, Duration, FixedOffset, Months};
+use unicode_segmentation::UnicodeSegmentation;
+use uuid::Uuid;
 
 use super::parser::{self, utf16_len};
 use super::{
-    icu, ActionKind, DateOffset, Diagnostic, Node, RenderAction, RenderContext, RenderResult, Severity, Tag,
-    TemplateTag, MAX_TOTAL_DELAY_MS,
+    icu, ActionKind, DateOffset, Diagnostic, Node, RenderAction, RenderContext, RenderResult,
+    Severity, Tag, TemplateTag, MAX_TOTAL_DELAY_MS,
 };
 
 /// Maximum nesting depth: the root is depth 0 and a reference at depth 8 is rejected.
 const MAX_DEPTH: usize = 8;
 
-pub(crate) fn render(source: &str, formatting: Option<&Formatting>, context: &RenderContext<'_>) -> RenderResult {
+pub(crate) fn render(
+    source: &str,
+    formatting: Option<&Formatting>,
+    context: &RenderContext<'_>,
+) -> RenderResult {
     let mut renderer = Renderer {
         context,
         text: String::new(),
@@ -66,8 +70,18 @@ impl Renderer<'_, '_> {
     }
 
     /// `path` holds the snippet IDs on the active reference chain (a stack, so separate branches may repeat).
-    fn render(&mut self, source: &str, path: &mut Vec<Uuid>, depth: usize, formatting: Option<&Formatting>) {
-        let source_utf16: Vec<_> = if formatting.is_some() { source.encode_utf16().collect() } else { Vec::new() };
+    fn render(
+        &mut self,
+        source: &str,
+        path: &mut Vec<Uuid>,
+        depth: usize,
+        formatting: Option<&Formatting>,
+    ) {
+        let source_utf16: Vec<_> = if formatting.is_some() {
+            source.encode_utf16().collect()
+        } else {
+            Vec::new()
+        };
         let mut positions = formatting.map(|_| vec![None; source_utf16.len() + 1]);
         let parsed = parser::parse(source);
         self.diagnostics.extend(parsed.diagnostics);
@@ -83,7 +97,9 @@ impl Renderer<'_, '_> {
                 }
                 Node::Tag(tag) => tag,
             };
-            if let Some(positions) = &mut positions { positions[tag.range.start] = Some(self.utf16); }
+            if let Some(positions) = &mut positions {
+                positions[tag.range.start] = Some(self.utf16);
+            }
             match super::typed(tag) {
                 TemplateTag::Cursor => {
                     if depth == 0 && !self.cursor_seen {
@@ -97,7 +113,10 @@ impl Renderer<'_, '_> {
                     let clipboard = if history == 0 {
                         context.clipboard.as_deref().unwrap_or("")
                     } else {
-                        older = context.clipboard_history.and_then(|resolve| resolve(history as usize)).unwrap_or_default();
+                        older = context
+                            .clipboard_history
+                            .and_then(|resolve| resolve(history as usize))
+                            .unwrap_or_default();
                         &older
                     };
                     self.append(if trim { clipboard.trim() } else { clipboard });
@@ -108,12 +127,18 @@ impl Renderer<'_, '_> {
                     self.append(if trim { selection.trim() } else { selection });
                 }
                 TemplateTag::Uuid { upper } => {
-                    let id = self.context.new_uuid.map_or(Uuid::nil(), |new| new()).hyphenated().to_string();
+                    let id = self
+                        .context
+                        .new_uuid
+                        .map_or(Uuid::nil(), |new| new())
+                        .hyphenated()
+                        .to_string();
                     self.append(&if upper { id.to_uppercase() } else { id });
                 }
                 TemplateTag::Random { options } => {
                     if !options.is_empty() {
-                        let index = self.context.pick.map_or(0, |pick| pick(options.len())) % options.len();
+                        let index =
+                            self.context.pick.map_or(0, |pick| pick(options.len())) % options.len();
                         self.append(&options[index]);
                     }
                 }
@@ -121,18 +146,33 @@ impl Renderer<'_, '_> {
                     // The caret is placed with arrow keys after everything is inserted, which only
                     // works while it is still in the text that follows the last key press.
                     if self.cursor.take().is_some() && depth > 0 {
-                        self.diagnose("A key press after the cursor cancels the cursor position".into(), tag);
+                        self.diagnose(
+                            "A key press after the cursor cancels the cursor position".into(),
+                            tag,
+                        );
                     }
-                    self.actions.push(RenderAction { offset: self.utf16, action: ActionKind::Key { key, count } });
+                    self.actions.push(RenderAction {
+                        offset: self.utf16,
+                        action: ActionKind::Key { key, count },
+                    });
                 }
                 TemplateTag::Delay { ms } => {
                     let allowed = ms.min(MAX_TOTAL_DELAY_MS - self.paused_ms);
                     if allowed < ms {
-                        self.diagnose(format!("Pauses are limited to {} seconds in total; this one is cut short", MAX_TOTAL_DELAY_MS / 1000), tag);
+                        self.diagnose(
+                            format!(
+                                "Pauses are limited to {} seconds in total; this one is cut short",
+                                MAX_TOTAL_DELAY_MS / 1000
+                            ),
+                            tag,
+                        );
                     }
                     if allowed > 0 {
                         self.paused_ms += allowed;
-                        self.actions.push(RenderAction { offset: self.utf16, action: ActionKind::Pause { ms: allowed } });
+                        self.actions.push(RenderAction {
+                            offset: self.utf16,
+                            action: ActionKind::Pause { ms: allowed },
+                        });
                     }
                 }
                 TemplateTag::Field { name, default, .. }
@@ -156,8 +196,12 @@ impl Renderer<'_, '_> {
                         );
                     } else if let Some(nested) = (self.context.resolve_snippet)(id) {
                         path.push(id);
-                        let formatting = self.spans.as_ref().and(self.context.resolve_formatting)
-                            .and_then(|resolve| resolve(id)).filter(|f| f.source == nested);
+                        let formatting = self
+                            .spans
+                            .as_ref()
+                            .and(self.context.resolve_formatting)
+                            .and_then(|resolve| resolve(id))
+                            .filter(|f| f.source == nested);
                         self.render(&nested, path, depth + 1, formatting.as_ref());
                         path.pop();
                     } else {
@@ -199,13 +243,21 @@ impl Renderer<'_, '_> {
                     self.append(&source);
                 }
             }
-            if let Some(positions) = &mut positions { positions[tag.range.end] = Some(self.utf16); }
+            if let Some(positions) = &mut positions {
+                positions[tag.range.end] = Some(self.utf16);
+            }
         }
-        if let (Some(formatting), Some(positions), Some(spans)) = (formatting, positions, &mut self.spans) {
+        if let (Some(formatting), Some(positions), Some(spans)) =
+            (formatting, positions, &mut self.spans)
+        {
             spans.extend(formatting.spans.iter().filter_map(|span| {
                 let start = positions.get(span.start).copied().flatten()?;
                 let end = positions.get(span.end).copied().flatten()?;
-                (start < end).then(|| FormatSpan { start, end, style: span.style.clone() })
+                (start < end).then(|| FormatSpan {
+                    start,
+                    end,
+                    style: span.style.clone(),
+                })
             }));
         }
     }
@@ -218,10 +270,13 @@ fn literal_positions(raw: &str, start: usize, output: usize, positions: &mut [Op
     let (mut i, mut input, mut rendered) = (0, start, output);
     positions[input] = Some(rendered);
     while i < graphemes.len() {
-        let escaped = graphemes[i] == "\\" &&
-            (graphemes.get(i + 1) == Some(&"\\") ||
-             (graphemes.get(i + 1) == Some(&"{") && graphemes.get(i + 2) == Some(&"{")));
-        if escaped { input += 1; i += 1; }
+        let escaped = graphemes[i] == "\\"
+            && (graphemes.get(i + 1) == Some(&"\\")
+                || (graphemes.get(i + 1) == Some(&"{") && graphemes.get(i + 2) == Some(&"{")));
+        if escaped {
+            input += 1;
+            i += 1;
+        }
         let count = utf16_len(graphemes[i]);
         input += count;
         rendered += count;

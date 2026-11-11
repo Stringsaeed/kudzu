@@ -64,9 +64,16 @@ pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
             return None;
         }
         let scale = (f64::from(max_px) / w.max(h)).min(1.0);
-        let (tw, th) = (((w * scale).round() as u32).max(1), ((h * scale).round() as u32).max(1));
+        let (tw, th) = (
+            ((w * scale).round() as u32).max(1),
+            ((h * scale).round() as u32).max(1),
+        );
         let png = apps::draw_png(&image, tw, th)?;
-        Some(Thumbnail { png, width: w.round() as u32, height: h.round() as u32 })
+        Some(Thumbnail {
+            png,
+            width: w.round() as u32,
+            height: h.round() as u32,
+        })
     })
 }
 
@@ -76,7 +83,12 @@ mod tests {
 
     #[test]
     fn thumbnails_scale_down_and_report_pixel_size() {
-        let Some(app) = apps::installed_apps().into_iter().find(|a| a.path.is_some()) else { return };
+        let Some(app) = apps::installed_apps()
+            .into_iter()
+            .find(|a| a.path.is_some())
+        else {
+            return;
+        };
         let png = apps::icon_png(app.path.as_deref().unwrap(), 256).expect("icon");
         let thumb = thumbnail(&png, 64).expect("thumbnail");
         assert_eq!((thumb.width, thumb.height), (256, 256));

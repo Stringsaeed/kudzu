@@ -364,7 +364,11 @@ pub(super) fn perform_import(
                 .map(|md| (md, "Markdown"))
                 .or_else(|| m.html.as_ref().map(|html| (html, "HTML")))
             {
-                let read = if kind == "HTML" { rich::read_html(source) } else { rich::read_markdown(source) };
+                let read = if kind == "HTML" {
+                    rich::read_html(source)
+                } else {
+                    rich::read_markdown(source)
+                };
                 match read {
                     Ok(text) => rich = Some(text),
                     Err(reason) => warnings.push(origin.warn(
@@ -428,7 +432,9 @@ pub(super) fn perform_import(
         let mut formatting = None;
         let content = if let Some(text) = &p.rich {
             let atoms = rich::espanso_atoms(&text.text);
-            let converted = rich::to_template(text, &atoms, |segment| ctx.convert_replace(segment, &mut warnings));
+            let converted = rich::to_template(text, &atoms, |segment| {
+                ctx.convert_replace(segment, &mut warnings)
+            });
             if let Some(message) = text.warning() {
                 warnings.push(ctx.origin.warn(None, message));
             }
@@ -860,12 +866,20 @@ impl Converter<'_> {
                 let choices: Vec<String> = var
                     .param("choices")
                     .and_then(Node::as_seq)
-                    .map(|items| items.iter().filter_map(|n| n.as_str().map(str::to_string)).collect())
+                    .map(|items| {
+                        items
+                            .iter()
+                            .filter_map(|n| n.as_str().map(str::to_string))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 if choices.is_empty() {
                     warnings.push(self.origin.warn(
                         line,
-                        format!("Random variable '{}' has no 'params.choices'; kept as literal text.", var.name),
+                        format!(
+                            "Random variable '{}' has no 'params.choices'; kept as literal text.",
+                            var.name
+                        ),
                     ));
                     return literal;
                 }

@@ -36,10 +36,19 @@ impl InsertionPlan {
     /// `swallowed` is the text of the keystroke an active tap withheld. One keystroke doesn't always
     /// add one grapheme (a combining mark merges into the previous character), so the visible
     /// remainder of the trigger is measured rather than assumed.
-    pub fn new(m: &TriggerMatch, text: String, cursor_offset: Option<usize>, mode: PlanMode, swallowed: Option<&str>) -> Self {
+    pub fn new(
+        m: &TriggerMatch,
+        text: String,
+        cursor_offset: Option<usize>,
+        mode: PlanMode,
+        swallowed: Option<&str>,
+    ) -> Self {
         let delete_count = match mode {
             PlanMode::Active if m.fire_mode == FireMode::Immediate => {
-                match swallowed.filter(|s| !s.is_empty()).and_then(|s| m.typed_trigger.strip_suffix(s)) {
+                match swallowed
+                    .filter(|s| !s.is_empty())
+                    .and_then(|s| m.typed_trigger.strip_suffix(s))
+                {
                     Some(visible) => grapheme_count(visible),
                     None => m.delete_count.saturating_sub(1),
                 }
@@ -48,10 +57,18 @@ impl InsertionPlan {
             PlanMode::ListenOnly => m.delete_count_including_separator(),
         };
         let caret_left_count = match cursor_offset {
-            Some(offset) => graphemes_after_utf16(&text, offset) + m.separator.as_deref().map_or(0, grapheme_count),
+            Some(offset) => {
+                graphemes_after_utf16(&text, offset)
+                    + m.separator.as_deref().map_or(0, grapheme_count)
+            }
             None => 0,
         };
-        Self { delete_count, text, reemit_separator: m.separator.clone(), caret_left_count }
+        Self {
+            delete_count,
+            text,
+            reemit_separator: m.separator.clone(),
+            caret_left_count,
+        }
     }
 }
 
@@ -59,8 +76,14 @@ impl InsertionPlan {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum Step {
     /// Deliver this text (typed or pasted, like a whole expansion would be), with its own formatting.
-    Text { text: String, spans: Option<Vec<FormatSpan>> },
-    Key { key: Key, count: u32 },
+    Text {
+        text: String,
+        spans: Option<Vec<FormatSpan>>,
+    },
+    Key {
+        key: Key,
+        count: u32,
+    },
     Pause(Duration),
 }
 
@@ -81,13 +104,21 @@ pub(crate) struct Sequence {
 impl Sequence {
     /// Splits `text` at each action. `spans`, `actions` and `cursor` are in UTF-16 units of `text`
     /// (already case-propagated). Empty text between two actions produces no step.
-    pub fn new(text: &str, spans: Option<&[FormatSpan]>, actions: &[RenderAction], cursor: Option<usize>) -> Self {
+    pub fn new(
+        text: &str,
+        spans: Option<&[FormatSpan]>,
+        actions: &[RenderAction],
+        cursor: Option<usize>,
+    ) -> Self {
         let mut steps = Vec::new();
         let mut from = 0;
         let push_text = |steps: &mut Vec<Step>, from: usize, to: usize| {
             let piece = utf16_slice(text, from, to);
             if !piece.is_empty() {
-                steps.push(Step::Text { text: piece.to_string(), spans: spans.map(|s| clip_spans(s, from, to)) });
+                steps.push(Step::Text {
+                    text: piece.to_string(),
+                    spans: spans.map(|s| clip_spans(s, from, to)),
+                });
             }
         };
         for action in actions {
@@ -126,14 +157,28 @@ fn clip_spans(spans: &[FormatSpan], from: usize, to: usize) -> Vec<FormatSpan> {
             let (start, end) = (span.start.max(from), span.end.min(to));
             let whole = span.start >= from && span.end <= to;
             let keep = start < end && (whole || !matches!(span.style, FormatStyle::Image { .. }));
-            keep.then(|| FormatSpan { start: start - from, end: end - from, style: span.style.clone() })
+            keep.then(|| FormatSpan {
+                start: start - from,
+                end: end - from,
+                style: span.style.clone(),
+            })
         })
         .collect()
 }
 
 /// Re-maps action offsets after case propagation, like [`cased_cursor_offset`].
-pub(crate) fn cased_actions(style: CaseStyle, rendered: &str, actions: &[RenderAction]) -> Vec<RenderAction> {
-    actions.iter().map(|a| RenderAction { offset: cased_cursor_offset(style, rendered, a.offset), action: a.action }).collect()
+pub(crate) fn cased_actions(
+    style: CaseStyle,
+    rendered: &str,
+    actions: &[RenderAction],
+) -> Vec<RenderAction> {
+    actions
+        .iter()
+        .map(|a| RenderAction {
+            offset: cased_cursor_offset(style, rendered, a.offset),
+            action: a.action,
+        })
+        .collect()
 }
 
 /// Number of grapheme clusters (what one backspace or arrow press moves over).
@@ -172,24 +217,45 @@ pub(crate) fn cased_cursor_offset(style: CaseStyle, rendered: &str, offset: usiz
     if style == CaseStyle::AsIs {
         return offset;
     }
-    case_propagation::apply(style, utf16_prefix(rendered, offset)).encode_utf16().count()
+    case_propagation::apply(style, utf16_prefix(rendered, offset))
+        .encode_utf16()
+        .count()
 }
 
-pub(crate) fn cased_formatting(style: CaseStyle, text: &str, spans: &[kudzu_core::formatting::FormatSpan]) -> Vec<kudzu_core::formatting::FormatSpan> {
-    spans.iter().map(|s| kudzu_core::formatting::FormatSpan {
-        start: cased_cursor_offset(style, text, s.start),
-        end: cased_cursor_offset(style, text, s.end),
-        style: s.style.clone(),
-    }).collect()
+pub(crate) fn cased_formatting(
+    style: CaseStyle,
+    text: &str,
+    spans: &[kudzu_core::formatting::FormatSpan],
+) -> Vec<kudzu_core::formatting::FormatSpan> {
+    spans
+        .iter()
+        .map(|s| kudzu_core::formatting::FormatSpan {
+            start: cased_cursor_offset(style, text, s.start),
+            end: cased_cursor_offset(style, text, s.end),
+            style: s.style.clone(),
+        })
+        .collect()
 }
 
 /// Choose the attachment or plain-text shape only when the app's caret confirms it.
 /// Unknown delivery must not arm a destructive Backspace undo or move the caret by a guess.
-pub(crate) fn image_delivery(text: &str, spans: &[kudzu_core::formatting::FormatSpan], cursor: Option<usize>, observed: Option<usize>) -> Option<(String, Option<usize>)> {
+pub(crate) fn image_delivery(
+    text: &str,
+    spans: &[kudzu_core::formatting::FormatSpan],
+    cursor: Option<usize>,
+    observed: Option<usize>,
+) -> Option<(String, Option<usize>)> {
     let length = observed?;
-    if length == text.encode_utf16().count() { return Some((text.into(), cursor)); }
+    if length == text.encode_utf16().count() {
+        return Some((text.into(), cursor));
+    }
     let visual = kudzu_core::formatting::insertion_text(text, spans);
-    (length == visual.encode_utf16().count()).then(|| (visual, cursor.map(|o| kudzu_core::formatting::insertion_offset(o, spans))))
+    (length == visual.encode_utf16().count()).then(|| {
+        (
+            visual,
+            cursor.map(|o| kudzu_core::formatting::insertion_offset(o, spans)),
+        )
+    })
 }
 
 /// Inserted graphemes minus typed trigger graphemes, never negative.
@@ -229,7 +295,10 @@ pub(crate) fn types(method: InsertionMethod, text: &str, formatted: bool, compos
 }
 
 fn is_newline(c: char) -> bool {
-    matches!(c, '\n' | '\r' | '\u{0B}' | '\u{0C}' | '\u{85}' | '\u{2028}' | '\u{2029}')
+    matches!(
+        c,
+        '\n' | '\r' | '\u{0B}' | '\u{0C}' | '\u{85}' | '\u{2028}' | '\u{2029}'
+    )
 }
 
 #[cfg(test)]
@@ -251,30 +320,49 @@ mod tests {
     }
 
     fn key_at(offset: usize, key: Key, count: u32) -> RenderAction {
-        RenderAction { offset, action: ActionKind::Key { key, count } }
+        RenderAction {
+            offset,
+            action: ActionKind::Key { key, count },
+        }
     }
 
     fn pause_at(offset: usize, ms: u32) -> RenderAction {
-        RenderAction { offset, action: ActionKind::Pause { ms } }
+        RenderAction {
+            offset,
+            action: ActionKind::Pause { ms },
+        }
     }
 
     fn plain(text: &str) -> Step {
-        Step::Text { text: text.into(), spans: None }
+        Step::Text {
+            text: text.into(),
+            spans: None,
+        }
     }
 
     #[test]
     fn sequence_splits_text_at_each_action_in_order() {
         // "user", Tab, "pass", pause, Return ×2 — a login form.
-        let actions = [key_at(4, Key::Tab, 1), pause_at(8, 200), key_at(8, Key::Return, 2)];
+        let actions = [
+            key_at(4, Key::Tab, 1),
+            pause_at(8, 200),
+            key_at(8, Key::Return, 2),
+        ];
         let seq = Sequence::new("userpass", None, &actions, None);
         assert_eq!(
             seq.steps,
             [
                 plain("user"),
-                Step::Key { key: Key::Tab, count: 1 },
+                Step::Key {
+                    key: Key::Tab,
+                    count: 1
+                },
                 plain("pass"),
                 Step::Pause(Duration::from_millis(200)),
-                Step::Key { key: Key::Return, count: 2 },
+                Step::Key {
+                    key: Key::Return,
+                    count: 2
+                },
             ]
         );
         assert!(seq.has_keys && !seq.has_images);
@@ -284,21 +372,52 @@ mod tests {
     #[test]
     fn sequence_handles_edges_and_wide_characters() {
         // Actions at the very start and end, and offsets after a surrogate pair.
-        let actions = [key_at(0, Key::Tab, 1), key_at(2, Key::Down, 3), key_at(3, Key::Escape, 1)];
+        let actions = [
+            key_at(0, Key::Tab, 1),
+            key_at(2, Key::Down, 3),
+            key_at(3, Key::Escape, 1),
+        ];
         let seq = Sequence::new("😀a", None, &actions, None);
         assert_eq!(
             seq.steps,
             [
-                Step::Key { key: Key::Tab, count: 1 },
+                Step::Key {
+                    key: Key::Tab,
+                    count: 1
+                },
                 plain("😀"),
-                Step::Key { key: Key::Down, count: 3 },
+                Step::Key {
+                    key: Key::Down,
+                    count: 3
+                },
                 plain("a"),
-                Step::Key { key: Key::Escape, count: 1 },
+                Step::Key {
+                    key: Key::Escape,
+                    count: 1
+                },
             ]
         );
         // An offset past the end (or out of order) never panics or repeats text.
-        let odd = Sequence::new("ab", None, &[key_at(9, Key::Tab, 1), key_at(1, Key::Tab, 1)], None);
-        assert_eq!(odd.steps, [plain("ab"), Step::Key { key: Key::Tab, count: 1 }, Step::Key { key: Key::Tab, count: 1 }]);
+        let odd = Sequence::new(
+            "ab",
+            None,
+            &[key_at(9, Key::Tab, 1), key_at(1, Key::Tab, 1)],
+            None,
+        );
+        assert_eq!(
+            odd.steps,
+            [
+                plain("ab"),
+                Step::Key {
+                    key: Key::Tab,
+                    count: 1
+                },
+                Step::Key {
+                    key: Key::Tab,
+                    count: 1
+                }
+            ]
+        );
         // Pauses alone keep the expansion one contiguous text.
         let paused = Sequence::new("ab", None, &[pause_at(1, 50)], Some(1));
         assert!(!paused.has_keys);
@@ -314,23 +433,56 @@ mod tests {
 
     #[test]
     fn sequence_clips_formatting_to_each_text_step() {
-        let image = FormatStyle::Image { data_url: "data:image/png;base64,AAAA".into(), width: 10 };
+        let image = FormatStyle::Image {
+            data_url: "data:image/png;base64,AAAA".into(),
+            width: 10,
+        };
         let spans = [
-            FormatSpan { start: 1, end: 6, style: FormatStyle::Bold },
-            FormatSpan { start: 2, end: 5, style: image.clone() },
-            FormatSpan { start: 6, end: 8, style: image.clone() },
+            FormatSpan {
+                start: 1,
+                end: 6,
+                style: FormatStyle::Bold,
+            },
+            FormatSpan {
+                start: 2,
+                end: 5,
+                style: image.clone(),
+            },
+            FormatSpan {
+                start: 6,
+                end: 8,
+                style: image.clone(),
+            },
         ];
         let seq = Sequence::new("abcdefgh", Some(&spans), &[key_at(4, Key::Tab, 1)], None);
         assert_eq!(
             seq.steps,
             [
-                Step::Text { text: "abcd".into(), spans: Some(vec![FormatSpan { start: 1, end: 4, style: FormatStyle::Bold }]) },
-                Step::Key { key: Key::Tab, count: 1 },
+                Step::Text {
+                    text: "abcd".into(),
+                    spans: Some(vec![FormatSpan {
+                        start: 1,
+                        end: 4,
+                        style: FormatStyle::Bold
+                    }])
+                },
+                Step::Key {
+                    key: Key::Tab,
+                    count: 1
+                },
                 Step::Text {
                     text: "efgh".into(),
                     spans: Some(vec![
-                        FormatSpan { start: 0, end: 2, style: FormatStyle::Bold },
-                        FormatSpan { start: 2, end: 4, style: image },
+                        FormatSpan {
+                            start: 0,
+                            end: 2,
+                            style: FormatStyle::Bold
+                        },
+                        FormatSpan {
+                            start: 2,
+                            end: 4,
+                            style: image
+                        },
                     ]),
                 },
             ]
@@ -355,7 +507,15 @@ mod tests {
     #[test]
     fn formatting_follows_unicode_case_expansion() {
         use kudzu_core::formatting::{FormatSpan, FormatStyle};
-        let spans = cased_formatting(CaseStyle::Upper, "ß hi", &[FormatSpan { start: 2, end: 4, style: FormatStyle::Bold }]);
+        let spans = cased_formatting(
+            CaseStyle::Upper,
+            "ß hi",
+            &[FormatSpan {
+                start: 2,
+                end: 4,
+                style: FormatStyle::Bold,
+            }],
+        );
         assert_eq!((spans[0].start, spans[0].end), (3, 5));
     }
 
@@ -365,10 +525,19 @@ mod tests {
         let spans = [FormatSpan { start: 3, end: 9, style: FormatStyle::Image {
             data_url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAAJUlEQVR4nGMICLj0n5aYYdSCUQtGLRi1YNSCUQtGLRi1YGhYAACpwH6M7RqhEQAAAABJRU5ErkJggg==".into(), width: 120,
         } }];
-        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(5)), Some(("Hi \u{fffc}!".into(), Some(4))));
-        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(10)), Some(("Hi [Logo]!".into(), Some(9))));
+        assert_eq!(
+            image_delivery("Hi [Logo]!", &spans, Some(9), Some(5)),
+            Some(("Hi \u{fffc}!".into(), Some(4)))
+        );
+        assert_eq!(
+            image_delivery("Hi [Logo]!", &spans, Some(9), Some(10)),
+            Some(("Hi [Logo]!".into(), Some(9)))
+        );
         assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), None), None);
-        assert_eq!(image_delivery("Hi [Logo]!", &spans, Some(9), Some(99)), None);
+        assert_eq!(
+            image_delivery("Hi [Logo]!", &spans, Some(9), Some(99)),
+            None
+        );
     }
 
     #[test]
@@ -399,7 +568,13 @@ mod tests {
     #[test]
     fn active_whole_word_keeps_separator_out_of_the_document() {
         let m = trigger("brb", Some(" "), FireMode::WholeWord);
-        let plan = InsertionPlan::new(&m, "be right back".into(), None, PlanMode::Active, Some(" "));
+        let plan = InsertionPlan::new(
+            &m,
+            "be right back".into(),
+            None,
+            PlanMode::Active,
+            Some(" "),
+        );
         assert_eq!(plan.delete_count, 3);
         assert_eq!(plan.reemit_separator.as_deref(), Some(" "));
     }
@@ -410,7 +585,13 @@ mod tests {
         let plan = InsertionPlan::new(&m, "be right back".into(), None, PlanMode::ListenOnly, None);
         assert_eq!(plan.delete_count, 4);
         let immediate = trigger(";x", None, FireMode::Immediate);
-        let plan = InsertionPlan::new(&immediate, "y".into(), None, PlanMode::ListenOnly, Some("x"));
+        let plan = InsertionPlan::new(
+            &immediate,
+            "y".into(),
+            None,
+            PlanMode::ListenOnly,
+            Some("x"),
+        );
         assert_eq!(plan.delete_count, 2);
     }
 
@@ -457,7 +638,10 @@ mod tests {
         assert!(should_type(InsertionMethod::Automatic, "hello"));
         assert!(should_type(InsertionMethod::Automatic, "one\ntwo"));
         assert!(!should_type(InsertionMethod::Automatic, "one\ntwo\nthree"));
-        assert!(!should_type(InsertionMethod::Automatic, "one\r\ntwo\r\nthree"));
+        assert!(!should_type(
+            InsertionMethod::Automatic,
+            "one\r\ntwo\r\nthree"
+        ));
         assert!(!should_type(InsertionMethod::Automatic, &"x".repeat(100)));
         assert!(should_type(InsertionMethod::Automatic, &"x".repeat(99)));
         assert!(should_type(InsertionMethod::Type, &"x".repeat(500)));
@@ -470,7 +654,12 @@ mod tests {
         assert!(!types(InsertionMethod::Automatic, "hello", true, false));
         assert!(types(InsertionMethod::Type, "hello", true, false));
         assert!(!types(InsertionMethod::Paste, "hello", false, false));
-        assert!(!types(InsertionMethod::Automatic, &"x".repeat(100), false, false));
+        assert!(!types(
+            InsertionMethod::Automatic,
+            &"x".repeat(100),
+            false,
+            false
+        ));
     }
 
     #[test]

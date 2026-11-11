@@ -45,10 +45,16 @@ pub fn safe_image(url: &str) -> bool {
     let data = url
         .strip_prefix("data:image/png;base64,")
         .filter(|d| d.starts_with("iVBORw0KGgo"))
-        .or_else(|| url.strip_prefix("data:image/jpeg;base64,").filter(|d| d.starts_with("/9j/")));
+        .or_else(|| {
+            url.strip_prefix("data:image/jpeg;base64,")
+                .filter(|d| d.starts_with("/9j/"))
+        });
     url.len() <= 196_608
         && data.is_some_and(|d| {
-            !d.is_empty() && d.len().is_multiple_of(4) && d.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'='))
+            !d.is_empty()
+                && d.len().is_multiple_of(4)
+                && d.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'+' | b'/' | b'='))
         })
 }
 
@@ -109,7 +115,12 @@ pub fn html(text: &str, spans: &[FormatSpan]) -> String {
         utf16 += c.len_utf16();
         offsets.push((utf16, byte + c.len_utf8()));
     }
-    let byte_at = |offset| offsets.binary_search_by_key(&offset, |(u, _)| *u).ok().map(|i| offsets[i].1);
+    let byte_at = |offset| {
+        offsets
+            .binary_search_by_key(&offset, |(u, _)| *u)
+            .ok()
+            .map(|i| offsets[i].1)
+    };
     let valid: Vec<_> = spans
         .iter()
         .filter(|s| {
@@ -118,7 +129,9 @@ pub fn html(text: &str, spans: &[FormatSpan]) -> String {
                 && byte_at(s.end).is_some()
                 && match &s.style {
                     FormatStyle::Link { url } => safe_link(url),
-                    FormatStyle::Image { data_url, width } => safe_image(data_url) && (1..=512).contains(width),
+                    FormatStyle::Image { data_url, width } => {
+                        safe_image(data_url) && (1..=512).contains(width)
+                    }
                     _ => true,
                 }
         })
@@ -133,8 +146,14 @@ pub fn html(text: &str, spans: &[FormatSpan]) -> String {
         "<html><head><meta charset=\"utf-8\"></head><body><span style=\"white-space: pre-wrap; font-family: -apple-system, sans-serif;\">",
     );
     for pair in boundaries.windows(2) {
-        let active: Vec<_> = valid.iter().filter(|s| s.start <= pair[0] && s.end >= pair[1]).collect();
-        if let Some(image) = active.iter().find(|s| matches!(s.style, FormatStyle::Image { .. })) {
+        let active: Vec<_> = valid
+            .iter()
+            .filter(|s| s.start <= pair[0] && s.end >= pair[1])
+            .collect();
+        if let Some(image) = active
+            .iter()
+            .find(|s| matches!(s.style, FormatStyle::Image { .. }))
+        {
             if image.start == pair[0] {
                 if let FormatStyle::Image { data_url, width } = &image.style {
                     let alt = &text[byte_at(image.start).unwrap()..byte_at(image.end).unwrap()];

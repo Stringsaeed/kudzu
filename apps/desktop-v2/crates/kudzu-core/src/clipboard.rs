@@ -189,11 +189,18 @@ pub struct Classified {
 
 /// Whether the source marked this copy as private or transient (see [`uti::PRIVATE_MARKERS`]).
 pub fn is_private(items: &[PasteItem]) -> bool {
-    items.iter().flatten().any(|(t, _)| uti::PRIVATE_MARKERS.contains(&t.as_str()))
+    items
+        .iter()
+        .flatten()
+        .any(|(t, _)| uti::PRIVATE_MARKERS.contains(&t.as_str()))
 }
 
 fn find<'a>(items: &'a [PasteItem], kind: &str) -> Option<&'a [u8]> {
-    items.iter().flatten().find(|(t, _)| t == kind).map(|(_, d)| d.as_slice())
+    items
+        .iter()
+        .flatten()
+        .find(|(t, _)| t == kind)
+        .map(|(_, d)| d.as_slice())
 }
 
 /// Bundle ids of apps whose copies Kudzu never records by default (password managers).
@@ -219,10 +226,15 @@ pub fn default_ignored_apps() -> Vec<String> {
 
 /// Decides what was copied. `None` when there's nothing worth keeping (empty, or only whitespace).
 pub fn classify(items: &[PasteItem], source_bundle: Option<&str>) -> Option<Classified> {
-    let types: Vec<String> = items.first().map(|i| i.iter().map(|(t, _)| t.clone()).collect()).unwrap_or_default();
+    let types: Vec<String> = items
+        .first()
+        .map(|i| i.iter().map(|(t, _)| t.clone()).collect())
+        .unwrap_or_default();
     let size: u64 = items.iter().flatten().map(|(_, d)| d.len() as u64).sum();
     let all_types = || items.iter().flatten().map(|(t, _)| t.as_str());
-    let rich = all_types().any(|t| t == uti::RTF || t == uti::HTML || t == "public.rtfd" || t == "com.apple.flat-rtfd");
+    let rich = all_types().any(|t| {
+        t == uti::RTF || t == uti::HTML || t == "public.rtfd" || t == "com.apple.flat-rtfd"
+    });
 
     // Files: one `public.file-url` per item.
     let files: Vec<String> = items
@@ -234,14 +246,28 @@ pub fn classify(items: &[PasteItem], source_bundle: Option<&str>) -> Option<Clas
     if !files.is_empty() {
         let hash = fnv1a([b"f".as_slice(), files.join("\n").as_bytes()]);
         let text = Some(files.join("\n"));
-        return Some(Classified { kind: ClipKind::File, text, files, color: None, rich: false, image_type: None, types, size, hash });
+        return Some(Classified {
+            kind: ClipKind::File,
+            text,
+            files,
+            color: None,
+            rich: false,
+            image_type: None,
+            types,
+            size,
+            hash,
+        });
     }
 
     let text = find(items, uti::PLAIN_TEXT)
         .or_else(|| find(items, uti::LEGACY_TEXT))
         .and_then(|d| String::from_utf8(d.to_vec()).ok())
         .filter(|s| !s.trim().is_empty());
-    let image_type = uti::IMAGES.iter().map(|(t, _)| *t).find(|t| all_types().any(|x| x == *t)).map(String::from);
+    let image_type = uti::IMAGES
+        .iter()
+        .map(|(t, _)| *t)
+        .find(|t| all_types().any(|x| x == *t))
+        .map(String::from);
 
     // Text wins over an image when both are present (spreadsheets put a picture of the cells
     // next to their text); a lone image is an image.
@@ -249,7 +275,9 @@ pub fn classify(items: &[PasteItem], source_bundle: Option<&str>) -> Option<Clas
         let trimmed = text.trim();
         let (kind, color) = if let Some(c) = parse_color(trimmed) {
             (ClipKind::Color, Some(c))
-        } else if is_link(trimmed) || (find(items, uti::URL).is_some() && !trimmed.contains(char::is_whitespace)) {
+        } else if is_link(trimmed)
+            || (find(items, uti::URL).is_some() && !trimmed.contains(char::is_whitespace))
+        {
             (ClipKind::Link, None)
         } else if looks_like_code(&text, source_bundle) {
             (ClipKind::Code, None)
@@ -257,19 +285,44 @@ pub fn classify(items: &[PasteItem], source_bundle: Option<&str>) -> Option<Clas
             (ClipKind::Text, None)
         };
         let hash = fnv1a([b"t".as_slice(), text.as_bytes()]);
-        return Some(Classified { kind, text: Some(text), files: vec![], color, rich, image_type: None, types, size, hash });
+        return Some(Classified {
+            kind,
+            text: Some(text),
+            files: vec![],
+            color,
+            rich,
+            image_type: None,
+            types,
+            size,
+            hash,
+        });
     }
 
     if let Some(image) = &image_type {
         let data = find(items, image).unwrap_or_default();
         if !data.is_empty() {
             let hash = fnv1a([b"i".as_slice(), data]);
-            return Some(Classified { kind: ClipKind::Image, text: None, files: vec![], color: None, rich: false, image_type: image_type.clone(), types, size, hash });
+            return Some(Classified {
+                kind: ClipKind::Image,
+                text: None,
+                files: vec![],
+                color: None,
+                rich: false,
+                image_type: image_type.clone(),
+                types,
+                size,
+                hash,
+            });
         }
     }
 
     // Nothing at all, or only blank text.
-    let textual = |t: &str| t == uti::PLAIN_TEXT || t == uti::LEGACY_TEXT || t.starts_with("public.utf16") || t == "public.text";
+    let textual = |t: &str| {
+        t == uti::PLAIN_TEXT
+            || t == uti::LEGACY_TEXT
+            || t.starts_with("public.utf16")
+            || t == "public.text"
+    };
     if size == 0 || all_types().all(textual) {
         return None;
     }
@@ -278,7 +331,17 @@ pub fn classify(items: &[PasteItem], source_bundle: Option<&str>) -> Option<Clas
         parts.push(t.as_bytes());
         parts.push(d);
     }
-    Some(Classified { kind: ClipKind::Other, text: None, files: vec![], color: None, rich, image_type: None, types, size, hash: fnv1a(parts) })
+    Some(Classified {
+        kind: ClipKind::Other,
+        text: None,
+        files: vec![],
+        color: None,
+        rich,
+        image_type: None,
+        types,
+        size,
+        hash: fnv1a(parts),
+    })
 }
 
 /// 64-bit FNV-1a over several byte slices (stable across runs and platforms).
@@ -300,7 +363,11 @@ pub fn fnv1a<'a>(parts: impl IntoIterator<Item = &'a [u8]>) -> u64 {
 pub fn file_url_to_path(url: &str) -> Option<String> {
     let rest = url.trim().trim_end_matches('\0').strip_prefix("file://")?;
     // Optional host ("localhost") before the path.
-    let path = if rest.starts_with('/') { rest } else { &rest[rest.find('/')?..] };
+    let path = if rest.starts_with('/') {
+        rest
+    } else {
+        &rest[rest.find('/')?..]
+    };
     let bytes = path.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
@@ -328,9 +395,14 @@ pub fn is_link(text: &str) -> bool {
         return false;
     }
     let lower = text.to_ascii_lowercase();
-    let rest = ["https://", "http://", "ftp://", "mailto:"].iter().find_map(|p| lower.strip_prefix(p));
+    let rest = ["https://", "http://", "ftp://", "mailto:"]
+        .iter()
+        .find_map(|p| lower.strip_prefix(p));
     match rest {
-        Some(r) => !r.is_empty() && (lower.starts_with("mailto:") || r.contains('.') || r.starts_with("localhost")),
+        Some(r) => {
+            !r.is_empty()
+                && (lower.starts_with("mailto:") || r.contains('.') || r.starts_with("localhost"))
+        }
         None => lower.starts_with("www.") && lower[4..].contains('.'),
     }
 }
@@ -342,18 +414,30 @@ pub fn parse_color(text: &str) -> Option<String> {
         return None;
     }
     if let Some(hex) = t.strip_prefix('#') {
-        return (matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit())).then(|| format!("#{}", hex.to_ascii_lowercase()));
+        return (matches!(hex.len(), 3 | 4 | 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit()))
+            .then(|| format!("#{}", hex.to_ascii_lowercase()));
     }
     let lower = t.to_ascii_lowercase();
     let open = lower.find('(')?;
     let name = &lower[..open];
-    if !["rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch"].contains(&name) || !lower.ends_with(')') {
+    if ![
+        "rgb", "rgba", "hsl", "hsla", "hwb", "lab", "lch", "oklab", "oklch",
+    ]
+    .contains(&name)
+        || !lower.ends_with(')')
+    {
         return None;
     }
     let args = &lower[open + 1..lower.len() - 1];
-    let numbers = args.split(|c: char| c == ',' || c == '/' || c.is_whitespace()).filter(|s| !s.is_empty()).count();
-    let allowed = args.chars().all(|c| c.is_ascii_digit() || " .,%/-+edgrantu".contains(c));
-    (allowed && (3..=4).contains(&numbers) && args.chars().any(|c| c.is_ascii_digit())).then(|| lower.split_whitespace().collect::<Vec<_>>().join(" "))
+    let numbers = args
+        .split(|c: char| c == ',' || c == '/' || c.is_whitespace())
+        .filter(|s| !s.is_empty())
+        .count();
+    let allowed = args
+        .chars()
+        .all(|c| c.is_ascii_digit() || " .,%/-+edgrantu".contains(c));
+    (allowed && (3..=4).contains(&numbers) && args.chars().any(|c| c.is_ascii_digit()))
+        .then(|| lower.split_whitespace().collect::<Vec<_>>().join(" "))
 }
 
 /// Apps whose text is almost always code.
@@ -377,8 +461,9 @@ const CODE_APPS: [&str; 16] = [
 ];
 
 const COMMANDS: [&str; 24] = [
-    "git ", "npm ", "pnpm ", "yarn ", "npx ", "cargo ", "brew ", "cd ", "ls ", "curl ", "docker ", "kubectl ", "sudo ", "ssh ", "python ", "python3 ",
-    "node ", "make ", "export ", "echo ", "mkdir ", "rm ", "go ", "bun ",
+    "git ", "npm ", "pnpm ", "yarn ", "npx ", "cargo ", "brew ", "cd ", "ls ", "curl ", "docker ",
+    "kubectl ", "sudo ", "ssh ", "python ", "python3 ", "node ", "make ", "export ", "echo ",
+    "mkdir ", "rm ", "go ", "bun ",
 ];
 
 /// Heuristic: does this text read like source code or a shell command?
@@ -388,36 +473,82 @@ pub fn looks_like_code(text: &str, source_bundle: Option<&str>) -> bool {
         return false;
     }
     let lines: Vec<&str> = t.lines().collect();
-    let from_code_app = source_bundle.is_some_and(|b| CODE_APPS.contains(&b) || b.starts_with("com.jetbrains."));
+    let from_code_app =
+        source_bundle.is_some_and(|b| CODE_APPS.contains(&b) || b.starts_with("com.jetbrains."));
     if lines.len() == 1 {
         let l = lines[0];
         if l.starts_with("$ ") || COMMANDS.iter().any(|c| l.starts_with(c)) {
             return true;
         }
-        if from_code_app && (l.contains("()") || l.ends_with(';') || l.contains(" = ") || l.contains("=>") || l.contains("::")) {
+        if from_code_app
+            && (l.contains("()")
+                || l.ends_with(';')
+                || l.contains(" = ")
+                || l.contains("=>")
+                || l.contains("::"))
+        {
             return true;
         }
-        return (l.starts_with('{') && l.ends_with('}') && l.contains(':')) || (l.starts_with("<") && l.ends_with('>') && l.contains("</"));
+        return (l.starts_with('{') && l.ends_with('}') && l.contains(':'))
+            || (l.starts_with("<") && l.ends_with('>') && l.contains("</"));
     }
     let mut score = 0i32;
     let keywords = [
-        "function ", "const ", "let ", "var ", "return ", "import ", "export ", "def ", "class ", "fn ", "pub ", "#include", "package ", "func ", "if (", "for (", "while (",
-        "} else", "public ", "private ", "async ", "await ", "SELECT ", "=> ", "struct ", "impl ", "interface ", "type ",
+        "function ",
+        "const ",
+        "let ",
+        "var ",
+        "return ",
+        "import ",
+        "export ",
+        "def ",
+        "class ",
+        "fn ",
+        "pub ",
+        "#include",
+        "package ",
+        "func ",
+        "if (",
+        "for (",
+        "while (",
+        "} else",
+        "public ",
+        "private ",
+        "async ",
+        "await ",
+        "SELECT ",
+        "=> ",
+        "struct ",
+        "impl ",
+        "interface ",
+        "type ",
     ];
     for l in &lines {
         let s = l.trim_end();
-        if s.ends_with(';') || s.ends_with('{') || s.ends_with('}') || s.ends_with("};") || s.ends_with("):") {
+        if s.ends_with(';')
+            || s.ends_with('{')
+            || s.ends_with('}')
+            || s.ends_with("};")
+            || s.ends_with("):")
+        {
             score += 2;
         }
         if l.starts_with("    ") || l.starts_with('\t') {
             score += 1;
         }
         let trimmed = s.trim_start();
-        if keywords.iter().any(|k| trimmed.starts_with(k)) || trimmed.starts_with("//") || trimmed.starts_with("# ") && from_code_app {
+        if keywords.iter().any(|k| trimmed.starts_with(k))
+            || trimmed.starts_with("//")
+            || trimmed.starts_with("# ") && from_code_app
+        {
             score += 2;
         }
     }
-    let prose = t.split_whitespace().filter(|w| w.chars().all(char::is_alphabetic)).count() as f64 / t.split_whitespace().count().max(1) as f64;
+    let prose = t
+        .split_whitespace()
+        .filter(|w| w.chars().all(char::is_alphabetic))
+        .count() as f64
+        / t.split_whitespace().count().max(1) as f64;
     let threshold = (lines.len() as i32).max(3);
     if from_code_app {
         score += lines.len() as i32;
@@ -468,7 +599,9 @@ pub const SECRET_RULES: u32 = 1;
 /// Secret detection for one copy. Only text can be a secret; colours, files and images can't.
 fn secret_of(kind: ClipKind, text: Option<&str>) -> Option<SecretKind> {
     match kind {
-        ClipKind::Text | ClipKind::Code | ClipKind::Link | ClipKind::Other => text.and_then(secrets::detect),
+        ClipKind::Text | ClipKind::Code | ClipKind::Link | ClipKind::Other => {
+            text.and_then(secrets::detect)
+        }
         ClipKind::Color | ClipKind::Image | ClipKind::File => None,
     }
 }
@@ -479,7 +612,11 @@ impl History {
     }
 
     pub fn new() -> Self {
-        Self { version: Self::format_version(), secret_rules: SECRET_RULES, entries: vec![] }
+        Self {
+            version: Self::format_version(),
+            secret_rules: SECRET_RULES,
+            entries: vec![],
+        }
     }
 
     /// Rescans entries recorded under older detection rules (from their excerpts; longer
@@ -522,18 +659,32 @@ impl History {
             (None, None) => true,
             _ => false,
         };
-        self.entries.get(if newest_is_current { n } else { n.checked_sub(1)? })
+        self.entries.get(if newest_is_current {
+            n
+        } else {
+            n.checked_sub(1)?
+        })
     }
 
     /// Records a copy made at `now`. Repeated content keeps its id, pin and history of timings.
-    pub fn ingest(&mut self, c: &Classified, source: Option<ClipSource>, image: Option<ImageSize>, now: DateTime<Utc>) -> Ingest {
+    pub fn ingest(
+        &mut self,
+        c: &Classified,
+        source: Option<ClipSource>,
+        image: Option<ImageSize>,
+        now: DateTime<Utc>,
+    ) -> Ingest {
         let hash = format!("{:016x}", c.hash);
         let full_text = c.text.as_deref().unwrap_or_default();
         let fill = |e: &mut ClipEntry| {
             e.kind = c.kind;
             e.text = c.text.as_deref().map(|t| excerpt(t, TEXT_EXCERPT_LIMIT));
             e.text_len = full_text.chars().count();
-            e.line_count = if full_text.is_empty() { 0 } else { full_text.lines().count().max(1) };
+            e.line_count = if full_text.is_empty() {
+                0
+            } else {
+                full_text.lines().count().max(1)
+            };
             e.files = c.files.clone();
             e.color = c.color.clone();
             e.rich = c.rich;
@@ -623,7 +774,11 @@ impl History {
     pub fn restore(&mut self, entries: Vec<ClipEntry>) -> Vec<ClipEntry> {
         let mut restored = Vec::new();
         for e in entries {
-            if self.entries.iter().any(|x| x.id == e.id || x.hash == e.hash) {
+            if self
+                .entries
+                .iter()
+                .any(|x| x.id == e.id || x.hash == e.hash)
+            {
                 continue;
             }
             restored.push(e.clone());
@@ -635,7 +790,10 @@ impl History {
 
     /// Removes everything (pinned too when `include_pinned`), returning what was removed.
     pub fn clear(&mut self, include_pinned: bool) -> Vec<ClipEntry> {
-        let (gone, kept) = self.entries.drain(..).partition(|e| include_pinned || !e.pinned);
+        let (gone, kept) = self
+            .entries
+            .drain(..)
+            .partition(|e| include_pinned || !e.pinned);
         self.entries = kept;
         gone
     }
@@ -663,7 +821,11 @@ const BLOB_MAGIC: &[u8; 4] = b"KZC1";
 /// Serializes pasteboard items: magic, then per item a type count and `(type, data)` pairs,
 /// every length a little-endian u32/u64.
 pub fn encode_items(items: &[PasteItem]) -> Vec<u8> {
-    let size: usize = items.iter().flatten().map(|(t, d)| t.len() + d.len() + 12).sum();
+    let size: usize = items
+        .iter()
+        .flatten()
+        .map(|(t, d)| t.len() + d.len() + 12)
+        .sum();
     let mut out = Vec::with_capacity(size + 8);
     out.extend_from_slice(BLOB_MAGIC);
     out.extend_from_slice(&(items.len() as u32).to_le_bytes());
@@ -720,12 +882,16 @@ pub fn decode_items(bytes: &[u8]) -> Option<Vec<PasteItem>> {
 
 /// Full plain text of decoded items, if any.
 pub fn text_of(items: &[PasteItem]) -> Option<String> {
-    find(items, uti::PLAIN_TEXT).or_else(|| find(items, uti::LEGACY_TEXT)).and_then(|d| String::from_utf8(d.to_vec()).ok())
+    find(items, uti::PLAIN_TEXT)
+        .or_else(|| find(items, uti::LEGACY_TEXT))
+        .and_then(|d| String::from_utf8(d.to_vec()).ok())
 }
 
 /// Bytes and MIME type of the best image in decoded items.
 pub fn image_of(items: &[PasteItem]) -> Option<(&[u8], &'static str)> {
-    uti::IMAGES.iter().find_map(|(t, mime)| find(items, t).map(|d| (d, *mime)))
+    uti::IMAGES
+        .iter()
+        .find_map(|(t, mime)| find(items, t).map(|d| (d, *mime)))
 }
 
 /// MIME type for an image file path a webview can display, by extension.
@@ -750,7 +916,10 @@ mod tests {
     use chrono::TimeZone;
 
     fn item(pairs: &[(&str, &[u8])]) -> PasteItem {
-        pairs.iter().map(|(t, d)| (t.to_string(), d.to_vec())).collect()
+        pairs
+            .iter()
+            .map(|(t, d)| (t.to_string(), d.to_vec()))
+            .collect()
     }
 
     fn text(s: &str) -> Vec<PasteItem> {
@@ -768,12 +937,19 @@ mod tests {
             h.ingest(&classify(&text(s), None).unwrap(), None, None, at(i as i64));
         }
         let short = h.clone();
-        let text_of = |n, current| short.before_current(n, current).and_then(|e| e.text.clone());
+        let text_of = |n, current| {
+            short
+                .before_current(n, current)
+                .and_then(|e| e.text.clone())
+        };
         assert_eq!(text_of(1, Some("newest")).as_deref(), Some("middle"));
         assert_eq!(text_of(2, Some("newest")).as_deref(), Some("oldest"));
         assert_eq!(text_of(3, Some("newest")), None);
         // The clipboard holds something the history never recorded: the newest entry is the previous copy.
-        assert_eq!(text_of(1, Some("from a password manager")).as_deref(), Some("newest"));
+        assert_eq!(
+            text_of(1, Some("from a password manager")).as_deref(),
+            Some("newest")
+        );
         assert_eq!(text_of(1, None).as_deref(), Some("newest"));
         assert_eq!(text_of(0, Some("unrecorded")), None);
         assert_eq!(text_of(0, Some("newest")).as_deref(), Some("newest"));
@@ -781,34 +957,85 @@ mod tests {
         // Long text is compared by the stored excerpt.
         let long = "x".repeat(TEXT_EXCERPT_LIMIT + 50);
         h.ingest(&classify(&text(&long), None).unwrap(), None, None, at(9));
-        assert_eq!(h.before_current(1, Some(&long)).and_then(|e| e.text.as_deref()), Some("newest"));
+        assert_eq!(
+            h.before_current(1, Some(&long))
+                .and_then(|e| e.text.as_deref()),
+            Some("newest")
+        );
     }
 
     #[test]
     fn classifies_text_links_colors_and_code() {
-        assert_eq!(classify(&text("Hello there"), None).unwrap().kind, ClipKind::Text);
-        assert_eq!(classify(&text("https://kudzu.app/docs?x=1"), None).unwrap().kind, ClipKind::Link);
-        assert_eq!(classify(&text("  mailto:me@example.com "), None).unwrap().kind, ClipKind::Link);
-        assert_eq!(classify(&text("www.example.org"), None).unwrap().kind, ClipKind::Link);
+        assert_eq!(
+            classify(&text("Hello there"), None).unwrap().kind,
+            ClipKind::Text
+        );
+        assert_eq!(
+            classify(&text("https://kudzu.app/docs?x=1"), None)
+                .unwrap()
+                .kind,
+            ClipKind::Link
+        );
+        assert_eq!(
+            classify(&text("  mailto:me@example.com "), None)
+                .unwrap()
+                .kind,
+            ClipKind::Link
+        );
+        assert_eq!(
+            classify(&text("www.example.org"), None).unwrap().kind,
+            ClipKind::Link
+        );
         let c = classify(&text("#1E90FF"), None).unwrap();
-        assert_eq!((c.kind, c.color.as_deref()), (ClipKind::Color, Some("#1e90ff")));
-        assert_eq!(classify(&text("oklch(0.7 0.1 250)"), None).unwrap().kind, ClipKind::Color);
-        assert_eq!(classify(&text("rgb(255, 0, 0)"), None).unwrap().kind, ClipKind::Color);
-        assert_eq!(classify(&text("git commit -m \"fix\""), None).unwrap().kind, ClipKind::Code);
+        assert_eq!(
+            (c.kind, c.color.as_deref()),
+            (ClipKind::Color, Some("#1e90ff"))
+        );
+        assert_eq!(
+            classify(&text("oklch(0.7 0.1 250)"), None).unwrap().kind,
+            ClipKind::Color
+        );
+        assert_eq!(
+            classify(&text("rgb(255, 0, 0)"), None).unwrap().kind,
+            ClipKind::Color
+        );
+        assert_eq!(
+            classify(&text("git commit -m \"fix\""), None).unwrap().kind,
+            ClipKind::Code
+        );
         let js = "function add(a, b) {\n  const sum = a + b;\n  return sum;\n}";
         assert_eq!(classify(&text(js), None).unwrap().kind, ClipKind::Code);
         let prose = "Dear team,\nThanks for the meeting today.\nSee you tomorrow.";
         assert_eq!(classify(&text(prose), None).unwrap().kind, ClipKind::Text);
         // Not colours or links.
-        assert_eq!(classify(&text("#hashtag"), None).unwrap().kind, ClipKind::Text);
-        assert_eq!(classify(&text("https://"), None).unwrap().kind, ClipKind::Text);
-        assert_eq!(classify(&text("see https://a.com now"), None).unwrap().kind, ClipKind::Text);
+        assert_eq!(
+            classify(&text("#hashtag"), None).unwrap().kind,
+            ClipKind::Text
+        );
+        assert_eq!(
+            classify(&text("https://"), None).unwrap().kind,
+            ClipKind::Text
+        );
+        assert_eq!(
+            classify(&text("see https://a.com now"), None).unwrap().kind,
+            ClipKind::Text
+        );
     }
 
     #[test]
     fn code_apps_tip_the_balance() {
-        assert_eq!(classify(&text("let x = foo();"), Some("com.microsoft.VSCode")).unwrap().kind, ClipKind::Code);
-        assert_eq!(classify(&text("let x = foo();"), Some("com.apple.Notes")).unwrap().kind, ClipKind::Text);
+        assert_eq!(
+            classify(&text("let x = foo();"), Some("com.microsoft.VSCode"))
+                .unwrap()
+                .kind,
+            ClipKind::Code
+        );
+        assert_eq!(
+            classify(&text("let x = foo();"), Some("com.apple.Notes"))
+                .unwrap()
+                .kind,
+            ClipKind::Text
+        );
     }
 
     #[test]
@@ -820,19 +1047,31 @@ mod tests {
     #[test]
     fn files_win_and_decode_paths() {
         let items = vec![
-            item(&[(uti::FILE_URL, b"file:///Users/me/My%20Report.pdf"), (uti::PLAIN_TEXT, b"My Report.pdf")]),
+            item(&[
+                (uti::FILE_URL, b"file:///Users/me/My%20Report.pdf"),
+                (uti::PLAIN_TEXT, b"My Report.pdf"),
+            ]),
             item(&[(uti::FILE_URL, b"file://localhost/tmp/folder/")]),
         ];
         let c = classify(&items, None).unwrap();
         assert_eq!(c.kind, ClipKind::File);
-        assert_eq!(c.files, vec!["/Users/me/My Report.pdf".to_string(), "/tmp/folder".to_string()]);
+        assert_eq!(
+            c.files,
+            vec![
+                "/Users/me/My Report.pdf".to_string(),
+                "/tmp/folder".to_string()
+            ]
+        );
     }
 
     #[test]
     fn lone_images_are_images_but_text_wins() {
         let img = vec![item(&[(uti::TIFF, b"tiffdata"), (uti::PNG, b"pngdata")])];
         let c = classify(&img, None).unwrap();
-        assert_eq!((c.kind, c.image_type.as_deref()), (ClipKind::Image, Some(uti::PNG)));
+        assert_eq!(
+            (c.kind, c.image_type.as_deref()),
+            (ClipKind::Image, Some(uti::PNG))
+        );
         let cells = vec![item(&[(uti::PLAIN_TEXT, b"a\tb"), (uti::TIFF, b"x")])];
         assert_eq!(classify(&cells, None).unwrap().kind, ClipKind::Text);
     }
@@ -848,7 +1087,10 @@ mod tests {
 
     #[test]
     fn private_markers_are_detected() {
-        let concealed = vec![item(&[(uti::PLAIN_TEXT, b"hunter2"), ("org.nspasteboard.ConcealedType", b"")])];
+        let concealed = vec![item(&[
+            (uti::PLAIN_TEXT, b"hunter2"),
+            ("org.nspasteboard.ConcealedType", b""),
+        ])];
         assert!(is_private(&concealed));
         assert!(!is_private(&text("hi")));
     }
@@ -861,7 +1103,16 @@ mod tests {
         let first = h.ingest(&a, None, None, at(0));
         assert!(matches!(first, Ingest::Added(_)));
         h.ingest(&b, None, None, at(1));
-        let again = h.ingest(&a, Some(ClipSource { bundle_id: "x".into(), name: "X".into(), path: None }), None, at(2));
+        let again = h.ingest(
+            &a,
+            Some(ClipSource {
+                bundle_id: "x".into(),
+                name: "X".into(),
+                path: None,
+            }),
+            None,
+            at(2),
+        );
         assert!(matches!(again, Ingest::Repeated(_)));
         assert_eq!(h.entries.len(), 2);
         let top = &h.entries[0];
@@ -889,15 +1140,39 @@ mod tests {
     #[test]
     fn detects_secrets_and_keeps_corrections() {
         let mut h = History::new();
-        let pw = h.ingest(&classify(&text("P@ssw0rd!"), None).unwrap(), None, None, at(0)).entry().clone();
+        let pw = h
+            .ingest(
+                &classify(&text("P@ssw0rd!"), None).unwrap(),
+                None,
+                None,
+                at(0),
+            )
+            .entry()
+            .clone();
         assert_eq!(pw.secret, Some(SecretKind::Password));
         assert!(pw.is_secret());
-        let note = h.ingest(&classify(&text("lunch at noon"), None).unwrap(), None, None, at(1)).entry().clone();
+        let note = h
+            .ingest(
+                &classify(&text("lunch at noon"), None).unwrap(),
+                None,
+                None,
+                at(1),
+            )
+            .entry()
+            .clone();
         assert!(!note.is_secret());
 
         // The user's choice wins, and survives copying the same text again.
         assert!(!h.set_secret(pw.id, Some(false)).unwrap().is_secret());
-        let again = h.ingest(&classify(&text("P@ssw0rd!"), None).unwrap(), None, None, at(2)).entry().clone();
+        let again = h
+            .ingest(
+                &classify(&text("P@ssw0rd!"), None).unwrap(),
+                None,
+                None,
+                at(2),
+            )
+            .entry()
+            .clone();
         assert_eq!(again.id, pw.id);
         assert!(!again.is_secret());
         assert!(h.set_secret(note.id, Some(true)).unwrap().is_secret());
@@ -907,7 +1182,12 @@ mod tests {
     #[test]
     fn rescans_history_from_older_rules_once() {
         let mut h = History::new();
-        h.ingest(&classify(&text("token: abcd1234efgh"), None).unwrap(), None, None, at(0));
+        h.ingest(
+            &classify(&text("token: abcd1234efgh"), None).unwrap(),
+            None,
+            None,
+            at(0),
+        );
         h.entries[0].secret = None;
         h.secret_rules = 0;
         assert!(h.rescan_secrets());
@@ -922,7 +1202,10 @@ mod tests {
     fn excerpt_keeps_lengths_of_long_text() {
         let mut h = History::new();
         let long = "é".repeat(TEXT_EXCERPT_LIMIT + 100) + "\nend";
-        let e = h.ingest(&classify(&text(&long), None).unwrap(), None, None, at(0)).entry().clone();
+        let e = h
+            .ingest(&classify(&text(&long), None).unwrap(), None, None, at(0))
+            .entry()
+            .clone();
         assert_eq!(e.text.unwrap().chars().count(), TEXT_EXCERPT_LIMIT);
         assert_eq!(e.text_len, TEXT_EXCERPT_LIMIT + 104);
         assert_eq!(e.line_count, 2);
@@ -932,18 +1215,38 @@ mod tests {
     fn retention_keeps_pins_and_respects_forever() {
         let mut h = History::new();
         for (i, s) in ["old", "older", "fresh"].iter().enumerate() {
-            h.ingest(&classify(&text(s), None).unwrap(), None, None, at(i as i64 * 24));
+            h.ingest(
+                &classify(&text(s), None).unwrap(),
+                None,
+                None,
+                at(i as i64 * 24),
+            );
         }
         // at(0)=old, at(24)=older, at(48)=fresh; now = at(24*9)
-        let old_id = h.entries.iter().find(|e| e.text.as_deref() == Some("old")).unwrap().id;
+        let old_id = h
+            .entries
+            .iter()
+            .find(|e| e.text.as_deref() == Some("old"))
+            .unwrap()
+            .id;
         h.set_pinned(old_id, true);
         let mut forever = h.clone();
         assert!(forever.prune(at(24 * 400), 0).is_empty());
         let removed = h.prune(at(24 * 9), 7);
-        assert_eq!(removed.iter().map(|e| e.text.clone().unwrap()).collect::<Vec<_>>(), vec!["older"]);
+        assert_eq!(
+            removed
+                .iter()
+                .map(|e| e.text.clone().unwrap())
+                .collect::<Vec<_>>(),
+            vec!["older"]
+        );
         assert_eq!(h.entries.len(), 2);
         assert_eq!(h.get(old_id).unwrap().expires_at(7), None);
-        let fresh = h.entries.iter().find(|e| e.text.as_deref() == Some("fresh")).unwrap();
+        let fresh = h
+            .entries
+            .iter()
+            .find(|e| e.text.as_deref() == Some("fresh"))
+            .unwrap();
         assert_eq!(fresh.expires_at(7), Some(at(48 + 24 * 7)));
     }
 
@@ -951,7 +1254,12 @@ mod tests {
     fn caps_unpinned_entries() {
         let mut h = History::new();
         for i in 0..(MAX_ENTRIES + 3) {
-            h.ingest(&classify(&text(&format!("n{i}")), None).unwrap(), None, None, at(0));
+            h.ingest(
+                &classify(&text(&format!("n{i}")), None).unwrap(),
+                None,
+                None,
+                at(0),
+            );
         }
         let removed = h.prune(at(1), 0);
         assert_eq!(removed.len(), 3);
@@ -970,7 +1278,13 @@ mod tests {
         let gone = h.remove(&[b]);
         assert_eq!(gone.len(), 1);
         assert_eq!(h.restore(gone.clone()).len(), 1);
-        assert_eq!(h.entries.iter().map(|e| e.text.clone().unwrap()).collect::<String>(), "cba");
+        assert_eq!(
+            h.entries
+                .iter()
+                .map(|e| e.text.clone().unwrap())
+                .collect::<String>(),
+            "cba"
+        );
         assert!(h.restore(gone).is_empty(), "no duplicates");
 
         let a = h.entries[2].id;
@@ -985,7 +1299,10 @@ mod tests {
 
     #[test]
     fn blobs_round_trip_and_reject_garbage() {
-        let items = vec![item(&[(uti::PLAIN_TEXT, b"hi"), (uti::RTF, b"{\\rtf}")]), item(&[(uti::PNG, &[0u8, 1, 2, 255])])];
+        let items = vec![
+            item(&[(uti::PLAIN_TEXT, b"hi"), (uti::RTF, b"{\\rtf}")]),
+            item(&[(uti::PNG, &[0u8, 1, 2, 255])]),
+        ];
         let bytes = encode_items(&items);
         assert_eq!(decode_items(&bytes).unwrap(), items);
         assert_eq!(text_of(&items).as_deref(), Some("hi"));
@@ -995,13 +1312,24 @@ mod tests {
         let mut extra = bytes.clone();
         extra.push(0);
         assert!(decode_items(&extra).is_none());
-        assert_eq!(decode_items(&encode_items(&[])).unwrap(), Vec::<PasteItem>::new());
+        assert_eq!(
+            decode_items(&encode_items(&[])).unwrap(),
+            Vec::<PasteItem>::new()
+        );
     }
 
     #[test]
     fn history_json_is_stable() {
         let mut h = History::new();
-        h.ingest(&classify(&text("#fff"), None).unwrap(), None, Some(ImageSize { width: 1, height: 2 }), at(0));
+        h.ingest(
+            &classify(&text("#fff"), None).unwrap(),
+            None,
+            Some(ImageSize {
+                width: 1,
+                height: 2,
+            }),
+            at(0),
+        );
         let json = serde_json::to_string(&h).unwrap();
         assert!(json.contains("\"copiedAt\"") && json.contains("\"kind\":\"color\""));
         let back: History = serde_json::from_str(&json).unwrap();
@@ -1017,7 +1345,10 @@ mod tests {
         assert_eq!(excerpt("héllo", 2), "hé");
         assert_eq!(image_mime_for_path("/a/B.JPG"), Some("image/jpeg"));
         assert_eq!(image_mime_for_path("/a/b.txt"), None);
-        assert_ne!(fnv1a([b"ab".as_slice(), b"c"]), fnv1a([b"a".as_slice(), b"bc"]));
+        assert_ne!(
+            fnv1a([b"ab".as_slice(), b"c"]),
+            fnv1a([b"a".as_slice(), b"bc"])
+        );
         assert!(default_ignored_apps().contains(&"com.1password.1password".to_string()));
     }
 }

@@ -21,7 +21,12 @@ impl EngineHost for RecordingHost {
 }
 
 fn library(snippets: Vec<SnippetRecord>) -> EngineLibrary {
-    EngineLibrary { snippets, groups: vec![], config: MatchingConfig::default(), locale: "en_US".into() }
+    EngineLibrary {
+        snippets,
+        groups: vec![],
+        config: MatchingConfig::default(),
+        locale: "en_US".into(),
+    }
 }
 
 #[test]
@@ -35,10 +40,19 @@ fn renders_nested_snippets_with_form_defaults() {
         format!("Hi {{{{field name=who default=there}}}}, {{{{choice name=tone options=\"warm|cool\"}}}}.{{{{cursor}}}} {{{{snippet id=\"{}\"}}}}", inner.id),
     );
     engine.reload(library(vec![outer.clone(), inner]));
-    assert_eq!(engine.render_snippet(outer.id, HashMap::new()).as_deref(), Some("Hi there, warm. Regards"));
+    assert_eq!(
+        engine.render_snippet(outer.id, HashMap::new()).as_deref(),
+        Some("Hi there, warm. Regards")
+    );
     let given = HashMap::from([("who".to_string(), "Sam".to_string())]);
-    assert_eq!(engine.render_snippet(outer.id, given).as_deref(), Some("Hi Sam, warm. Regards"));
-    assert_eq!(engine.render_snippet(uuid::Uuid::new_v4(), HashMap::new()), None);
+    assert_eq!(
+        engine.render_snippet(outer.id, given).as_deref(),
+        Some("Hi Sam, warm. Regards")
+    );
+    assert_eq!(
+        engine.render_snippet(uuid::Uuid::new_v4(), HashMap::new()),
+        None
+    );
 }
 
 #[test]
@@ -48,10 +62,16 @@ fn reload_replaces_the_library() {
     engine.reload(library(vec![snippet.clone()]));
     // Identical reloads are no-ops; changed content is picked up.
     engine.reload(library(vec![snippet.clone()]));
-    assert_eq!(engine.render_snippet(snippet.id, HashMap::new()).as_deref(), Some("one"));
+    assert_eq!(
+        engine.render_snippet(snippet.id, HashMap::new()).as_deref(),
+        Some("one")
+    );
     snippet.content = "two".into();
     engine.reload(library(vec![snippet.clone()]));
-    assert_eq!(engine.render_snippet(snippet.id, HashMap::new()).as_deref(), Some("two"));
+    assert_eq!(
+        engine.render_snippet(snippet.id, HashMap::new()).as_deref(),
+        Some("two")
+    );
 }
 
 #[test]
@@ -90,19 +110,42 @@ fn renders_selection_history_and_keeps_key_presses_out_of_the_text() {
     );
     engine.reload(library(vec![snippet.clone()]));
     // "Copy" and typed triggers have no selection: the tag renders empty.
-    assert_eq!(engine.render_snippet(snippet.id, HashMap::new()).as_deref(), Some("older/"));
-    let result = engine.render_snippet_with_selection(snippet.id, HashMap::new(), Some("picked".into())).unwrap();
+    assert_eq!(
+        engine.render_snippet(snippet.id, HashMap::new()).as_deref(),
+        Some("older/")
+    );
+    let result = engine
+        .render_snippet_with_selection(snippet.id, HashMap::new(), Some("picked".into()))
+        .unwrap();
     assert_eq!(result.text, "pickedolder/");
     assert_eq!(
         result.actions,
         [
-            RenderAction { offset: 6, action: ActionKind::Key { key: Key::Tab, count: 2 } },
-            RenderAction { offset: 12, action: ActionKind::Pause { ms: 40 } },
-            RenderAction { offset: 12, action: ActionKind::Key { key: Key::Return, count: 1 } },
+            RenderAction {
+                offset: 6,
+                action: ActionKind::Key {
+                    key: Key::Tab,
+                    count: 2
+                }
+            },
+            RenderAction {
+                offset: 12,
+                action: ActionKind::Pause { ms: 40 }
+            },
+            RenderAction {
+                offset: 12,
+                action: ActionKind::Key {
+                    key: Key::Return,
+                    count: 1
+                }
+            },
         ]
     );
     // A host without a clipboard history renders history items empty.
     let plain = Engine::new(Arc::new(RecordingHost::default()));
     plain.reload(library(vec![snippet.clone()]));
-    assert_eq!(plain.render_snippet(snippet.id, HashMap::new()).as_deref(), Some("/"));
+    assert_eq!(
+        plain.render_snippet(snippet.id, HashMap::new()).as_deref(),
+        Some("/")
+    );
 }

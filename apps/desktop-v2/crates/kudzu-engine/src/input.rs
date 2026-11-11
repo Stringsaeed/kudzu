@@ -38,7 +38,9 @@ impl InputSource<'_> {
     pub fn composes(&self) -> bool {
         match self.kind {
             SourceKind::Layout | SourceKind::Unknown => false,
-            SourceKind::InputMethod => !(self.ascii_capable && self.input_mode == Some(ROMAN_INPUT_MODE)),
+            SourceKind::InputMethod => {
+                !(self.ascii_capable && self.input_mode == Some(ROMAN_INPUT_MODE))
+            }
         }
     }
 }
@@ -55,7 +57,10 @@ pub(crate) fn shortcut_key(produces: impl Fn(u16) -> Option<char>, letter: char,
     if hit(ansi) {
         return ansi;
     }
-    KEY_CODES.into_iter().find(|&code| hit(code)).unwrap_or(ansi)
+    KEY_CODES
+        .into_iter()
+        .find(|&code| hit(code))
+        .unwrap_or(ansi)
 }
 
 /// How the keystrokes just before a key-down affect what that key-down means.
@@ -166,7 +171,11 @@ mod tests {
     use super::*;
 
     fn source(kind: SourceKind, ascii_capable: bool, input_mode: Option<&str>) -> InputSource<'_> {
-        InputSource { kind, ascii_capable, input_mode }
+        InputSource {
+            kind,
+            ascii_capable,
+            input_mode,
+        }
     }
 
     #[test]
@@ -180,16 +189,41 @@ mod tests {
     #[test]
     fn input_methods_compose_outside_their_roman_mode() {
         // Japanese Hiragana, Pinyin, Korean 2-Set.
-        assert!(source(SourceKind::InputMethod, false, Some("com.apple.inputmethod.Japanese")).composes());
-        assert!(source(SourceKind::InputMethod, false, Some("com.apple.inputmethod.SCIM.ITABC")).composes());
-        assert!(source(SourceKind::InputMethod, false, Some("com.apple.inputmethod.Korean.2SetKorean")).composes());
+        assert!(source(
+            SourceKind::InputMethod,
+            false,
+            Some("com.apple.inputmethod.Japanese")
+        )
+        .composes());
+        assert!(source(
+            SourceKind::InputMethod,
+            false,
+            Some("com.apple.inputmethod.SCIM.ITABC")
+        )
+        .composes());
+        assert!(source(
+            SourceKind::InputMethod,
+            false,
+            Some("com.apple.inputmethod.Korean.2SetKorean")
+        )
+        .composes());
         // An input method without modes.
         assert!(source(SourceKind::InputMethod, false, None).composes());
         // Vietnamese Telex produces Latin text and still composes ("aa" becomes "â").
-        assert!(source(SourceKind::InputMethod, true, Some("com.apple.inputmethod.VietnameseTelex")).composes());
+        assert!(source(
+            SourceKind::InputMethod,
+            true,
+            Some("com.apple.inputmethod.VietnameseTelex")
+        )
+        .composes());
         assert!(source(SourceKind::InputMethod, true, None).composes());
         // Full-width Roman is a Roman-named mode that isn't ASCII.
-        assert!(source(SourceKind::InputMethod, false, Some("com.apple.inputmethod.Japanese.FullWidthRoman")).composes());
+        assert!(source(
+            SourceKind::InputMethod,
+            false,
+            Some("com.apple.inputmethod.Japanese.FullWidthRoman")
+        )
+        .composes());
         assert!(source(SourceKind::InputMethod, false, Some(ROMAN_INPUT_MODE)).composes());
     }
 
@@ -197,7 +231,12 @@ mod tests {
     fn roman_mode_and_unknown_sources_match_like_a_layout() {
         assert!(!source(SourceKind::InputMethod, true, Some(ROMAN_INPUT_MODE)).composes());
         assert!(!source(SourceKind::Unknown, false, None).composes());
-        assert!(!source(SourceKind::Unknown, true, Some("com.apple.inputmethod.Japanese")).composes());
+        assert!(!source(
+            SourceKind::Unknown,
+            true,
+            Some("com.apple.inputmethod.Japanese")
+        )
+        .composes());
     }
 
     /// A Command table from (key code, character) pairs.
@@ -309,9 +348,24 @@ mod tests {
         assert_eq!(retyped("\n"), vec![Retyped::Return]);
         assert_eq!(retyped("\t"), vec![Retyped::Tab]);
         assert_eq!(retyped(" "), vec![Retyped::Text(" ")]);
-        assert_eq!(retyped(";sig\n"), vec![Retyped::Text(";sig"), Retyped::Return]);
-        assert_eq!(retyped("a\tb\r\nc"), vec![Retyped::Text("a"), Retyped::Tab, Retyped::Text("b"), Retyped::Return, Retyped::Text("c")]);
-        assert_eq!(retyped("\r\r\n\n"), vec![Retyped::Return, Retyped::Return, Retyped::Return]);
+        assert_eq!(
+            retyped(";sig\n"),
+            vec![Retyped::Text(";sig"), Retyped::Return]
+        );
+        assert_eq!(
+            retyped("a\tb\r\nc"),
+            vec![
+                Retyped::Text("a"),
+                Retyped::Tab,
+                Retyped::Text("b"),
+                Retyped::Return,
+                Retyped::Text("c")
+            ]
+        );
+        assert_eq!(
+            retyped("\r\r\n\n"),
+            vec![Retyped::Return, Retyped::Return, Retyped::Return]
+        );
         assert_eq!(retyped("é😀\t"), vec![Retyped::Text("é😀"), Retyped::Tab]);
         assert!(retyped("").is_empty());
     }

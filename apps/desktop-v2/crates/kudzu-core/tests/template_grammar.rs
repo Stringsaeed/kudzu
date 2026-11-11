@@ -583,9 +583,18 @@ fn arbitrary_source_is_stable_after_one_save() {
             render(&source),
             "source: {source} saved: {saved}"
         );
-        let (before, after) = (Fixture::new().render(&source), Fixture::new().render(&saved));
-        assert_eq!(after.actions, before.actions, "source: {source} saved: {saved}");
-        assert_eq!(after.cursor_offset, before.cursor_offset, "source: {source} saved: {saved}");
+        let (before, after) = (
+            Fixture::new().render(&source),
+            Fixture::new().render(&saved),
+        );
+        assert_eq!(
+            after.actions, before.actions,
+            "source: {source} saved: {saved}"
+        );
+        assert_eq!(
+            after.cursor_offset, before.cursor_offset,
+            "source: {source} saved: {saved}"
+        );
     }
 }
 
@@ -613,10 +622,18 @@ fn actions_always_sit_inside_the_text_in_order() {
         assert!(offsets.iter().all(|&o| o <= length), "source: {source}");
         // A surviving cursor is never before a key press.
         if let Some(cursor) = result.cursor_offset {
-            let last_key = result.actions.iter().filter(|a| matches!(a.action, template::ActionKind::Key { .. })).map(|a| a.offset).max();
+            let last_key = result
+                .actions
+                .iter()
+                .filter(|a| matches!(a.action, template::ActionKind::Key { .. }))
+                .map(|a| a.offset)
+                .max();
             assert!(last_key.is_none_or(|k| k <= cursor), "source: {source}");
         }
-        assert_eq!(result.actions.len(), source.matches("{{key").count() + source.matches("{{delay").count());
+        assert_eq!(
+            result.actions.len(),
+            source.matches("{{key").count() + source.matches("{{delay").count()
+        );
     }
 }
 

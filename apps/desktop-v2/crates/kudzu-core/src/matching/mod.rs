@@ -20,7 +20,9 @@ use uuid::Uuid;
 use crate::types::{GroupRecord, InsertionMethod, SnippetRecord};
 
 pub use key_buffer::KeyBuffer;
-pub use settings::{insertion_title, rule_summary, EffectiveSnippet, GroupResolver, InheritedGroupSettings};
+pub use settings::{
+    insertion_title, rule_summary, EffectiveSnippet, GroupResolver, InheritedGroupSettings,
+};
 pub use undo::UndoTracker;
 pub use validator::{trigger_tokens, validate_trigger, TriggerIssue, MAX_TRIGGER_LENGTH};
 
@@ -52,7 +54,8 @@ impl MatchingConfig {
     /// (`-`, `_`, `@`, `/`) and the ASCII opening brackets are not separators.
     pub fn default_separators() -> HashSet<char> {
         const ASCII: &str = ".,!?;:)]}'\"";
-        const OTHER: &str = "¿¡«»‹›“”‘’„‚…–—。、，．！？；：（）［］｛｝「」『』【】〈〉《》،؛؟۔׃־।॥";
+        const OTHER: &str =
+            "¿¡«»‹›“”‘’„‚…–—。、，．！？；：（）［］｛｝「」『』【】〈〉《》،؛؟۔׃־।॥";
         ASCII.chars().chain(OTHER.chars()).collect()
     }
 
@@ -128,7 +131,10 @@ pub mod case_propagation {
         let mut letters = 0;
         let mut first_is_upper = false;
         let mut all_upper = true;
-        for cluster in typed_trigger.graphemes(true).filter(|c| is_letter(c) && is_cased(c)) {
+        for cluster in typed_trigger
+            .graphemes(true)
+            .filter(|c| is_letter(c) && is_cased(c))
+        {
             let upper = is_uppercase(cluster);
             if letters == 0 {
                 first_is_upper = upper;
@@ -154,10 +160,17 @@ pub mod case_propagation {
             CaseStyle::AsIs => text.to_string(),
             CaseStyle::Upper => text.to_uppercase(),
             CaseStyle::Capitalized => {
-                let first = text.grapheme_indices(true).find(|(_, c)| is_letter(c) || is_number(c));
+                let first = text
+                    .grapheme_indices(true)
+                    .find(|(_, c)| is_letter(c) || is_number(c));
                 match first {
                     Some((index, cluster)) if is_letter(cluster) => {
-                        format!("{}{}{}", &text[..index], cluster.to_uppercase(), &text[index + cluster.len()..])
+                        format!(
+                            "{}{}{}",
+                            &text[..index],
+                            cluster.to_uppercase(),
+                            &text[index + cluster.len()..]
+                        )
                     }
                     _ => text.to_string(),
                 }
@@ -222,7 +235,10 @@ pub enum SkipCause {
     /// The nearest group in its ancestry that is turned off.
     GroupOff { group_id: Uuid },
     /// An app rule or exclusion. `group_id` is set at [`RuleLevel::Group`](crate::activity::RuleLevel::Group).
-    Rule { level: crate::activity::RuleLevel, group_id: Option<Uuid> },
+    Rule {
+        level: crate::activity::RuleLevel,
+        group_id: Option<Uuid>,
+    },
 }
 
 /// A trigger that was typed in full but may not fire here. Never holds the text as typed.
@@ -261,7 +277,9 @@ impl TriggerIndex {
     /// Builds the index. Effectively disabled snippets never fire; they are kept only so
     /// [`find_skipped`](Self::find_skipped) can say why. Empty triggers are skipped.
     pub fn new(snippets: &[SnippetRecord], groups: &[GroupRecord], config: MatchingConfig) -> Self {
-        TriggerIndex { data: Arc::new(index::IndexData::new(snippets, groups, config)) }
+        TriggerIndex {
+            data: Arc::new(index::IndexData::new(snippets, groups, config)),
+        }
     }
 
     /// An index with no triggers.
@@ -282,7 +300,12 @@ impl TriggerIndex {
     /// The trigger completed by `last_input`, which must already be applied to `buffer`.
     ///
     /// Backspace and reset never fire. Longest trigger wins, then the most recently updated snippet.
-    pub fn find_match(&self, buffer: &KeyBuffer, last_input: &KeyInput, bundle_id: Option<&str>) -> Option<TriggerMatch> {
+    pub fn find_match(
+        &self,
+        buffer: &KeyBuffer,
+        last_input: &KeyInput,
+        bundle_id: Option<&str>,
+    ) -> Option<TriggerMatch> {
         self.data.find_match(buffer, last_input, bundle_id)
     }
 
@@ -291,7 +314,12 @@ impl TriggerIndex {
     ///
     /// Reports full matches only (the same firing conditions as `find_match`), so a near-miss
     /// or ordinary typing yields `None`.
-    pub fn find_skipped(&self, buffer: &KeyBuffer, last_input: &KeyInput, bundle_id: Option<&str>) -> Option<SkippedMatch> {
+    pub fn find_skipped(
+        &self,
+        buffer: &KeyBuffer,
+        last_input: &KeyInput,
+        bundle_id: Option<&str>,
+    ) -> Option<SkippedMatch> {
         self.data.find_skipped(buffer, last_input, bundle_id)
     }
 }
@@ -315,7 +343,12 @@ impl ExpansionMatcher {
 
     /// A matcher over `index`.
     pub fn with_index(index: TriggerIndex) -> Self {
-        ExpansionMatcher { buffer: KeyBuffer::new(), index, undo: UndoTracker::new(), missed: false }
+        ExpansionMatcher {
+            buffer: KeyBuffer::new(),
+            index,
+            undo: UndoTracker::new(),
+            missed: false,
+        }
     }
 
     /// The rolling key buffer.
@@ -347,7 +380,8 @@ impl ExpansionMatcher {
         if !self.missed {
             return None;
         }
-        self.index.find_skipped(&self.buffer, &KeyInput::Character(String::new()), bundle_id)
+        self.index
+            .find_skipped(&self.buffer, &KeyInput::Character(String::new()), bundle_id)
     }
 
     /// Call after inserting the expansion for `m`; `inserted_count` in grapheme clusters, excluding a re-emitted separator.
