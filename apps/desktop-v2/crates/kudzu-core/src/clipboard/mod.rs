@@ -16,9 +16,12 @@ mod blob;
 mod classify;
 pub mod facts;
 mod history;
+mod link;
 pub mod query;
 mod retention;
 pub mod sections;
+mod time;
+mod whitespace;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};

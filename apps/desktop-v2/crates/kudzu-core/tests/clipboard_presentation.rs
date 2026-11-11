@@ -17,7 +17,7 @@ fn now() -> DateTime<Utc> {
 fn reference_queries_filters_and_ranges() {
     let f = fixture();
     let entries = entries(&f);
-    let index = ClipSearch::new(&entries);
+    let index = ClipSearch::new(&entries, SearchScope::Local);
     for c in f["queries"].as_array().unwrap() {
         let q = ClipQuery::parse(c["query"].as_str().unwrap());
         assert_eq!(json!(q), c["parsed"]);
@@ -69,9 +69,17 @@ fn reference_sections_and_labels() {
     for (e, c) in entries.iter().zip(f["entries"].as_array().unwrap()) {
         assert_eq!(json!(e.id), c["id"]);
         assert_eq!(json!(describe(e)), c["description"]);
-        assert_eq!(spoken_label(e, false, now()), c["spoken"]);
-        assert_eq!(spoken_label(e, true, now()), c["concealed"]);
+        assert_eq!(spoken_label(e, true, now()), c["spoken"]);
+        let mut hidden = e.clone();
+        hidden.secret_override = Some(true);
+        assert_eq!(spoken_label(&hidden, false, now()), c["concealed"]);
+        for v in c["visibility"].as_array().unwrap() {
+            let show = v["showSecrets"].as_bool().unwrap();
+            assert_eq!(json!(concealed(e, show)), v["concealed"]);
+            assert_eq!(spoken_label(e, show, now()), v["spoken"]);
+        }
         assert_eq!(clip_time(e.copied_at, now(), false), c["time"]);
+        assert_eq!(clip_time(e.copied_at, now(), true), c["datedTime"]);
         assert_eq!(exact_time(e.copied_at, now()), c["exact"]);
         for x in c["expiry"].as_array().unwrap() {
             let days = x["days"].as_u64().unwrap() as u32;
@@ -84,11 +92,12 @@ fn reference_sections_and_labels() {
     }
 }
 #[test]
+#[ignore = "wall-clock budget; run explicitly on an idle runner"]
 fn search_5000_p95_under_five_ms() {
     let f = fixture();
     let base = entries(&f);
     let entries: Vec<_> = (0..5000).map(|i| base[i % base.len()].clone()).collect();
-    let index = ClipSearch::new(&entries);
+    let index = ClipSearch::new(&entries, SearchScope::Local);
     let queries = [
         "design Thursday",
         "app:safari",
@@ -193,7 +202,11 @@ fn boundary_rules_and_presentation_policies() {
             "example.com",
             "/café?q=%2F",
         ),
-        ("https://example.com/%zz", "https://example.com/%zz", ""),
+        (
+            "https://example.com/%zz",
+            "https://example.com/%zz",
+            "https://example.com/%zz",
+        ),
     ] {
         e.text = Some(url.into());
         let d = describe(&e);
@@ -214,4 +227,124 @@ fn link_descriptions_normalize_url_dot_segments() {
         e.text = Some(url.into());
         assert_eq!(describe(&e).subtitle, subtitle);
     }
+}
+
+#[test]
+fn reference_link_and_previous_year_cases() {
+    let f = fixture();
+    let mut e = entries(&f).remove(1);
+    for c in f["links"].as_array().unwrap() {
+        let url = c["url"].as_str().unwrap();
+        e.text = Some(url.into());
+        let mut expected = c["description"].clone();
+        // Explicitly allow only the two accepted IDNA title deviations.
+        match url {
+            "https://例え.テスト/道" => expected["title"] = json!("例え.テスト"),
+            "https://münich.example/café" => expected["title"] = json!("münich.example"),
+            _ => {}
+        }
+        assert_eq!(json!(describe(&e)), expected, "{url:?}");
+    }
+    for c in f["days"].as_array().unwrap() {
+        assert_eq!(
+            day_label(c["iso"].as_str().unwrap().parse().unwrap(), &now()),
+            c["label"]
+        );
+    }
+}
+#[test]
+fn search_output_builds_rows_without_cloning_entries() {
+    let f = fixture();
+    let entries = entries(&f);
+    let index = ClipSearch::new(&entries, SearchScope::Local);
+    for query in ["", "app:safari", "design Thursday"] {
+        let hits = index.search(ClipFilter::All, &ClipQuery::parse(query));
+        let rows = build_rows(hits.clone(), RowOptions::picker(query), now());
+        assert_eq!(rows.order, hits);
+        for (i, e) in rows.order.iter().enumerate() {
+            assert!(rows.rows.iter().any(|row| matches!(row, ClipRow::Entry { entry, index, .. } if std::ptr::eq(*entry,*e) && *index == i)));
+        }
+    }
+}
+#[test]
+fn agent_scope_redacts_before_matching_and_honors_overrides() {
+    let mut e = entries(&fixture()).remove(0);
+    e.text = Some("DB_PASSWORD=correct-horse\nhello safe".into());
+    e.text_len = e.text.as_ref().unwrap().chars().count();
+    e.secret = Some(kudzu_core::secrets::SecretKind::Password);
+    e.files = vec!["/Users/example/private/document.txt".into()];
+    let query = |entries: &[ClipEntry], scope, q: &str| {
+        ClipSearch::new(entries, scope)
+            .search(ClipFilter::All, &ClipQuery::parse(q))
+            .len()
+    };
+    assert_eq!(query(&[e.clone()], SearchScope::Local, "correct-horse"), 1);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "correct-horse"), 0);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "safe"), 1);
+    assert_eq!(
+        query(&[e.clone()], SearchScope::Agent, "/Users/example/private"),
+        1
+    );
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "slack"), 1);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, ""), 1);
+    assert!(concealed(&e, false));
+    assert!(!concealed(&e, true));
+    assert!(!spoken_label(&e, false, now()).contains("correct-horse"));
+    e.secret_override = Some(true);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "safe"), 0);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "slack"), 1);
+    e.secret_override = Some(false);
+    assert!(!concealed(&e, false));
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "correct-horse"), 1);
+    e.secret_override = None;
+    e.secret = None;
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "correct-horse"), 0);
+    e.text = Some("hello incomplete-secret-fragment".into());
+    e.text_len = 3000;
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "fragment"), 0);
+    assert_eq!(query(&[e.clone()], SearchScope::Agent, "hello"), 1);
+    e.secret_override = Some(true);
+    assert!(concealed(&e, false));
+    assert!(!concealed(&e, true));
+}
+fn large_entries() -> Vec<ClipEntry> {
+    let base = entries(&fixture()).remove(0);
+    (0..5000)
+        .map(|_| {
+            let mut e = base.clone();
+            e.text = Some(format!("{} needle", "a".repeat(2041)));
+            e.text_len = 2048;
+            e
+        })
+        .collect()
+}
+#[test]
+fn large_snapshot_search_correctness() {
+    let entries = large_entries();
+    let index = ClipSearch::new(&entries, SearchScope::Local);
+    assert_eq!(
+        index
+            .search(ClipFilter::All, &ClipQuery::parse("needle"))
+            .len(),
+        5000
+    );
+    assert!(index
+        .search(ClipFilter::All, &ClipQuery::parse("missing"))
+        .is_empty());
+}
+#[test]
+#[ignore = "construction measurement; run explicitly on an idle runner"]
+fn construct_5000_two_kb_entries() {
+    let entries = large_entries();
+    let mut times = Vec::new();
+    for _ in 0..20 {
+        let start = std::time::Instant::now();
+        std::hint::black_box(ClipSearch::new(&entries, SearchScope::Local));
+        times.push(start.elapsed());
+    }
+    times.sort();
+    eprintln!(
+        "5000 x 2048-byte excerpts: construction p50={:?}, p95={:?}",
+        times[10], times[19]
+    );
 }

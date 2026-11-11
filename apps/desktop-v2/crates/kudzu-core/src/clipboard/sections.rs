@@ -1,7 +1,8 @@
 //! Selectable rows and day sections. Callers choose pinned/section policy per surface.
 //! Dates use the caller's timezone; labels use the reference's English presentation.
-use super::ClipEntry;
-use chrono::{DateTime, Datelike, TimeZone, Utc};
+pub use super::time::day_label;
+use super::{whitespace::is_js_whitespace, ClipEntry};
+use chrono::{DateTime, Datelike, TimeZone};
 use serde::Serialize;
 #[derive(Debug, Clone, Copy)]
 pub struct RowOptions {
@@ -11,9 +12,7 @@ pub struct RowOptions {
 impl RowOptions {
     pub fn history(query: &str, filter: super::query::ClipFilter) -> Self {
         Self {
-            pinned_first: query
-                .trim_matches(super::query::is_js_whitespace)
-                .is_empty()
+            pinned_first: query.trim_matches(is_js_whitespace).is_empty()
                 && filter != super::query::ClipFilter::Pinned,
             sections: true,
         }
@@ -21,9 +20,7 @@ impl RowOptions {
     pub fn picker(query: &str) -> Self {
         Self {
             pinned_first: false,
-            sections: query
-                .trim_matches(super::query::is_js_whitespace)
-                .is_empty(),
+            sections: query.trim_matches(is_js_whitespace).is_empty(),
         }
     }
 }
@@ -47,11 +44,12 @@ pub struct ClipRows<'a> {
     pub rows: Vec<ClipRow<'a>>,
     pub order: Vec<&'a ClipEntry>,
 }
-pub fn build_rows<T: TimeZone>(
-    entries: &[ClipEntry],
+pub fn build_rows<'a, T: TimeZone>(
+    entries: impl IntoIterator<Item = &'a ClipEntry>,
     opts: RowOptions,
     now: DateTime<T>,
-) -> ClipRows<'_> {
+) -> ClipRows<'a> {
+    let entries: Vec<_> = entries.into_iter().collect();
     let mut result = ClipRows {
         rows: Vec::new(),
         order: Vec::new(),
@@ -59,6 +57,7 @@ pub fn build_rows<T: TimeZone>(
     let pinned: Vec<_> = entries
         .iter()
         .filter(|e| opts.pinned_first && e.pinned)
+        .copied()
         .collect();
     if !pinned.is_empty() && opts.sections {
         result.rows.push(ClipRow::Header {
@@ -72,7 +71,10 @@ pub fn build_rows<T: TimeZone>(
     }
     let mut current = None;
     let mut header = None;
-    for e in entries.iter().filter(|e| !opts.pinned_first || !e.pinned) {
+    for e in entries
+        .into_iter()
+        .filter(|e| !opts.pinned_first || !e.pinned)
+    {
         if opts.sections {
             let d = e.copied_at.with_timezone(&now.timezone()).date_naive();
             if current != Some(d) {
@@ -100,43 +102,4 @@ fn push<'a>(result: &mut ClipRows<'a>, entry: &'a ClipEntry, dated: bool) {
         dated,
     });
     result.order.push(entry);
-}
-pub fn day_label<T: TimeZone>(at: DateTime<Utc>, now: &DateTime<T>) -> String {
-    let d = at.with_timezone(&now.timezone());
-    let today = now.date_naive();
-    if d.date_naive() == today {
-        return "Today".into();
-    }
-    if Some(d.date_naive()) == today.pred_opt() {
-        return "Yesterday".into();
-    }
-    let midnight = now
-        .timezone()
-        .from_local_datetime(&today.and_hms_opt(0, 0, 0).unwrap())
-        .earliest();
-    if midnight.is_some_and(|m| {
-        (m.signed_duration_since(at).num_milliseconds() as f64) / 86_400_000.0 < 6.0
-    }) {
-        return [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-        ][d.weekday().num_days_from_monday() as usize]
-            .into();
-    }
-    let date = format!(
-        "{}, {} {}",
-        d.weekday(),
-        super::facts::month(d.month()),
-        d.day()
-    );
-    if d.year() != now.year() {
-        format!("{date}, {}", d.year())
-    } else {
-        date
-    }
 }

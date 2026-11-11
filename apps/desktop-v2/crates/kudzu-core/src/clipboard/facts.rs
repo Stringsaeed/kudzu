@@ -1,7 +1,8 @@
 //! Pure clipboard labels. Timezone and clock are explicit; English matches the en-US reference.
-use super::{query::is_js_whitespace, sections::day_label, ClipEntry, ClipKind};
+pub use super::time::{clip_time, exact_time, expires_in};
+use super::{link::link_parts, whitespace::is_js_whitespace, ClipEntry, ClipKind};
 use crate::secrets::SecretKind;
-use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc};
+use chrono::{DateTime, TimeZone};
 use serde::Serialize;
 
 pub fn kind_label(kind: ClipKind) -> &'static str {
@@ -59,7 +60,9 @@ pub fn format_bytes(n: u64) -> String {
         u += 1;
     }
     if v < 10.0 {
-        format!("{v:.1} {}", units[u])
+        // JS toFixed rounds positive ties up; Rust's precision formatter uses ties-to-even.
+        let tenths = (v * 10.0).round() as u64;
+        format!("{}.{:01} {}", tenths / 10, tenths % 10, units[u])
     } else {
         format!("{} {}", v.round(), units[u])
     }
@@ -188,178 +191,6 @@ pub fn describe(e: &ClipEntry) -> Description {
     };
     Description { title, subtitle }
 }
-// URL display only, never used for opening/validation. Preserve decodeURI's reserved escapes.
-fn decode_uri(s: &str) -> Option<String> {
-    let b = s.as_bytes();
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < b.len() {
-        if b[i] == b'%' {
-            let pair = s.get(i + 1..i + 3)?;
-            let n = u8::from_str_radix(pair, 16).ok()?;
-            if b";/?:@&=+$,#".contains(&n) {
-                out.extend_from_slice(&b[i..i + 3]);
-            } else {
-                out.push(n);
-            }
-            i += 3;
-        } else {
-            out.push(b[i]);
-            i += 1;
-        }
-    }
-    String::from_utf8(out).ok()
-}
-fn link_parts(text: &str) -> (String, String) {
-    let url = if text
-        .get(..4)
-        .is_some_and(|s| s.eq_ignore_ascii_case("www."))
-    {
-        format!("https://{text}")
-    } else {
-        text.into()
-    };
-    let fallback = || (text.into(), String::new());
-    let Some((scheme, body)) = url.split_once(':') else {
-        return fallback();
-    };
-    if scheme.eq_ignore_ascii_case("mailto") {
-        return (
-            body.split(['?', '#']).next().unwrap_or("").into(),
-            "Email address".into(),
-        );
-    }
-    let Some(body) = body.strip_prefix("//") else {
-        return fallback();
-    };
-    let end = body.find(['/', '?', '#']).unwrap_or(body.len());
-    let host = body[..end].rsplit('@').next().unwrap_or("").to_lowercase();
-    if host.is_empty() || host.contains(char::is_whitespace) {
-        return fallback();
-    }
-    let mut host = host.strip_prefix("www.").unwrap_or(&host).to_string();
-    let port = match scheme.to_ascii_lowercase().as_str() {
-        "https" => ":443",
-        "http" => ":80",
-        "ftp" => ":21",
-        _ => "",
-    };
-    if !port.is_empty() && host.ends_with(port) {
-        host.truncate(host.len() - port.len());
-    }
-    let rest = body[end..].split('#').next().unwrap_or("");
-    let rest = if rest.starts_with('?') {
-        format!("/{rest}")
-    } else {
-        rest.into()
-    };
-    let Some(mut rest) = decode_uri(&rest) else {
-        return fallback();
-    };
-    let (path, query) = rest.split_once('?').unwrap_or((&rest, ""));
-    if let Some(path) = path.strip_prefix('/') {
-        let mut segments = Vec::new();
-        let mut parts = path.split('/').peekable();
-        while let Some(part) = parts.next() {
-            match part {
-                "." => {}
-                ".." => {
-                    segments.pop();
-                }
-                _ => {
-                    segments.push(part);
-                    continue;
-                }
-            }
-            if parts.peek().is_none() {
-                segments.push("");
-            }
-        }
-        let normalized = format!("/{}", segments.join("/"));
-        rest = if rest.contains('?') {
-            format!("{normalized}?{query}")
-        } else {
-            normalized
-        };
-    }
-    if rest.ends_with('/') {
-        rest.pop();
-    }
-    (host, if rest.is_empty() { text.into() } else { rest })
-}
-pub(super) fn month(m: u32) -> &'static str {
-    [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-    ][(m - 1) as usize]
-}
-fn clock<T: TimeZone>(d: &DateTime<T>, seconds: bool) -> String {
-    let h = d.hour() % 12;
-    let h = if h == 0 { 12 } else { h };
-    let am = if d.hour() < 12 { "AM" } else { "PM" };
-    if seconds {
-        format!("{h}:{:02}:{:02} {am}", d.minute(), d.second())
-    } else {
-        format!("{h}:{:02} {am}", d.minute())
-    }
-}
-pub fn clip_time<T: TimeZone>(at: DateTime<Utc>, now: DateTime<T>, dated: bool) -> String {
-    let diff = (now
-        .clone()
-        .signed_duration_since(at)
-        .num_milliseconds()
-        .max(0) as f64)
-        / 1000.0;
-    if diff < 45.0 {
-        return "Just now".into();
-    }
-    if diff < 3600.0 {
-        return format!("{}m ago", (diff / 60.0).round());
-    }
-    let d = at.with_timezone(&now.timezone());
-    let time = clock(&d, false);
-    if !dated {
-        return time;
-    }
-    let day = day_label(at, &now);
-    match day.as_str() {
-        "Today" => time,
-        "Yesterday" => day,
-        _ if diff < 6.0 * 86400.0 => d.weekday().to_string(),
-        _ => format!("{} {}", month(d.month()), d.day()),
-    }
-}
-pub fn exact_time<T: TimeZone>(at: DateTime<Utc>, now: DateTime<T>) -> String {
-    let day = day_label(at, &now);
-    let d = at.with_timezone(&now.timezone());
-    if day == "Today" || day == "Yesterday" {
-        format!("{day} at {}", clock(&d, true))
-    } else {
-        format!(
-            "{} {}, {}, {}",
-            month(d.month()),
-            d.day(),
-            d.year(),
-            clock(&d, false)
-        )
-    }
-}
-pub fn expires_in<T: TimeZone>(e: &ClipEntry, days: u32, now: DateTime<T>) -> String {
-    if e.pinned {
-        return "Never (pinned)".into();
-    }
-    if days == 0 {
-        return "When history is full".into();
-    }
-    let hours = (e.copied_at.signed_duration_since(now).num_milliseconds() as f64) / 3_600_000.0
-        + days as f64 * 24.0;
-    if hours <= 1.0 {
-        "Within the hour".into()
-    } else if hours < 36.0 {
-        format!("In {} hours", hours.round())
-    } else {
-        format!("In {} days", (hours / 24.0).round())
-    }
-}
 pub fn retention_label(days: u32) -> String {
     if days == 0 {
         return "until you clear it".into();
@@ -372,8 +203,12 @@ pub fn retention_label(days: u32) -> String {
     }
     unreachable!()
 }
-pub fn spoken_label<T: TimeZone>(e: &ClipEntry, concealed: bool, now: DateTime<T>) -> String {
-    let mut parts = if concealed {
+/// The shared visibility rule for history, previews and the picker.
+pub fn concealed(entry: &ClipEntry, show_secrets: bool) -> bool {
+    entry.is_secret() && !show_secrets
+}
+pub fn spoken_label<T: TimeZone>(e: &ClipEntry, show_secrets: bool, now: DateTime<T>) -> String {
+    let mut parts = if concealed(e, show_secrets) {
         vec!["Hidden secret".into(), secret_reason(e).to_lowercase()]
     } else {
         vec![
