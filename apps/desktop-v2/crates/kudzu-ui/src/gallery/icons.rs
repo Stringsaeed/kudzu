@@ -40,10 +40,7 @@ mod tests {
     fn scene_draws_every_static_at_16pt() {
         assert_eq!(SIZE_PT, 16.0);
         let _tree = scene();
-        assert_eq!(
-            icons::ALL.len(),
-            88,
-            "gallery must keep one cell per lucide-react import"
-        );
+        // The import-list test in `theme::icons` guards the set; the gallery shows all of it.
+        assert!(!icons::ALL.is_empty());
     }
 }

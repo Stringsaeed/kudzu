@@ -393,6 +393,7 @@ pub static LIST_X: Icon = lucide!(
     r#"<path d="M16 5H3"/><path d="M11 12H3"/><path d="M16 19H3"/><path d="m15.5 9.5 5 5"/><path d="m20.5 9.5-5 5"/>"#
 );
 
+/// The spinner (sonner's and the busy buttons'); rotate it at the call site.
 pub static LOADER_2: Icon = lucide!("loader-2", r#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#);
 
 pub static LOCK: Icon = lucide!(
