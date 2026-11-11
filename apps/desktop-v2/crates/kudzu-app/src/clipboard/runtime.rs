@@ -11,6 +11,7 @@ use std::{
 enum Wake {
     Settings,
     Prune,
+    Collect,
     Stop,
 }
 pub(super) struct Runtime {
@@ -18,6 +19,7 @@ pub(super) struct Runtime {
     thread: JoinHandle<()>,
     _timer: Timer,
     _settings: Subscription,
+    _saved: Subscription,
 }
 impl ClipboardService {
     /// Start capture after construction; stop this producer before shutting down the shared writer.
@@ -39,17 +41,25 @@ impl ClipboardService {
         let subscription = self.settings.subscribe(move || {
             let _ = settings_send.send(Wake::Settings);
         });
+        let saved_send = send.clone();
+        let saved = self.saved().subscribe(move || {
+            let _ = saved_send.send(Wake::Collect);
+        });
         let service = self.clone();
         let thread = std::thread::Builder::new()
             .name("kudzu-clipboard".into())
             .spawn(move || loop {
                 match receive.recv_timeout(Duration::from_millis(300)) {
                     Ok(Wake::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    Ok(Wake::Collect) => {
+                        let _ = service.collect();
+                    }
                     Ok(Wake::Prune) => {
                         let _ = service.prune();
                     }
                     Ok(Wake::Settings) | Err(mpsc::RecvTimeoutError::Timeout) => {
                         let _ = service.poll();
+                        let _ = service.collect();
                     }
                 }
             })
@@ -59,6 +69,7 @@ impl ClipboardService {
             thread,
             _timer: timer,
             _settings: subscription,
+            _saved: saved,
         });
         Ok(())
     }

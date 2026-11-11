@@ -1,5 +1,7 @@
 //! Local clipboard capture and history. Clipboard content never enters logs or sync.
 mod runtime;
+mod search;
+pub use search::AgentClip;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -12,11 +14,7 @@ use crate::{
     watch::{Publisher, Watch},
 };
 use kudzu_core::{
-    clipboard::{
-        self, classify,
-        query::{ClipFilter, ClipQuery, ClipSearch, SearchScope},
-        ClipEntry, ClipKind, ClipSource, History, ImageSize, PasteItem,
-    },
+    clipboard::{self, classify, ClipEntry, ClipKind, ClipSource, History, ImageSize, PasteItem},
     system::AppInfo,
 };
 use std::{
@@ -79,6 +77,13 @@ struct State {
     publisher: Publisher<History>,
     last_change: i64,
     retention: u32,
+    cleanup: Vec<Cleanup>,
+}
+#[derive(Clone)]
+struct Cleanup {
+    revision: Revision,
+    entries: Vec<ClipEntry>,
+    trash: bool,
 }
 
 /// Call potentially blocking operations on a worker. `poll` is also exposed for deterministic fakes.
@@ -93,6 +98,10 @@ pub struct ClipboardService {
     apps: Arc<dyn AppCatalog>,
     clock: Arc<dyn Clock>,
     runtime: Mutex<Option<runtime::Runtime>>,
+    search: Mutex<Option<search::SearchCache>>,
+    #[cfg(test)]
+    cache_builds: std::sync::atomic::AtomicUsize,
+    storage_error: Publisher<Option<IoFailure>>,
 }
 impl ClipboardService {
     #[allow(clippy::too_many_arguments)]
@@ -114,17 +123,30 @@ impl ClipboardService {
             Revision(0)
         };
         let dirty = loaded.value.rescan_secrets();
-        store.clean(&loaded.value);
+        store.recover_jobs(&loaded.value)?;
+        store.clean(&loaded.value)?;
         let retention = settings.get().clipboard_retention_days;
         let expired = loaded.value.prune(clock.now().into(), retention);
-        store.purge(&expired);
-        let persisted = writer.register(
+        let initial_cleanup = if expired.is_empty() {
+            vec![]
+        } else {
+            vec![Cleanup {
+                revision: Revision(1),
+                entries: expired,
+                trash: false,
+            }]
+        };
+        if !initial_cleanup.is_empty() {
+            store.write_jobs(&initial_cleanup)?;
+        }
+        let persisted = writer.register_with_min_interval(
             file,
-            if dirty || !expired.is_empty() {
+            if dirty || !initial_cleanup.is_empty() {
                 Revision(0)
             } else {
                 durable
             },
+            Duration::from_millis(900),
         )?;
         let value = Arc::new(loaded.value);
         persisted.submit(Revision(1), value.clone())?;
@@ -134,6 +156,7 @@ impl ClipboardService {
                 publisher: Publisher::with_revision(value, Revision(1)),
                 last_change,
                 retention,
+                cleanup: initial_cleanup,
             }),
             store,
             persisted,
@@ -144,8 +167,13 @@ impl ClipboardService {
             apps,
             clock,
             runtime: Mutex::new(None),
+            search: Mutex::new(None),
+            #[cfg(test)]
+            cache_builds: std::sync::atomic::AtomicUsize::new(0),
+            storage_error: Publisher::new(None),
         })
     }
+    /// Local-only: snapshots contain unredacted clipboard data.
     pub fn watch(&self) -> Watch<History> {
         self.state
             .lock()
@@ -175,6 +203,87 @@ impl ClipboardService {
         };
         notification.notify();
         Ok(value)
+    }
+    /// Errors from deferred file moves or purges; the files remain recoverable and cleanup retries.
+    pub fn storage_error(&self) -> Watch<Option<IoFailure>> {
+        self.storage_error.watch()
+    }
+
+    fn remove_with<T>(
+        &self,
+        trash: bool,
+        edit: impl FnOnce(&mut History) -> (T, Vec<ClipEntry>),
+    ) -> Result<T, ClipboardError> {
+        let (result, notice) = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let (revision, current) = state.publisher.watch().snapshot();
+            let mut next = (*current).clone();
+            let (result, entries) = edit(&mut next);
+            if entries.is_empty() {
+                return Ok(result);
+            }
+            let revision = Revision(revision.0 + 1);
+            let next = Arc::new(next);
+            let mut jobs = state.cleanup.clone();
+            jobs.push(Cleanup {
+                revision,
+                entries,
+                trash,
+            });
+            self.store.write_jobs(&jobs)?;
+            self.persisted.submit(revision, next.clone())?;
+            state.cleanup = jobs;
+            (result, state.publisher.replace(next).notification)
+        };
+        notice.notify();
+        Ok(result)
+    }
+
+    /// Perform only cleanup whose removal is durable. Call on a worker, never on the UI thread.
+    pub fn collect(&self) -> Result<(), ClipboardError> {
+        let result = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let durable = self.persisted.saved().get().durable;
+            let current = state.publisher.watch().get();
+            let mut result = Ok(());
+            let mut jobs = state.cleanup.clone();
+            jobs.retain_mut(|job| {
+                if job.revision > durable {
+                    return true;
+                }
+                job.entries.retain(|entry| current.get(entry.id).is_none());
+                if job.entries.is_empty() {
+                    return false;
+                }
+                let attempted = if job.trash {
+                    self.store.trash(&job.entries, false)
+                } else {
+                    self.store.purge(&job.entries)
+                };
+                if let Err(error) = attempted {
+                    result = Err(error);
+                    true
+                } else {
+                    false
+                }
+            });
+            if result.is_ok() && jobs.len() != state.cleanup.len() {
+                result = self.store.write_jobs(&jobs);
+                if result.is_ok() {
+                    state.cleanup = jobs;
+                }
+            }
+            result
+        };
+        let failure = match result {
+            Err(ClipboardError::Storage(error)) => Some(error),
+            _ => None,
+        };
+        self.storage_error
+            .replace(Arc::new(failure))
+            .notification
+            .notify();
+        result
     }
     /// Checks the current count once; callers schedule this every 300 ms.
     pub fn poll(&self) -> Result<(), ClipboardError> {
@@ -250,29 +359,19 @@ impl ClipboardService {
             if let Some(t) = &thumb {
                 self.store.write(&self.store.thumb(entry.id), &t.png)?;
             }
-            let expired = history.prune(self.clock.now().into(), settings.clipboard_retention_days);
-            self.store.purge(&expired);
             Ok(())
-        })
+        })?;
+        self.prune()
     }
     pub fn prune(&self) -> Result<(), ClipboardError> {
-        self.change(|h| {
-            let removed = h.prune(
-                self.clock.now().into(),
-                self.settings.get().clipboard_retention_days,
-            );
-            self.store.purge(&removed);
-            Ok(())
+        let now = self.clock.now().into();
+        let days = self.settings.get().clipboard_retention_days;
+        self.remove_with(false, |h| {
+            let removed = h.prune(now, days);
+            ((), removed)
         })
     }
-    pub fn query(&self, filter: ClipFilter, query: &ClipQuery) -> Vec<ClipEntry> {
-        let h = self.watch().get();
-        ClipSearch::new(&h.entries, SearchScope::Local)
-            .search(filter, query)
-            .into_iter()
-            .cloned()
-            .collect()
-    }
+    /// Local-only: the full text may contain secrets.
     pub fn text(&self, id: Uuid) -> Result<Option<String>, ClipboardError> {
         let h = self.watch().get();
         let e = h.get(id).ok_or(ClipboardError::Missing)?;
@@ -330,24 +429,22 @@ impl ClipboardService {
         })
     }
     pub fn delete(&self, ids: &[Uuid]) -> Result<DeletedClips, ClipboardError> {
-        self.change(|h| {
+        self.remove_with(true, |h| {
             let entries = h.remove(ids);
-            self.store.trash(&entries, false);
-            Ok(DeletedClips(entries))
+            (DeletedClips(entries.clone()), entries)
         })
     }
     pub fn restore(&self, deleted: DeletedClips) -> Result<(), ClipboardError> {
         self.change(|h| {
             let restored = h.restore(deleted.0);
-            self.store.trash(&restored, true);
+            self.store.trash(&restored, true)?;
             Ok(())
         })
     }
     pub fn clear(&self, include_pinned: bool) -> Result<usize, ClipboardError> {
-        self.change(|h| {
-            let removed = h.clear(include_pinned);
-            self.store.purge(&removed);
-            Ok(removed.len())
+        self.remove_with(false, |h| {
+            let entries = h.clear(include_pinned);
+            (entries.len(), entries)
         })
     }
     pub fn usage(&self) -> u64 {

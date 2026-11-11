@@ -16,20 +16,39 @@ struct Pending<T> {
     value: Option<(Revision, Arc<T>)>,
     due: Duration,
     first_pending_at: Option<Duration>,
+    last_attempt: Option<Duration>,
 }
 struct Slot<T> {
     pending: Mutex<Pending<T>>,
     target: Box<dyn WriteTarget<T>>,
+    min_interval: Duration,
     saved: Publisher<SaveState>,
 }
 trait PendingWrite: Send + Sync {
     fn due(&self) -> Option<Duration>;
     fn attempt(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError>;
+    fn attempt_on_shutdown(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError>;
 }
 impl<T: Send + Sync> PendingWrite for Slot<T> {
     fn due(&self) -> Option<Duration> {
         let pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
         pending.value.as_ref().map(|_| pending.due)
+    }
+    fn attempt_on_shutdown(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError> {
+        let delay = {
+            let pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+            if pending.value.is_none() {
+                return Ok(());
+            }
+            pending.last_attempt.map_or(Duration::ZERO, |last| {
+                last.saturating_add(self.min_interval)
+                    .saturating_sub(clock.monotonic())
+            })
+        };
+        if !delay.is_zero() {
+            std::thread::sleep(delay);
+        }
+        self.attempt(clock, retry)
     }
     fn attempt(&self, clock: &dyn Clock, retry: Duration) -> Result<(), PersistError> {
         let Some((revision, value)) = ({
@@ -44,6 +63,8 @@ impl<T: Send + Sync> PendingWrite for Slot<T> {
         let now = clock.monotonic();
         let notification = {
             let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+            pending.last_attempt = Some(now);
+            pending.due = pending.due.max(now.saturating_add(self.min_interval));
             let current = self.saved.watch().get();
             let state = match result {
                 Ok(()) => {
@@ -58,7 +79,7 @@ impl<T: Send + Sync> PendingWrite for Slot<T> {
                 }
                 Err(error) => {
                     if pending.latest == revision {
-                        pending.due = now.saturating_add(retry);
+                        pending.due = now.saturating_add(retry.max(self.min_interval));
                         pending.first_pending_at = Some(now);
                     }
                     SaveState {
@@ -113,7 +134,10 @@ impl<T> Persisted<T> {
             pending.value = Some((revision, value));
             pending.due = now
                 .saturating_add(writer.debounce)
-                .min(first.saturating_add(Duration::from_secs(5)));
+                .min(first.saturating_add(Duration::from_secs(5)))
+                .max(pending.last_attempt.map_or(Duration::ZERO, |last| {
+                    last.saturating_add(self.slot.min_interval)
+                }));
             writer.changed.notify_one();
         }
         Ok(())
@@ -186,6 +210,15 @@ impl Writer {
         target: impl WriteTarget<T> + 'static,
         durable: Revision,
     ) -> Result<Persisted<T>, PersistError> {
+        self.register_with_min_interval(target, durable, Duration::ZERO)
+    }
+    /// Enforce a minimum interval between attempts for one registered file.
+    pub fn register_with_min_interval<T: Send + Sync + 'static>(
+        &self,
+        target: impl WriteTarget<T> + 'static,
+        durable: Revision,
+        min_interval: Duration,
+    ) -> Result<Persisted<T>, PersistError> {
         let mut queue = self
             .shared
             .queue
@@ -200,8 +233,10 @@ impl Writer {
                 value: None,
                 due: Duration::ZERO,
                 first_pending_at: None,
+                last_attempt: None,
             }),
             target: Box::new(target),
+            min_interval,
             saved: Publisher::new(SaveState {
                 durable,
                 error: None,
@@ -213,7 +248,7 @@ impl Writer {
             writer: Arc::downgrade(&self.shared),
         })
     }
-    /// Stop admissions, bypass debounce, attempt every pending file, and wait up to five seconds.
+    /// Stop admissions, bypass debounce, respect per-file intervals, and wait up to five seconds.
     /// S40 must stop producers first and handle an error before treating shutdown as durable.
     /// No target may wait on the UI. On Timeout the worker remains alive and retains its data;
     /// S40 must report the failure, not claim a durable quit. A process exit can lose that data.
@@ -258,7 +293,7 @@ fn writer_loop(shared: Arc<Shared>, retry: Duration) -> Result<(), PersistError>
             drop(queue);
             let mut result = Ok(());
             for slot in slots {
-                if let Err(error) = slot.attempt(shared.clock.as_ref(), retry) {
+                if let Err(error) = slot.attempt_on_shutdown(shared.clock.as_ref(), retry) {
                     result = Err(error);
                 }
             }

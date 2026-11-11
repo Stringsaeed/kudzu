@@ -6,6 +6,7 @@ use super::{
     ClipEntry, ClipKind, TEXT_EXCERPT_LIMIT,
 };
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -117,12 +118,15 @@ fn agent_haystack(e: &ClipEntry) -> String {
 }
 
 pub struct ClipSearch<'a> {
-    entries: &'a [ClipEntry],
+    entries: Cow<'a, [ClipEntry]>,
     haystacks: Vec<String>,
     apps: Vec<String>,
 }
 impl<'a> ClipSearch<'a> {
     pub fn new(entries: &'a [ClipEntry], scope: SearchScope) -> Self {
+        Self::build(Cow::Borrowed(entries), scope)
+    }
+    fn build(entries: Cow<'a, [ClipEntry]>, scope: SearchScope) -> Self {
         let haystacks = entries
             .iter()
             .map(|e| {
@@ -159,7 +163,7 @@ impl<'a> ClipSearch<'a> {
         }
     }
     /// Matches only the text allowed by the scope chosen at construction.
-    pub fn search(&self, filter: ClipFilter, query: &ClipQuery) -> Vec<&'a ClipEntry> {
+    pub fn search(&self, filter: ClipFilter, query: &ClipQuery) -> Vec<&ClipEntry> {
         self.entries
             .iter()
             .enumerate()
@@ -173,6 +177,12 @@ impl<'a> ClipSearch<'a> {
             })
             .map(|(_, e)| e)
             .collect()
+    }
+}
+impl ClipSearch<'static> {
+    /// Own an immutable snapshot so callers can retain its cached haystacks across queries.
+    pub fn owned(entries: Vec<ClipEntry>, scope: SearchScope) -> Self {
+        Self::build(Cow::Owned(entries), scope)
     }
 }
 /// UTF-16 [start,end) offsets in the lowercased string, exactly as the TS reference.
