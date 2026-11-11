@@ -152,6 +152,22 @@ fn raw_paths_and_computed_paths_cannot_bypass_check() {
 }
 
 #[test]
+fn raw_identifiers_are_not_strings_and_do_not_bypass_path_checks() {
+    let f = Fixture::new();
+    let file = f.0.join("src/lib.rs");
+    assert!(source_paths(&f.0, &file, "event.r#type();").is_ok());
+    for source in [
+        "r#include_str!(\"/etc/passwd\")",
+        "r#include_bytes!(r#\"/etc/passwd\"#)",
+        "#[r#path = \"/etc/passwd\"] mod external;",
+    ] {
+        assert!(source_paths(&f.0, &file, source)
+            .unwrap_err()
+            .contains("escapes workspace"));
+    }
+}
+
+#[test]
 fn unused_manifest_path_dependency_fails() {
     let f = Fixture::new();
     let external = Fixture::new();

@@ -51,7 +51,11 @@ core-foundation-sys = "0.8"
 objc2 = "0.6"
 objc2-foundation = "0.3"
 objc2-app-kit = "0.3"
-objc2-cloud-kit = "0.3"
+objc2-cloud-kit = { version = "0.3", default-features = false, features = [
+    "std", "block2", "CKContainer", "CKDatabase", "CKError", "CKRecord", "CKRecordID",
+    "CKRecordZone", "CKRecordZoneID", "CKSyncEngine", "CKSyncEngineConfiguration",
+    "CKSyncEngineEvent", "CKSyncEngineRecordZoneChangeBatch", "CKSyncEngineState",
+] }
 block2 = "0.6"
 plist = "1"
 

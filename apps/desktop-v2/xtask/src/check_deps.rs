@@ -333,6 +333,15 @@ fn tokenize(source: &str, toml: bool) -> Result<Vec<String>> {
             i += 1;
             continue;
         }
+        // Raw identifiers (for example a binding's r#type) are not raw strings.
+        // Normalize the prefix so r#include_str! still goes through the path guard.
+        if !toml
+            && b[i..].starts_with(b"r#")
+            && b.get(i + 2)
+                .is_some_and(|c| c.is_ascii_alphabetic() || *c == b'_')
+        {
+            i += 2;
+        }
         if b[i..].starts_with(b"//") {
             while i < b.len() && b[i] != b'\n' {
                 i += 1;

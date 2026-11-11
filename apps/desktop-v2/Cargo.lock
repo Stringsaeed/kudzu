@@ -1995,12 +1995,14 @@ version = "0.1.0"
 dependencies = [
  "auto-launch",
  "blake3",
+ "block2 0.6.2",
  "core-foundation 0.10.1",
  "kudzu-app",
  "kudzu-core",
  "kudzu-engine",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
+ "objc2-cloud-kit 0.3.2",
  "objc2-foundation 0.3.2",
  "plist",
  "semver",
@@ -2573,6 +2575,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73ad74d880bb43877038da939b7427bba67e9dd42004a18b809ba7d87cee241c"
 dependencies = [
  "bitflags 2.13.2",
+ "block2 0.6.2",
  "objc2 0.6.5",
  "objc2-foundation 0.3.2",
 ]
