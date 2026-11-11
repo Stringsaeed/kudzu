@@ -31,10 +31,11 @@ def native_icon():
 def inventory(icon_sources):
     sources = icon_sources | {
         "design/brand.json", "design/wordmark/kudzu-wordmark-echo-small.svg",
+        "design/wordmark/kudzu-wordmark-echo-small.png",
         "design/app-icon/layers/02-echo-k-printed.svg",
         "scripts/brand-assets.py", "scripts/design-assets.swift", "scripts/update-design-assets.sh",
     }
-    outputs = {"assets/icons/icon.icns"} | {
+    outputs = {"assets/icons/icon.icns", "design/icon.png", "design/dmg/background.png"} | {
         f"assets/tray/{name}{scale}.png"
         for name in ("normal", "paused", "permissions", "secure-input")
         for scale in ("", "@2x", "@3x")

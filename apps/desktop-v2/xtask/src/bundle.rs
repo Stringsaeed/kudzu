@@ -61,11 +61,9 @@ pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
             ]))?;
         }
     } else {
-        command(
-            Command::new("cargo")
-                .current_dir(&root)
-                .args(["build", "-p", "kudzu"]),
-        )?;
+        let mut cmd = Command::new("cargo");
+        cmd.current_dir(&root).args(build_args(variant));
+        command(&mut cmd)?;
     }
     let app = target
         .join("bundle")
@@ -87,7 +85,7 @@ pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
                 .arg(&executable),
         )?;
     } else {
-        fs::copy(target.join("debug/kudzu"), &executable)?;
+        fs::copy(target.join(binary_path(variant)), &executable)?;
     }
     fs::write(
         contents.join("Info.plist"),
@@ -119,7 +117,31 @@ pub fn build(variant: Variant, universal: bool) -> Result<PathBuf> {
                 .arg(&app),
         )?;
     }
+    if matches!(variant, Variant::Dev) {
+        let signer = env::var_os("KUDZU_DEV_SIGN")
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "-".into());
+        command(
+            Command::new("codesign")
+                .args(["--force", "--sign"])
+                .arg(signer)
+                .arg(&app),
+        )?;
+    }
     Ok(app)
+}
+fn build_args(variant: Variant) -> Vec<&'static str> {
+    let mut args = vec!["build", "-p", "kudzu"];
+    if matches!(variant, Variant::Prod) {
+        args.push("--release");
+    }
+    args
+}
+fn binary_path(variant: Variant) -> &'static str {
+    match variant {
+        Variant::Dev => "debug/kudzu",
+        Variant::Prod => "release/kudzu",
+    }
 }
 pub fn parse(args: &[String]) -> Result<(Variant, bool)> {
     let mut variant = None;
@@ -144,6 +166,16 @@ pub fn parse(args: &[String]) -> Result<(Variant, bool)> {
 mod tests {
     use super::*;
     #[test]
+    fn production_uses_release_binary() {
+        assert_eq!(
+            build_args(Variant::Prod),
+            ["build", "-p", "kudzu", "--release"]
+        );
+        assert_eq!(build_args(Variant::Dev), ["build", "-p", "kudzu"]);
+        assert_eq!(binary_path(Variant::Prod), "release/kudzu");
+        assert_eq!(binary_path(Variant::Dev), "debug/kudzu");
+    }
+    #[test]
     fn plist_has_bundle_metadata() {
         let version = fs::read_to_string(root().join("version.txt")).unwrap();
         for variant in [Variant::Dev, Variant::Prod] {
@@ -157,6 +189,15 @@ mod tests {
             );
             assert_eq!(d["LSMinimumSystemVersion"].as_string(), Some("14.0"));
             assert_eq!(d["LSUIElement"].as_boolean(), Some(true));
+            for key in [
+                "NSSupportsSuddenTermination",
+                "NSSupportsAutomaticTermination",
+            ] {
+                assert!(
+                    matches!(d.get(key), None | Some(plist::Value::Boolean(false))),
+                    "{key} must be absent or false"
+                );
+            }
         }
     }
 }

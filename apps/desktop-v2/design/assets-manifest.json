@@ -13,10 +13,11 @@
     "design/app-icon/Kudzu.icon/icon.json": "bfae4fc73d6b59ecac019f5c94497725823c748c328fca6f1134125b43ec0622",
     "design/app-icon/layers/02-echo-k-printed.svg": "142a32c1d4b0b7cfe33fd5e3319ab8245a436cbb660140ed52c2102c5f3c319e",
     "design/brand.json": "ada26459c1eda70d2043d9d81a83a91fbba6b1f9387fd9cf3f2384f159ce9231",
+    "design/wordmark/kudzu-wordmark-echo-small.png": "41d5085c8afd7e65197ce2334942f8d7e942ed02eff36d04f88303e50a8a51ad",
     "design/wordmark/kudzu-wordmark-echo-small.svg": "40668934e411d6bc28ef8404896fd54d7fe6fdff9d1e756456ef098033d3b351",
     "scripts/brand-assets.py": "08cd605091906c9ddadf26f33df38717a25187a2f361221d4a2fe883b97f3715",
     "scripts/design-assets.swift": "c6b1ba6826a3311aabca4d42c184c0abad6b4ff255050f61b305ea07f1896206",
-    "scripts/update-design-assets.sh": "ef5052731891d8cec4cc3e383605947d8c65d954e18f2cff2f701595bc60e494"
+    "scripts/update-design-assets.sh": "dfce0d40f6e9b1e380db8a22600c7735076147ebd10529dc5e92e9594bbc231a"
   },
   "outputs": {
     "assets/icons/icon.icns": "201d2cf99c4239d557d72f48d99a0009322745aaf491732570bff92a05f849e6",
@@ -31,6 +32,8 @@
     "assets/tray/permissions@3x.png": "97fd30f11157cff8fca95db219b87e97238e8716f6ac6c7fd43bbf6192fb1fec",
     "assets/tray/secure-input.png": "17a198addac4b8cebdd4155edc823131f475b2847627b688f8fc72e02fb79722",
     "assets/tray/secure-input@2x.png": "91376138261c56971a44e6e85d4fc422ac35712657de9f09dc6ba52812e5c9cd",
-    "assets/tray/secure-input@3x.png": "d204e0a59986e3696bcd7b4e3f12d0841d2c842d435d7d75a1e12438cec02d07"
+    "assets/tray/secure-input@3x.png": "d204e0a59986e3696bcd7b4e3f12d0841d2c842d435d7d75a1e12438cec02d07",
+    "design/dmg/background.png": "02c9dda0f05e192a07e6614326d40c03d7eb2508f6dbdbb62e913a36f51e3f85",
+    "design/icon.png": "25f8d0b997529b2382ff4f4efaf2d3543dba3bec6202165efa3a877c1e8d1af2"
   }
 }

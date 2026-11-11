@@ -28,6 +28,7 @@ jobs:
       - run: cargo test --workspace
       - run: cargo xtask check-deps
       - run: python3 scripts/check-design-assets.py
+      - run: python3 -m unittest discover -s scripts/tests
       - name: Headless adapter isolation
         run: |
           cargo build

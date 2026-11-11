@@ -24,8 +24,8 @@ impl Identity {
                 name: "Kudzu",
                 mcp_name: "kudzu",
                 paused: false,
-                search_shortcut: "ctrl+alt+space",
-                clipboard_shortcut: "ctrl+alt+v",
+                search_shortcut: "Control+Alt+Space",
+                clipboard_shortcut: "Control+Alt+V",
                 cloud_and_updates: true,
             }
         } else {
@@ -34,8 +34,8 @@ impl Identity {
                 name: "Kudzu Next",
                 mcp_name: "kudzu-next",
                 paused: true,
-                search_shortcut: "ctrl+alt+shift+space",
-                clipboard_shortcut: "ctrl+alt+shift+v",
+                search_shortcut: "Control+Alt+Shift+Space",
+                clipboard_shortcut: "Control+Alt+Shift+V",
                 cloud_and_updates: false,
             }
         }
@@ -75,7 +75,7 @@ mod tests {
         );
         assert_eq!(
             (prod.search_shortcut, prod.clipboard_shortcut),
-            ("ctrl+alt+space", "ctrl+alt+v")
+            ("Control+Alt+Space", "Control+Alt+V")
         );
         for id in [None, Some("org.example.other"), Some(DEV_ID)] {
             let dev = Identity::from_bundle_id(id);
@@ -91,7 +91,7 @@ mod tests {
             );
             assert_eq!(
                 (dev.search_shortcut, dev.clipboard_shortcut),
-                ("ctrl+alt+shift+space", "ctrl+alt+shift+v")
+                ("Control+Alt+Shift+Space", "Control+Alt+Shift+V")
             );
         }
     }

@@ -45,6 +45,18 @@ class DesignAssetCheck(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("outputs: assets/icons/icon.icns", result.stderr)
 
+    def test_changed_wordmark_bitmap_requires_export(self):
+        (self.root / "design/wordmark/kudzu-wordmark-echo-small.png").write_bytes(b"changed wordmark")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sources: design/wordmark/kudzu-wordmark-echo-small.png", result.stderr)
+
+    def test_changed_dmg_background_is_rejected(self):
+        (self.root / "design/dmg/background.png").write_bytes(b"stale background")
+        result = self.check()
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("outputs: design/dmg/background.png", result.stderr)
+
     def test_missing_export_is_rejected(self):
         (self.root / "assets/tray/normal.png").unlink()
         result = self.check()
@@ -61,7 +73,7 @@ class DesignAssetCheck(unittest.TestCase):
         self.assertEqual(manifest.read_bytes(), original)
 
     def test_release_version_stamp_needs_no_new_artwork(self):
-        (self.root / "package.json").write_text('{"version":"0.3.0-beta.1"}')
+        (self.root / "version.txt").write_text("0.3.0-beta.1\n")
         result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
 

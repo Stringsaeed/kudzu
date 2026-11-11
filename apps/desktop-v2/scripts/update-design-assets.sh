@@ -23,5 +23,7 @@ iconutil -c icns icon.iconset -o assets/icons/icon.icns
 mkdir -p "$ROOT/assets/icons" "$ROOT/assets/tray"
 cp assets/icons/icon.icns "$ROOT/assets/icons/icon.icns"
 cp assets/tray/*.png "$ROOT/assets/tray/"
+cp design/icon.png "$ROOT/design/icon.png"
+cp design/dmg/background.png "$ROOT/design/dmg/background.png"
 cd "$ROOT"
 python3 scripts/check-design-assets.py --write --renderer-version "$("$ICON_TOOL" --version)"
