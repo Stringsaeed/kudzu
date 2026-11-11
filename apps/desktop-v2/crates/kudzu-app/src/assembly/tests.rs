@@ -16,9 +16,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, SystemTime};
 
-struct Scratch(PathBuf);
+pub(super) struct Scratch(pub(super) PathBuf);
 impl Scratch {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         // /tmp keeps the agent socket inside sun_path, and stays outside the Cargo workspace
         // even when TMPDIR points at the worktree.
         let path = PathBuf::from("/tmp").join(format!("kudzu-s40-{}", uuid::Uuid::new_v4()));
@@ -32,7 +32,7 @@ impl Drop for Scratch {
     }
 }
 
-fn utc_time(time: SystemTime) -> DateTime<FixedOffset> {
+pub(super) fn utc_time(time: SystemTime) -> DateTime<FixedOffset> {
     let utc: DateTime<Utc> = time.into();
     utc.with_timezone(&FixedOffset::east_opt(0).unwrap())
 }
@@ -41,15 +41,13 @@ fn open(production: bool, debounce: Duration) -> (Scratch, Fixtures, Arc<Kudzu>)
     open_prepared(production, debounce, |_| {})
 }
 
-fn open_prepared(
+pub(super) fn config(
+    scratch: &Scratch,
+    fixtures: &Fixtures,
     production: bool,
     debounce: Duration,
-    prepare: impl FnOnce(&Fixtures),
-) -> (Scratch, Fixtures, Arc<Kudzu>) {
-    let scratch = Scratch::new();
-    let fixtures = Fixtures::new().unwrap();
-    prepare(&fixtures);
-    let app = Kudzu::new(Config {
+) -> Config {
+    Config {
         paths: Paths {
             data: scratch.0.clone(),
             logs: scratch.0.join("logs"),
@@ -74,12 +72,22 @@ fn open_prepared(
         cloud_and_updates: false,
         debounce,
         retry: Duration::from_millis(20),
-    })
-    .unwrap();
+    }
+}
+
+fn open_prepared(
+    production: bool,
+    debounce: Duration,
+    prepare: impl FnOnce(&Fixtures),
+) -> (Scratch, Fixtures, Arc<Kudzu>) {
+    let scratch = Scratch::new();
+    let fixtures = Fixtures::new().unwrap();
+    prepare(&fixtures);
+    let app = Kudzu::new(config(&scratch, &fixtures, production, debounce)).unwrap();
     (scratch, fixtures, app)
 }
 
-fn wait_for(mut ready: impl FnMut() -> bool) {
+pub(super) fn wait_for(mut ready: impl FnMut() -> bool) {
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while !ready() {
         assert!(
@@ -221,9 +229,9 @@ fn a_failed_login_item_is_reported_once_until_the_setting_changes() {
     wait_for(|| app.login_notice.get().is_none());
 }
 
-struct Hold {
-    entered: Arc<(Mutex<bool>, Condvar)>,
-    release: Arc<(Mutex<bool>, Condvar)>,
+pub(super) struct Hold {
+    pub(super) entered: Arc<(Mutex<bool>, Condvar)>,
+    pub(super) release: Arc<(Mutex<bool>, Condvar)>,
 }
 
 impl WriteTarget<u8> for Hold {

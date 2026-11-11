@@ -6,6 +6,7 @@
 //! joined: dropping it abandons delivery, and the worker finishes on its own. There is no
 //! process-wide task list.
 
+mod bounds;
 mod reactions;
 mod router;
 mod selection;
@@ -13,6 +14,7 @@ mod selection;
 pub use reactions::LOGIN_ITEM_UNAVAILABLE;
 pub use selection::SelectionCapture;
 
+use bounds::{bounded, wait_for_feed, StopOnError, Timeouts, COLLECTION_DEADLINE};
 use reactions::Reactions;
 use router::EngineRouter;
 
@@ -23,7 +25,7 @@ use crate::{
     clipboard::{ClipboardPorts, ClipboardService},
     data::{DataConfig, DataService},
     error::{IoFailure, PortError},
-    expansion::{ExpansionService, FeedState, HistoryReader, RenderEnvironment},
+    expansion::{ExpansionService, HistoryReader, RenderEnvironment},
     forms::FormService,
     hotkeys::HotkeySlots,
     library::LibraryService,
@@ -42,8 +44,10 @@ use chrono::{DateTime, FixedOffset};
 use kudzu_core::interchange::backup::BackupTimeZone;
 use std::path::Path;
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
+#[cfg(test)]
+mod review_tests;
 #[cfg(test)]
 mod tests;
 
@@ -74,6 +78,8 @@ pub enum AssemblyError {
     Data(#[from] crate::data::DataError),
     #[error(transparent)]
     Port(#[from] PortError),
+    #[error("The expansion engine didn't load the snippets in time.")]
+    FeedTimeout,
 }
 
 impl From<std::io::Error> for AssemblyError {
@@ -169,12 +175,19 @@ pub struct Kudzu {
     reactions: Reactions,
     data_timer: Mutex<Option<Timer>>,
     outcome: Mutex<Option<Result<(), PersistError>>>,
+    timeouts: Timeouts,
+    #[cfg(test)]
+    installs: std::sync::atomic::AtomicU32,
 }
 
 impl Kudzu {
     /// Open stores, start producers, and block until the engine feed has caught the new engine.
     /// The block is intentional and happens before the UI loop.
     pub fn new(config: Config) -> Result<Arc<Self>, AssemblyError> {
+        Self::open(config, Timeouts::default())
+    }
+
+    pub(crate) fn open(config: Config, timeouts: Timeouts) -> Result<Arc<Self>, AssemblyError> {
         let Host {
             ports,
             locale,
@@ -258,9 +271,13 @@ impl Kudzu {
         // Stop a previous adapter before this one starts. The adapter also stops its engine.
         ports.engine.stop();
         ports.engine.start(router)?;
+        // Every early return from here on stops the engine: the adapter has no Drop.
+        let started = StopOnError::armed(ports.engine.clone());
         ports.windows.set_kudzu_windows(&[]);
+        // Insertion is admitted only once the feed has caught the new engine (S27). A feed
+        // that fails or never catches up is a startup error: no window opens against it.
         let generation = expansion.resync();
-        wait_for_feed(&expansion.feed(), generation);
+        wait_for_feed(&expansion.feed(), generation, timeouts.feed)?;
         clipboard.start(&scheduler)?;
         let sync = Arc::new(SyncService::open(
             SyncConfig {
@@ -334,6 +351,7 @@ impl Kudzu {
             prefs,
             login_notice.clone(),
         );
+        started.disarm();
         Ok(Arc::new(Self {
             settings,
             library,
@@ -359,6 +377,9 @@ impl Kudzu {
             reactions,
             data_timer: Mutex::new(Some(data_timer)),
             outcome: Mutex::new(None),
+            timeouts,
+            #[cfg(test)]
+            installs: std::sync::atomic::AtomicU32::new(0),
         }))
     }
 
@@ -385,8 +406,9 @@ impl Kudzu {
         // The reaction thread must not be waiting on the UI loop.
         self.reactions.stop();
         self.agents.shutdown();
-        self.expansion.stop_feed();
+        // The engine first: joining the feed while it waits on a reload would never return.
         self.engine.stop();
+        self.expansion.stop_feed();
         if let Err(error) = self.clipboard.shutdown() {
             log::warn!("clipboard capture did not stop cleanly: {error}");
         }
@@ -400,13 +422,30 @@ impl Kudzu {
         self.scheduler.shutdown();
         let mut durable = Ok(());
         self.sync.shutdown_with(|| {
-            durable = self.writer.shutdown();
+            durable = self.writer.shutdown_with_timeout(self.timeouts.drain);
         });
-        if let Err(error) = self.clipboard.finish_shutdown() {
-            log::warn!("clipboard did not finish shutting down: {error}");
+        // A drain that timed out or lost its worker is not durable: the writer may still be
+        // writing. Collecting clipboard blobs or swapping the bundle then could lose data.
+        if let Err(error) = durable {
+            if matches!(error, PersistError::Timeout | PersistError::WorkerStopped) {
+                log::error!("quitting before everything was saved ({error}); no update installs");
+                return durable;
+            }
+            log::error!("a file could not be saved at quit ({error})");
+        }
+        let clipboard = self.clipboard.clone();
+        match bounded(COLLECTION_DEADLINE, move || clipboard.finish_shutdown()) {
+            Some(Ok(())) => {}
+            Some(Err(error)) => log::warn!("clipboard did not finish shutting down: {error}"),
+            None => {
+                log::warn!("clipboard collection was still running at quit; it resumes next launch")
+            }
         }
         // The update service relaunches only from restart_to_update, and only after
         // Installed or a verified Skipped version newer than this process.
+        #[cfg(test)]
+        self.installs
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.updates.install_on_quit();
         durable
     }
@@ -414,6 +453,12 @@ impl Kudzu {
     #[cfg(test)]
     pub(crate) fn writer(&self) -> &Writer {
         &self.writer
+    }
+
+    /// How many times shutdown reached the install step.
+    #[cfg(test)]
+    pub(crate) fn installs(&self) -> u32 {
+        self.installs.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     #[cfg(test)]
@@ -476,26 +521,6 @@ fn prefs_of(settings: &crate::settings::Settings) -> updates::Prefs {
     updates::Prefs {
         auto_check: settings.auto_check_updates,
         channel,
-    }
-}
-
-/// Bound the wait. A feed error or a timeout is logged and startup continues.
-fn wait_for_feed(feed: &Watch<FeedState>, generation: u64) {
-    let deadline = Instant::now() + Duration::from_secs(5);
-    loop {
-        let state = feed.get();
-        if state.generation >= generation {
-            return;
-        }
-        if state.error.is_some() {
-            log::warn!("the engine feed reported an error; opening anyway");
-            return;
-        }
-        if Instant::now() >= deadline {
-            log::warn!("the engine feed did not catch up; opening anyway");
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(10));
     }
 }
 
