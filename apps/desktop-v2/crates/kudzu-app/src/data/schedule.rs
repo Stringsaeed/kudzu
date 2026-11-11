@@ -24,8 +24,9 @@ impl Inner {
     }
 
     /// On the first launch of a new version, keeps a copy of the library from before it ran
-    /// (so a bad release can always be undone), then records the version. A failed copy is
-    /// logged and the launch goes on, as it always has.
+    /// (so a bad release can always be undone), then records the version. The version is
+    /// recorded only once that copy exists, so a failed backup is tried again on the next
+    /// launch (D19). The failure is returned for the caller to log; the launch itself goes on.
     pub(super) fn note_app_version(&self, current: &str) -> Result<(), DataError> {
         let previous = self.settings.watch().get().last_run_version.clone();
         if previous.as_deref() == Some(current) {
@@ -34,13 +35,14 @@ impl Inner {
         if previous.is_some() {
             log::info!("updated to {current}");
             let (_, snapshot) = self.library.snapshot();
-            if let Err(error) = self
+            let backup = self
                 .store
-                .write(&snapshot, BackupReason::PreUpdate, self.now())
-            {
-                log::error!("pre-update backup failed: {error}");
-            }
+                .write(&snapshot, BackupReason::PreUpdate, self.now());
             self.refresh_backups();
+            if let Err(error) = backup {
+                log::error!("pre-update backup failed: {error}");
+                return Err(error);
+            }
         }
         self.settings
             .update(|settings| settings.last_run_version = Some(current.to_owned()))?;

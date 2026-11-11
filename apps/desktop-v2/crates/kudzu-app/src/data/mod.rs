@@ -225,7 +225,8 @@ impl DataService {
     }
 
     /// Startup, before the first window: on the first launch of a new version, backs the library
-    /// up as `preUpdate`, then records the version in settings.
+    /// up as `preUpdate`, then records the version in settings. If the backup fails, the version
+    /// is not recorded and the error is returned (log it and carry on); the next launch retries.
     pub fn note_app_version(&self, current: &str) -> Result<(), DataError> {
         self.inner.note_app_version(current)
     }

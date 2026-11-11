@@ -203,15 +203,36 @@ fn backs_up_once_per_new_version() {
 }
 
 #[test]
-fn a_failed_pre_update_backup_does_not_stop_the_launch() {
+fn a_failed_pre_update_backup_is_retried_on_the_next_launch() {
     let rig = Rig::new(one_snippet("Mine", ";m"));
+    let count = || {
+        store(&rig)
+            .list()
+            .unwrap()
+            .iter()
+            .filter(|b| b.reason == BackupReason::PreUpdate)
+            .count()
+    };
+    let recorded = || rig.settings.watch().get().last_run_version.clone();
     rig.data.note_app_version("0.2.0").unwrap();
+
+    // First launch of 0.3.0: the backup can't be written, so the version is not marked done.
     std::fs::write(rig.backups_dir(), "in the way").unwrap();
+    let error = rig.data.note_app_version("0.3.0").unwrap_err();
+    assert!(matches!(error, DataError::BackupWrite(_)), "{error:?}");
+    assert_eq!(recorded().as_deref(), Some("0.2.0"));
+
+    // Second launch: the folder works again, so the backup is taken and the version recorded.
+    std::fs::remove_file(rig.backups_dir()).unwrap();
+    rig.clock.advance(Duration::from_secs(1));
     rig.data.note_app_version("0.3.0").unwrap();
-    assert_eq!(
-        rig.settings.watch().get().last_run_version.as_deref(),
-        Some("0.3.0")
-    );
+    assert_eq!(count(), 1);
+    assert_eq!(recorded().as_deref(), Some("0.3.0"));
+
+    // Third launch: already done, nothing more is taken.
+    rig.clock.advance(Duration::from_secs(1));
+    rig.data.note_app_version("0.3.0").unwrap();
+    assert_eq!(count(), 1);
 }
 
 #[test]
