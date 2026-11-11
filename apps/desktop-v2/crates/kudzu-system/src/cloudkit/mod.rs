@@ -7,11 +7,14 @@
 
 mod delegate;
 mod delivery;
+mod engine;
 mod entitlement;
 mod errors;
+mod fetching;
 mod native;
 mod pending;
 mod records;
+mod requests;
 mod sending;
 mod wiring;
 
@@ -19,3 +22,6 @@ pub use wiring::CloudKit;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod review_tests;

@@ -1,6 +1,6 @@
 # S37 hand-off
 
-`CloudKit` implements S33's `CloudStore` contract at `3cfeb335`. `wiring.rs` is the
+`CloudKit` implements S33's extended `CloudStore` contract at `a96b2d43`. `wiring.rs` is the
 only connection to `CloudEvents`. No port, fake, or service file was edited here.
 Container, zone, payload field and record types come from `kudzu_core::sync`.
 
@@ -21,9 +21,47 @@ stop drains admitted callbacks and rejects later ones. Restart waits up to 30
 seconds for CloudKit cancellation; a timeout keeps the retiring engine and refuses
 to create an overlapping one.
 
+## Review corrections and clarified contract
+
+The private database is filtered by the `Kudzu` zone name, regardless of its owner
+identifier. Record types and names must parse before they reach the service;
+rejected records produce only a count in the log. Payload strings stay unchanged.
+
+Fetched record batches and their state events are delivered immediately and in
+order. A later transient error suppresses only the terminal `full_fetch` marker;
+it does not retract or buffer earlier data. Concurrent explicit fetch calls share
+one native fetch and one successful terminal batch. For explicit fetches,
+`DidFetchChanges` defers the empty terminal marker until the native completion
+confirms success. Per-zone errors already reported by the delegate are not
+reported again by that completion. Automatic fetches use their delegate result.
+`ZoneNotFound` queues zone creation without reporting `Failed`. Zone deletion
+emits only `zone_deleted`; the service marks its index past the first fetch.
+
+Record send results come only from delegate events; the send completion is `None`.
+Conflicts withdraw the losing pending payload before reporting. A conflict with
+no usable server record is `Permanent`: its pending payload and cached change tag
+are dropped, and it is not immediately requeued. A service retry starts fresh.
+A record-send failure drops all unacknowledged names from that attempt, preserving
+newer acknowledged work and unrelated pending records. A missing delete is an
+acknowledged deletion. Restored record-change IDs are removed from engine state
+at start; database changes are retained and the service supplies fresh payloads.
+
+**Database-only failures are different.** A failed zone save has attempted no
+records, so their pending payloads are retained. A non-transient zone failure is
+still reported as an empty `CloudSend` with `failure` (quota or permanent), and
+the zone save is requeued on the next send, including an empty flush. The service's
+resubmission is an idempotent upsert. Transient zone errors are swallowed and left
+to CKSyncEngine's retry scheduling. This is the owner's clarification of decision 2.
+
+Native worker entry points, delegate callbacks, completion callbacks, entitlement
+reads and archive encode/decode run inside autorelease pools. The pool regression
+uses a native object's destructor to prove release before the worker call returns.
+See [REVIEW_FIXES.md](REVIEW_FIXES.md) for every finding, decision, named red test,
+and implementation location.
+
 ## Local evidence
 
-- 20 offline adapter tests pass; one signed test is ignored. Tests cover native
+- 40 offline adapter tests pass; one signed test is ignored. Tests cover native
   record/batch translation, pending upserts, conflicts and errors, zone/account
   effects, ordered event forwarding, all account statuses and stop fencing.
 - All five gates pass: formatting, workspace Clippy with `-D warnings`, workspace
@@ -39,8 +77,8 @@ to create an overlapping one.
   was created by the executed tests; only local CloudKit record/batch objects were used.
 
 No schema or entitlement file changed. There are no CloudKit binding gaps or
-upstream issue drafts. The Objective-C `msg_send!` only initializes our delegate's
-superclass. No port-contract questions remain.
+upstream issue drafts. Production `msg_send!` only initializes the delegate's
+superclass; tests also initialize the autorelease probe. No port-contract questions remain.
 
 ## Edits outside Owns
 
@@ -49,8 +87,8 @@ Paths below are relative to `apps/desktop-v2`.
 | File | Reason |
 |---|---|
 | `Cargo.toml` | Select only the approved `objc2-cloud-kit` engine features; default features would add unused Contacts bindings. |
-| `crates/kudzu-system/Cargo.toml` | Enable the already-approved CloudKit and block2 workspace dependencies for this adapter. |
-| `Cargo.lock` | Record those dependency edges and the block2 feature; no new package is added. |
+| `crates/kudzu-system/Cargo.toml` | Enable approved CloudKit/block2 dependencies; the review follow-up also enables the existing workspace `log` crate for required count-only diagnostics. |
+| `Cargo.lock` | Record those dependency edges and the block2 feature; the review adds only the `log` edge, with no new package. |
 | `xtask/src/check_deps.rs` | Recognize the generated API's valid `r#type` identifier instead of rejecting it as an invalid raw string. |
 | `xtask/src/check_deps/tests.rs` | Prove raw identifiers work while raw include/path syntax cannot bypass containment checks; verified red before green. |
 
@@ -85,6 +123,12 @@ app first. Do not run Kudzu and the candidate against one local store concurrent
    Confirm retries/status and inspect logs for absence of snippet or raw error text.
 10. Run the signed candidate on Apple Silicon and its Intel slice under Rosetta.
     Compile success here does not establish either signed runtime result.
+11. Exercise a non-default zone owner, a missing first-launch zone, and a transient
+    error after a partial fetch. Already delivered data must survive, and the failed
+    fetch must not mark initial merge complete or show Up to date.
+12. Fail a zone save, then retry a send: pending records must survive and the zone
+    must be requeued. Send thousands of records and watch memory across repeated
+    fetch/send cycles to confirm the autorelease pools drain in the signed app.
 
 CloudKit delegate calls follow Apple's [serial-event contract](https://developer.apple.com/documentation/cloudkit/cksyncenginedelegate-1q7g8):
 they do not initiate fetch/send operations from inside the delegate.

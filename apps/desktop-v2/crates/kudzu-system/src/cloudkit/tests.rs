@@ -25,7 +25,7 @@ use objc2_foundation::{NSDictionary, NSError, NSSet, NSString};
 fn record(payload: &str) -> RemoteRecord {
     RemoteRecord {
         kind: RecordKind::Snippet,
-        name: "snippet-test".into(),
+        name: "snippet-00000000-0000-0000-0000-000000000001".into(),
         payload: payload.into(),
     }
 }
@@ -46,11 +46,14 @@ fn pending_upserts_are_idempotent_and_last_operation_wins() {
     });
     assert_eq!(pending.saves(), vec![record("new")]);
     pending.upsert(CloudBatch {
-        deleted: vec!["snippet-test".into()],
+        deleted: vec!["snippet-00000000-0000-0000-0000-000000000001".into()],
         ..Default::default()
     });
     assert!(pending.saves().is_empty());
-    assert_eq!(pending.deletes(), vec!["snippet-test"]);
+    assert_eq!(
+        pending.deletes(),
+        vec!["snippet-00000000-0000-0000-0000-000000000001"]
+    );
     pending.upsert(CloudBatch {
         records: vec![record("again")],
         ..Default::default()
@@ -68,17 +71,20 @@ fn old_acknowledgments_do_not_erase_newer_pending_work() {
         ..Default::default()
     });
     pending.saved(&record("old"));
-    pending.deleted("snippet-test");
+    pending.deleted("snippet-00000000-0000-0000-0000-000000000001");
     assert_eq!(pending.saves(), vec![record("new")]);
     pending.saved(&record("new"));
     assert!(pending.is_empty());
     pending.upsert(CloudBatch {
-        deleted: vec!["snippet-test".into()],
+        deleted: vec!["snippet-00000000-0000-0000-0000-000000000001".into()],
         ..Default::default()
     });
     pending.saved(&record("new"));
-    assert_eq!(pending.deletes(), vec!["snippet-test"]);
-    pending.deleted("snippet-test");
+    assert_eq!(
+        pending.deletes(),
+        vec!["snippet-00000000-0000-0000-0000-000000000001"]
+    );
+    pending.deleted("snippet-00000000-0000-0000-0000-000000000001");
     assert!(pending.is_empty());
 }
 
@@ -172,7 +178,13 @@ fn payload_translation_preserves_bytes_and_all_four_record_types() {
     ] {
         let original = RemoteRecord {
             kind,
-            name: "unchanged-record-name".into(),
+            name: match kind {
+                RecordKind::Snippet => "snippet-00000000-0000-0000-0000-000000000001",
+                RecordKind::Group => "group-00000000-0000-0000-0000-000000000001",
+                RecordKind::Usage => "usage-mac-test",
+                RecordKind::Meta => "meta",
+            }
+            .into(),
             payload: payload.into(),
         };
         let native = records::build(&original, None);
@@ -211,13 +223,16 @@ fn conflict_replaces_the_cached_record_before_requeue_and_waits_for_the_service(
         &error(CKErrorCode::ServerRecordChanged, Some(&server)),
     );
     assert_eq!(report.conflicts, vec![winner.clone()]);
-    assert_eq!(report.requeue, vec!["snippet-test"]);
     assert_eq!(
-        records::remote(&state.records["snippet-test"]),
+        report.requeue,
+        vec!["snippet-00000000-0000-0000-0000-000000000001"]
+    );
+    assert_eq!(
+        records::remote(&state.records["snippet-00000000-0000-0000-0000-000000000001"]),
         Some(winner)
     );
     assert_ne!(
-        Retained::as_ptr(&state.records["snippet-test"]),
+        Retained::as_ptr(&state.records["snippet-00000000-0000-0000-0000-000000000001"]),
         Retained::as_ptr(&server)
     );
     assert!(state.pending.is_empty());
@@ -229,7 +244,7 @@ fn unknown_item_and_missing_zone_drop_the_cache_without_inventing_conflicts() {
     for code in [CKErrorCode::UnknownItem, CKErrorCode::ZoneNotFound] {
         let mut state = State::default();
         state.records.insert(
-            "snippet-test".into(),
+            "snippet-00000000-0000-0000-0000-000000000001".into(),
             records::build(&record("cached"), None),
         );
         state.pending.upsert(CloudBatch {
@@ -240,13 +255,16 @@ fn unknown_item_and_missing_zone_drop_the_cache_without_inventing_conflicts() {
         sending::failed(
             &mut state,
             &mut report,
-            "snippet-test".into(),
+            "snippet-00000000-0000-0000-0000-000000000001".into(),
             &error(code, None),
         );
         assert!(state.records.is_empty());
         assert!(state.pending.is_empty());
         assert!(report.conflicts.is_empty());
-        assert_eq!(report.requeue, vec!["snippet-test"]);
+        assert_eq!(
+            report.requeue,
+            vec!["snippet-00000000-0000-0000-0000-000000000001"]
+        );
         assert_eq!(report.zone_missing, code == CKErrorCode::ZoneNotFound);
         assert_eq!(report.failure, None);
     }
@@ -263,7 +281,7 @@ fn retryable_send_failure_keeps_pending_but_permanent_failure_does_not() {
     sending::failed(
         &mut state,
         &mut report,
-        "snippet-test".into(),
+        "snippet-00000000-0000-0000-0000-000000000001".into(),
         &error(CKErrorCode::NetworkFailure, None),
     );
     assert_eq!(state.pending.saves(), vec![record("unsent")]);
@@ -271,7 +289,7 @@ fn retryable_send_failure_keeps_pending_but_permanent_failure_does_not() {
     sending::failed(
         &mut state,
         &mut report,
-        "snippet-test".into(),
+        "snippet-00000000-0000-0000-0000-000000000001".into(),
         &error(CKErrorCode::QuotaExceeded, None),
     );
     assert!(state.pending.is_empty());
@@ -316,14 +334,23 @@ fn fetched_changes_only_report_our_zone_and_well_typed_payloads() {
     let ours = records::build(&record("remote"), None);
     let batch = session.fetched(
         vec![foreign, missing_payload, unknown_type, ours],
-        vec![foreign_id("snippet-deleted")],
+        vec![(foreign_id("snippet-deleted"), "KudzuSnippet".into())],
     );
     assert_eq!(batch.records, vec![record("remote")]);
     assert!(batch.deleted.is_empty());
     assert!(!batch.full_fetch);
     assert_eq!(session.state.lock().unwrap().records.len(), 1);
-    let deletion = session.fetched([], [records::record_id("snippet-test")]);
-    assert_eq!(deletion.deleted, vec!["snippet-test"]);
+    let deletion = session.fetched(
+        [],
+        [(
+            records::record_id("snippet-00000000-0000-0000-0000-000000000001"),
+            "KudzuSnippet".into(),
+        )],
+    );
+    assert_eq!(
+        deletion.deleted,
+        vec!["snippet-00000000-0000-0000-0000-000000000001"]
+    );
     assert!(session.state.lock().unwrap().records.is_empty());
 }
 
@@ -391,9 +418,12 @@ fn native_batches_only_include_admitted_names_and_honor_the_scope() {
             Some(&NSSet::from_retained_slice(&[records::zone_id()])),
         )
     };
-    let names = ["snippet-test".into(), "old-restored-deletion".into()]
-        .into_iter()
-        .collect();
+    let names = [
+        "snippet-00000000-0000-0000-0000-000000000001".into(),
+        "old-restored-deletion".into(),
+    ]
+    .into_iter()
+    .collect();
     assert!(sending::build_batch(&session, &scope, &names).is_none());
     session.state.lock().unwrap().pending.upsert(CloudBatch {
         records: vec![record("latest")],
