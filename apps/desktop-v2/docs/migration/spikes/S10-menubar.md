@@ -44,3 +44,41 @@ On this worktree, sequentially: `cargo fmt --all --check`, `cargo clippy --works
 The only integration edit outside Owns is Cargo's generated `Cargo.lock` entry for the new workspace spike and its already-approved dependencies. No production module was changed.
 
 **Verdict: no-go** until the missing live acceptance evidence is collected; do not treat the observed menu model as proof of real ⌘Q delivery.
+
+## Review findings (Claude Opus review, 2026-11-11: accept with changes)
+
+By source (Rune 29aacb6 and winit 0.30.13), the mechanisms are sound:
+- ⌘Q routes to Close Windows through the main menu once the app menu exists. Its target fires before Rune's key deferral.
+- Dock Quit, logout, Activity Monitor Quit and the app-menu Quit all reach `on_quit` through `applicationShouldTerminate:` → `will_terminate` → `exiting` → `RunHooks`, including for hidden or never-created windows.
+- `on_reopen` fires for a Dock click even with the Dock icon off. Reopening from Finder or with `open` needs a real bundle.
+- The re-entrancy abort is **not** a Rune bug. It came from sending `[NSApp terminate:]` synchronously inside a winit handler, which production never does. The tray's Quit commits drafts, calls `shutdown()`, then `tx.quit()` or `AppHandle::quit()`. If a terminate is ever needed, defer it with `performSelector:withObject:afterDelay:0`. No upstream issue.
+
+**S38 must do these (majors):**
+1. **⌘Q before the first Dock promotion.** Rune leaves the app menu empty until the first `set_dock_icon(true)`, so with the Dock icon off (SHL-5) or a `--hidden` launch, ⌘Q does nothing. `app_menu::install()` runs once after the menu bar exists (first update or `on_ready`) and inserts "Close Windows ⌘Q" into the first menu even while it's empty. The post-promotion patch then moves it directly above `terminate:`, clears Quit's key and removes Show All. A duplicate key added later is dropped by AppKit, so ⌘Q stays on Close Windows.
+2. **No sleep-timed patch.** Queue the patch from inside an update (`h.update(move |_, _| h2.update(|_, _| app_menu::patch()))`), so it runs on the turn after Rune applies the Dock change. Test this ordering.
+3. **Status menu state at runtime.** Call `setAutoenablesItems(false)`, keep a `Retained<NSMenuItem>` per item id, and add `set_title`, `set_enabled`, `set_tooltip` and key-plus-modifier hints. Drive them from `main`'s `poll`. This covers the disabled status line, Clipboard History disabled while recording is off, and the ⇧⌘P, ⌘O and ⌘, hints (SHL-1, SHL-2).
+4. **⌘Q in launcher panels.** The palette, picker and form `on_key` treat ⌘Q as `Shell::close_windows()`, as insurance in case the main menu doesn't see the key while a nonactivating panel is key.
+
+**Minors for S38:**
+- Re-insert Close Windows at `indexOfItem(quit)` rather than just checking that it exists. Re-run the patch after `rune::set_labels`, or keep the process name.
+- Build the glyph as one 18×18 pt `NSImage` with 1x, @2x and @3x reps.
+- Give the status item an owner type whose `Drop` removes it.
+- Keep `kudzu-appkit` free of `rune` and `kudzu-*`. Use per-item `Rc<dyn Fn()>` closures, cloned out of the `RefCell` before calling. Callbacks only queue work.
+- Use `NSVariableStatusItemLength`, and pass `mtm` down.
+
+**S03, S70 and S72:** `Info.plist` must leave `NSSupportsSuddenTermination` and automatic termination off, so logout runs `on_quit`. S72 verifies logout with a hook that writes to a file.
+
+**Owner's live checklist (about 5 minutes)**, run with `cargo run -p menubar -- --probe` from `apps/desktop-v2`, terminal visible:
+1. "Dev" and the glyph appear in the menu bar, with no Dock icon or window. Log: `S10 status item installed…`.
+2. Hover the item: the tooltip is "Kudzu S10 spike". Click it: Open Kudzu…, Close Windows, Show launcher, Swap glyph, Dock on, Dock off, Quit Kudzu.
+3. Before ever turning the Dock on: click another app, choose Show launcher, type, then ⌘A, ⌘C, ⌘V, ⌘Z work. ⌘Q does nothing, which confirms Major 1. Close the panel from the status menu.
+4. Swap glyph: the paused glyph shows. Log: `alternate=true`.
+5. Open Kudzu…, then wait 1 s: the Dock icon and main appear. The app menu reads About, Services, Hide ⌘H, Hide Others ⌥⌘H, Close Windows ⌘Q, Quit Kudzu with no key, and no Show All.
+6. In main's field, ⌘A, ⌘X, ⌘V, ⌘C, ⌘V, ⌘Z and ⇧⌘Z all work.
+7. ⌘Q with main focused: main hides and the Dock icon goes. Log: `S10 close windows`. The status item stays.
+8. Dock off, after promotion: click another app, Show launcher, ⌘Q hides the panel. Log: `S10 close windows`. ⌘C and ⌘V work in the panel.
+9. Dock on with no window, then click the Dock icon. Log: `S10 on_reopen visible=false`, and main appears. Click it again. Log: `visible=true`.
+10. Close main, then Dock right-click → Quit. Log: `S10 on_quit`, then it exits and the item is gone. No "event loop returned" line, which is expected.
+11. Relaunch, then Activity Monitor → Quit, not Force Quit. Log: `S10 on_quit`.
+12. Relaunch, Open Kudzu…, then app menu → Quit Kudzu with the mouse. Log: `S10 on_quit`.
+13. Relaunch, status menu → Quit Kudzu. Log: `S10 on_quit`, then `S10 event loop returned`, exit 0.
