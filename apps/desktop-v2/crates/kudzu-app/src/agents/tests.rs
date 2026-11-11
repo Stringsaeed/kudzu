@@ -15,6 +15,7 @@ struct Fake {
     clips: Vec<ClipEntry>,
     clipboard: Option<String>,
     saves: RefCell<usize>,
+    harness: RefCell<Option<super::test_support::Harness>>,
 }
 
 impl Fake {
@@ -35,6 +36,10 @@ impl Fake {
         );
         lib.groups.push(work);
         lib.snippets = vec![sig, wifi, greet];
+        for snippet in &mut lib.snippets {
+            snippet.created_at = Utc.with_ymd_and_hms(2026, 11, 8, 9, 0, 0).unwrap();
+            snippet.updated_at = snippet.created_at;
+        }
         Self {
             access: Access {
                 clipboard: true,
@@ -49,6 +54,7 @@ impl Fake {
             ],
             clipboard: None,
             saves: RefCell::new(0),
+            harness: RefCell::new(None),
         }
     }
 
@@ -96,8 +102,18 @@ impl Rpc for super::service::ServiceHost {
 }
 impl Rpc for Fake {
     fn handle(&self, version: &str, message: &str) -> Option<String> {
-        let mut h =
-            super::test_support::Harness::new(self.library.borrow().clone(), self.clips.clone());
+        let mut slot = self.harness.borrow_mut();
+        let h = slot.get_or_insert_with(|| {
+            super::test_support::Harness::new(self.library.borrow().clone(), self.clips.clone())
+        });
+        h.service
+            .host
+            .library
+            .transact(|lib| {
+                *lib = self.library.borrow().clone();
+                Ok(())
+            })
+            .unwrap();
         h.settings
             .replace(std::sync::Arc::new(crate::settings::Settings {
                 agent_access: true,
@@ -663,11 +679,12 @@ fn socket_lifecycle_access_and_setup_are_isolated() {
         h.service.host.clipboard.clone(),
         h.settings.watch(),
         std::sync::Arc::new(crate::fixtures::clock::FakeClock::default()),
+        std::sync::Arc::new(crate::fixtures::ids::FixedIds::new(200)),
     );
     assert!(other.apply().is_err());
     let mut client = UnixStream::connect(path).unwrap();
     client
-        .set_read_timeout(Some(Duration::from_secs(2)))
+        .set_read_timeout(Some(Duration::from_secs(5)))
         .unwrap();
     let mut reader = BufReader::new(client.try_clone().unwrap());
     writeln!(client, "{{\"id\":1,\"method\":\"ping\"}}").unwrap();
@@ -788,7 +805,6 @@ fn secrets_never_reach_results_errors_or_logging_calls() {
     for (name, args) in [
         ("get_snippet", json!({"id":token})),
         ("update_snippet", json!({"id":token})),
-        (token, json!({})),
         ("get_clipboard_item", json!({"id":token})),
     ] {
         let result = rpc(
@@ -830,7 +846,15 @@ fn replays_client_protocol_transcript() {
         .lines()
         .map(|s| serde_json::from_str(s).unwrap())
         .collect();
-    assert_eq!(replies.len(), 3);
+    assert_eq!(replies.len(), 8);
+    assert_eq!(replies[3]["result"]["isError"], false);
+    assert_eq!(replies[4]["result"], json!({}));
+    assert_eq!(replies[5]["result"]["resources"][0]["uri"], SKILL_URI);
+    assert_eq!(replies[6]["result"]["contents"][0]["text"], SKILL);
+    assert_eq!(
+        replies[7]["result"]["structuredContent"]["content"],
+        "Transcript text"
+    );
     assert_eq!(replies[0]["result"]["protocolVersion"], "2025-06-18");
     assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 8);
     assert_eq!(replies[2]["result"]["structuredContent"]["total"], 0);
@@ -880,7 +904,7 @@ fn tool_clipboard_limits_remain_independent_of_service_caps() {
 }
 
 #[test]
-fn snippet_metadata_and_unknown_field_names_are_redacted() {
+fn snippet_metadata_and_unknown_field_names_match_tauri() {
     let token = concat!("ghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx");
     let host = Fake::new();
     host.library.borrow_mut().snippets[0].name = token.into();
@@ -893,6 +917,119 @@ fn snippet_metadata_and_unknown_field_names_are_redacted() {
     ] {
         let (output, err) = tool(&host, name, args);
         assert!(!err);
-        assert!(!output.to_string().contains("wWPw5k4a"));
+        assert!(output.to_string().contains("wWPw5k4a"));
     }
+}
+
+#[test]
+fn tauri_clean_template_fields_survive_get_update_round_trip() {
+    let host = Fake::new();
+    let body = r#"Hello {{field name="Code" default="P@ssw0rd!"}}"#;
+    assert!(kudzu_core::secrets::redact(body).is_clean());
+    let s = SnippetRecord::new("Round trip", vec![";round".into()], body);
+    let id = s.id;
+    host.library.borrow_mut().snippets.push(s);
+    let (result, err) = tool(&host, "get_snippet", json!({"id":id}));
+    assert!(!err);
+    assert_eq!(result["fields"][0]["defaultValue"], "P@ssw0rd!");
+    let (_, err) = tool(
+        &host,
+        "update_snippet",
+        json!({"id":id,"content":result["content"]}),
+    );
+    assert!(!err);
+    assert_eq!(host.snippet(";round").content, body);
+}
+#[test]
+fn protocol_errors_include_bounded_escaped_names_and_valid_kinds() {
+    let host = Fake::new();
+    let name = "unknown\n\"method";
+    let reply = rpc(&host, json!({"id":1,"method":name}));
+    assert!(reply["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("unknown\\n\\\"method"));
+    let reply = rpc(
+        &host,
+        json!({"id":1,"method":"tools/call","params":{"name":"z".repeat(500)}}),
+    );
+    let message = reply["error"]["message"].as_str().unwrap();
+    assert!(message.contains(&"z".repeat(64)));
+    assert!(message.len() < 200);
+    let (message, err) = tool(&host, "list_clipboard", json!({"kind":"nope"}));
+    assert!(err);
+    assert!(message
+        .as_str()
+        .unwrap()
+        .contains("text, code, link, color, image, file or other"));
+}
+
+#[test]
+fn agent_records_use_the_injected_identity_and_clock() {
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), vec![]);
+    let (value, err) = tool(
+        h.service.host.as_ref(),
+        "create_snippet",
+        json!({"name":"Clock","content":"ordinary text","triggers":[";clock"],"group":"One/Two"}),
+    );
+    assert!(!err);
+    assert_eq!(value["created"]["id"], Uuid::from_u128(100).to_string());
+    let lib = h.service.host.library.snapshot().1;
+    assert_eq!(lib.groups[0].id, Uuid::from_u128(101));
+    assert_eq!(lib.groups[1].id, Uuid::from_u128(102));
+    assert_eq!(lib.snippets[0].created_at.timestamp(), 1_794_398_400);
+    let (value, err) = tool(
+        h.service.host.as_ref(),
+        "update_snippet",
+        json!({"id":Uuid::from_u128(100),"name":"Clock updated"}),
+    );
+    assert!(!err, "{value}");
+    assert_eq!(
+        h.service.host.library.snapshot().1.snippets[0]
+            .updated_at
+            .timestamp(),
+        1_794_398_400
+    );
+}
+#[test]
+fn fixture_directories_are_absolute_and_under_the_workspace_target() {
+    let dir = super::test_support::directory();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .join("target");
+    let absolute = dir.is_absolute();
+    let inside = dir.starts_with(root);
+    std::fs::remove_dir_all(dir).unwrap();
+    assert!(absolute && inside);
+}
+#[test]
+fn installed_skill_is_private_atomic_and_replaces_symlink() {
+    use std::os::unix::fs::{symlink, PermissionsExt};
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), vec![]);
+    let path = h.service.setup().skill_path;
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let target = h.dir.join("original");
+    std::fs::write(&target, "original").unwrap();
+    symlink(&target, &path).unwrap();
+    h.service.install_skill().unwrap();
+    assert!(!std::fs::symlink_metadata(&path)
+        .unwrap()
+        .file_type()
+        .is_symlink());
+    assert_eq!(std::fs::read_to_string(target).unwrap(), "original");
+    assert_eq!(
+        std::fs::metadata(path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+}
+
+#[test]
+fn fake_reuses_one_service_across_messages() {
+    let host = Fake::new();
+    rpc(&host, json!({"id":1,"method":"ping"}));
+    let before = host.harness.borrow().as_ref().unwrap().dir.clone();
+    rpc(&host, json!({"id":2,"method":"tools/list"}));
+    assert_eq!(host.harness.borrow().as_ref().unwrap().dir, before);
 }

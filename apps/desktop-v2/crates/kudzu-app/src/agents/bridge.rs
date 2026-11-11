@@ -6,11 +6,15 @@ use std::{
     time::Duration,
 };
 const REPLY_TIMEOUT: Duration = Duration::from_secs(30);
-pub fn run(
+pub fn run(input: impl BufRead, output: impl Write, path: &Path, version: &str) -> io::Result<()> {
+    run_with_timeout(input, output, path, version, REPLY_TIMEOUT)
+}
+fn run_with_timeout(
     input: impl BufRead,
     mut output: impl Write,
     path: &Path,
     version: &str,
+    timeout: Duration,
 ) -> io::Result<()> {
     let mut conn = None;
     for line in input.lines() {
@@ -18,8 +22,14 @@ pub fn run(
         if line.trim().is_empty() {
             continue;
         }
-        let reply =
-            relay(&mut conn, path, &line).unwrap_or_else(|| super::handle(None, version, &line));
+        let reply = match relay_with_timeout(&mut conn,path,&line,timeout) {
+            Ok(reply)=>reply,
+            Err(RelayFailure::Offline)=>super::handle(None,version,&line),
+            Err(RelayFailure::TimedOut)=>super::expects_reply(&line).then(|| {
+                let id=serde_json::from_str::<serde_json::Value>(&line).ok().and_then(|v|v.get("id").cloned()).unwrap_or(serde_json::Value::Null);
+                super::error(id,-32000,"Kudzu didn't answer in time. The request may have completed; check before trying again.").to_string()
+            }),
+        };
         if let Some(reply) = reply {
             writeln!(output, "{reply}")?;
             output.flush()?;
@@ -27,29 +37,58 @@ pub fn run(
     }
     Ok(())
 }
+#[derive(Debug)]
+enum RelayFailure {
+    Offline,
+    TimedOut,
+}
 type Conn = (BufReader<UnixStream>, UnixStream);
 
 /// Sends one message to the app. `None` when it couldn't be delivered; `Some(None)` when it was
 /// and no reply is due.
+#[cfg(test)]
 fn relay(conn: &mut Option<Conn>, path: &Path, line: &str) -> Option<Option<String>> {
+    relay_with_timeout(conn, path, line, REPLY_TIMEOUT).ok()
+}
+fn relay_with_timeout(
+    conn: &mut Option<Conn>,
+    path: &Path,
+    line: &str,
+    timeout: Duration,
+) -> Result<Option<String>, RelayFailure> {
     // A connection from before Kudzu restarted fails once; reconnect and try again.
     for _ in 0..2 {
         if conn.is_none() {
-            let stream = UnixStream::connect(path).ok()?;
-            stream.set_read_timeout(Some(REPLY_TIMEOUT)).ok()?;
-            *conn = Some((BufReader::new(stream.try_clone().ok()?), stream));
+            let stream = UnixStream::connect(path).map_err(|_| RelayFailure::Offline)?;
+            stream
+                .set_read_timeout(Some(timeout))
+                .map_err(|_| RelayFailure::Offline)?;
+            stream
+                .set_write_timeout(Some(timeout))
+                .map_err(|_| RelayFailure::Offline)?;
+            *conn = Some((
+                BufReader::new(stream.try_clone().map_err(|_| RelayFailure::Offline)?),
+                stream,
+            ));
         }
-        let (reader, writer) = conn.as_mut()?;
-        if writeln!(writer, "{line}")
-            .and_then(|_| writer.flush())
-            .is_ok()
-        {
+        let (reader, writer) = conn.as_mut().ok_or(RelayFailure::Offline)?;
+        let written = writeln!(writer, "{line}").and_then(|_| writer.flush());
+        if written.as_ref().is_err_and(|error| {
+            matches!(
+                error.kind(),
+                io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+            )
+        }) {
+            *conn = None;
+            return Err(RelayFailure::TimedOut);
+        }
+        if written.is_ok() {
             if !super::expects_reply(line) {
-                return Some(None);
+                return Ok(None);
             }
             let mut buf = String::new();
             match reader.read_line(&mut buf) {
-                Ok(n) if n > 0 => return Some(Some(buf.trim_end().to_string())),
+                Ok(n) if n > 0 => return Ok(Some(buf.trim_end().to_string())),
                 // The request may have run; don't send it twice.
                 Err(e)
                     if matches!(
@@ -58,14 +97,14 @@ fn relay(conn: &mut Option<Conn>, path: &Path, line: &str) -> Option<Option<Stri
                     ) =>
                 {
                     *conn = None;
-                    return None;
+                    return Err(RelayFailure::TimedOut);
                 }
                 _ => {}
             }
         }
         *conn = None;
     }
-    None
+    Err(RelayFailure::Offline)
 }
 
 #[cfg(test)]
@@ -77,7 +116,7 @@ mod tests {
     fn relays_through_a_socket_and_falls_back_offline() {
         let dir = super::super::test_support::directory();
         fs::create_dir_all(&dir).unwrap();
-        let path = dir.join("agent.sock");
+        let path = super::super::test_support::socket_path(&dir);
         let mut conn = None;
         let ping = r#"{"jsonrpc":"2.0","id":1,"method":"ping"}"#;
         assert_eq!(relay(&mut conn, &path, ping), None, "nothing listening");
@@ -120,7 +159,7 @@ mod recovery_tests {
     #[test]
     fn reconnects_once_after_a_closed_connection() {
         let dir = super::super::test_support::directory();
-        let path = dir.join("agent.sock");
+        let path = super::super::test_support::socket_path(&dir);
         let listener = UnixListener::bind(&path).unwrap();
         let server = thread::spawn(move || {
             for attempt in 0..2 {
@@ -144,7 +183,7 @@ mod recovery_tests {
     fn timeout_never_replays_a_request_and_the_next_call_reconnects() {
         assert_eq!(REPLY_TIMEOUT, Duration::from_secs(30));
         let dir = super::super::test_support::directory();
-        let path = dir.join("agent.sock");
+        let path = super::super::test_support::socket_path(&dir);
         let listener = UnixListener::bind(&path).unwrap();
         let server = thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
@@ -196,5 +235,46 @@ mod recovery_tests {
         assert!(output.contains("list_snippets"));
         assert!(output.contains(super::super::OFFLINE_MESSAGE));
         fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod timeout_tests {
+    use super::*;
+    #[test]
+    fn production_timeout_reports_slow_app_without_replaying() {
+        let dir = super::super::test_support::directory();
+        let path = super::super::test_support::socket_path(&dir);
+        let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            let mut reader = BufReader::new(stream);
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            assert!(line.contains("create_snippet"));
+            line.clear();
+            assert_eq!(reader.read_line(&mut line).unwrap(), 0);
+            listener.set_nonblocking(true).unwrap();
+            assert_eq!(
+                listener.accept().unwrap_err().kind(),
+                io::ErrorKind::WouldBlock
+            );
+        });
+        let mut out = vec![];
+        run_with_timeout(
+            io::Cursor::new(
+                "{\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"create_snippet\"}}\n",
+            ),
+            &mut out,
+            &path,
+            "1",
+            Duration::from_millis(50),
+        )
+        .unwrap();
+        server.join().unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+        let result = String::from_utf8(out).unwrap();
+        assert!(result.contains("didn't answer in time"));
+        assert!(!result.contains("isn't running"));
     }
 }

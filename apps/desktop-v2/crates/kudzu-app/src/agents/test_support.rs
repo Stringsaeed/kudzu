@@ -21,7 +21,12 @@ impl<T> WriteTarget<T> for Memory {
     }
 }
 pub fn directory() -> PathBuf {
-    let dir = PathBuf::from("target/s32-fixtures").join(Uuid::new_v4().to_string());
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap()
+        .join("target/s32-fixtures")
+        .join(Uuid::new_v4().to_string());
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -45,12 +50,13 @@ impl Harness {
             agent_access: true,
             ..Settings::default()
         });
+        let ids = Arc::new(FixedIds::new(100));
         let library = Arc::new(
             LibraryService::new(
                 lib,
                 "test".into(),
                 clock.clone(),
-                Arc::new(FixedIds::new(100)),
+                ids.clone(),
                 writer.register(Memory, Revision(0)).unwrap(),
                 Arc::new(Scheduler::new(clock.clone()).unwrap()),
             )
@@ -84,7 +90,7 @@ impl Harness {
             .unwrap(),
         );
         let config = AgentConfig {
-            socket: dir.join("agent.sock"),
+            socket: socket_path(&dir),
             home: dir.join("home"),
             executable: dir.join("Kudzu Next.app/it's Kudzu"),
             name: "kudzu-next".into(),
@@ -94,7 +100,7 @@ impl Harness {
             bundled_skill_dir: None,
         };
         Self {
-            service: AgentsService::new(config, library, clipboard, settings.watch(), clock),
+            service: AgentsService::new(config, library, clipboard, settings.watch(), clock, ids),
             settings,
             writer,
             dir,
@@ -108,4 +114,16 @@ impl Drop for Harness {
         self.writer.shutdown().unwrap();
         std::fs::remove_dir_all(&self.dir).unwrap();
     }
+}
+
+// Unix socket paths have a short kernel limit. Resolve the absolute workspace-owned
+// fixture through a short relative spelling from Cargo's per-package test directory.
+pub fn socket_path(dir: &std::path::Path) -> PathBuf {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .ancestors()
+        .nth(2)
+        .unwrap();
+    PathBuf::from("../..")
+        .join(dir.strip_prefix(root).unwrap())
+        .join("s")
 }

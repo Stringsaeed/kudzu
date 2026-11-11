@@ -12,6 +12,7 @@
 mod service;
 pub use service::{AgentConfig, AgentError, AgentStatus, AgentsService};
 pub mod bridge;
+mod endpoint;
 mod setup;
 mod socket;
 pub use setup::{AgentSetup, SkillState};
@@ -155,7 +156,7 @@ fn dispatch(
         "resources/templates/list" => Ok(json!({ "resourceTemplates": [] })),
         "prompts/list" => Ok(json!({ "prompts": [] })),
         _ if id.is_none() => return None,
-        _ => Err((-32601, "Method not found".to_owned())),
+        _ => Err((-32601, format!("Method not found: {}", input_name(method)))),
     };
     let id = id?;
     Some(match result {
@@ -216,3 +217,12 @@ mod tests;
 
 #[cfg(test)]
 mod test_support;
+
+#[cfg(test)]
+mod socket_tests;
+
+// Diagnostics quote only a bounded agent-supplied name, with controls escaped.
+fn input_name(name: &str) -> String {
+    let short: String = name.chars().take(64).collect();
+    serde_json::to_string(&short).expect("a string encodes")
+}

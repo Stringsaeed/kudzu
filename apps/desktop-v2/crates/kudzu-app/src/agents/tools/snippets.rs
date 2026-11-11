@@ -362,6 +362,7 @@ pub(super) fn create_snippet(
     lib: &mut KudzuLibrary,
     args: &Args,
     now: chrono::DateTime<Utc>,
+    ids: &dyn crate::ports::IdSource,
 ) -> Result<Value, String> {
     let name = string(args, "name")?.map(str::trim).unwrap_or_default();
     if name.is_empty() {
@@ -384,13 +385,28 @@ pub(super) fn create_snippet(
         find_group(&lib.groups, g)?; // report ambiguity before changing anything
     }
 
-    let mut s = SnippetRecord::new(name, triggers, content);
+    let mut s = SnippetRecord {
+        id: ids.next_id(),
+        name: name.into(),
+        triggers,
+        content: content.into(),
+        formatting: None,
+        group_id: None,
+        fire_mode: fire,
+        case_mode: case,
+        insertion: None,
+        rule: None,
+        is_favorite: favorite,
+        is_enabled: true,
+        created_at: now,
+        updated_at: now,
+    };
     s.created_at = now;
     s.updated_at = now;
     s.case_mode = case;
     s.fire_mode = fire;
     s.is_favorite = favorite;
-    s.group_id = group.map(|g| ensure_group(lib, g)).transpose()?;
+    s.group_id = group.map(|g| ensure_group(lib, g, ids)).transpose()?;
     lib.snippets.insert(0, s.clone());
     let usage = uses(lib);
     let mut v = json!({ "created": summary(lib, &s, &usage) });
@@ -405,6 +421,7 @@ pub(super) fn update_snippet(
     lib: &mut KudzuLibrary,
     args: &Args,
     now: chrono::DateTime<Utc>,
+    ids: &dyn crate::ports::IdSource,
 ) -> Result<Value, String> {
     let raw_id = string(args, "id")?.ok_or("Pass the `id` of the snippet to edit.")?;
     let id = parse_id(raw_id, "snippet")?;
@@ -460,7 +477,7 @@ pub(super) fn update_snippet(
         if let Some(g) = g {
             find_group(&lib.groups, g)?;
         }
-        s.group_id = g.map(|g| ensure_group(lib, g)).transpose()?;
+        s.group_id = g.map(|g| ensure_group(lib, g, ids)).transpose()?;
     }
     if s == before {
         let usage = uses(lib);

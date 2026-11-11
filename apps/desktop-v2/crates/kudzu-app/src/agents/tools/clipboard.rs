@@ -42,7 +42,10 @@ pub(super) fn list_clipboard(host: &ServiceHost, args: &Args) -> Result<Value, S
     let limit = count(args, "limit", 20, 100)?.max(1);
     let kind = string(args, "kind")?
         .map(|s| {
-            serde_json::from_value(json!(s)).map_err(|_| "Unknown clipboard kind.".to_string())
+            serde_json::from_value(json!(s)).map_err(|_| {
+                "Unknown clipboard kind: use text, code, link, color, image, file or other."
+                    .to_string()
+            })
         })
         .transpose()?;
     let query = ClipQuery {

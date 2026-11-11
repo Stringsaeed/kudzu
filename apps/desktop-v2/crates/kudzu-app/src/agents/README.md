@@ -32,7 +32,7 @@ adapter and the metadata secrecy regression.
 | Quoted executable, user-scoped Claude command, identity name, JSON config | Pass: `quotes_paths_for_the_shell`, `socket_lifecycle_access_and_setup_are_isolated`. Identity name and CLI arguments are supplied by composition. |
 | Skill missing/current/outdated | Pass: `socket_lifecycle_access_and_setup_are_isolated`. |
 | Skill resource listed/readable | Pass: `serves_the_skill_as_a_resource`. |
-| Secret safety | Pass: `clipboard_withholds_secrets`, `clipboard_follows_the_users_corrections`, `lists_and_searches_snippets_without_leaking_secrets`, `field_defaults_and_options_are_redacted_too`, `secrets_never_reach_results_errors_or_logging_calls`, `snippet_metadata_and_unknown_field_names_are_redacted`. |
+| Secret safety | Pass: `clipboard_withholds_secrets`, `clipboard_follows_the_users_corrections`, `lists_and_searches_snippets_without_leaking_secrets`, `field_defaults_and_options_are_redacted_too`, `secrets_never_reach_results_errors_or_logging_calls`, `snippet_metadata_and_unknown_field_names_match_tauri`. |
 | Independent tool caps | Pass: `tool_clipboard_limits_remain_independent_of_service_caps`. |
 
 The original 16 MCP tests, preserving their names:
@@ -67,7 +67,7 @@ HOME or the executable inside this service. The Dev identity is `kudzu-next` unt
 cutover; retain `--mcp --dev` when composition selects the Dev endpoint explicitly.
 
 Construct with shared `LibraryService`, `ClipboardService`, the settings Watch and
-Clock. Run `apply()` initially and from the settings reactor, off the UI thread.
+Clock and the same shared IdSource as the library. Run `apply()` initially and from the settings reactor, off the UI thread.
 Reconcile on every settings change, including retries after listener startup failure.
 The request path independently checks current access, write permission, clipboard
 permission and recording. Call `shutdown()` before engine/clipboard shutdown and
@@ -112,3 +112,24 @@ snippet redaction and protected content updates are preserved; explicit secret o
 is a clipboard capability. A future manual snippet secret flag would need a separate
 library-model change. Real-client recorded transcript acceptance awaits S71, as these
 tests are prohibited from touching a real MCP client.
+
+## Independent-review corrections
+
+See `REVIEW_FIXES.md` for B1, M1, M2 and m1-m7 regression evidence.
+The listener now blocks in accept and every accepted stream is explicitly blocking.
+The public socket is a hard link to a 0600 socket bound in a private 0700 directory;
+the private endpoint remains available to wake accept even if the public path is replaced.
+There are at most 16 live client threads, request lines are bounded at 1 MiB,
+read inactivity is limited to 30 seconds, and each reply has a total 2-second write
+deadline. Idle access revocation closes existing streams through a settings reactor
+whose waker only enqueues work. The bridge reports timeout separately from offline.
+
+Snippet results now preserve Tauri's exact per-field redaction policy; no recursive
+second scan is applied to metadata or already-redacted template fields. Agent-supplied
+unknown names are quoted, escaped and limited to 64 characters in protocol errors.
+The stricter current-clipboard policy is intentional: substitution is blank unless
+recording and agent sharing are on and the newest entry matches the live clipboard.
+
+Skill install fsyncs the new regular 0600 file before rename and syncs its parent
+folder afterwards. A symlinked destination SKILL.md is replaced by that regular file;
+its former target is untouched. No Claude MCP configuration is edited.

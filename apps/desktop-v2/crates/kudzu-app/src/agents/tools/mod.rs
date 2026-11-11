@@ -3,10 +3,14 @@
 //! - `snippets`: list, get, expand, groups, create and update.
 //! - `clipboard`: clipboard history search and items.
 
+mod args;
 mod clipboard;
+mod groups;
 mod snippets;
+use args::*;
+use groups::*;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use chrono::Utc;
 use serde_json::{json, Map, Value};
@@ -15,7 +19,7 @@ use uuid::Uuid;
 use super::{service::ServiceHost, Access};
 use kudzu_core::secrets::{self, Redacted};
 use kudzu_core::template;
-use kudzu_core::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
+use kudzu_core::{KudzuLibrary, SnippetRecord};
 
 use clipboard::{get_clipboard_item, list_clipboard};
 use snippets::{
@@ -67,7 +71,7 @@ pub fn definitions(access: &Access) -> Vec<Value> {
         tool(
             "expand_snippet",
             "Expand a snippet",
-            "Renders a snippet as if the user typed its trigger now: dates, nested snippets and the clipboard are filled in. Fill-in fields take `values`; missing ones use their defaults. Key presses and pauses ({{key}}, {{delay}}) are left out of the text and listed in `skippedActions`; {{selection}} is empty.",
+            "Renders a snippet as if the user typed its trigger now: dates, nested snippets and the clipboard are filled in. {{clipboard}} is blank unless clipboard recording and agent sharing are on and the newest recorded entry matches the live clipboard. Fill-in fields take `values`; missing ones use their defaults. Key presses and pauses ({{key}}, {{delay}}) are left out of the text and listed in `skippedActions`; {{selection}} is empty.",
             json!({
                 "id": { "type": "string" },
                 "trigger": { "type": "string" },
@@ -183,7 +187,7 @@ pub(super) fn call(host: Option<&ServiceHost>, params: &Value) -> Result<Value, 
         .chain(&CLIPBOARD)
         .any(|t| *t == name)
     {
-        return Err((-32602, "Unknown tool".to_string()));
+        return Err((-32602, format!("Unknown tool: {}", super::input_name(name))));
     }
     let empty = Map::new();
     let args = match params.get("arguments") {
@@ -196,10 +200,7 @@ pub(super) fn call(host: Option<&ServiceHost>, params: &Value) -> Result<Value, 
             .ok_or_else(|| super::OFFLINE_MESSAGE.to_string())
             .and_then(|host| run(host, name, args))
         {
-            Ok(mut value) => {
-                if !CLIPBOARD.contains(&name) {
-                    redact_strings(&mut value);
-                }
+            Ok(value) => {
                 json!({
                     "content": [{ "type": "text", "text": serde_json::to_string_pretty(&value).unwrap_or_default() }],
                     "structuredContent": value,
@@ -211,17 +212,6 @@ pub(super) fn call(host: Option<&ServiceHost>, params: &Value) -> Result<Value, 
             }
         },
     )
-}
-
-// Clipboard values already crossed S28's override-aware redaction boundary.
-// Other tool strings include metadata and diagnostics as well as snippet bodies.
-fn redact_strings(value: &mut Value) {
-    match value {
-        Value::String(text) => *text = secrets::redact(text).text,
-        Value::Array(items) => items.iter_mut().for_each(redact_strings),
-        Value::Object(fields) => fields.values_mut().for_each(redact_strings),
-        _ => {}
-    }
 }
 
 pub(super) type Args = Map<String, Value>;
@@ -236,7 +226,7 @@ fn run(host: &ServiceHost, name: &str, args: &Args) -> Result<Value, String> {
     if CLIPBOARD.contains(&name) && !access.clipboard {
         return Err("Clipboard history isn't shared with agents. The user can turn it on in Kudzu (Settings ▸ AI agents).".into());
     }
-    let now = Utc::now();
+    let now = host.clock.now().into();
     match name {
         "list_snippets" => list_snippets(&host.library()?, args, &access),
         "get_snippet" => get_snippet(&host.library()?, args),
@@ -246,11 +236,15 @@ fn run(host: &ServiceHost, name: &str, args: &Args) -> Result<Value, String> {
             })
         }
         "list_groups" => Ok(list_groups(&host.library()?)),
-        "create_snippet" => transact(&host.library, |lib| create_snippet(lib, args, now)),
-        "update_snippet" => transact(&host.library, |lib| update_snippet(lib, args, now)),
+        "create_snippet" => transact(&host.library, |lib| {
+            create_snippet(lib, args, now, host.ids.as_ref())
+        }),
+        "update_snippet" => transact(&host.library, |lib| {
+            update_snippet(lib, args, now, host.ids.as_ref())
+        }),
         "list_clipboard" => list_clipboard(host, args),
         "get_clipboard_item" => get_clipboard_item(host, args),
-        _ => Err("Unknown tool".to_string()),
+        _ => Err(format!("Unknown tool: {}", super::input_name(name))),
     }
 }
 
@@ -273,177 +267,7 @@ fn transact(
 
 // MARK: Arguments
 
-pub(super) fn string<'a>(args: &'a Args, key: &str) -> Result<Option<&'a str>, String> {
-    match args.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::String(s)) => Ok(Some(s.as_str())),
-        Some(_) => Err(format!("`{key}` must be a string.")),
-    }
-}
-
-pub(super) fn boolean(args: &Args, key: &str) -> Result<Option<bool>, String> {
-    match args.get(key) {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::Bool(b)) => Ok(Some(*b)),
-        Some(_) => Err(format!("`{key}` must be true or false.")),
-    }
-}
-
-pub(super) fn count(args: &Args, key: &str, default: usize, max: usize) -> Result<usize, String> {
-    match args.get(key) {
-        None | Some(Value::Null) => Ok(default),
-        Some(v) => v
-            .as_u64()
-            .map(|n| (n as usize).min(max))
-            .ok_or_else(|| format!("`{key}` must be a whole number.")),
-    }
-}
-
-pub(super) fn triggers(args: &Args) -> Result<Option<Vec<String>>, String> {
-    match args.get("triggers") {
-        None | Some(Value::Null) => Ok(None),
-        Some(Value::String(s)) => Ok(Some(vec![s.clone()])),
-        Some(Value::Array(items)) => items
-            .iter()
-            .map(|v| {
-                v.as_str()
-                    .map(String::from)
-                    .ok_or_else(|| "`triggers` must be a list of strings.".to_string())
-            })
-            .collect::<Result<_, _>>()
-            .map(Some),
-        Some(_) => Err("`triggers` must be a list of strings.".into()),
-    }
-}
-
-pub(super) fn fire_mode(args: &Args) -> Result<Option<FireMode>, String> {
-    Ok(match string(args, "fireMode")? {
-        None => None,
-        Some("immediate") => Some(FireMode::Immediate),
-        Some("wholeWord") => Some(FireMode::WholeWord),
-        Some(other) => {
-            return Err(format!(
-                "Unknown fireMode “{other}”: use immediate or wholeWord."
-            ))
-        }
-    })
-}
-
-pub(super) fn case_mode(args: &Args) -> Result<Option<CaseMode>, String> {
-    Ok(match string(args, "caseMode")? {
-        None => None,
-        Some("propagate") => Some(CaseMode::Propagate),
-        Some("exact") => Some(CaseMode::Exact),
-        Some(other) => {
-            return Err(format!(
-                "Unknown caseMode “{other}”: use propagate or exact."
-            ))
-        }
-    })
-}
-
-pub(super) fn parse_id(raw: &str, what: &str) -> Result<Uuid, String> {
-    Uuid::parse_str(raw.trim())
-        .map_err(|_| format!("That isn't a {what} id. Ids come from the list tools."))
-}
-
 // MARK: Library helpers
-
-pub(super) fn group_path(groups: &[GroupRecord], id: Option<Uuid>) -> Option<String> {
-    let mut names = Vec::new();
-    let mut seen = HashSet::new();
-    let mut cur = id;
-    while let Some(g) = cur.and_then(|id| groups.iter().find(|g| g.id == id)) {
-        if !seen.insert(g.id) {
-            break;
-        }
-        names.push(g.name.as_str());
-        cur = g.parent_id;
-    }
-    names.reverse();
-    (!names.is_empty()).then(|| names.join("/"))
-}
-
-/// A group by id, path ("Work/Email") or (unambiguous) name.
-pub(super) fn find_group(groups: &[GroupRecord], query: &str) -> Result<Option<Uuid>, String> {
-    let q = query.trim();
-    if let Ok(id) = Uuid::parse_str(q) {
-        return groups
-            .iter()
-            .find(|g| g.id == id)
-            .map(|g| Some(g.id))
-            .ok_or_else(|| format!("No group has the id {q}."));
-    }
-    let wanted = q.trim_matches('/').to_lowercase();
-    if let Some(g) = groups
-        .iter()
-        .find(|g| group_path(groups, Some(g.id)).is_some_and(|p| p.to_lowercase() == wanted))
-    {
-        return Ok(Some(g.id));
-    }
-    let named: Vec<&GroupRecord> = groups
-        .iter()
-        .filter(|g| g.name.to_lowercase() == wanted)
-        .collect();
-    match named.as_slice() {
-        [] => Ok(None),
-        [g] => Ok(Some(g.id)),
-        _ => Err(format!(
-            "More than one group is called “{q}”. Use its path or id from list_groups."
-        )),
-    }
-}
-
-/// Finds the group, creating missing path components at the end of their parent.
-pub(super) fn ensure_group(lib: &mut KudzuLibrary, query: &str) -> Result<Uuid, String> {
-    if let Some(id) = find_group(&lib.groups, query)? {
-        return Ok(id);
-    }
-    let mut parent: Option<Uuid> = None;
-    for name in query.split('/').map(str::trim).filter(|n| !n.is_empty()) {
-        let existing = lib
-            .groups
-            .iter()
-            .find(|g| g.parent_id == parent && g.name.to_lowercase() == name.to_lowercase())
-            .map(|g| g.id);
-        parent = Some(match existing {
-            Some(id) => id,
-            None => {
-                let sort_index = lib
-                    .groups
-                    .iter()
-                    .filter(|g| g.parent_id == parent)
-                    .map(|g| g.sort_index + 1)
-                    .max()
-                    .unwrap_or(0);
-                let g = GroupRecord {
-                    parent_id: parent,
-                    sort_index,
-                    ..GroupRecord::new(name)
-                };
-                let id = g.id;
-                lib.groups.push(g);
-                id
-            }
-        });
-    }
-    parent.ok_or_else(|| "The group name is empty.".to_string())
-}
-
-pub(super) fn descendants(groups: &[GroupRecord], root: Uuid) -> HashSet<Uuid> {
-    let mut set = HashSet::from([root]);
-    loop {
-        let before = set.len();
-        for g in groups {
-            if g.parent_id.is_some_and(|p| set.contains(&p)) {
-                set.insert(g.id);
-            }
-        }
-        if set.len() == before {
-            return set;
-        }
-    }
-}
 
 pub(super) fn uses(lib: &KudzuLibrary) -> HashMap<Uuid, (i64, Option<chrono::DateTime<Utc>>)> {
     let mut map: HashMap<Uuid, (i64, Option<chrono::DateTime<Utc>>)> = HashMap::new();

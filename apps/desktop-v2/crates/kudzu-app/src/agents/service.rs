@@ -3,7 +3,7 @@ use super::{Access, RenderEnv, OFFLINE_MESSAGE};
 use crate::{
     clipboard::{AgentItem, ClipboardService},
     library::LibraryService,
-    ports::Clock,
+    ports::{Clock, IdSource},
     settings::Settings,
     watch::{Publisher, Watch},
 };
@@ -48,7 +48,7 @@ pub struct AgentsService {
     pub(super) config: AgentConfig,
     pub(super) host: Arc<ServiceHost>,
     running: Mutex<Option<super::socket::Running>>,
-    status: Publisher<AgentStatus>,
+    status: Arc<Publisher<AgentStatus>>,
 }
 impl AgentsService {
     pub fn new(
@@ -57,8 +57,10 @@ impl AgentsService {
         clipboard: Arc<ClipboardService>,
         settings: Watch<Settings>,
         clock: Arc<dyn Clock>,
+        ids: Arc<dyn IdSource>,
     ) -> Self {
         let locale = config.locale.clone();
+        let status = Arc::new(Publisher::new(AgentStatus { running: false }));
         Self {
             config,
             host: Arc::new(ServiceHost {
@@ -66,12 +68,18 @@ impl AgentsService {
                 clipboard,
                 settings,
                 clock,
+                ids,
                 locale,
+                status: status.clone(),
+                #[cfg(test)]
+                before_reply: Mutex::new(None),
+                #[cfg(test)]
+                request_gate: Mutex::new(None),
                 #[cfg(test)]
                 render_override: None,
             }),
             running: Mutex::new(None),
-            status: Publisher::new(AgentStatus { running: false }),
+            status,
         }
     }
     pub fn status(&self) -> Watch<AgentStatus> {
@@ -81,6 +89,11 @@ impl AgentsService {
     pub fn apply(&self) -> Result<(), AgentError> {
         let mut running = self.running.lock().unwrap_or_else(PoisonError::into_inner);
         if self.host.settings.get().agent_access {
+            if running.as_ref().is_some_and(|r| r.is_finished()) {
+                if let Some(r) = running.take() {
+                    r.shutdown();
+                }
+            }
             if running.is_none() {
                 *running = Some(super::socket::listen(
                     self.host.clone(),
@@ -91,12 +104,7 @@ impl AgentsService {
         } else if let Some(r) = running.take() {
             r.shutdown();
         }
-        let on = running.is_some();
         drop(running);
-        self.status
-            .replace(Arc::new(AgentStatus { running: on }))
-            .notification
-            .notify();
         Ok(())
     }
     pub fn shutdown(&self) {
@@ -123,10 +131,16 @@ pub(super) struct ServiceHost {
     pub library: Arc<LibraryService>,
     pub clipboard: Arc<ClipboardService>,
     pub settings: Watch<Settings>,
-    clock: Arc<dyn Clock>,
+    pub clock: Arc<dyn Clock>,
+    pub ids: Arc<dyn IdSource>,
     locale: String,
+    pub status: Arc<Publisher<AgentStatus>>,
+    #[cfg(test)]
+    pub before_reply: Mutex<Option<std::sync::mpsc::Sender<std::thread::ThreadId>>>,
     #[cfg(test)]
     pub render_override: Option<RenderEnv>,
+    #[cfg(test)]
+    pub request_gate: Mutex<Option<RequestGate>>,
 }
 impl ServiceHost {
     pub(super) fn access(&self) -> Result<Access, String> {
@@ -178,4 +192,10 @@ impl ServiceHost {
             clipboard,
         }
     }
+}
+
+#[cfg(test)]
+pub(super) struct RequestGate {
+    pub started: std::sync::mpsc::Sender<()>,
+    pub release: std::sync::mpsc::Receiver<()>,
 }
