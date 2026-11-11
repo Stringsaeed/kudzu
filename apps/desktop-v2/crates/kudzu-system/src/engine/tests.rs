@@ -18,12 +18,15 @@ struct Recorded {
     starts: usize,
     /// Native form tokens requested and not yet submitted or cancelled, as the engine keeps.
     pending: std::collections::HashSet<u64>,
+    stops: usize,
 }
 
 /// Records commands in port terms and reports through the host, as the native engine would.
 struct FakeNative {
     host: Arc<dyn EngineHost>,
     state: Mutex<Recorded>,
+    /// Runs inside `start`, while the native engine is still starting.
+    during_start: Mutex<Option<Box<dyn FnOnce() + Send>>>,
 }
 
 impl FakeNative {
@@ -41,9 +44,14 @@ fn port_event(event: kudzu_engine::InputEvent) -> InputEvent {
 
 impl Native for FakeNative {
     fn start(&self) {
+        let during = self.during_start.lock().unwrap().take();
+        if let Some(during) = during {
+            during();
+        }
         self.state().starts += 1;
     }
     fn stop(&self) {
+        self.state().stops += 1;
         let status = self.status();
         self.host.status_changed(status);
     }
@@ -120,6 +128,7 @@ impl Forwarding {
             let native = Arc::new(FakeNative {
                 host,
                 state: Mutex::default(),
+                during_start: Mutex::new(None),
             });
             slot.set(native.clone()).ok();
             native
@@ -326,4 +335,27 @@ fn input_events_keep_their_stamp_and_key_code() {
     assert_eq!(native.stamp, kudzu_engine::EventStamp(u64::MAX - 3));
     assert_eq!(native.key_code, Some(36));
     assert_eq!(port_event(native), event);
+}
+
+/// The S35 review: `start` marked the adapter running before the native engine had started,
+/// so an insert could be admitted while the tap was still off.
+#[test]
+fn nothing_is_admitted_until_the_native_engine_has_started() {
+    let forwarding = Forwarding::new(Arc::new(EngineInstances::default()));
+    let Forwarding {
+        adapter, native, ..
+    } = forwarding;
+    let adapter = Arc::new(adapter);
+    let seen: Arc<Mutex<Option<Result<(), AdmissionError>>>> = Arc::default();
+    let (weak, slot) = (Arc::downgrade(&adapter), seen.clone());
+    *native.during_start.lock().unwrap() = Some(Box::new(move || {
+        let adapter = weak.upgrade().unwrap();
+        *slot.lock().unwrap() = Some(adapter.insert(Uuid::nil(), None, None));
+    }));
+    adapter
+        .start(Arc::new(FakeEngineEvents::default()))
+        .unwrap();
+    assert_eq!(*seen.lock().unwrap(), Some(Err(AdmissionError::NoEngine)));
+    assert_eq!(adapter.insert(Uuid::nil(), None, None), Ok(()));
+    adapter.stop();
 }

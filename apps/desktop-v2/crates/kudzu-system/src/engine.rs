@@ -78,14 +78,15 @@ impl EngineAdapter {
 }
 
 impl ExpansionEngine for EngineAdapter {
-    /// Fails with `Unavailable` once a newer engine instance exists.
+    /// Fails with `Unavailable` once a newer engine instance exists. Nothing is admitted until
+    /// the native engine has started (its listener attaches once permissions allow).
     fn start(&self, events: Arc<dyn EngineEvents>) -> Result<(), PortError> {
         if !self.instances.is_current(self.instance) {
             return Err(PortError::Unavailable);
         }
         self.host.attach(events);
-        self.running.store(true, Ordering::SeqCst);
         self.native.start();
+        self.running.store(true, Ordering::SeqCst);
         Ok(())
     }
 
