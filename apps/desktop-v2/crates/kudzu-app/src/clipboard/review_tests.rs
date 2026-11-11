@@ -444,6 +444,33 @@ fn empty_search_5000_entries_p95_within_five_milliseconds() {
     let p95 = timings[94];
     eprintln!("empty search p95: {p95:?}");
     assert!(p95 <= Duration::from_millis(5));
+    let one_char = ClipQuery::parse("a");
+    let mut cold = Vec::new();
+    let mut cached = Vec::new();
+    for _ in 0..30 {
+        service.search.lock().unwrap().take();
+        let start = Instant::now();
+        let result = service.query(ClipFilter::All, &one_char);
+        cold.push(start.elapsed());
+        assert_eq!(std::hint::black_box(result.indices.len()), 5000);
+        let start = Instant::now();
+        let result = service.query(ClipFilter::All, &one_char);
+        cached.push(start.elapsed());
+        assert_eq!(std::hint::black_box(result.indices.len()), 5000);
+    }
+    cold.sort();
+    cached.sort();
+    let cold_p95 = cold[28];
+    let cached_p95 = cached[28];
+    eprintln!("one-character search cold p95: {cold_p95:?}; cached p95: {cached_p95:?}");
+    assert!(
+        cold_p95 <= Duration::from_millis(5),
+        "cold one-character search exceeded the budget"
+    );
+    assert!(
+        cached_p95 <= Duration::from_millis(5),
+        "cached one-character search exceeded the budget"
+    );
     service.shutdown().unwrap();
     writer.shutdown().unwrap();
     service.finish_shutdown().unwrap();
@@ -646,6 +673,8 @@ fn query_returns_stable_snapshot_indices_without_cloning_entries() {
     board.external_copy(vec![vec![(uti::PLAIN_TEXT.into(), b"second".to_vec())]]);
     service.poll().unwrap();
     assert_ne!(revision, service.watch().revision());
+    assert_eq!(results.get(0).unwrap().text.as_deref(), Some("first"));
+    assert!(results.get(1).is_none());
     assert_eq!(
         results.history.entries[results.indices[0]].text.as_deref(),
         Some("first")
@@ -1133,5 +1162,309 @@ fn usage_cache_refreshes_after_deferred_cleanup_without_a_new_revision() {
     assert_eq!(service.watch().revision(), revision);
     assert_eq!(service.usage(), 0);
     assert!(!service.store.blob(id).exists());
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn changed_ignored_app_during_read_is_not_recorded_or_misattributed() {
+    let dir = std::env::temp_dir().join(format!("kudzu-review-race-{}", Uuid::new_v4()));
+    let board = Arc::new(FakePasteboard::default());
+    let apps = Arc::new(FakeApps::default());
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Publisher::new(Settings::for_variant(Variant::Dev));
+    let service = ClipboardService::open(
+        dir.clone(),
+        settings.watch(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: apps.clone(),
+            icons: apps.clone(),
+            clock,
+        },
+        &writer,
+    )
+    .unwrap();
+    *apps.frontmost.lock().unwrap() = Some(AppInfo {
+        bundle_id: "example.editor".into(),
+        name: "Editor".into(),
+        pid: Some(1),
+        path: None,
+    });
+    board.external_copy(vec![vec![(uti::PLAIN_TEXT.into(), b"normal".to_vec())]]);
+    let weak = Arc::downgrade(&board);
+    let changed_apps = apps.clone();
+    *board.before_read.lock().unwrap() = Some(Arc::new(move || {
+        *changed_apps.frontmost.lock().unwrap() = Some(AppInfo {
+            bundle_id: "com.1password.1password".into(),
+            name: "Passwords".into(),
+            pid: Some(2),
+            path: None,
+        });
+        weak.upgrade()
+            .unwrap()
+            .external_copy(vec![vec![(uti::PLAIN_TEXT.into(), b"secret".to_vec())]]);
+    }));
+    service.poll().unwrap();
+    assert!(service.watch().get().entries.is_empty());
+    *board.before_read.lock().unwrap() = None;
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn agent_query_returns_at_most_one_hundred_matches() {
+    use kudzu_core::clipboard::query::{ClipFilter, ClipQuery};
+    let dir = std::env::temp_dir().join(format!("kudzu-agent-cap-{}", Uuid::new_v4()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let clock = Arc::new(FakeClock::default());
+    let mut history = History::new();
+    let items = vec![vec![(uti::PLAIN_TEXT.into(), b"ordinary".to_vec())]];
+    history.ingest(
+        &classify(&items, None).unwrap(),
+        None,
+        None,
+        clock.now().into(),
+    );
+    let entry = history.entries[0].clone();
+    history.entries = (0..101)
+        .map(|_| {
+            let mut e = entry.clone();
+            e.id = Uuid::new_v4();
+            e
+        })
+        .collect();
+    std::fs::write(
+        dir.join("history.json"),
+        serde_json::to_vec(&history).unwrap(),
+    )
+    .unwrap();
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Publisher::new(Settings::for_variant(Variant::Dev));
+    let service = ClipboardService::open(
+        dir.clone(),
+        settings.watch(),
+        ClipboardPorts {
+            board: Arc::new(FakePasteboard::default()),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
+        &writer,
+    )
+    .unwrap();
+    assert_eq!(
+        service
+            .agent_query(ClipFilter::All, &ClipQuery::parse(""))
+            .len(),
+        100
+    );
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn agent_history_text_is_capped_at_fifty_thousand_scalars() {
+    let dir = std::env::temp_dir().join(format!("kudzu-agent-history-{}", Uuid::new_v4()));
+    let board = Arc::new(FakePasteboard::default());
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Publisher::new(Settings::for_variant(Variant::Dev));
+    let service = ClipboardService::open(
+        dir.clone(),
+        settings.watch(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
+        &writer,
+    )
+    .unwrap();
+    let text = "plain words ".repeat(5000);
+    board.external_copy(vec![vec![(uti::PLAIN_TEXT.into(), text.into_bytes())]]);
+    service.poll().unwrap();
+    let text = service.agent_history_text(1, Some("unrecorded")).unwrap();
+    assert_eq!(text.chars().count(), 50_000);
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn repeated_image_neither_decodes_blob_nor_regenerates_thumbnail() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let dir = std::env::temp_dir().join(format!("kudzu-clip-recopy-{}", Uuid::new_v4()));
+    let board = Arc::new(FakePasteboard::default());
+    let thumbnails = Arc::new(FakeThumbnailer::default());
+    *thumbnails.output.lock().unwrap() = Some(crate::ports::Thumbnail {
+        png: vec![7],
+        width: 5,
+        height: 5,
+    });
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Publisher::new(Settings::for_variant(Variant::Dev));
+    let service = ClipboardService::open(
+        dir.clone(),
+        settings.watch(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: thumbnails.clone(),
+            target: Arc::new(FakeApps::default()),
+            icons: Arc::new(FakeApps::default()),
+            clock,
+        },
+        &writer,
+    )
+    .unwrap();
+    let items = vec![vec![(uti::PNG.into(), vec![1, 2, 3])]];
+    board.external_copy(items.clone());
+    service.poll().unwrap();
+    let reads = Arc::new(AtomicUsize::new(0));
+    let reads_hook = reads.clone();
+    *service.store.before_items.lock().unwrap() = Some(Arc::new(move || {
+        reads_hook.fetch_add(1, Ordering::Relaxed);
+    }));
+    board.external_copy(items);
+    service.poll().unwrap();
+    assert_eq!(
+        (
+            reads.load(Ordering::Relaxed),
+            thumbnails.requests.lock().unwrap().len()
+        ),
+        (0, 1)
+    );
+    *service.store.before_items.lock().unwrap() = None;
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn copy_succeeds_when_item_is_deleted_after_pasteboard_write() {
+    let dir = std::env::temp_dir().join(format!("kudzu-clip-copy-race-{}", Uuid::new_v4()));
+    let board = Arc::new(FakePasteboard::default());
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Publisher::new(Settings::for_variant(Variant::Dev));
+    let service = Arc::new(
+        ClipboardService::open(
+            dir.clone(),
+            settings.watch(),
+            ClipboardPorts {
+                board: board.clone(),
+                thumbnails: Arc::new(FakeThumbnailer::default()),
+                target: Arc::new(FakeApps::default()),
+                icons: Arc::new(FakeApps::default()),
+                clock,
+            },
+            &writer,
+        )
+        .unwrap(),
+    );
+    let items = vec![vec![(uti::PLAIN_TEXT.into(), b"copied".to_vec())]];
+    board.external_copy(items.clone());
+    service.poll().unwrap();
+    let id = service.watch().get().entries[0].id;
+    let weak = Arc::downgrade(&service);
+    *board.after_write.lock().unwrap() = Some(Arc::new(move || {
+        weak.upgrade().unwrap().delete(&[id]).unwrap();
+    }));
+    let result = service.copy(id, Flavor::Original);
+    assert_eq!(result, Ok(()));
+    assert_eq!(board.snapshot.lock().unwrap().items, items);
+    *board.after_write.lock().unwrap() = None;
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn clipboard_root_stays_within_the_four_hundred_line_target() {
+    assert!(include_str!("mod.rs").lines().count() <= 400);
+}
+
+#[test]
+fn app_excluded_during_read_is_not_captured() {
+    let dir = std::env::temp_dir().join(format!("kudzu-ignore-race-{}", Uuid::new_v4()));
+    let board = Arc::new(FakePasteboard::default());
+    let apps = Arc::new(FakeApps::default());
+    let clock = Arc::new(FakeClock::default());
+    let writer = Writer::new(
+        clock.clone(),
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+    )
+    .unwrap();
+    let settings = Arc::new(Publisher::new(Settings::for_variant(Variant::Dev)));
+    *apps.frontmost.lock().unwrap() = Some(AppInfo {
+        bundle_id: "example.editor".into(),
+        name: "Editor".into(),
+        pid: Some(1),
+        path: None,
+    });
+    let service = ClipboardService::open(
+        dir.clone(),
+        settings.watch(),
+        ClipboardPorts {
+            board: board.clone(),
+            thumbnails: Arc::new(FakeThumbnailer::default()),
+            target: apps.clone(),
+            icons: apps,
+            clock,
+        },
+        &writer,
+    )
+    .unwrap();
+    board.external_copy(vec![vec![(uti::PLAIN_TEXT.into(), b"ordinary".to_vec())]]);
+    let new_settings = settings.clone();
+    *board.before_read.lock().unwrap() = Some(Arc::new(move || {
+        let mut next = (*new_settings.watch().get()).clone();
+        next.clipboard_ignored_apps.push("example.editor".into());
+        new_settings.replace(Arc::new(next)).notification.notify();
+    }));
+    service.poll().unwrap();
+    assert!(service.watch().get().entries.is_empty());
+    *board.before_read.lock().unwrap() = None;
+    service.shutdown().unwrap();
+    writer.shutdown().unwrap();
+    service.finish_shutdown().unwrap();
     let _ = std::fs::remove_dir_all(dir);
 }

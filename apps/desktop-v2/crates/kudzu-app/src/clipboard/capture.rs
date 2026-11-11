@@ -60,6 +60,22 @@ impl ClipboardService {
                 .last_change = snapshot.change_count;
             return Ok(());
         }
+        let front = self.target.frontmost()?;
+        let settings = self.settings.get();
+        if !settings.clipboard_enabled
+            || front
+                .as_ref()
+                .is_some_and(|app| settings.clipboard_ignored_apps.contains(&app.bundle_id))
+        {
+            self.state
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .last_change = snapshot.change_count;
+            return Ok(());
+        }
+        if snapshot.change_count != count || self.board.change_count() != snapshot.change_count {
+            return Ok(());
+        }
         let Some(c) = classify(
             &snapshot.items,
             front.as_ref().map(|a| a.bundle_id.as_str()),
@@ -75,29 +91,18 @@ impl ClipboardService {
             name: a.name,
             path: a.path,
         });
-        let thumb = match c.kind {
-            ClipKind::Image => match clipboard::image_of(&snapshot.items) {
-                Some((bytes, _)) => self.thumbnails.thumbnail(bytes, 480)?,
-                None => None,
-            },
-            ClipKind::File
-                if c.files.len() == 1 && clipboard::image_mime_for_path(&c.files[0]).is_some() =>
-            {
-                let data = fs::metadata(&c.files[0])
-                    .ok()
-                    .filter(|m| m.is_file() && m.len() <= MAX_FILE_THUMB)
-                    .and_then(|_| fs::read(&c.files[0]).ok());
-                match data {
-                    Some(data) => self.thumbnails.thumbnail(&data, 480)?,
-                    None => None,
-                }
-            }
-            _ => None,
+        let hash = format!("{:016x}", c.hash);
+        let known = self
+            .history
+            .get()
+            .entries
+            .iter()
+            .any(|entry| entry.hash == hash);
+        let mut thumb = if known {
+            None
+        } else {
+            self.thumbnail_for(&c, &snapshot.items)?
         };
-        let image = thumb.as_ref().map(|t| ImageSize {
-            width: t.width,
-            height: t.height,
-        });
         let operation = self
             .operations
             .lock()
@@ -112,26 +117,24 @@ impl ClipboardService {
             }
         }
         let (revision, current) = self.history.snapshot();
+        let repeated = current.entries.iter().any(|entry| entry.hash == hash);
+        if known && !repeated {
+            thumb = self.thumbnail_for(&c, &snapshot.items)?;
+        }
+        let image = thumb.as_ref().map(|t| ImageSize {
+            width: t.width,
+            height: t.height,
+        });
         let mut next = (*current).clone();
         let ingest = next.ingest(&c, source, image, self.clock.now().into());
         let entry = ingest.entry();
         let id = entry.id;
         let was_present = current.get(id).is_some();
         let write_result = (|| {
-            if c.size <= MAX_BLOB {
-                let unchanged = self.store.items(id).as_deref() == Some(snapshot.items.as_slice());
-                if !unchanged {
-                    self.store.write(
-                        &self.store.blob(id),
-                        &clipboard::encode_items(&snapshot.items),
-                    )?;
-                }
-            } else {
-                match fs::remove_file(self.store.blob(id)) {
-                    Ok(()) => {}
-                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(error) => return Err(IoFailure::from(error).into()),
-                }
+            let blob = self.store.blob(id);
+            if c.size <= MAX_BLOB && !(repeated && blob.exists()) {
+                self.store
+                    .write(&blob, &clipboard::encode_items(&snapshot.items))?;
             }
             if let Some(t) = &thumb {
                 self.store.write(&self.store.thumb(id), &t.png)?;
@@ -166,5 +169,31 @@ impl ClipboardService {
         drop(operation);
         notification.notify();
         self.prune()
+    }
+    fn thumbnail_for(
+        &self,
+        classified: &clipboard::Classified,
+        items: &[PasteItem],
+    ) -> Result<Option<crate::ports::Thumbnail>, ClipboardError> {
+        match classified.kind {
+            ClipKind::Image => match clipboard::image_of(items) {
+                Some((bytes, _)) => Ok(self.thumbnails.thumbnail(bytes, 480)?),
+                None => Ok(None),
+            },
+            ClipKind::File
+                if classified.files.len() == 1
+                    && clipboard::image_mime_for_path(&classified.files[0]).is_some() =>
+            {
+                let data = fs::metadata(&classified.files[0])
+                    .ok()
+                    .filter(|m| m.is_file() && m.len() <= MAX_FILE_THUMB)
+                    .and_then(|_| fs::read(&classified.files[0]).ok());
+                match data {
+                    Some(data) => Ok(self.thumbnails.thumbnail(&data, 480)?),
+                    None => Ok(None),
+                }
+            }
+            _ => Ok(None),
+        }
     }
 }

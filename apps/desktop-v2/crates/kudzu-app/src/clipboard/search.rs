@@ -6,16 +6,25 @@ use kudzu_core::{
 };
 
 pub const MAX_ITEM_CHARS: usize = 50_000;
+const MAX_AGENT_MATCHES: usize = 100;
 pub(super) struct SearchCache {
     revision: Revision,
     local: Option<Arc<ClipSearch<'static>>>,
     agent: Option<Arc<ClipSearch<'static>>>,
 }
-/// Indices always refer to `history`, including when the service has advanced to a new revision.
+/// Indices are valid only for this result's `history`, not for any newer snapshot.
 pub struct ClipResults {
     pub revision: Revision,
     pub history: Arc<History>,
     pub indices: Vec<usize>,
+}
+impl ClipResults {
+    /// Resolve a result position through its own immutable history snapshot.
+    pub fn get(&self, position: usize) -> Option<&ClipEntry> {
+        self.indices
+            .get(position)
+            .and_then(|&index| self.history.entries.get(index))
+    }
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct AgentItem {
@@ -113,6 +122,7 @@ impl ClipboardService {
             .indices(filter, query);
         indices
             .into_iter()
+            .take(MAX_AGENT_MATCHES)
             .map(|i| self.agent_summary(&history.entries[i], false))
             .collect()
     }
@@ -229,6 +239,6 @@ impl ClipboardService {
         if entry.secret_override != Some(false) && secrets::contains_secret(&text) {
             return None;
         }
-        Some(text)
+        Some(clipboard::excerpt(&text, MAX_ITEM_CHARS))
     }
 }

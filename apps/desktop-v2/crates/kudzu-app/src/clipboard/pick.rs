@@ -32,10 +32,13 @@ impl ClipboardService {
         .ok_or(ClipboardError::TooLarge)?;
         self.board.write(&items)?;
         let now = self.clock.now().into();
-        self.change(|h| {
+        match self.change(|h| {
             h.mark_used(id, now).ok_or(ClipboardError::Missing)?;
             Ok(())
-        })
+        }) {
+            Err(ClipboardError::Missing) => Ok(()),
+            result => result,
+        }
     }
     pub fn begin_pick(self: &Arc<Self>) -> Result<PickSession, ClipboardError> {
         Ok(PickSession {

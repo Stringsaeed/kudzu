@@ -13,6 +13,10 @@ pub struct FakePasteboard {
     pub pasted_into: Mutex<Vec<Option<AppInfo>>>,
     pub failure: Mutex<Option<PortError>>,
     pub text_reads: Mutex<usize>,
+    #[cfg(test)]
+    pub before_read: Mutex<Option<std::sync::Arc<dyn Fn() + Send + Sync>>>,
+    #[cfg(test)]
+    pub after_write: Mutex<Option<std::sync::Arc<dyn Fn() + Send + Sync>>>,
 }
 impl FakePasteboard {
     pub fn external_copy(&self, items: Vec<PasteItem>) {
@@ -42,6 +46,13 @@ impl Pasteboard for FakePasteboard {
         if let Some(e) = *self.failure.lock().unwrap() {
             return Err(e);
         }
+        #[cfg(test)]
+        {
+            let hook = self.before_read.lock().unwrap().clone();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
         Ok(self.snapshot.lock().unwrap().clone())
     }
     fn read_text(&self) -> Result<Option<String>, PortError> {
@@ -67,7 +78,16 @@ impl Pasteboard for FakePasteboard {
         state.change_count += 1;
         state.own = true;
         state.items = items.to_vec();
-        Ok(state.change_count)
+        let count = state.change_count;
+        drop(state);
+        #[cfg(test)]
+        {
+            let hook = self.after_write.lock().unwrap().clone();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
+        Ok(count)
     }
     fn can_paste(&self) -> bool {
         *self.paste_allowed.lock().unwrap()

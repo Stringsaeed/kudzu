@@ -10,6 +10,8 @@ pub(super) struct Store {
     pub dir: PathBuf,
     #[cfg(test)]
     pub before_write: std::sync::Mutex<Option<std::sync::Arc<dyn Fn() + Send + Sync>>>,
+    #[cfg(test)]
+    pub before_items: std::sync::Mutex<Option<std::sync::Arc<dyn Fn() + Send + Sync>>>,
 }
 impl Store {
     pub fn open(dir: PathBuf) -> Result<Self, ClipboardError> {
@@ -38,6 +40,8 @@ impl Store {
             dir,
             #[cfg(test)]
             before_write: std::sync::Mutex::new(None),
+            #[cfg(test)]
+            before_items: std::sync::Mutex::new(None),
         })
     }
     fn path(&self, sub: &str, id: Uuid, ext: &str) -> PathBuf {
@@ -50,6 +54,13 @@ impl Store {
         self.path("thumbs", id, "png")
     }
     pub fn items(&self, id: Uuid) -> Option<Vec<PasteItem>> {
+        #[cfg(test)]
+        {
+            let hook = self.before_items.lock().unwrap().clone();
+            if let Some(hook) = hook {
+                hook();
+            }
+        }
         clipboard::decode_items(&fs::read(self.blob(id)).ok()?)
     }
     pub fn write(&self, path: &Path, bytes: &[u8]) -> Result<(), ClipboardError> {
