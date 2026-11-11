@@ -248,3 +248,57 @@ fn caret_moves_stop_after_the_press_a_click_follows() {
     );
     assert_eq!(rig.doc(), "Best regards |");
 }
+
+// MARK: A delivered body is an expansion (third review, major 1)
+
+fn expansions(rig: &Rig) -> usize {
+    rig.host.expansions()
+}
+
+/// Whole-word `sig ` becomes "Best regards"; a click lands after the body, before the separator
+/// is typed again. The body is in: that's an expansion, not a lost trigger.
+#[test]
+fn a_click_after_the_body_before_the_separator_still_counts_the_expansion() {
+    let rig = Rig::new(&[whole_word("sig", "Best regards")]);
+    rig.at(At::Press(3), |d| d.clicks_text(0));
+    rig.type_("sig ");
+    assert_eq!(rig.doc(), "|Best regards");
+    assert_eq!(lost(&rig), []);
+    assert_eq!(expansions(&rig), 1);
+}
+
+/// The same when the click lands in a paste's 400 ms restore wait.
+#[test]
+fn a_click_during_a_pastes_restore_still_counts_the_expansion() {
+    let snippet = kudzu_core::SnippetRecord {
+        insertion: Some(kudzu_core::InsertionMethod::Paste),
+        ..whole_word("sig", "Best regards")
+    };
+    let rig = Rig::new(&[snippet]);
+    rig.at(At::Sleep(crate::macos::pasteboard::RESTORE_DELAY, 0), |d| {
+        d.clicks_text(0)
+    });
+    rig.type_("sig ");
+    assert_eq!(rig.doc(), "|Best regards");
+    assert_eq!(lost(&rig), []);
+    assert_eq!(expansions(&rig), 1);
+    // A trigger with no separator to type again: the expansion still counts.
+    let rig = Rig::new(&[pasted(";sig", "Best, Sam")]);
+    rig.at(At::Sleep(crate::macos::pasteboard::RESTORE_DELAY, 0), |d| {
+        d.clicks_text(0)
+    });
+    rig.type_(";sig");
+    assert_eq!(lost(&rig), []);
+    assert_eq!(expansions(&rig), 1);
+}
+
+/// A sequence whose every step went in, stopped before its separator: an expansion too.
+#[test]
+fn a_sequence_stopped_after_its_last_step_still_counts_the_expansion() {
+    let rig = Rig::new(&[whole_word("sig", "Best{{delay ms=100}} regards")]);
+    rig.at(At::Press(4), |d| d.clicks_text(0));
+    rig.type_("sig ");
+    assert_eq!(rig.doc(), "|Best regards");
+    assert_eq!(lost(&rig), []);
+    assert_eq!(expansions(&rig), 1);
+}

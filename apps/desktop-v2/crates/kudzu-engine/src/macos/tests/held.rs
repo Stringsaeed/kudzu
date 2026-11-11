@@ -175,7 +175,8 @@ fn shutdown_releases_held_input() {
 
 /// Physical input is never held longer than 1 s, whatever the target does. Here the paste's
 /// wait runs long: the held key goes out unmatched, after the pasted text, and the insertion
-/// finishes nothing more. It is not counted as an expansion (current behaviour).
+/// finishes nothing more. The body went in, so it counts as an expansion (third S34 review;
+/// the copied engine didn't count it).
 #[test]
 fn the_hold_deadline_releases_held_input() {
     let rig = Rig::new(&[pasted(";sig", "Best, Sam")]);
@@ -188,7 +189,7 @@ fn the_hold_deadline_releases_held_input() {
     let expected = [backspaces(3), vec![Out::Paste], released("x")].concat();
     assert_eq!(rig.posted(), expected);
     assert_eq!(rig.doc(), "Best, Samx|");
-    assert_eq!(rig.host.expansions(), 0);
+    assert_eq!(rig.host.expansions(), 1);
 }
 
 #[test]

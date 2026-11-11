@@ -9,7 +9,7 @@ use kudzu_core::matching::case_propagation;
 use kudzu_core::template::RenderResult;
 use kudzu_core::{InsertionMethod, SnippetRecord};
 
-use super::super::keys;
+use super::super::keys::{self, Press};
 use super::replace::{Live, TypedTrigger};
 use super::{Imp, InsertError, KEY_SETTLE, PAUSE_SLICE};
 use crate::library::{self, Library};
@@ -52,6 +52,16 @@ impl Imp {
             core.hold_since = Some(self.observe().now());
             core.hold_extra = extra;
         }
+    }
+
+    /// Posts what follows a delivered body (the separator, the caret moves), checking `live`
+    /// before each press. Whether all of it went out; a refusal is logged and is never a lost
+    /// trigger, since the body is in.
+    fn post_after_body(&self, live: &Live, presses: &[Press]) -> bool {
+        self.post_checked(live, presses).unwrap_or_else(|error| {
+            log::warn!("could not finish after the expansion: {error:?}");
+            false
+        })
     }
 
     /// A `{{delay}}`: sleeps in slices, holding typing meanwhile, and ends early when the
@@ -160,9 +170,8 @@ impl Imp {
             }
         }
         self.keep_holding(token, Duration::ZERO);
-        if !self.still_live(&step) {
-            return stop(self, inserted);
-        }
+        // Every step went in, so this is an expansion whatever happens next: the separator and
+        // the caret moves are best effort, and only whether Backspace can undo depends on them.
         // An image's delivered length depends on the app, so the caret isn't moved by a guess.
         let mut caret_left = if sequence.has_images {
             0
@@ -173,23 +182,19 @@ impl Imp {
             .as_ref()
             .filter(|_| !sequence.has_keys)
             .and_then(|t| t.trigger.separator.as_deref());
-        if let Some(separator) = separator {
-            if !self.post_checked(&step, &keys::retype_presses(separator))? {
-                // The separator the user typed didn't go back in.
-                return stop(self, false);
-            }
+        let mut complete = self.still_live(&step);
+        if let (true, Some(separator)) = (complete, separator) {
+            complete = self.post_after_body(&step, &keys::retype_presses(separator));
             if caret_left > 0 {
                 caret_left += plan::grapheme_count(separator);
             }
         }
-        if !self.post_checked(&step, &keys::left_presses(caret_left))? {
-            return stop(self, true);
-        }
+        complete = complete && self.post_after_body(&step, &keys::left_presses(caret_left));
         let mut core = lock(&self.core);
         if core.generation == token {
             match &typed {
                 // Only pauses: the text is in one piece, so Backspace can still undo it.
-                Some(t) if !sequence.has_keys && !sequence.has_images => {
+                Some(t) if complete && !sequence.has_keys && !sequence.has_images => {
                     let inserted: usize = sequence
                         .steps
                         .iter()
@@ -288,33 +293,19 @@ impl Imp {
             listen_only: false,
             ..live
         };
+        // The body is in the document: this is an expansion whatever happens next. The separator
+        // and the caret moves are best effort (a click or app switch, say during a paste's
+        // restore wait, stops them); only whether Backspace can undo depends on them.
         let separator = plan.reemit_separator.as_deref();
-        if !self.still_live(&after) {
-            // The separator the user typed doesn't go back in.
-            if separator.is_some() {
-                self.lost(&typed);
-            }
-            return Ok(());
+        let mut complete = self.still_live(&after);
+        if let (true, Some(separator)) = (complete, separator) {
+            complete = self.post_after_body(&after, &keys::retype_presses(separator));
         }
-        if let Some(separator) = separator {
-            match self.post_checked(&after, &keys::retype_presses(separator)) {
-                Ok(true) => {}
-                Ok(false) => {
-                    self.lost(&typed);
-                    return Ok(());
-                }
-                Err(error) => {
-                    self.lost(&typed);
-                    return Err(error.into());
-                }
-            }
-        }
-        if !self.post_checked(&after, &keys::left_presses(plan.caret_left_count))? {
-            return Ok(());
-        }
+        complete =
+            complete && self.post_after_body(&after, &keys::left_presses(plan.caret_left_count));
         {
             let mut core = lock(&self.core);
-            if core.generation == token && can_undo {
+            if core.generation == token && can_undo && complete {
                 // The undo tracker accounts for the re-emitted separator itself.
                 core.matcher
                     .did_expand(trigger, plan::grapheme_count(&plan.text));
