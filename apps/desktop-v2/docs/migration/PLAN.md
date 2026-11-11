@@ -1270,6 +1270,14 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Late or missing focus reports and submissions on real hardware, including a programmatic refocus.
   - Interrupt a multi-press undo, a recovery and a submitted-form sequence by clicking between presses.
   - The release-build latency step holds on the CI runner.
+- **Live checks from the S32 review:**
+  - Drive a real Claude Code session across idle gaps with a large `create_snippet` and a large `get_snippet` reply; no spurious "not running" replies.
+  - The real socket path fits `sun_path` (104 bytes) for the production and Dev bundle ids with a long username; S40 creates the app-support directory with the right mode.
+  - `claude mcp add` with a path containing spaces (`…/Kudzu Next.app/…`) works; the `--mcp` launch is headless with no Dock flash.
+  - Revoke access while Claude Code is connected, then re-enable; the reconnect behaves.
+  - 20+ idle clients under launchd's real fd limit; the app stays healthy.
+  - Skill install when `~/.claude/skills/kudzu` is a symlink, with a temporary HOME.
+  - Password-manager copies (concealed type) never appear in `list_clipboard` or `get_clipboard_item`.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
@@ -1431,6 +1439,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - No visible change: `kzclip://` is gone; the version lives in `version.txt`; the updater checks an archive before installing it.
 - FRM-4: a typed form interrupted by typing in the target app is not submitted (D9).
 - A refused paste-based expansion keeps the trigger text (D14). A sequence that starts with a delay keeps its trigger visible during the delay (D24). The Tauri engine skips that check while a form is open.
+- MCP `expand_snippet` fills `{{clipboard}}` only when clipboard recording and agent clipboard sharing are on and the newest history entry matches the live clipboard; otherwise it is blank. The Tauri app read the live pasteboard (S32 review, rule 9).
 
 ---
 
