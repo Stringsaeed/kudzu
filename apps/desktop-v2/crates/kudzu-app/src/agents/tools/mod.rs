@@ -12,10 +12,10 @@ use chrono::Utc;
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
 
-use super::{Access, Host};
-use crate::secrets::{self, Redacted};
-use crate::template;
-use crate::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
+use super::{service::ServiceHost, Access};
+use kudzu_core::secrets::{self, Redacted};
+use kudzu_core::template;
+use kudzu_core::{CaseMode, FireMode, GroupRecord, KudzuLibrary, SnippetRecord};
 
 use clipboard::{get_clipboard_item, list_clipboard};
 use snippets::{
@@ -32,8 +32,6 @@ const READ: [&str; 4] = [
 const WRITE: [&str; 2] = ["create_snippet", "update_snippet"];
 const CLIPBOARD: [&str; 2] = ["list_clipboard", "get_clipboard_item"];
 
-/// Longest text returned for one clipboard item.
-pub(super) const MAX_ITEM_CHARS: usize = 50_000;
 /// Characters of a snippet or clipboard item shown in a list row.
 pub(super) const PREVIEW_CHARS: usize = 160;
 
@@ -174,7 +172,7 @@ fn tool(
 
 /// Runs a `tools/call`. Tool failures are results with `isError`; only a malformed call is a
 /// protocol error.
-pub(super) fn call(host: &dyn Host, params: &Value) -> Result<Value, (i64, String)> {
+pub(super) fn call(host: Option<&ServiceHost>, params: &Value) -> Result<Value, (i64, String)> {
     let name = params
         .get("name")
         .and_then(Value::as_str)
@@ -185,7 +183,7 @@ pub(super) fn call(host: &dyn Host, params: &Value) -> Result<Value, (i64, Strin
         .chain(&CLIPBOARD)
         .any(|t| *t == name)
     {
-        return Err((-32602, format!("Unknown tool: {name}")));
+        return Err((-32602, "Unknown tool".to_string()));
     }
     let empty = Map::new();
     let args = match params.get("arguments") {
@@ -193,21 +191,42 @@ pub(super) fn call(host: &dyn Host, params: &Value) -> Result<Value, (i64, Strin
         Some(Value::Object(m)) => m,
         Some(_) => return Err((-32602, "Tool arguments must be an object".into())),
     };
-    Ok(match run(host, name, args) {
-        Ok(value) => json!({
-            "content": [{ "type": "text", "text": serde_json::to_string_pretty(&value).unwrap_or_default() }],
-            "structuredContent": value,
-            "isError": false,
-        }),
-        Err(message) => {
-            json!({ "content": [{ "type": "text", "text": message }], "isError": true })
-        }
-    })
+    Ok(
+        match host
+            .ok_or_else(|| super::OFFLINE_MESSAGE.to_string())
+            .and_then(|host| run(host, name, args))
+        {
+            Ok(mut value) => {
+                if !CLIPBOARD.contains(&name) {
+                    redact_strings(&mut value);
+                }
+                json!({
+                    "content": [{ "type": "text", "text": serde_json::to_string_pretty(&value).unwrap_or_default() }],
+                    "structuredContent": value,
+                    "isError": false,
+                })
+            }
+            Err(message) => {
+                json!({ "content": [{ "type": "text", "text": secrets::redact(&message).text }], "isError": true })
+            }
+        },
+    )
+}
+
+// Clipboard values already crossed S28's override-aware redaction boundary.
+// Other tool strings include metadata and diagnostics as well as snippet bodies.
+fn redact_strings(value: &mut Value) {
+    match value {
+        Value::String(text) => *text = secrets::redact(text).text,
+        Value::Array(items) => items.iter_mut().for_each(redact_strings),
+        Value::Object(fields) => fields.values_mut().for_each(redact_strings),
+        _ => {}
+    }
 }
 
 pub(super) type Args = Map<String, Value>;
 
-fn run(host: &dyn Host, name: &str, args: &Args) -> Result<Value, String> {
+fn run(host: &ServiceHost, name: &str, args: &Args) -> Result<Value, String> {
     let access = host.access()?;
     if WRITE.contains(&name) && !access.write {
         return Err(
@@ -227,12 +246,29 @@ fn run(host: &dyn Host, name: &str, args: &Args) -> Result<Value, String> {
             })
         }
         "list_groups" => Ok(list_groups(&host.library()?)),
-        "create_snippet" => host.edit_library(&mut |lib| create_snippet(lib, args, now)),
-        "update_snippet" => host.edit_library(&mut |lib| update_snippet(lib, args, now)),
-        "list_clipboard" => list_clipboard(host.clipboard()?, args),
+        "create_snippet" => transact(&host.library, |lib| create_snippet(lib, args, now)),
+        "update_snippet" => transact(&host.library, |lib| update_snippet(lib, args, now)),
+        "list_clipboard" => list_clipboard(host, args),
         "get_clipboard_item" => get_clipboard_item(host, args),
-        _ => Err(format!("Unknown tool: {name}")),
+        _ => Err("Unknown tool".to_string()),
     }
+}
+
+// Translate tool validation failures without committing a partial library copy.
+fn transact(
+    library: &crate::library::LibraryService,
+    edit: impl FnOnce(&mut KudzuLibrary) -> Result<Value, String>,
+) -> Result<Value, String> {
+    let mut rejected = None;
+    library
+        .transact(|lib| {
+            edit(lib).map_err(|message| {
+                rejected = Some(message);
+                crate::library::LibraryError::TriggerTaken
+            })
+        })
+        .map(|(value, _)| value)
+        .map_err(|error| rejected.unwrap_or_else(|| error.to_string()))
 }
 
 // MARK: Arguments
@@ -308,7 +344,7 @@ pub(super) fn case_mode(args: &Args) -> Result<Option<CaseMode>, String> {
 
 pub(super) fn parse_id(raw: &str, what: &str) -> Result<Uuid, String> {
     Uuid::parse_str(raw.trim())
-        .map_err(|_| format!("“{raw}” isn't a {what} id. Ids come from the list tools."))
+        .map_err(|_| format!("That isn't a {what} id. Ids come from the list tools."))
 }
 
 // MARK: Library helpers

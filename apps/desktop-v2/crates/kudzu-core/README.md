@@ -22,7 +22,6 @@ including the temporary orchestration modules noted below.
 | `keys` | S24: accelerator grammar, symbols, spoken labels and recorder rules |
 | `release_notes` | S24: release-note presentation |
 | `fmt` | S24: count, duration, date, byte-size and clock labels |
-| `agent` | Existing MCP inbound adapter, retained until S32 |
 
 The crate root re-exports library records. Domain entry points re-export their
 public types and operations; implementation modules stay private. `template::forms`
@@ -43,8 +42,8 @@ is also available directly. Cross-domain calls use the owning domain's path.
 - S29 moved `interchange::coordinator` and `BackupStore` to `kudzu-app::data`. The pure
   detection, merge, naming, daily-backup and rotation rules stay here
   (`interchange::{detect,merge,backup}`).
-- S32 moves `agent` to `kudzu-app::agents` and removes its declaration and this
-  README entry. Form-field and diagnostic serialization remains for that protocol.
+- S32 moved the MCP inbound adapter to `kudzu-app::agents`. Form-field and
+  diagnostic serialization remains for that protocol.
 
 Every reserved file is declared already; later steps need not edit parent modules.
 

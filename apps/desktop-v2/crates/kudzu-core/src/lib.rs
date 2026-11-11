@@ -20,13 +20,11 @@
 //! - [`system`]: the vocabulary shared with the engine and the application layer.
 //! - [`search`], [`color`], [`keys`], [`release_notes`], [`fmt`]: pure helpers filled by S21 and
 //!   S24.
-//! - [`agent`]: the MCP server. An inbound adapter that moves to `kudzu-app::agents` in S32.
 //!
 //! Persisted formats (library JSON, the clipboard index, sync payloads, form memory, backup
 //! names) are pinned byte-for-byte by `tests/golden_formats.rs`; change them only on purpose.
 
 pub mod activity;
-pub mod agent;
 pub mod clipboard;
 pub mod color;
 pub mod fmt;

@@ -4,8 +4,10 @@ use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 
 use super::*;
-use crate::clipboard::{classify, uti, History};
-use crate::{FireMode, GroupRecord, SnippetRecord};
+use kudzu_core::clipboard::{classify, uti, ClipEntry, History};
+use kudzu_core::KudzuLibrary;
+use kudzu_core::{FireMode, GroupRecord, SnippetRecord};
+use uuid::Uuid;
 
 struct Fake {
     access: Access,
@@ -78,49 +80,62 @@ fn clip(text: &str, minute: u32) -> ClipEntry {
     .clone()
 }
 
-impl Host for Fake {
-    fn access(&self) -> Result<Access, String> {
-        Ok(self.access.clone())
+trait Rpc {
+    fn handle(&self, version: &str, message: &str) -> Option<String>;
+}
+struct Offline;
+impl Rpc for Offline {
+    fn handle(&self, version: &str, message: &str) -> Option<String> {
+        super::handle(None, version, message)
     }
-    fn library(&self) -> Result<KudzuLibrary, String> {
-        Ok(self.library.borrow().clone())
+}
+impl Rpc for super::service::ServiceHost {
+    fn handle(&self, version: &str, message: &str) -> Option<String> {
+        super::handle(Some(self), version, message)
     }
-    fn edit_library(&self, edit: Edit<'_>) -> Result<Value, String> {
-        let mut copy = self.library.borrow().clone();
-        let v = edit(&mut copy)?;
-        *self.library.borrow_mut() = copy;
-        *self.saves.borrow_mut() += 1;
-        Ok(v)
-    }
-    fn clipboard(&self) -> Result<Vec<ClipEntry>, String> {
-        Ok(self.clips.clone())
-    }
-    fn clipboard_text(&self, id: Uuid) -> Result<Option<String>, String> {
-        Ok(self
-            .clips
-            .iter()
-            .find(|c| c.id == id)
-            .and_then(|c| c.text.clone()))
-    }
-    fn render_env(&self) -> RenderEnv {
-        RenderEnv {
+}
+impl Rpc for Fake {
+    fn handle(&self, version: &str, message: &str) -> Option<String> {
+        let mut h =
+            super::test_support::Harness::new(self.library.borrow().clone(), self.clips.clone());
+        h.settings
+            .replace(std::sync::Arc::new(crate::settings::Settings {
+                agent_access: true,
+                agent_write: self.access.write,
+                agent_clipboard: self.access.clipboard,
+                default_trigger_prefix: self.access.trigger_prefix.clone(),
+                ..Default::default()
+            }))
+            .notification
+            .notify();
+        std::sync::Arc::get_mut(&mut h.service.host)
+            .unwrap()
+            .render_override = Some(RenderEnv {
             now: chrono::FixedOffset::east_opt(0)
                 .unwrap()
                 .with_ymd_and_hms(2026, 11, 8, 12, 0, 0)
                 .unwrap(),
             locale: "en_US".into(),
             clipboard: self.clipboard.clone(),
+        });
+        let before = h.service.host.library.snapshot().0;
+        let result = super::handle(Some(h.service.host.as_ref()), version, message);
+        let (after, lib) = h.service.host.library.snapshot();
+        if after != before {
+            *self.library.borrow_mut() = (*lib).clone();
+            *self.saves.borrow_mut() += 1;
         }
+        result
     }
 }
 
-fn rpc(host: &dyn Host, message: Value) -> Value {
-    let out = handle(host, "1.2.3", &message.to_string()).expect("a reply");
+fn rpc(host: &dyn Rpc, message: Value) -> Value {
+    let out = host.handle("1.2.3", &message.to_string()).expect("a reply");
     serde_json::from_str(&out).unwrap()
 }
 
 /// Calls a tool and returns (structured result or error text, is_error).
-fn tool(host: &dyn Host, name: &str, args: Value) -> (Value, bool) {
+fn tool(host: &dyn Rpc, name: &str, args: Value) -> (Value, bool) {
     let reply = rpc(
         host,
         json!({ "jsonrpc": "2.0", "id": 7, "method": "tools/call", "params": { "name": name, "arguments": args } }),
@@ -163,7 +178,7 @@ fn initialize_negotiates_the_protocol() {
 
 #[test]
 fn serves_the_skill_as_a_resource() {
-    for host in [&Fake::new() as &dyn Host, &Offline] {
+    for host in [&Fake::new() as &dyn Rpc, &Offline] {
         let list = rpc(
             host,
             json!({ "jsonrpc": "2.0", "id": 1, "method": "resources/list" }),
@@ -192,7 +207,7 @@ fn notifications_and_responses_get_no_reply() {
         json!({ "jsonrpc": "2.0", "id": 4, "result": {} }),
     ] {
         let line = msg.to_string();
-        assert!(handle(&host, "1", &line).is_none(), "{line}");
+        assert!(host.handle("1", &line).is_none(), "{line}");
         assert!(!expects_reply(&line), "{line}");
     }
     for line in [
@@ -201,7 +216,7 @@ fn notifications_and_responses_get_no_reply() {
         r#"{"jsonrpc":"2.0","id":3,"method":"nope"}"#,
     ] {
         assert!(expects_reply(line));
-        let r: Value = serde_json::from_str(&handle(&host, "1", line).unwrap()).unwrap();
+        let r: Value = serde_json::from_str(&host.handle("1", line).unwrap()).unwrap();
         assert!(r["error"]["code"].as_i64().unwrap() < 0, "{line}");
     }
     let r = rpc(
@@ -476,7 +491,7 @@ fn updates_only_what_is_passed_and_protects_secrets() {
     {
         let mut lib = host.library.borrow_mut();
         let s = lib.snippets.iter_mut().find(|s| s.id == sig.id).unwrap();
-        s.formatting = Some(crate::formatting::Formatting {
+        s.formatting = Some(kudzu_core::formatting::Formatting {
             source: s.content.clone(),
             spans: vec![],
         });
@@ -618,5 +633,266 @@ fn field_defaults_and_options_are_redacted_too() {
             !r.to_string().contains("wWPw5k4a"),
             "{tool_name} leaked a secret: {r}"
         );
+    }
+}
+
+#[test]
+fn socket_lifecycle_access_and_setup_are_isolated() {
+    use super::test_support::Harness;
+    use std::{
+        fs,
+        io::{BufRead, BufReader, Write},
+        os::unix::{
+            fs::PermissionsExt,
+            net::{UnixListener, UnixStream},
+        },
+        time::Duration,
+    };
+    let h = Harness::new(KudzuLibrary::default(), vec![]);
+    let path = &h.service.config.socket;
+    // A stale endpoint is replaced.
+    drop(UnixListener::bind(path).unwrap());
+    h.service.apply().unwrap();
+    assert_eq!(
+        fs::metadata(path).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    let other = AgentsService::new(
+        h.service.config.clone(),
+        h.service.host.library.clone(),
+        h.service.host.clipboard.clone(),
+        h.settings.watch(),
+        std::sync::Arc::new(crate::fixtures::clock::FakeClock::default()),
+    );
+    assert!(other.apply().is_err());
+    let mut client = UnixStream::connect(path).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let mut reader = BufReader::new(client.try_clone().unwrap());
+    writeln!(client, "{{\"id\":1,\"method\":\"ping\"}}").unwrap();
+    let mut line = String::new();
+    reader.read_line(&mut line).unwrap();
+    assert!(line.contains("result"));
+    h.settings
+        .replace(std::sync::Arc::new(crate::settings::Settings {
+            agent_access: false,
+            ..Default::default()
+        }))
+        .notification
+        .notify();
+    writeln!(client, "{{\"id\":2,\"method\":\"ping\"}}").unwrap();
+    line.clear();
+    assert_eq!(reader.read_line(&mut line).unwrap(), 0);
+    h.service.apply().unwrap();
+    assert!(!path.exists());
+    assert!(!h.service.status().get().running);
+    assert_eq!(h.service.setup().skill, SkillState::Missing);
+    let setup = h.service.setup();
+    assert!(setup
+        .claude_command
+        .starts_with("claude mcp add --scope user kudzu-next -- '"));
+    let config: Value = serde_json::from_str(&setup.config_json).unwrap();
+    assert_eq!(config["mcpServers"]["kudzu-next"]["args"], json!(["--mcp"]));
+    let installed = h.service.install_skill().unwrap();
+    assert!(installed.starts_with(&h.dir));
+    assert_eq!(h.service.setup().skill, SkillState::Current);
+    fs::write(installed, "old version").unwrap();
+    assert_eq!(h.service.setup().skill, SkillState::Outdated);
+    h.service.install_skill().unwrap();
+    assert_eq!(h.service.setup().skill, SkillState::Current);
+}
+
+#[test]
+fn service_gates_are_independent_and_recording_is_required() {
+    use super::test_support::Harness;
+    for (write, clipboard, recording) in [
+        (false, true, true),
+        (true, false, true),
+        (true, true, false),
+    ] {
+        let h = Harness::new(KudzuLibrary::default(), vec![clip("notes", 1)]);
+        h.settings
+            .replace(std::sync::Arc::new(crate::settings::Settings {
+                agent_access: true,
+                agent_write: write,
+                agent_clipboard: clipboard,
+                clipboard_enabled: recording,
+                ..Default::default()
+            }))
+            .notification
+            .notify();
+        let (_, err) = tool(
+            h.service.host.as_ref(),
+            "create_snippet",
+            json!({"name":"Note","content":"hello","triggers":[";note"]}),
+        );
+        assert_eq!(err, !write);
+        let (_, err) = tool(h.service.host.as_ref(), "list_clipboard", json!({}));
+        assert_eq!(err, !(clipboard && recording));
+    }
+}
+
+#[test]
+fn racing_agent_and_ui_edits_preserve_both_and_collision_rolls_back_group() {
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), vec![]);
+    std::thread::scope(|scope| {
+        let host = h.service.host.clone();
+        scope.spawn(move || {
+            let (_, err) = tool(
+                host.as_ref(),
+                "create_snippet",
+                json!({"name":"Agent","content":"a","triggers":[";a"],"group":"Agent/Group"}),
+            );
+            assert!(!err);
+        });
+        h.service
+            .host
+            .library
+            .transact(|lib| {
+                lib.snippets
+                    .push(SnippetRecord::new("UI", vec![";ui".into()], "ui"));
+                Ok(())
+            })
+            .unwrap();
+    });
+    let before = h.service.host.library.snapshot();
+    assert_eq!(before.1.snippets.len(), 2);
+    let (_, err) = tool(
+        h.service.host.as_ref(),
+        "create_snippet",
+        json!({"name":"Collision","content":"b","triggers":[";UI"],"group":"Unwanted/Group"}),
+    );
+    assert!(err);
+    assert_eq!(h.service.host.library.snapshot(), before);
+    let id = before
+        .1
+        .snippets
+        .iter()
+        .find(|s| s.name == "Agent")
+        .unwrap()
+        .id;
+    let (_, err) = tool(
+        h.service.host.as_ref(),
+        "update_snippet",
+        json!({"id":id,"triggers":[";ui"],"group":"Unwanted/Group"}),
+    );
+    assert!(err);
+    assert_eq!(h.service.host.library.snapshot(), before);
+}
+
+#[test]
+fn secrets_never_reach_results_errors_or_logging_calls() {
+    let token = concat!("ghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx");
+    let host = Fake::new();
+    for (name, args) in [
+        ("get_snippet", json!({"id":token})),
+        ("update_snippet", json!({"id":token})),
+        (token, json!({})),
+        ("get_clipboard_item", json!({"id":token})),
+    ] {
+        let result = rpc(
+            &host,
+            json!({"id":1,"method":"tools/call","params":{"name":name,"arguments":args}}),
+        );
+        assert!(!result.to_string().contains("wWPw5k4a"));
+    }
+    // This adapter has no logging sink at all, including transport failures.
+    for source in [
+        include_str!("mod.rs"),
+        include_str!("service.rs"),
+        include_str!("socket.rs"),
+        include_str!("bridge.rs"),
+        include_str!("setup.rs"),
+        include_str!("tools/mod.rs"),
+        include_str!("tools/snippets.rs"),
+        include_str!("tools/clipboard.rs"),
+    ] {
+        assert!(!source.contains("log::"));
+    }
+}
+
+#[test]
+fn replays_client_protocol_transcript() {
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), vec![]);
+    let input = include_str!("fixtures/session.jsonl");
+    h.service.apply().unwrap();
+    let mut output = vec![];
+    bridge::run(
+        std::io::Cursor::new(input),
+        &mut output,
+        &h.service.config.socket,
+        "1.2.3",
+    )
+    .unwrap();
+    let replies: Vec<Value> = String::from_utf8(output)
+        .unwrap()
+        .lines()
+        .map(|s| serde_json::from_str(s).unwrap())
+        .collect();
+    assert_eq!(replies.len(), 3);
+    assert_eq!(replies[0]["result"]["protocolVersion"], "2025-06-18");
+    assert_eq!(replies[1]["result"]["tools"].as_array().unwrap().len(), 8);
+    assert_eq!(replies[2]["result"]["structuredContent"]["total"], 0);
+}
+
+#[test]
+fn tool_clipboard_limits_remain_independent_of_service_caps() {
+    let clips = (0..130)
+        .map(|i| {
+            let mut entry = clip(&format!("ordinary note {i}"), 1);
+            entry.id = Uuid::new_v4();
+            entry
+        })
+        .collect();
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), clips);
+    let (result, err) = tool(
+        h.service.host.as_ref(),
+        "list_clipboard",
+        json!({"limit":900}),
+    );
+    assert!(!err);
+    assert_eq!(result["returned"], 100);
+    let (result, err) = tool(h.service.host.as_ref(), "list_clipboard", json!({}));
+    assert!(!err);
+    assert_eq!(result["returned"], 20);
+    let (result, err) = tool(
+        h.service.host.as_ref(),
+        "list_clipboard",
+        json!({"limit":1}),
+    );
+    assert!(!err);
+    assert_eq!(result["returned"], 1);
+    let text = "ordinary word ".repeat(6000);
+    let mut entry = clip(&text, 1);
+    entry.text = Some(text);
+    entry.secret_override = Some(false); // Explicitly share this oversized fixture without a backing blob.
+    let id = entry.id;
+    let h = super::test_support::Harness::new(KudzuLibrary::default(), vec![entry]);
+    let (result, err) = tool(
+        h.service.host.as_ref(),
+        "get_clipboard_item",
+        json!({"id":id}),
+    );
+    assert!(!err);
+    assert!(result["text"].as_str().unwrap().chars().count() <= 50_000);
+    assert_eq!(result["truncated"], true);
+}
+
+#[test]
+fn snippet_metadata_and_unknown_field_names_are_redacted() {
+    let token = concat!("ghp", "_wWPw5k4aXcaT4fNP0UcnZwJUVFk6LO0pINUx");
+    let host = Fake::new();
+    host.library.borrow_mut().snippets[0].name = token.into();
+    for (name, args) in [
+        ("list_snippets", json!({})),
+        (
+            "expand_snippet",
+            json!({"trigger":";hi","values":{token:"unused"}}),
+        ),
+    ] {
+        let (output, err) = tool(&host, name, args);
+        assert!(!err);
+        assert!(!output.to_string().contains("wWPw5k4a"));
     }
 }

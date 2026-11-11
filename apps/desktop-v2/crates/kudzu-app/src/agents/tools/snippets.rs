@@ -10,13 +10,13 @@ use super::{
     boolean, case_mode, count, descendants, ensure_group, find_group, find_snippet, fire_mode,
     group_path, has_redaction_marker, parse_id, string, summary, triggers, uses, Args,
 };
-use crate::agent::{Access, Host, RenderEnv, Values};
-use crate::library::conflicts::{find_conflicts, ConflictKind};
-use crate::library::model::iso8601;
-use crate::library::triggers::validate_trigger;
-use crate::secrets;
-use crate::template::{self, FormFieldKind, FormMemory, RenderContext};
-use crate::{CaseMode, KudzuLibrary, SnippetRecord};
+use crate::agents::{service::ServiceHost, Access, RenderEnv, Values};
+use kudzu_core::library::conflicts::{find_conflicts, ConflictKind};
+use kudzu_core::library::model::iso8601;
+use kudzu_core::library::triggers::validate_trigger;
+use kudzu_core::secrets;
+use kudzu_core::template::{self, FormFieldKind, FormMemory, RenderContext};
+use kudzu_core::{CaseMode, KudzuLibrary, SnippetRecord};
 
 // MARK: Snippet tools
 
@@ -139,7 +139,7 @@ fn scrubbed(text: &str) -> String {
 /// Text of the copy `n` before the current clipboard, for `{{clipboard history=N}}`. Agents only
 /// get it when the user shares clipboard history, and never an entry marked as a secret.
 pub(super) fn older_copy(
-    host: &dyn Host,
+    host: &ServiceHost,
     access: &Access,
     n: usize,
     current: Option<&str>,
@@ -147,19 +147,8 @@ pub(super) fn older_copy(
     if !access.clipboard {
         return None;
     }
-    let mut entries = host.clipboard().ok()?;
-    entries.sort_by_key(|e| std::cmp::Reverse(e.copied_at));
-    let history = crate::clipboard::History {
-        entries,
-        ..Default::default()
-    };
-    let entry = history
-        .before_current(n, current)
-        .filter(|e| !e.is_secret())?;
-    host.clipboard_text(entry.id)
-        .ok()
-        .flatten()
-        .or_else(|| entry.text.clone())
+    host.agent_history_text(n, current)
+        .map(|s| s.chars().take(50_000).collect())
 }
 
 /// What a `{{key}}` or `{{delay}}` tag does, in words an agent can relay ("Tab ×2").
