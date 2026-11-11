@@ -8,13 +8,15 @@
 
 use std::ops::Range;
 
-use super::edit::{clip_rebase, concat_source, single_tag, slice_display, snap_range};
+use super::edit::{single_tag, snap_range};
+use super::literal::slice_display;
 use super::load::{literal_from_display, literal_map, place_image_pill, utf16_len};
+use super::mapping::{copied_range, pasted_range};
 use super::{
     CopiedChip, CopiedImage, CopiedMark, CopiedRun, CopyPayload, EditorDoc, Image, Mark, PillId,
     Raw, RawPill,
 };
-use crate::template::chips::{self, PillKind as ChipKind};
+use crate::template::chips::{self, PillKind as ChipKind, SnippetNames};
 
 impl EditorDoc {
     /// The template source of a selection, and the rich payload that pastes the chips back.
@@ -26,8 +28,6 @@ impl EditorDoc {
         if start == end {
             return None;
         }
-        let abs = self.display_to_source(start, false);
-        let abs_end = self.display_to_source(end, true);
         let mut plain = String::new();
         let mut runs = Vec::new();
         for (index, piece) in self.map.iter().enumerate() {
@@ -42,7 +42,7 @@ impl EditorDoc {
                     kind: pill.kind,
                     html_id: self
                         .html_id(pill.id)
-                        .unwrap_or_else(|| chips::html_pill_id(pill.tone, &raw.source, 1)),
+                        .unwrap_or_else(|| chips::html_pill_id(pill.tone, &raw.source)),
                 });
                 (raw.display.clone(), raw.source.clone(), chip)
             } else {
@@ -58,11 +58,30 @@ impl EditorDoc {
                 chip,
             });
         }
+        let mut fragment = EditorDoc::from_template("", None);
+        fragment.raws = runs
+            .iter()
+            .map(|run| Raw {
+                display: run.display.clone(),
+                source: run.source.clone(),
+                pill: run.chip.as_ref().map(|p| RawPill {
+                    id: p.id,
+                    tone: p.tone,
+                    kind: p.kind,
+                }),
+                steps: if run.chip.is_some() {
+                    Vec::new()
+                } else {
+                    literal_map(&run.source).1
+                },
+            })
+            .collect();
+        fragment.install();
         let marks = self
             .mark_src
             .iter()
             .filter_map(|mark| {
-                clip_rebase(&mark.source, abs, abs_end).map(|source| CopiedMark {
+                copied_range(self, &fragment, &mark.source, start, end).map(|source| CopiedMark {
                     source,
                     style: mark.style.clone(),
                 })
@@ -72,7 +91,7 @@ impl EditorDoc {
             .image_src
             .iter()
             .filter_map(|image| {
-                clip_rebase(&image.source, abs, abs_end).map(|source| CopiedImage {
+                copied_range(self, &fragment, &image.source, start, end).map(|source| CopiedImage {
                     source,
                     data_url: image.data_url.clone(),
                     width: image.width,
@@ -95,7 +114,7 @@ impl EditorDoc {
         start: usize,
         end: usize,
         payload: &CopyPayload,
-        snippet_name: &dyn Fn(&str) -> Option<&str>,
+        snippet_name: SnippetNames<'_>,
     ) -> bool {
         if !payload_is_own(payload) {
             return false;
@@ -107,7 +126,7 @@ impl EditorDoc {
         self.transaction(|doc| {
             let inserted = runs_to_raws(&runs, snippet_name, &mut doc.next_pill);
             let region = doc.splice(start, end, inserted);
-            doc.stamp_payload(region, &plain, &marks, &images);
+            doc.stamp_payload(region.new.start, &plain, &marks, &images, snippet_name);
         })
     }
 
@@ -118,7 +137,7 @@ impl EditorDoc {
         start: usize,
         end: usize,
         source: &str,
-        snippet_name: &dyn Fn(&str) -> Option<&str>,
+        snippet_name: SnippetNames<'_>,
     ) -> bool {
         self.transaction(|doc| {
             let inserted = pieces_owned(source, snippet_name, &mut doc.next_pill);
@@ -128,22 +147,19 @@ impl EditorDoc {
 
     fn stamp_payload(
         &mut self,
-        region: Range<usize>,
+        start: usize,
         plain: &str,
         marks: &[CopiedMark],
         images: &[CopiedImage],
+        names: SnippetNames<'_>,
     ) {
-        let slice = slice_source_units(
-            &concat_source(&self.raws),
-            region.start,
-            region.start + utf16_len(plain),
-        );
-        if slice != plain {
-            return;
+        let fragment = EditorDoc::from_template_named(plain, None, names);
+        if !marks.is_empty() || !images.is_empty() {
+            self.formatted = true;
         }
         for mark in marks {
-            let source = region.start + mark.source.start..region.start + mark.source.end;
-            if source.end - region.start > utf16_len(plain) {
+            let source = pasted_range(&fragment, self, &mark.source, start);
+            if mark.source.end > utf16_len(plain) || source.start >= source.end {
                 continue;
             }
             let seq = self.alloc_seq();
@@ -154,7 +170,7 @@ impl EditorDoc {
             });
         }
         for image in images {
-            let source = region.start + image.source.start..region.start + image.source.end;
+            let source = pasted_range(&fragment, self, &image.source, start);
             let seq = self.alloc_seq();
             if let Some(id) = place_image_pill(
                 &mut self.raws,
@@ -193,7 +209,11 @@ fn payload_is_own(payload: &CopyPayload) -> bool {
                 return false;
             }
             match chips::parse_html_pill_id(&chip.html_id) {
-                Some((tone, source)) if tone == chip.tone && source == run.source => {}
+                Some((tone, source))
+                    if tone == chip.tone
+                        && source == run.source
+                        && single_tag(&source)
+                            .is_some_and(|tag| chips::chip_tone(&tag) == tone) => {}
                 _ => return false,
             }
         }
@@ -204,21 +224,25 @@ fn payload_is_own(payload: &CopyPayload) -> bool {
 
 fn runs_to_raws(
     runs: &[CopiedRun],
-    snippet_name: &dyn Fn(&str) -> Option<&str>,
+    snippet_name: SnippetNames<'_>,
     next_pill: &mut u64,
 ) -> Vec<Raw> {
     runs.iter()
         .map(|run| {
-            if let Some(chip) = &run.chip {
+            if run.chip.is_some() {
                 if let Some(tag) = single_tag(&run.source) {
                     let id = PillId(*next_pill);
                     *next_pill += 1;
                     return Raw {
-                        display: chips::chip_label(&tag, &run.source, snippet_name),
+                        display: chips::normalize_label(&chips::chip_label(
+                            &tag,
+                            &run.source,
+                            snippet_name,
+                        )),
                         source: run.source.clone(),
                         pill: Some(RawPill {
                             id,
-                            tone: chip.tone,
+                            tone: chips::chip_tone(&tag),
                             kind: ChipKind::Tag,
                         }),
                         steps: Vec::new(),
@@ -240,17 +264,65 @@ fn runs_to_raws(
         .collect()
 }
 
-fn pieces_owned(
-    source: &str,
-    snippet_name: &dyn Fn(&str) -> Option<&str>,
-    next_pill: &mut u64,
-) -> Vec<Raw> {
+fn pieces_owned(source: &str, snippet_name: SnippetNames<'_>, next_pill: &mut u64) -> Vec<Raw> {
     super::load::pieces_from_parse(source, snippet_name, next_pill)
         .into_iter()
         .filter(|raw| !(raw.display.is_empty() && raw.source.is_empty() && raw.pill.is_none()))
         .collect()
 }
 
-fn slice_source_units(source: &str, start: usize, end: usize) -> String {
-    super::slice_utf16(source, start..end)
+impl CopyPayload {
+    /// Decode Rune's rich fragment without depending on Rune. Ranges are ordered display
+    /// bytes; ids are `{tone}:{source}`. Reject foreign/mismatched pills or plain text.
+    /// S52 supplies the fragment's text and pill marks after parsing its HTML with Rune.
+    pub fn from_fragment(
+        plain: &str,
+        pills: &[(Range<usize>, String)],
+        display: &str,
+    ) -> Option<Self> {
+        let parsed = EditorDoc::from_template(plain, None);
+        let mut at = 0;
+        let mut index = 0;
+        let mut runs = Vec::new();
+        for raw in &parsed.raws {
+            let (text, chip) = if let Some(pill) = &raw.pill {
+                let (range, html_id) = pills.get(index)?;
+                let (tone, source) = chips::parse_html_pill_id(html_id)?;
+                if range.start != at || tone != pill.tone || source != raw.source {
+                    return None;
+                }
+                let text = display.get(range.clone())?;
+                if text.is_empty() || chips::normalize_label(text) != text {
+                    return None;
+                }
+                index += 1;
+                (
+                    text.to_string(),
+                    Some(CopiedChip {
+                        id: pill.id,
+                        tone,
+                        kind: ChipKind::Tag,
+                        html_id: html_id.clone(),
+                    }),
+                )
+            } else {
+                if !display.get(at..)?.starts_with(&raw.display) {
+                    return None;
+                }
+                (raw.display.clone(), None)
+            };
+            at += text.len();
+            runs.push(CopiedRun {
+                display: text,
+                source: raw.source.clone(),
+                chip,
+            });
+        }
+        (at == display.len() && index == pills.len()).then(|| Self {
+            plain: plain.into(),
+            runs,
+            marks: Vec::new(),
+            images: Vec::new(),
+        })
+    }
 }

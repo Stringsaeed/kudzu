@@ -1,7 +1,8 @@
 //! Nonthrowing template parser and canonical serializer.
 //!
 //! Like the Swift original, the parser walks extended grapheme clusters, so a brace or quote
-//! carrying a combining mark is not a delimiter. Ranges are UTF-16 offsets.
+//! carrying a combining mark is not an opening delimiter. Closing braces are separated from
+//! following combining text so a chip can be followed by any literal scalar. Ranges are UTF-16.
 
 use std::collections::HashMap;
 
@@ -14,7 +15,16 @@ use super::{
 
 /// Parses `source` into nodes plus recoverable diagnostics.
 pub(crate) fn parse(source: &str) -> ParsedTemplate {
-    let chars: Vec<&str> = source.graphemes(true).collect();
+    // A combining scalar typed after a chip belongs to the following literal. Keep the
+    // closing brace separate so saving/reloading cannot swallow the chip into that literal.
+    let mut chars = Vec::new();
+    for g in source.graphemes(true) {
+        if g.starts_with('}') && g.len() > 1 {
+            chars.extend([&g[..1], &g[1..]]);
+        } else {
+            chars.push(g);
+        }
+    }
     let n = chars.len();
     let mut offsets = Vec::with_capacity(n + 1);
     let mut acc = 0;

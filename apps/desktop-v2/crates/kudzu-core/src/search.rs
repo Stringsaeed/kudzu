@@ -32,6 +32,7 @@
 mod collate;
 #[cfg(test)]
 mod collation_tests;
+mod content;
 mod fuzzy;
 #[cfg(test)]
 mod tests;
@@ -48,7 +49,8 @@ use collate::CollationKey;
 
 use crate::library::usage::SnippetUsage;
 use crate::SnippetRecord;
-use fuzzy::{alphabet, find, fuzzy, has_every_unit, is_boundary, is_js_space_char, units};
+use content::Content;
+use fuzzy::{fuzzy, is_js_space_char, units};
 
 /// Results `rank` returns when a caller has no reason to ask for another number.
 pub const DEFAULT_LIMIT: usize = 200;
@@ -87,10 +89,7 @@ pub struct SearchIndex {
 struct Entry {
     name_lower: Vec<u16>,
     triggers_lower: Vec<Vec<u16>>,
-    content_lower: Vec<u16>,
-    /// Sorted unique units of `content_lower`. A term that uses a unit outside this set cannot
-    /// occur, so the keystroke skips the scan of a summary that may be 2,000 units long.
-    content_alphabet: Vec<u16>,
+    content: Content,
     usage: i64,
     last_used_ms: i64,
     enabled: bool,
@@ -122,7 +121,6 @@ pub fn index(
         .map(|s| {
             let used = usage.get(&s.id);
             let content_lower = units(&summarize(&s.content).to_lowercase());
-            let content_alphabet = alphabet(&content_lower);
             Entry {
                 name_lower: units(&display_name(s).to_lowercase()),
                 triggers_lower: s
@@ -130,8 +128,7 @@ pub fn index(
                     .iter()
                     .map(|t| units(&t.to_lowercase()))
                     .collect(),
-                content_lower,
-                content_alphabet,
+                content: Content::new(content_lower),
                 usage: used.map_or(0, |u| u.count),
                 last_used_ms: used.map_or(0, |u| u.last_ms),
                 enabled: s.is_enabled,
@@ -288,13 +285,9 @@ fn score_entry(
         }
         // Content only matches contiguous text: subsequences over long bodies are noise (and the
         // slowest part of a keystroke).
-        if term_best < 40.0 && term.len() > 1 && has_every_unit(&entry.content_alphabet, term) {
-            if let Some(at) = find(&entry.content_lower, term) {
-                let boundary = if is_boundary(&entry.content_lower, at) {
-                    10.0
-                } else {
-                    0.0
-                };
+        if term_best < 40.0 && term.len() > 1 {
+            if let Some(at_boundary) = entry.content.match_boundary(term) {
+                let boundary = if at_boundary { 10.0 } else { 0.0 };
                 let content = (term.len() * 16) as f64 + boundary;
                 if content * 0.6 > term_best {
                     term_best = content * 0.6;

@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{EditorDoc, EditorStyle, Image, Mark, PillId, Raw, RawPill};
 use crate::formatting::{safe_image, safe_link, FormatSpan, FormatStyle, Formatting};
-use crate::template::chips::{self, PillKind, Tone};
+use crate::template::chips::{self, PillKind, SnippetNames, Tone};
 use crate::template::{Node, Tag};
 
 pub(super) fn paint_range(doc: &EditorDoc, source: &Range<usize>) -> Range<usize> {
@@ -20,17 +20,23 @@ pub(super) fn paint_range(doc: &EditorDoc, source: &Range<usize>) -> Range<usize
 }
 
 pub(super) fn raws_eq(a: &[Raw], b: &[Raw]) -> bool {
-    a.len() == b.len()
-        && a.iter().zip(b).all(|(a, b)| {
-            a.display == b.display
-                && a.source == b.source
-                && a.steps == b.steps
-                && match (&a.pill, &b.pill) {
-                    (None, None) => true,
-                    (Some(a), Some(b)) => a.id == b.id && a.tone == b.tone && a.kind == b.kind,
-                    _ => false,
-                }
-        })
+    fn pills(raws: &[Raw]) -> Vec<(usize, usize, PillId, Tone, PillKind)> {
+        let mut at = 0;
+        raws.iter()
+            .filter_map(|raw| {
+                let start = at;
+                at += raw.display.len();
+                raw.pill.as_ref().map(|p| (start, at, p.id, p.tone, p.kind))
+            })
+            .collect()
+    }
+    a.iter()
+        .flat_map(|r| r.source.bytes())
+        .eq(b.iter().flat_map(|r| r.source.bytes()))
+        && a.iter()
+            .flat_map(|r| r.display.bytes())
+            .eq(b.iter().flat_map(|r| r.display.bytes()))
+        && pills(a) == pills(b)
 }
 
 pub(super) fn marks_eq(a: &[Mark], b: &[Mark]) -> bool {
@@ -96,7 +102,7 @@ pub(super) fn apply_formatting(
                             Image {
                                 pill: Some(id),
                                 source: span.start..span.end,
-                                data_url: data_url.clone(),
+                                data_url: data_url.as_str().into(),
                                 width: *width,
                                 alt,
                                 seq: order,
@@ -105,7 +111,7 @@ pub(super) fn apply_formatting(
                         None => Image {
                             pill: None,
                             source: span.start..span.end,
-                            data_url: data_url.clone(),
+                            data_url: data_url.as_str().into(),
                             width: *width,
                             alt: String::new(),
                             seq: order,
@@ -158,7 +164,7 @@ fn utf16_boundary(text: &str, pos: usize) -> bool {
 
 pub(super) fn pieces_from_parse(
     source: &str,
-    snippet_name: &dyn Fn(&str) -> Option<&str>,
+    snippet_name: SnippetNames<'_>,
     next_pill: &mut u64,
 ) -> Vec<Raw> {
     let parsed = crate::template::parse(source);
@@ -191,14 +197,14 @@ fn tag_raw(
     source: &str,
     tag: &Tag,
     range: &Range<usize>,
-    snippet_name: &dyn Fn(&str) -> Option<&str>,
+    snippet_name: SnippetNames<'_>,
     next_pill: &mut u64,
 ) -> Raw {
     let slice = slice_utf16(source, range.clone());
     let id = PillId(*next_pill);
     *next_pill += 1;
     Raw {
-        display: chips::chip_label(tag, &slice, snippet_name),
+        display: chips::normalize_label(&chips::chip_label(tag, &slice, snippet_name)),
         source: slice,
         pill: Some(RawPill {
             id,
@@ -314,17 +320,35 @@ pub(super) fn literal_map(source: &str) -> (String, Vec<(usize, usize)>) {
             && graphemes[i + 1] == "{"
             && graphemes[i + 2] == "{"
         {
-            display.push_str("{{");
-            src +=
-                utf16_len(graphemes[i]) + utf16_len(graphemes[i + 1]) + utf16_len(graphemes[i + 2]);
-            i += 3;
+            display.push('{');
+            src += 2;
             steps.push((display.len(), src));
+            display.push('{');
+            src += 1;
+            steps.push((display.len(), src));
+            i += 3;
             continue;
         }
-        display.push_str(graphemes[i]);
-        src += utf16_len(graphemes[i]);
+        // The parser leaves an unterminated tag's tail verbatim, including backslashes.
+        if graphemes[i] == "{"
+            && graphemes.get(i + 1) == Some(&"{")
+            && graphemes.get(i + 2) != Some(&"{")
+        {
+            for g in &graphemes[i..] {
+                for ch in g.chars() {
+                    display.push(ch);
+                    src += ch.len_utf16();
+                    steps.push((display.len(), src));
+                }
+            }
+            break;
+        }
+        for ch in graphemes[i].chars() {
+            display.push(ch);
+            src += ch.len_utf16();
+            steps.push((display.len(), src));
+        }
         i += 1;
-        steps.push((display.len(), src));
     }
     (display, steps)
 }
@@ -464,7 +488,7 @@ fn push_image(out: &mut Vec<Raw>, display: &str, source: &str, next_pill: &mut u
     let id = PillId(*next_pill);
     *next_pill += 1;
     out.push(Raw {
-        display: display.to_string(),
+        display: chips::normalize_label(display),
         source: source.to_string(),
         pill: Some(RawPill {
             id,

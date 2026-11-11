@@ -255,3 +255,14 @@ fn highlight_turns_unit_hits_into_merged_byte_ranges() {
     // `é` is two bytes in UTF-8, one UTF-16 unit.
     assert_eq!(highlight("café x", &[3, 5]), vec![3..5, 6..7]);
 }
+
+#[test]
+fn content_search_keeps_utf16_boundaries_and_a_truncated_surrogate() {
+    let hit = rank_one(&snippet("zz", &[], "😀-الموعد café"), "الموعد").unwrap();
+    assert_eq!(hit.field, Some(MatchField::Content));
+    assert_eq!(hit.score, (6.0 * 16.0 + 10.0) * 0.6);
+    let query = format!("{}😀", "a".repeat(63));
+    let hit = rank_one(&snippet("zz", &[], &query), &query).unwrap();
+    assert_eq!(hit.score, (64.0 * 16.0 + 10.0) * 0.6);
+    assert_eq!(hit.field, Some(MatchField::Content));
+}

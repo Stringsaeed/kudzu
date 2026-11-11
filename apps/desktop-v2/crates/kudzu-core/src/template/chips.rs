@@ -9,6 +9,9 @@ use super::{
     AttributeValue, Key, Tag, TemplateTag, MAX_CLIPBOARD_HISTORY, MAX_DELAY_MS, MAX_KEY_COUNT,
 };
 
+/// A lookup borrowing snippet names from the live library for the duration of the call.
+pub type SnippetNames<'a> = &'a dyn Fn(&str) -> Option<&'a str>;
+
 /// Colour group for a chip. Names match the Tauri app's `ChipTone`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Tone {
@@ -53,44 +56,29 @@ impl Tone {
 /// Rune's `data-pill` value for a chip: `{tone}:{source}`, for example `time:{{date}}`.
 ///
 /// This is the id that survives a rich copy. It is not [`crate::template::doc::PillId`].
-/// `occurrence` is 1 for the first chip in the field with this tone and source. A later
-/// identical chip is `{tone}:{source}#{occurrence}` so two pills in one HTML fragment stay
-/// distinct. [`parse_html_pill_id`] strips that `#n` (n ≥ 2).
-pub fn html_pill_id(tone: Tone, source: &str, occurrence: u32) -> String {
-    let base = format!("{}:{source}", tone.name());
-    if occurrence <= 1 {
-        base
-    } else {
-        format!("{base}#{occurrence}")
-    }
+pub fn html_pill_id(tone: Tone, source: &str) -> String {
+    format!("{}:{source}", tone.name())
 }
 
-/// `(tone, tag source)` from a [`html_pill_id`]. `None` when the id is not one tag.
-///
-/// A trailing `#n` (n ≥ 2, no leading zero) is a duplicate marker and is stripped when the
-/// shorter string is a single tag and the longer one is not. A tag source always ends at `}}`,
-/// so the marker cannot be confused with a source that itself ends in `#n`.
+/// Decode a Rune pill id containing exactly one tag. Duplicate pills share this id.
 pub fn parse_html_pill_id(id: &str) -> Option<(Tone, String)> {
-    let (name, body) = id.split_once(':')?;
+    let (name, source) = id.split_once(':')?;
     let tone = Tone::from_name(name)?;
-    let source = strip_duplicate_suffix(body).to_string();
-    is_single_tag(&source).then_some((tone, source))
+    is_single_tag(source).then(|| (tone, source.to_string()))
 }
 
-fn strip_duplicate_suffix(body: &str) -> &str {
-    let Some((head, tail)) = body.rsplit_once('#') else {
-        return body;
-    };
-    let duplicate = !tail.is_empty()
-        && tail != "1"
-        && !tail.starts_with('0')
-        && tail.bytes().all(|b| b.is_ascii_digit())
-        && head.ends_with('}');
-    if duplicate && is_single_tag(head) && !is_single_tag(body) {
-        head
-    } else {
-        body
-    }
+/// Rune's `replace_with_pill` normalizes these characters before inserting a label.
+pub(super) fn normalize_label(label: &str) -> String {
+    label
+        .chars()
+        .map(|c| {
+            if c.is_control() || matches!(c, '\u{2028}' | '\u{2029}') {
+                ' '
+            } else {
+                c
+            }
+        })
+        .collect()
 }
 
 /// `source` is exactly one tag covering the whole string.
@@ -115,7 +103,7 @@ pub enum PillKind {
 ///
 /// `snippet_name` resolves a nested snippet id (hyphenated UUID text) to a library name.
 /// Without a name the label is `↳ Missing snippet`.
-pub fn chip_label(tag: &Tag, source: &str, snippet_name: &dyn Fn(&str) -> Option<&str>) -> String {
+pub fn chip_label(tag: &Tag, source: &str, snippet_name: SnippetNames<'_>) -> String {
     if tag.verbatim.is_some() {
         return source.to_string();
     }

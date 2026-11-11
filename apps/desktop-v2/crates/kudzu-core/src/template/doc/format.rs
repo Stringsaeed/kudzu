@@ -3,12 +3,13 @@
 
 use std::ops::Range;
 
-use super::edit::{concat_source, overlaps, snap_range};
+use super::edit::{overlaps, snap_range};
 use super::load::{literal_from_display, literal_map};
 use super::{EditorDoc, EditorStyle, FormatChange, Image, Mark, PillId};
 use crate::formatting::safe_link;
 use crate::template::chips::{self, PillKind as ChipKind};
 use crate::template::images::{self, ImageError};
+use std::sync::Arc;
 
 impl EditorDoc {
     /// Bold, italic, underline, link, or clear, over the display selection.
@@ -18,7 +19,29 @@ impl EditorDoc {
     /// of that kind are cut and the new span is pushed last. An empty selection does nothing.
     /// An unsafe link is not added.
     pub fn change_format(&mut self, start: usize, end: usize, change: FormatChange) -> bool {
+        if matches!(&change, FormatChange::Link(url) if !safe_link(url)) {
+            return false;
+        }
         self.transaction(|doc| doc.apply_format(start, end, &change))
+    }
+
+    /// Whether the document saves a Formatting object, including when spans are empty.
+    pub fn formatted(&self) -> bool {
+        self.formatted
+    }
+
+    /// Switch Plain/Formatted and clear spans. The whole mode change is one undo step.
+    pub fn set_formatted(&mut self, formatted: bool) -> bool {
+        if self.formatted == formatted {
+            return false;
+        }
+        self.transaction(|doc| {
+            doc.formatted = formatted;
+            doc.mark_src.clear();
+            doc.image_src.clear();
+            doc.unpill_orphan_images();
+            doc.install();
+        })
     }
 
     /// Replace the display range with an image chip. Width is clamped to 16..=512.
@@ -47,10 +70,11 @@ impl EditorDoc {
             return Err(ImageError::TooMany);
         }
         let width = images::clamp_width(width);
-        let label = images::alt_literal(alt);
-        let url = data_url.to_string();
+        let label = chips::normalize_label(&images::alt_literal(alt));
+        let url: Arc<str> = data_url.into();
         let mut id = None;
         self.transaction(|doc| {
+            doc.formatted = true;
             doc.image_src
                 .retain(|image| !overlaps(&image.source, cut_from, cut_to));
             let pill = doc.alloc_pill(chips::Tone::Form, ChipKind::Image);
@@ -78,7 +102,7 @@ impl EditorDoc {
         if !self.image_src.iter().any(|image| image.pill == Some(id)) {
             return Err(ImageError::Missing);
         }
-        let label = images::sanitize_alt(alt);
+        let label = chips::normalize_label(&images::sanitize_alt(alt));
         self.transaction(|doc| {
             let Some(index) = doc
                 .raws
@@ -90,13 +114,12 @@ impl EditorDoc {
             if doc.raws[index].display == label {
                 return;
             }
-            let old = concat_source(&doc.raws);
+            let range = doc.pills.iter().find(|p| p.id == id).unwrap().range.clone();
             let pill = doc.raws[index].pill.clone();
             let mut raw = literal_from_display(&label);
             raw.pill = pill;
             raw.steps.clear();
-            doc.raws[index] = raw;
-            doc.finish_source_edit(&old);
+            doc.splice(range.start, range.end, vec![raw]);
         });
         Ok(())
     }
@@ -130,6 +153,7 @@ impl EditorDoc {
         if from >= to {
             return;
         }
+        self.formatted = true;
         let mut items = self.span_items();
         let remove = matches!(change, FormatChange::Clear)
             || items.iter().any(|item| {
@@ -139,6 +163,9 @@ impl EditorDoc {
         for item in items.drain(..) {
             if item.source.end <= from || item.source.start >= to || !item.kind_matches(change) {
                 next.push(item);
+                continue;
+            }
+            if matches!(change, FormatChange::Clear) && matches!(item.body, Body::Image { .. }) {
                 continue;
             }
             if item.source.start < from {
@@ -153,14 +180,9 @@ impl EditorDoc {
                 next.push(item);
             }
         }
-        let old = concat_source(&self.raws);
         self.write_spans(&next);
         self.unpill_orphan_images();
-        if concat_source(&self.raws) != old {
-            self.finish_source_edit(&old);
-        } else {
-            self.install();
-        }
+        self.install();
     }
 
     fn span_items(&self) -> Vec<SpanItem> {
@@ -239,13 +261,9 @@ impl EditorDoc {
                 continue;
             }
             let (decoded, steps) = literal_map(&raw.source);
-            if decoded == raw.display {
-                raw.steps = steps;
-                raw.pill = None;
-            } else {
-                let display = raw.display.clone();
-                *raw = literal_from_display(&display);
-            }
+            raw.display = decoded;
+            raw.steps = steps;
+            raw.pill = None;
         }
     }
 }
@@ -258,7 +276,7 @@ struct SpanItem {
 enum Body {
     Mark(EditorStyle),
     Image {
-        data_url: String,
+        data_url: Arc<str>,
         width: u32,
         alt: String,
         pill: Option<PillId>,

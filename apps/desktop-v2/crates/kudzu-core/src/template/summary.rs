@@ -14,7 +14,7 @@ pub const LIST_UNITS: usize = 140;
 pub const SEARCH_UNITS: usize = 2_000;
 
 /// Nested-snippet lookup. Search passes `None`.
-pub type SnippetNames<'a> = &'a dyn Fn(&str) -> Option<&str>;
+pub use super::chips::SnippetNames;
 
 /// `plainSummary`. `snippet_name` is the nested-snippet lookup; search passes `None`.
 pub fn plain_summary(source: &str, snippet_name: Option<SnippetNames<'_>>, max: usize) -> String {

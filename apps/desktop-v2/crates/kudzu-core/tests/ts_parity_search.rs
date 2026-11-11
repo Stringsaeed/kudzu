@@ -7,7 +7,7 @@
 //!
 //! `plain-summaries.json` is the recorded `plainSummary(content, undefined, 2000)` output.
 //! These tests index with `template::summary::plain_summary` at 2,000 units. The recorded file
-//! stays in the tree so a mismatch is a failed comparison, not a missing fixture.
+//! supplies a separate summary comparison; ranking itself always calls the real summariser.
 
 use std::fs;
 use std::path::PathBuf;

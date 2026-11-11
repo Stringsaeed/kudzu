@@ -6,8 +6,7 @@
 //! # What is stored
 //!
 //! Each [`SourcePiece`] is either a literal run or one chip. Literal pieces remember every
-//! grapheme step, including `\{{` (three source units, two display bytes) and a combining
-//! character. Chip pieces remember the original tag bytes. [`EditorDoc::to_template`]
+//! scalar boundary, including both displayed braces of `\{{` (three source units). Chip pieces remember the original tag bytes. [`EditorDoc::to_template`]
 //! concatenates those bytes, so an untouched document round-trips exactly.
 //!
 //! Marks and images store template UTF-16 endpoints. Loading does not grow a span that only
@@ -15,53 +14,48 @@
 //! only the painted display range; S52 must save with [`EditorDoc::to_template`], never by
 //! reading painted ranges back.
 //!
-//! # Edits
+//! # Edits and mode
 //!
-//! [`EditorDoc::replace`], [`EditorDoc::insert_chip`], [`EditorDoc::change_format`],
-//! [`EditorDoc::toggle_list`] and the image methods are one undo step each. Offsets are UTF-8
-//! display bytes, which is what Rune uses. A caret inside a chip snaps to the nearer edge. A
-//! non-empty range that overlaps a chip takes the whole chip. An edit cannot split `\{{`, a
-//! combining grapheme, or a surrogate pair.
+//! Offsets are UTF-8 display bytes. Only chips are atomic. Any scalar boundary in a literal
+//! can be edited, including the middle of `\{{`, combining text or CRLF. [`EditorDoc::replace`]
+//! returns the inserted display range. Typing `{{date}}` stays literal; [`EditorDoc::paste_source`]
+//! deliberately parses external template source into chips.
 //!
-//! After an edit, a run of literal pieces whose concatenated source would no longer parse as
-//! that display text is rewritten with the serializer (`\` → `\\`, `{{` → `\{{`). A run that
-//! still decodes is left byte-exact, so an untouched `\{{` stays. Deleting a chip that sat
-//! between two literal `{` characters therefore leaves the display `{{` (source `\{{`). The
-//! TypeScript editor would turn those braces into a tag, because there the document *is* the
-//! source. This editor's document is the display.
+//! Every edit maps saved span endpoints through the old display, the actual replacement,
+//! and the new source map. Repair changes only conflicting escape steps; distant source stays
+//! byte-exact. Untouched partial chip/escape endpoints retain their original source offsets.
+//! Marks include text typed at their edges; images exclude it.
 //!
-//! Marks the edit does not touch keep their endpoints and only shift. A mark the edit overlaps,
-//! or whose endpoint sits on the cut, grows to the chips it intersects and snaps out to a step.
-//! Typing at either end of a bold span extends it. Typing beside an image does not.
+//! [`EditorDoc::set_formatted`] switches modes and clears spans in one undo step. Formatted
+//! documents save `Some(Formatting)` even with no spans. A style/image insertion or rich paste
+//! with spans enables Formatted as part of that operation.
 //!
-//! # Identity and the pasteboard
+//! # Identity, clipboard, and history
 //!
-//! [`PillId`] is chosen when the chip is created and is not renumbered when other text changes.
-//! Undo and redo put the same ids back. [`EditorDoc::html_id`] is a different id, for Rune's
-//! `<span data-pill>`: `{tone}:{source}`, with `#2`, `#3`, … when the field holds two identical
-//! chips. [`parse_html_pill_id`](crate::template::chips::parse_html_pill_id) strips that suffix.
+//! [`PillId`] identifies one chip through edits and undo. Rune's [`EditorDoc::html_id`] carries
+//! `{tone}:{source}` and is intentionally shared by identical chips. S52 maps Rune pills to
+//! core pills in document order, using `PillId` plus the range/order, never a unique HTML id.
+//! [`CopyPayload::from_fragment`] validates the plain source against Rune's ordered fragment.
+//! [`EditorDoc::copy`] includes rich spans; image transport from Rune remains S76's work.
 //!
-//! [`EditorDoc::copy`] writes the template source (chips as their tags, literals escaped) plus
-//! a rich payload. [`EditorDoc::paste_own`] rebuilds chips from that payload in one undo step
-//! and mints new [`PillId`]s. [`EditorDoc::paste_source`] does the same for plain text from
-//! another app: the text is template source, so `{{tags}}` become chips. Image pills have no
-//! tag source; a plain-text paste keeps their alt words, and only [`EditorDoc::paste_own`]
-//! brings the image back (S76 owns the pasteboard bytes).
-//!
-//! # History
-//!
-//! [`EditorDoc::from_template`] starts with an empty undo stack. The first
-//! [`EditorDoc::undo`] does nothing. S52 must also call `TextEdit::clear_history` after it
-//! builds the field, or Rune's own undo will strip the chips it just inserted.
+//! Loading creates no undo step. S52 must also clear Rune's history after each load. Core
+//! keeps at most 200 history steps and shares image data URLs with `Arc<str>` across snapshots.
+//! [`EditorDoc::relabel`] refreshes library names in the current document and history without
+//! becoming an undo step. Source and formatting do not change.
 
+mod chip_edit;
 mod clipboard;
 mod edit;
 mod format;
+mod history;
+mod literal;
 mod load;
+mod mapping;
 
 use std::ops::Range;
+use std::sync::Arc;
 
-use super::chips::{self, PillKind, Tone};
+use super::chips::{self, PillKind, SnippetNames, Tone};
 use crate::formatting::{FormatSpan, FormatStyle, Formatting};
 
 /// The UTF-16 slice `range` of `source`. A unit that would split a scalar is omitted.
@@ -131,7 +125,7 @@ pub struct EditorImage {
     /// Template UTF-16. Unaligned images keep the endpoints they were loaded with until an
     /// edit touches them.
     pub source: Range<usize>,
-    pub data_url: String,
+    pub data_url: Arc<str>,
     pub width: u32,
     pub alt: String,
 }
@@ -146,7 +140,7 @@ pub struct SourcePiece {
     /// UTF-16 of [`Self::source`] inside the concatenated template.
     pub source_utf16: Range<usize>,
     pub pill: Option<PillId>,
-    /// Literal graphemes as `(display byte, source utf-16)` from the start of this piece.
+    /// Literal scalar boundaries as `(display byte, source utf-16)` from the start of this piece.
     /// Empty for a chip, which maps as one atom.
     pub steps: Vec<(usize, usize)>,
 }
@@ -192,7 +186,7 @@ pub struct CopiedMark {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CopiedImage {
     pub source: Range<usize>,
-    pub data_url: String,
+    pub data_url: Arc<str>,
     pub width: u32,
     pub alt: String,
 }
@@ -223,7 +217,7 @@ struct Mark {
 struct Image {
     pill: Option<PillId>,
     source: Range<usize>,
-    data_url: String,
+    data_url: Arc<str>,
     width: u32,
     alt: String,
     seq: u32,
@@ -231,6 +225,7 @@ struct Image {
 
 #[derive(Clone)]
 struct Snapshot {
+    formatted: bool,
     raws: Vec<Raw>,
     marks: Vec<Mark>,
     images: Vec<Image>,
@@ -240,6 +235,7 @@ struct Snapshot {
 /// Display text, chips, marks and images, plus the ordered map back to template source.
 #[derive(Clone)]
 pub struct EditorDoc {
+    formatted: bool,
     text: String,
     pills: Vec<EditorPill>,
     marks: Vec<EditorMark>,
@@ -256,7 +252,7 @@ pub struct EditorDoc {
 }
 
 impl EditorDoc {
-    /// Load `source`. Formatting is applied when its `source` is empty or equal to `source`.
+    /// Load `source`. Formatting is applied only when its `source` equals `source`.
     /// Snippet chips label as `↳ Missing snippet`.
     pub fn from_template(source: &str, formatting: Option<&Formatting>) -> Self {
         Self::from_template_named(source, formatting, &|_| None)
@@ -268,14 +264,14 @@ impl EditorDoc {
     pub fn from_template_named(
         source: &str,
         formatting: Option<&Formatting>,
-        snippet_name: &dyn Fn(&str) -> Option<&str>,
+        snippet_name: SnippetNames<'_>,
     ) -> Self {
         let mut next_pill = 1u64;
         let mut raws = load::pieces_from_parse(source, snippet_name, &mut next_pill);
         let mut marks = Vec::new();
         let mut images = Vec::new();
         let mut seq = 0u32;
-        if formatting.is_some_and(|f| f.source.is_empty() || f.source == source) {
+        if formatting.is_some_and(|f| f.source == source) {
             if let Some(formatting) = formatting {
                 load::apply_formatting(
                     &mut raws,
@@ -289,6 +285,7 @@ impl EditorDoc {
             }
         }
         let mut doc = Self {
+            formatted: formatting.is_some_and(|f| f.source == source),
             text: String::new(),
             pills: Vec::new(),
             marks: Vec::new(),
@@ -307,7 +304,7 @@ impl EditorDoc {
         doc
     }
 
-    /// Template source and, when there are spans, the formatting that names that source.
+    /// Template source and, in Formatted mode, the formatting that names that source.
     /// Span endpoints are the stored UTF-16 ranges, in the order they were applied.
     pub fn to_template(&self) -> (String, Option<Formatting>) {
         let source: String = self.raws.iter().map(|r| r.source.as_str()).collect();
@@ -332,7 +329,7 @@ impl EditorDoc {
                         start: image.source.start,
                         end: image.source.end,
                         style: FormatStyle::Image {
-                            data_url: image.data_url.clone(),
+                            data_url: image.data_url.to_string(),
                             width: image.width,
                         },
                     },
@@ -341,7 +338,7 @@ impl EditorDoc {
         }
         spans.sort_by_key(|(seq, _)| *seq);
         let spans: Vec<_> = spans.into_iter().map(|(_, span)| span).collect();
-        let formatting = (!spans.is_empty()).then(|| Formatting {
+        let formatting = self.formatted.then(|| Formatting {
             source: source.clone(),
             spans,
         });
@@ -375,22 +372,14 @@ impl EditorDoc {
 
     /// Rune `data-pill` id for a tag chip, or `None` for an unknown id or an image chip.
     ///
-    /// The first chip with a given tone and source is `{tone}:{source}`. Each further one in
-    /// this document gets `#2`, `#3`, and so on. Paste strips the suffix; the two chips stay
-    /// distinct here because each has its own [`PillId`].
+    /// Identical chips share `{tone}:{source}`. Use `PillId` and document order to identify
+    /// one occurrence when binding Rune marks back to the document.
     pub fn html_id(&self, id: PillId) -> Option<String> {
         let pill = self.pills.iter().find(|p| p.id == id)?;
         if pill.kind != PillKind::Tag {
             return None;
         }
-        let occurrence = self
-            .pills
-            .iter()
-            .take_while(|p| p.id != id)
-            .filter(|p| p.kind == PillKind::Tag && p.tone == pill.tone && p.source == pill.source)
-            .count() as u32
-            + 1;
-        Some(chips::html_pill_id(pill.tone, &pill.source, occurrence))
+        Some(chips::html_pill_id(pill.tone, &pill.source))
     }
 
     /// Display byte → template UTF-16. A byte that lands on a piece boundary ignores `end`.
@@ -441,76 +430,6 @@ impl EditorDoc {
             }
         }
         self.text.len()
-    }
-
-    /// Whether [`Self::undo`] would change the document. False on a freshly loaded document.
-    pub fn can_undo(&self) -> bool {
-        !self.undo.is_empty()
-    }
-
-    /// Whether [`Self::redo`] would change the document.
-    pub fn can_redo(&self) -> bool {
-        !self.redo.is_empty()
-    }
-
-    /// Restore the previous edit. Returns false when the stack is empty, and changes nothing.
-    pub fn undo(&mut self) -> bool {
-        let Some(prev) = self.undo.pop() else {
-            return false;
-        };
-        self.redo.push(self.snap());
-        self.restore(prev);
-        true
-    }
-
-    /// Reapply an undone edit. Returns false when there is nothing to redo.
-    pub fn redo(&mut self) -> bool {
-        let Some(next) = self.redo.pop() else {
-            return false;
-        };
-        self.undo.push(self.snap());
-        self.restore(next);
-        true
-    }
-
-    fn transaction(&mut self, body: impl FnOnce(&mut Self)) -> bool {
-        if self.busy {
-            body(self);
-            return true;
-        }
-        let before = self.snap();
-        self.busy = true;
-        body(self);
-        self.busy = false;
-        if self.same(&before) {
-            return false;
-        }
-        self.undo.push(before);
-        self.redo.clear();
-        true
-    }
-
-    fn snap(&self) -> Snapshot {
-        Snapshot {
-            raws: self.raws.clone(),
-            marks: self.mark_src.clone(),
-            images: self.image_src.clone(),
-            seq: self.seq,
-        }
-    }
-
-    fn restore(&mut self, snap: Snapshot) {
-        self.raws = snap.raws;
-        self.mark_src = snap.marks;
-        self.image_src = snap.images;
-        self.seq = snap.seq;
-        self.install();
-    }
-
-    fn same(&self, snap: &Snapshot) -> bool {
-        load::raws_eq(&self.raws, &snap.raws)
-            && load::marks_eq(&self.mark_src, &snap.marks)
-            && load::images_eq(&self.image_src, &snap.images)
     }
 
     fn alloc_pill(&mut self, tone: Tone, kind: PillKind) -> RawPill {

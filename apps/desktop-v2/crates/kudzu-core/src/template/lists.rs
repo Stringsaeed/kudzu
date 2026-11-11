@@ -20,8 +20,8 @@ pub fn list_edits(text: &str, from: usize, to: usize, ordered: bool) -> Vec<List
     let from = from.min(text.len());
     let to = to.min(text.len());
     let probe = if to > from { to - 1 } else { to };
-    let first = line_index(&lines, text.len(), from);
-    let last = line_index(&lines, text.len(), probe);
+    let first = line_index(&lines, from);
+    let last = line_index(&lines, probe);
     let selected = &lines[first..=last];
     let remove = selected.iter().all(|(_, line)| {
         if ordered {
@@ -62,13 +62,10 @@ fn lines_of(text: &str) -> Vec<(usize, &str)> {
     out
 }
 
-fn line_index(lines: &[(usize, &str)], len: usize, pos: usize) -> usize {
+fn line_index(lines: &[(usize, &str)], pos: usize) -> usize {
     lines
         .iter()
-        .rposition(|(start, text)| {
-            *start <= pos
-                && (pos < *start + text.len() || *start + text.len() == len || pos == *start)
-        })
+        .rposition(|(start, _)| *start <= pos)
         .unwrap_or(0)
 }
 

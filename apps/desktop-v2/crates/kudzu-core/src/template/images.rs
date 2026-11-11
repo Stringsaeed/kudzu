@@ -58,15 +58,18 @@ pub fn stored_width(width: u32) -> Option<u32> {
 /// Sanitise alt text the way the insert form does, without the surrounding brackets.
 pub fn sanitize_alt(raw: &str) -> String {
     let mut cleaned = String::new();
-    for c in raw.chars() {
+    for c in trim_js(raw).chars() {
         if c == '{' || c == '}' || c == '\n' || c == '\r' {
             cleaned.push(' ');
         } else {
             cleaned.push(c);
         }
     }
-    let trimmed = trim_js(&cleaned);
-    let text = if trimmed.is_empty() { "Image" } else { trimmed };
+    let text = if cleaned.is_empty() {
+        "Image"
+    } else {
+        &cleaned
+    };
     utf16_prefix(text, MAX_ALT_UNITS)
 }
 

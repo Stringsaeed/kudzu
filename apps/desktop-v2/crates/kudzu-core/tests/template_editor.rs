@@ -28,7 +28,7 @@ fn fixture(name: &str) -> String {
     fs::read_to_string(&path).unwrap_or_else(|err| panic!("{}: {err}", path.display()))
 }
 
-fn names(id: &str) -> Option<&str> {
+fn names(id: &str) -> Option<&'static str> {
     if id == SIGNATURE {
         Some("Email signature")
     } else {
@@ -338,15 +338,15 @@ fn loading_is_not_undoable_and_a_mismatched_formatting_source_is_ignored() {
 }
 
 #[test]
-fn pill_identity_stays_put_and_html_ids_disambiguate_duplicates() {
+fn pill_identity_stays_put_and_html_ids_are_shared_by_duplicates() {
     let mut doc = EditorDoc::from_template("{{date}} and {{date}}", None);
     let first = doc.pills()[0].id;
     let second = doc.pills()[1].id;
     assert_ne!(first, second);
     assert_eq!(doc.html_id(first).as_deref(), Some("time:{{date}}"));
-    assert_eq!(doc.html_id(second).as_deref(), Some("time:{{date}}#2"));
+    assert_eq!(doc.html_id(second).as_deref(), Some("time:{{date}}"));
     assert_eq!(
-        chips::parse_html_pill_id("time:{{date}}#2"),
+        chips::parse_html_pill_id("time:{{date}}"),
         Some((Tone::Time, "{{date}}".into()))
     );
     assert_eq!(
@@ -358,14 +358,14 @@ fn pill_identity_stays_put_and_html_ids_disambiguate_duplicates() {
     doc.replace(between.start, between.end, " & ");
     assert_eq!(doc.pills()[0].id, first);
     assert_eq!(doc.pills()[1].id, second);
-    assert_eq!(doc.html_id(second).as_deref(), Some("time:{{date}}#2"));
+    assert_eq!(doc.html_id(second).as_deref(), Some("time:{{date}}"));
 
     let only_second = doc.pills()[1].range.clone();
     let copied = doc.copy(only_second.start, only_second.end).unwrap();
     assert_eq!(copied.plain, "{{date}}");
     assert_eq!(
         copied.runs[0].chip.as_ref().unwrap().html_id,
-        "time:{{date}}#2"
+        "time:{{date}}"
     );
 
     let mut dest = EditorDoc::from_template("", None);
@@ -545,11 +545,11 @@ fn typing_deleting_and_images_update_the_map_and_undo() {
     image.set_image_width(id, 900).unwrap();
     assert_eq!(image.images()[0].width, images::MAX_IMAGE_WIDTH);
     image.set_image_alt(id, "a{b}\n").unwrap();
-    assert_eq!(image.pills()[0].label, "a b");
+    assert_eq!(image.pills()[0].label, "a b ");
     image.set_image_alt(id, "   ").unwrap();
     assert_eq!(image.pills()[0].label, "Image");
     assert!(image.undo());
-    assert_eq!(image.pills()[0].label, "a b");
+    assert_eq!(image.pills()[0].label, "a b ");
 
     assert_eq!(
         image.insert_image(0, 0, "https://example.com/a.png", 32, "A"),
@@ -591,7 +591,7 @@ fn image_budget_width_on_load_and_replacement() {
     assert_ne!(first, second);
     assert_eq!(doc.images().len(), 1);
     assert_eq!(doc.images()[0].width, 40);
-    assert_eq!(doc.images()[0].data_url, PNG);
+    assert_eq!(doc.images()[0].data_url.as_ref(), PNG);
 
     let wide = long_png();
     assert!(images::accept_data_url(&wide));
@@ -660,15 +660,15 @@ fn untouched_spans_stay_exact_across_load_and_a_shift() {
         spans: vec![bold_span(0, 1)],
     };
     let doc = EditorDoc::from_template(source, Some(&formatting));
-    assert_eq!(doc.source_to_display(1, false), 0);
-    assert_eq!(doc.source_to_display(1, true), "e\u{0301}".len());
+    assert_eq!(doc.source_to_display(1, false), 1);
+    assert_eq!(doc.source_to_display(1, true), 1);
     assert_eq!(spans_of(&doc), vec![bold_span(0, 1)]);
 
     let source = r"a\{{b";
     let doc = EditorDoc::from_template(source, None);
     assert_eq!(doc.text(), "a{{b");
-    assert_eq!(doc.display_to_source(2, false), 1);
-    assert_eq!(doc.display_to_source(2, true), 4);
+    assert_eq!(doc.display_to_source(2, false), 3);
+    assert_eq!(doc.display_to_source(2, true), 3);
     let formatting = Formatting {
         source: source.into(),
         spans: vec![bold_span(0, 2)],
