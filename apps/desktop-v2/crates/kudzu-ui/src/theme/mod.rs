@@ -118,7 +118,7 @@ pub(crate) mod css {
     use super::palette::Oklch;
 
     // Source: bca79f179f5b6e7c869161d80ce6d3ebb1106689.
-    // Repository path components: apps / desktop / app / globals.css (full path in REVIEW.md).
+    // Repository path components: apps / desktop / app / globals.css (full path in docs/migration/reviews/S04-theme-fixes.md).
     // Frozen excerpt for the S73 parity re-check; no build-time dependency on the old app.
     pub const GLOBALS: &str = r#"
 @theme inline {
