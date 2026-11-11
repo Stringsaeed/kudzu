@@ -1,7 +1,7 @@
 //! Manual time with wakeups; no sleeps or process-global locale/time-zone mutation.
 use crate::ports::clock::Clock;
 use crate::watch::{Publisher, Subscription};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, SystemTime};
 
 pub struct FakeClock {
@@ -19,9 +19,9 @@ impl FakeClock {
     }
     pub fn advance(&self, duration: Duration) {
         let notification = {
-            let mut elapsed = self.elapsed.lock().unwrap();
+            let mut elapsed = self.elapsed.lock().unwrap_or_else(PoisonError::into_inner);
             *elapsed += duration;
-            self.changes.replace(*elapsed)
+            self.changes.replace(Arc::new(*elapsed)).notification
         };
         notification.notify();
     }
@@ -36,7 +36,7 @@ impl Clock for FakeClock {
         self.epoch + self.monotonic()
     }
     fn monotonic(&self) -> Duration {
-        *self.elapsed.lock().unwrap()
+        *self.elapsed.lock().unwrap_or_else(PoisonError::into_inner)
     }
     fn subscribe(&self, wake: Arc<dyn Fn() + Send + Sync>) -> Subscription {
         self.changes.watch().subscribe(move || wake())

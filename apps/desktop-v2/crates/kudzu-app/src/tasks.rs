@@ -1,8 +1,10 @@
 //! One named thread per operation; dropping a result owner never joins a worker.
+//! S40: Tasks are untracked. Stop task admission and fence/join any service-owned producers
+//! before draining Writer. Dropping a Task is not cancellation or a shutdown barrier.
 
 use crate::error::IoFailure;
 use crate::watch::{Publisher, Watch};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TaskError {
@@ -36,8 +38,8 @@ impl<T: Send + 'static> Task<T> {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation))
                     .map_err(|_| TaskError::Panicked);
                 if let Some(slot) = owner.upgrade() {
-                    *slot.result.lock().unwrap() = Some(result);
-                    slot.ready.replace(true).notify();
+                    *slot.result.lock().unwrap_or_else(PoisonError::into_inner) = Some(result);
+                    slot.ready.replace(Arc::new(true)).notification.notify();
                 }
             })
             .map_err(IoFailure::from)?;
@@ -47,7 +49,11 @@ impl<T: Send + 'static> Task<T> {
         self.0.ready.watch()
     }
     pub fn take(&self) -> Option<Result<T, TaskError>> {
-        self.0.result.lock().unwrap().take()
+        self.0
+            .result
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .take()
     }
 }
 
@@ -56,6 +62,23 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn operation_panic_is_delivered_as_a_safe_error() {
+        let (release, wait) = mpsc::channel();
+        let task = Task::spawn("fixture-panic", move || {
+            wait.recv().unwrap();
+            panic!("operation failed");
+        })
+        .unwrap();
+        let (wake, woke) = mpsc::channel();
+        let _sub = task.ready().subscribe(move || {
+            wake.send(()).unwrap();
+        });
+        release.send(()).unwrap();
+        woke.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(task.take(), Some(Err(TaskError::Panicked)));
+    }
 
     #[test]
     fn completion_is_pull_based_and_taken_once() {

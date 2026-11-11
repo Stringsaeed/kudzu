@@ -4,8 +4,9 @@ use crate::error::IoFailure;
 use crate::ports::clock::Clock;
 use crate::watch::Subscription;
 use std::collections::BinaryHeap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Condvar, Mutex, Weak};
+use std::sync::{Arc, Condvar, Mutex, PoisonError, Weak};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -45,7 +46,7 @@ impl Ord for Entry {
 struct Queue {
     stopped: bool,
     next: u64,
-    entries: BinaryHeap<Entry>,
+    entries: BinaryHeap<Arc<Entry>>,
 }
 #[derive(Default)]
 struct Shared {
@@ -55,6 +56,7 @@ struct Shared {
 
 /// Keep each timer handle in its service; dropping it cancels future executions.
 pub struct Timer {
+    id: u64,
     active: Arc<AtomicBool>,
     shared: Weak<Shared>,
 }
@@ -62,8 +64,19 @@ impl Drop for Timer {
     fn drop(&mut self) {
         self.active.store(false, Ordering::Release);
         if let Some(shared) = self.shared.upgrade() {
-            let _queue = shared.queue.lock().unwrap();
-            shared.changed.notify_one();
+            let mut removed = Vec::new();
+            {
+                let mut queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
+                queue.entries.retain(|entry| {
+                    if entry.id != self.id {
+                        return true;
+                    }
+                    removed.push(entry.clone());
+                    false
+                });
+                shared.changed.notify_one();
+            }
+            drop(removed);
         }
     }
 }
@@ -80,7 +93,7 @@ impl Scheduler {
         let wake = Arc::downgrade(&shared);
         let subscription = clock.subscribe(Arc::new(move || {
             if let Some(shared) = wake.upgrade() {
-                let _queue = shared.queue.lock().unwrap();
+                let _queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
                 shared.changed.notify_one();
             }
         }));
@@ -88,7 +101,19 @@ impl Scheduler {
         let thread_clock = clock.clone();
         let worker = std::thread::Builder::new()
             .name("kudzu-schedule".into())
-            .spawn(move || run(thread_state, thread_clock))
+            .spawn(move || {
+                let _ = catch_unwind(AssertUnwindSafe(|| run(thread_state.clone(), thread_clock)));
+                let entries = {
+                    let mut queue = thread_state
+                        .queue
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner);
+                    queue.stopped = true;
+                    thread_state.changed.notify_all();
+                    std::mem::take(&mut queue.entries)
+                };
+                drop(entries);
+            })
             .map_err(IoFailure::from)?;
         Ok(Self {
             shared,
@@ -122,31 +147,40 @@ impl Scheduler {
         interval: Option<Duration>,
         run: Arc<dyn Fn() + Send + Sync>,
     ) -> Result<Timer, ScheduleError> {
-        let mut queue = self.shared.queue.lock().unwrap();
+        let mut queue = self
+            .shared
+            .queue
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         if queue.stopped {
             return Err(ScheduleError::Stopped);
         }
         let id = queue.next;
         queue.next += 1;
         let active = Arc::new(AtomicBool::new(true));
-        queue.entries.push(Entry {
+        queue.entries.push(Arc::new(Entry {
             due: self.clock.monotonic().saturating_add(delay),
             id,
             interval,
             active: active.clone(),
             run,
-        });
+        }));
         self.shared.changed.notify_one();
         Ok(Timer {
+            id,
             active,
             shared: Arc::downgrade(&self.shared),
         })
     }
     /// Synchronous, idempotent. Callbacks must not wait for a UI loop or call shutdown.
     pub fn shutdown(&self) {
-        let mut worker = self.worker.lock().unwrap();
+        let mut worker = self.worker.lock().unwrap_or_else(PoisonError::into_inner);
         {
-            let mut queue = self.shared.queue.lock().unwrap();
+            let mut queue = self
+                .shared
+                .queue
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
             queue.stopped = true;
             self.shared.changed.notify_one();
         }
@@ -162,7 +196,7 @@ impl Drop for Scheduler {
 }
 
 fn run(shared: Arc<Shared>, clock: Arc<dyn Clock>) {
-    let mut queue = shared.queue.lock().unwrap();
+    let mut queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     loop {
         if queue.stopped {
             let entries = std::mem::take(&mut queue.entries);
@@ -178,37 +212,43 @@ fn run(shared: Arc<Shared>, clock: Arc<dyn Clock>) {
             let cancelled = queue.entries.pop();
             drop(queue);
             drop(cancelled);
-            queue = shared.queue.lock().unwrap();
+            queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
             continue;
         }
         let Some(entry) = queue.entries.peek() else {
-            queue = shared.changed.wait(queue).unwrap();
+            queue = shared
+                .changed
+                .wait(queue)
+                .unwrap_or_else(PoisonError::into_inner);
             continue;
         };
         let now = clock.monotonic();
         if entry.due > now {
             let wait = entry.due - now;
-            queue = shared.changed.wait_timeout(queue, wait).unwrap().0;
+            queue = shared
+                .changed
+                .wait_timeout(queue, wait)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
             continue;
         }
-        let mut entry = queue.entries.pop().unwrap();
+        let entry = queue.entries.pop().unwrap();
         // Requeue before calling out, so an advance from the callback cannot lose the next tick.
         if let Some(interval) = entry.interval {
-            entry.due = now.saturating_add(interval);
-            queue.entries.push(Entry {
-                due: entry.due,
+            queue.entries.push(Arc::new(Entry {
+                due: now.saturating_add(interval),
                 id: entry.id,
                 interval: entry.interval,
                 active: entry.active.clone(),
                 run: entry.run.clone(),
-            });
+            }));
         }
         drop(queue);
         if entry.active.load(Ordering::Acquire) {
-            (entry.run)();
+            let _ = catch_unwind(AssertUnwindSafe(|| (entry.run)()));
         }
         drop(entry);
-        queue = shared.queue.lock().unwrap();
+        queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     }
 }
 
@@ -217,6 +257,85 @@ mod tests {
     use super::*;
     use crate::fixtures::clock::FakeClock;
     use std::sync::mpsc;
+
+    #[test]
+    fn unexpected_worker_exit_stops_timer_admission() {
+        struct BrokenClock;
+        impl Clock for BrokenClock {
+            fn now(&self) -> std::time::SystemTime {
+                std::time::SystemTime::UNIX_EPOCH
+            }
+            fn monotonic(&self) -> Duration {
+                assert_ne!(
+                    std::thread::current().name(),
+                    Some("kudzu-schedule"),
+                    "clock failed"
+                );
+                Duration::ZERO
+            }
+            fn subscribe(&self, _: Arc<dyn Fn() + Send + Sync>) -> Subscription {
+                Subscription::default()
+            }
+        }
+        let scheduler = Scheduler::new(Arc::new(BrokenClock)).unwrap();
+        let (tx, rx) = mpsc::channel();
+        struct Dropped(mpsc::Sender<()>);
+        impl Drop for Dropped {
+            fn drop(&mut self) {
+                let _ = self.0.send(());
+            }
+        }
+        let capture = Dropped(tx);
+        let timer = scheduler
+            .after(Duration::from_secs(1), move || {
+                let _ = &capture;
+            })
+            .unwrap();
+        rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(matches!(
+            scheduler.after(Duration::ZERO, || {}),
+            Err(ScheduleError::Stopped)
+        ));
+        drop(timer);
+        scheduler.shutdown();
+    }
+
+    #[test]
+    fn panicking_callback_does_not_kill_the_timer_worker() {
+        let clock = Arc::new(FakeClock::default());
+        let scheduler = Scheduler::new(clock.clone()).unwrap();
+        let bad = scheduler
+            .after(Duration::from_secs(1), || panic!("callback failed"))
+            .unwrap();
+        let (tx, rx) = mpsc::channel();
+        let good = scheduler
+            .after(Duration::from_secs(2), move || {
+                tx.send(()).unwrap();
+            })
+            .unwrap();
+        clock.advance(Duration::from_secs(2));
+        rx.recv_timeout(Duration::from_secs(2))
+            .expect("timer worker died after callback panic");
+        drop((bad, good));
+        scheduler.shutdown();
+    }
+
+    #[test]
+    fn dropping_a_timer_promptly_releases_its_callback_capture() {
+        let scheduler = Scheduler::new(Arc::new(FakeClock::default())).unwrap();
+        let kept = Arc::new(());
+        let capture = kept.clone();
+        let earlier = scheduler.after(Duration::from_secs(3600), || {}).unwrap();
+        let timer = scheduler
+            .after(Duration::from_secs(7200), move || {
+                let _ = &capture;
+            })
+            .unwrap();
+        drop(timer);
+        assert_eq!(Arc::strong_count(&kept), 1);
+        drop(earlier);
+        scheduler.shutdown();
+    }
     #[test]
     fn shutdown_drops_callback_captures_without_holding_the_timer_lock() {
         let scheduler = Scheduler::new(Arc::new(FakeClock::default())).unwrap();

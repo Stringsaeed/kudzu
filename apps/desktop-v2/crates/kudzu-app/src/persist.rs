@@ -7,12 +7,11 @@ use serde::{de::DeserializeOwned, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Condvar, Mutex, Weak};
+use std::sync::{Arc, Condvar, Mutex, PoisonError, Weak};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
-pub struct Revision(pub u64);
+pub use crate::watch::Revision;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum PersistError {
@@ -176,16 +175,22 @@ trait PendingWrite: Send + Sync {
 }
 impl<T: Send + Sync> PendingWrite for Slot<T> {
     fn due(&self) -> Option<Duration> {
-        let pending = self.pending.lock().unwrap();
+        let pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
         pending.value.as_ref().map(|_| pending.due)
     }
     fn attempt(&self, now: Duration, retry: Duration) -> Result<(), PersistError> {
-        let Some((revision, value)) = self.pending.lock().unwrap().value.clone() else {
+        let Some((revision, value)) = self
+            .pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .value
+            .clone()
+        else {
             return Ok(());
         };
         let result = self.target.write(&value);
         let notification = {
-            let mut pending = self.pending.lock().unwrap();
+            let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
             let current = self.saved.watch().get();
             let state = match result {
                 Ok(()) => {
@@ -207,7 +212,7 @@ impl<T: Send + Sync> PendingWrite for Slot<T> {
                     }
                 }
             };
-            self.saved.replace(state)
+            self.saved.replace(Arc::new(state)).notification
         };
         notification.notify();
         result
@@ -237,11 +242,15 @@ impl<T> Persisted<T> {
     /// Ignore stale/out-of-order revisions. A snapshot remains retained until a successful save.
     pub fn submit(&self, revision: Revision, value: Arc<T>) -> Result<(), PersistError> {
         let writer = self.writer.upgrade().ok_or(PersistError::Stopped)?;
-        let queue = writer.queue.lock().unwrap();
+        let queue = writer.queue.lock().unwrap_or_else(PoisonError::into_inner);
         if queue.stopped {
             return Err(PersistError::Stopped);
         }
-        let mut pending = self.slot.pending.lock().unwrap();
+        let mut pending = self
+            .slot
+            .pending
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         if revision > pending.latest {
             pending.latest = revision;
             pending.value = Some((revision, value));
@@ -278,7 +287,7 @@ impl Writer {
         let wake = Arc::downgrade(&shared);
         let subscription = clock.subscribe(Arc::new(move || {
             if let Some(shared) = wake.upgrade() {
-                let _queue = shared.queue.lock().unwrap();
+                let _queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
                 shared.changed.notify_one();
             }
         }));
@@ -301,7 +310,11 @@ impl Writer {
         target: impl WriteTarget<T> + 'static,
         durable: Revision,
     ) -> Result<Persisted<T>, PersistError> {
-        let mut queue = self.shared.queue.lock().unwrap();
+        let mut queue = self
+            .shared
+            .queue
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         if queue.stopped {
             return Err(PersistError::Stopped);
         }
@@ -327,10 +340,14 @@ impl Writer {
     /// S40 must stop producers first and handle an error before treating shutdown as durable.
     /// No worker may wait on the UI. Repeated calls return the same result.
     pub fn shutdown(&self) -> Result<(), PersistError> {
-        let mut worker = self.worker.lock().unwrap();
+        let mut worker = self.worker.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(join) = worker.join.take() {
             {
-                let mut queue = self.shared.queue.lock().unwrap();
+                let mut queue = self
+                    .shared
+                    .queue
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner);
                 queue.stopped = true;
                 self.shared.changed.notify_one();
             }
@@ -345,7 +362,7 @@ impl Drop for Writer {
     }
 }
 fn writer_loop(shared: Arc<Shared>, retry: Duration) -> Result<(), PersistError> {
-    let mut queue = shared.queue.lock().unwrap();
+    let mut queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     loop {
         if queue.stopped {
             let slots = queue.slots.clone();
@@ -364,17 +381,24 @@ fn writer_loop(shared: Arc<Shared>, retry: Duration) -> Result<(), PersistError>
             .filter_map(|slot| slot.due().map(|due| (due, slot.clone())))
             .min_by_key(|(due, _)| *due);
         let Some((due, slot)) = next else {
-            queue = shared.changed.wait(queue).unwrap();
+            queue = shared
+                .changed
+                .wait(queue)
+                .unwrap_or_else(PoisonError::into_inner);
             continue;
         };
         let now = shared.clock.monotonic();
         if due > now {
-            queue = shared.changed.wait_timeout(queue, due - now).unwrap().0;
+            queue = shared
+                .changed
+                .wait_timeout(queue, due - now)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
             continue;
         }
         drop(queue);
         let _ = slot.attempt(now, retry);
-        queue = shared.queue.lock().unwrap();
+        queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     }
 }
 
