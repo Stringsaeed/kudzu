@@ -26,6 +26,7 @@ mod latency;
 mod listener;
 mod paste;
 mod refusals;
+mod reports;
 mod revalidation;
 mod sequences;
 mod transactions;

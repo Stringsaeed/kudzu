@@ -18,7 +18,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::document::Document;
 use super::keyboard::{apply_key, user_key, CgEvent, KeyEvent};
-use super::panels::Panels;
+use super::panels::{windows, Panels};
 use crate::macos::ffi::*;
 use crate::macos::keys::SYNTHETIC_MARKER;
 use crate::macos::pasteboard::Items;
@@ -26,28 +26,6 @@ use crate::macos::tap::Handler;
 use crate::{lock, AppInfo, Engine, InputEvent, PermissionStatus, TapMode};
 
 pub(super) const PLAIN: &str = "public.utf8-plain-text";
-
-/// The windows a click can land on, by window-server id, and who owns them.
-pub(super) mod windows {
-    /// The target app's document window.
-    pub const TARGET: i64 = 11;
-    /// Kudzu's form panel.
-    pub const FORM: i64 = 12;
-    /// Another Kudzu panel (Quick Search, the picker).
-    pub const PANEL: i64 = 13;
-    /// Another app's window.
-    pub const OTHER: i64 = 14;
-
-    /// Kudzu's windows, as the host reports them: the form panel and another panel.
-    pub fn kudzu() -> Vec<crate::KudzuWindow> {
-        [FORM, PANEL]
-            .map(|number| crate::KudzuWindow {
-                number: number as u32,
-                passes_clicks_through: false,
-            })
-            .to_vec()
-    }
-}
 
 /// One synthetic or replayed event the engine posted, decoded.
 #[derive(Debug, Clone, PartialEq, Eq)]

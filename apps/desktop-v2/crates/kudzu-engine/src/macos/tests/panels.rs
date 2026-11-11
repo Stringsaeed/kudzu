@@ -9,9 +9,31 @@
 
 use std::collections::HashMap;
 
-use super::desk::{windows, Desk, State};
+use super::desk::{Desk, State};
 use super::keyboard::apply_key;
 use crate::{EventStamp, InputEvent, PanelFocus, Submission};
+
+/// The windows a click can land on, by window-server id, and who owns them.
+pub(super) mod windows {
+    /// The target app's document window.
+    pub const TARGET: i64 = 11;
+    /// Kudzu's form panel.
+    pub const FORM: i64 = 12;
+    /// Another Kudzu panel (Quick Search, the picker).
+    pub const PANEL: i64 = 13;
+    /// Another app's window.
+    pub const OTHER: i64 = 14;
+
+    /// Kudzu's windows, as the host reports them: the form panel and another panel.
+    pub fn kudzu() -> Vec<crate::KudzuWindow> {
+        [FORM, PANEL]
+            .map(|number| crate::KudzuWindow {
+                number: number as u32,
+                passes_clicks_through: false,
+            })
+            .to_vec()
+    }
+}
 
 /// What has the keyboard, and what a click lands on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

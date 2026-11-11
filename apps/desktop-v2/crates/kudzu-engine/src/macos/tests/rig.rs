@@ -15,8 +15,9 @@ use kudzu_core::matching::MatchingConfig;
 use kudzu_core::{FireMode, InsertionMethod, SnippetRecord};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::desk::{windows, Desk, Ev, Out};
+use super::desk::{Desk, Ev, Out};
 use super::fakes::{FakeBoard, FakeEvents, FakeObserve};
+use super::panels::windows;
 use crate::macos::keys::KEY_RETURN;
 use crate::macos::pasteboard::Pasteboard;
 use crate::macos::Platform;

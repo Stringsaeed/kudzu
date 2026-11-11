@@ -80,8 +80,8 @@ fn the_tap_callback_stays_within_its_cpu_budget() {
 /// key does. No window-server call is made; the budget is the same 0.2 ms of thread CPU at p99.
 #[test]
 fn a_click_during_a_typed_form_stays_within_the_cpu_budget() {
-    use super::desk::windows;
     use super::keyboard::CgEvent;
+    use super::panels::windows;
     use crate::macos::ffi::kCGEventLeftMouseDown;
 
     let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, hi")]);
