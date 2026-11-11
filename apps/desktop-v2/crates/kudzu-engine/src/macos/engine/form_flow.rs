@@ -13,7 +13,7 @@ use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
 use crate::interruption::Interruption;
 use crate::library;
 use crate::plan::PlanMode;
-use crate::{lock, AppInfo, FormRequest};
+use crate::{lock, AppInfo, EventStamp, FormRequest};
 
 #[derive(Debug, Clone)]
 pub(super) enum FormKind {
@@ -39,10 +39,27 @@ pub(super) struct PendingForm {
 impl Imp {
     /// The form panel for `token` became key (`true`) or stopped being key (`false`): where
     /// key-downs go from now on (see `crate::interruption`).
-    pub fn form_panel_focused(&self, token: u64, focused: bool) {
+    pub fn form_panel_focused(&self, token: u64, focused: bool, after: Option<EventStamp>) {
         let mut core = lock(&self.core);
         if let Some(form) = core.pending_form.as_mut().filter(|f| f.token == token) {
-            form.input.focus(focused);
+            form.input.focus(focused, after);
+        }
+    }
+
+    /// Marks the pending form `token` submitted by the event stamped `at`, once. Whether it was
+    /// accepted (a stale or repeated token isn't).
+    pub(super) fn accept_submission(&self, token: u64, at: EventStamp) -> bool {
+        let mut core = lock(&self.core);
+        match core
+            .pending_form
+            .as_mut()
+            .filter(|f| f.token == token && !f.input.submitted())
+        {
+            Some(form) => {
+                form.input.submit(at);
+                true
+            }
+            None => false,
         }
     }
 
@@ -137,15 +154,14 @@ impl Imp {
         }
     }
 
-    /// Marks the pending form `token` submitted and returns it. A palette form has nothing to
-    /// delete, so it stops being pending at once.
+    /// The accepted form `token`. A palette form has nothing to delete, so it stops being
+    /// pending now.
     fn begin_submission(&self, token: u64) -> Option<PendingForm> {
         let mut core = lock(&self.core);
         let pending = core
             .pending_form
-            .as_mut()
-            .filter(|f| f.token == token && !f.input.submitted())?;
-        pending.input.submit();
+            .as_ref()
+            .filter(|f| f.token == token && f.input.submitted())?;
         let form = pending.clone();
         if matches!(form.kind, FormKind::Palette) {
             core.pending_form = None;

@@ -18,7 +18,7 @@ use core_foundation_sys::runloop::{
 use kudzu_core::matching::KeyInput;
 
 use super::ffi::*;
-use crate::TapMode;
+use crate::{EventStamp, TapMode};
 
 /// Decides whether to swallow an event. Runs on the tap thread; must be fast.
 pub(crate) type Handler = Box<dyn Fn(CGEventType, CGEventRef) -> bool + Send + Sync>;
@@ -263,6 +263,11 @@ pub(crate) fn window_under_pointer(event: CGEventRef) -> Option<CGWindowID> {
     .map(|field| unsafe { CGEventGetIntegerValueField(event, field) })
     .find(|&window| window > 0)
     .and_then(|window| CGWindowID::try_from(window).ok())
+}
+
+/// When the event happened (its own timestamp).
+pub(crate) fn stamp(event: CGEventRef) -> EventStamp {
+    EventStamp(unsafe { CGEventGetTimestamp(event) })
 }
 
 /// The virtual key code of a key event.

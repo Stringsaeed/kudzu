@@ -20,7 +20,8 @@ use super::fakes::{FakeBoard, FakeEvents, FakeObserve};
 use crate::macos::pasteboard::Pasteboard;
 use crate::macos::Platform;
 use crate::{
-    lock, Engine, EngineHost, EngineLibrary, EngineStatus, ExpansionEvent, FormRequest, TriggerLost,
+    lock, Engine, EngineHost, EngineLibrary, EngineStatus, EventStamp, ExpansionEvent, FormRequest,
+    TriggerLost,
 };
 
 /// Records every host callback.
@@ -78,6 +79,13 @@ impl Host {
     pub fn last_status(&self) -> EngineStatus {
         lock(&self.statuses).last().cloned().expect("a status")
     }
+}
+
+pub(super) fn form_values(values: &[(&str, &str)]) -> HashMap<String, String> {
+    values
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 /// An immediate snippet with the default (automatic) insertion.
@@ -208,12 +216,14 @@ impl Rig {
         self.settle();
     }
 
+    /// Submits form `token` from its panel by the last event the user's apps received.
     pub fn submit(&self, token: u64, values: &[(&str, &str)]) {
-        let values: HashMap<String, String> = values
-            .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect();
-        self.engine.submit_form(token, values);
+        self.submit_at(token, values, self.desk.last_stamp());
+    }
+
+    /// Submits form `token` by the event stamped `at`.
+    pub fn submit_at(&self, token: u64, values: &[(&str, &str)], at: EventStamp) {
+        self.engine.submit_form(token, form_values(values), at);
         self.settle();
     }
 

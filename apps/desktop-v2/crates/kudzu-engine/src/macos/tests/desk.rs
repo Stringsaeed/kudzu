@@ -23,7 +23,7 @@ use crate::macos::ffi::*;
 use crate::macos::keys::SYNTHETIC_MARKER;
 use crate::macos::pasteboard::Items;
 use crate::macos::tap::Handler;
-use crate::{lock, AppInfo, Engine, PermissionStatus, TapMode};
+use crate::{lock, AppInfo, Engine, EventStamp, PermissionStatus, TapMode};
 
 pub(super) const PLAIN: &str = "public.utf8-plain-text";
 
@@ -140,6 +140,9 @@ pub(super) struct State {
     pub presses: usize,
     pub helds: usize,
     pub activations: usize,
+    /// The user's events are stamped 1001, 1002, …; the last one received.
+    pub next_stamp: u64,
+    pub last_stamp: u64,
     /// Pasteboard operations so far: snapshots, transient writes, item writes.
     pub board_ops: [usize; 3],
     pub sleeps: HashMap<Duration, usize>,
@@ -235,6 +238,8 @@ impl Desk {
             presses: 0,
             helds: 0,
             activations: 0,
+            next_stamp: 1_000,
+            last_stamp: 1_000,
             board_ops: [0; 3],
             sleeps: HashMap::new(),
             items: user_clipboard(),
@@ -446,12 +451,29 @@ impl Desk {
     /// A key event built ahead of time (so a test can time only its delivery).
     pub fn key_event(&self, key: &str, down: bool) -> KeyEvent {
         let (code, text) = user_key(key);
+        let event = CgEvent::key(code, &text, down);
+        self.stamp(&event);
         KeyEvent {
-            event: CgEvent::key(code, &text, down),
+            event,
             code,
             text,
             down,
         }
+    }
+
+    /// Gives a user event the next timestamp: the user's events are stamped in order.
+    fn stamp(&self, event: &CgEvent) {
+        let stamp = self.with(|s| {
+            s.next_stamp += 1;
+            s.next_stamp
+        });
+        unsafe { CGEventSetTimestamp(event.0, stamp) };
+    }
+
+    /// The stamp of the last event the user's apps received: what the form window passes as
+    /// the boundary of a focus change or a submission.
+    pub fn last_stamp(&self) -> EventStamp {
+        EventStamp(self.with(|s| s.last_stamp))
     }
 
     /// Hands `event` to the listeners only. Whether it was swallowed.
@@ -461,7 +483,14 @@ impl Desk {
         } else {
             kCGEventKeyUp
         };
+        self.received(event.event.0);
         self.deliver(kind, event.event.0)
+    }
+
+    /// Notes that the user's event reached the session.
+    fn received(&self, event: CGEventRef) {
+        let stamp = unsafe { CGEventGetTimestamp(event) };
+        self.with(|s| s.last_stamp = stamp);
     }
 
     /// A click in one of Kudzu's panels: it doesn't touch the target's document.
@@ -478,6 +507,8 @@ impl Desk {
     /// A mouse-down on `window` (see [`windows`]), handed to the listeners.
     pub fn click_in(&self, window: i64) {
         let event = CgEvent::click(window);
+        self.stamp(&event);
+        self.received(event.0);
         self.deliver(kCGEventLeftMouseDown, event.0);
     }
 

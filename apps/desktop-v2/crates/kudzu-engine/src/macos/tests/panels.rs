@@ -9,7 +9,7 @@
 
 use super::desk::{windows, Desk};
 use super::keyboard::apply_key;
-use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp};
+use crate::EventStamp;
 
 /// What has the keyboard, and what a click lands on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,8 +29,8 @@ pub(super) struct Panels {
     pub form: Option<u64>,
     /// Focus reports wait for [`Desk::deliver_reports`] instead of going out at once.
     pub late: bool,
-    /// Reports not yet delivered: whether the form panel is key.
-    pub queued: Vec<bool>,
+    /// Reports not yet delivered: whether the form panel is key, after which event.
+    pub queued: Vec<(bool, EventStamp)>,
 }
 
 impl Default for Panels {
@@ -59,7 +59,9 @@ impl Desk {
             s.panels.focus = to;
             let crosses = was_form != (to == Focus::Form) && s.panels.form.is_some();
             if crosses {
-                s.panels.queued.push(to == Focus::Form);
+                s.panels
+                    .queued
+                    .push((to == Focus::Form, EventStamp(s.last_stamp)));
             }
             !s.panels.late
         });
@@ -86,8 +88,7 @@ impl Desk {
     /// One key event, going wherever focus is: only the target's document changes.
     pub fn key_at_focus(&self, key: &str, down: bool) -> bool {
         let event = self.key_event(key, down);
-        let kind = if down { kCGEventKeyDown } else { kCGEventKeyUp };
-        let swallowed = self.deliver(kind, event.event.0);
+        let swallowed = self.deliver_key(&event);
         self.with(|s| {
             if !swallowed && down && s.panels.focus == Focus::Target {
                 apply_key(s, event.code, 0, &event.text);
@@ -101,8 +102,8 @@ impl Desk {
         let (token, reports) = self.with(|s| (s.panels.form, std::mem::take(&mut s.panels.queued)));
         let Some(token) = token else { return };
         let engine = self.engine();
-        for key in reports {
-            engine.form_panel_focused(token, key);
+        for (key, after) in reports {
+            engine.form_panel_focused_after(token, key, after);
         }
     }
 }

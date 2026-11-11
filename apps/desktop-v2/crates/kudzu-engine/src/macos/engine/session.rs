@@ -20,7 +20,7 @@ use crate::hold::{HoldReplayQueue, HoldState};
 use crate::input::KeyContext;
 use crate::library::Library;
 use crate::status::{self, StatusInputs};
-use crate::{lock, EngineStatus, TapMode};
+use crate::{lock, EngineStatus, EventStamp, TapMode};
 
 /// State the tap callback touches. Keep every operation on it short.
 pub(super) struct Core {
@@ -96,9 +96,9 @@ impl Core {
 
     /// FRM-4 (D9): a key-down that reached the session, for the pending form. Suppression
     /// doesn't matter here: it stops matching, not this.
-    pub(super) fn note_form_key_down(&mut self) {
+    pub(super) fn note_form_key_down(&mut self, stamp: EventStamp) {
         if let Some(form) = self.pending_form.as_mut() {
-            form.input.key_down();
+            form.input.key_down(stamp);
         }
     }
 

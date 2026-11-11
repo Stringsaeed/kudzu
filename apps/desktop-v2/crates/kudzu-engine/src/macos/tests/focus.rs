@@ -309,3 +309,87 @@ fn a_key_while_settling_interrupts_a_listen_only_submission() {
     assert_eq!(rig.doc(), ";addrz|");
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
+
+/// Review blocker 2: Return in the form is the submit event. The panel closes and the user types
+/// at once; the key reaches the target before the main thread gets to `submit_form`, and the
+/// panel's blur report is late. That key came after the submit event, so it interrupts.
+#[test]
+fn a_key_after_the_submit_event_interrupts_even_before_the_engine_hears_of_it() {
+    let (rig, token) = opened(true);
+    rig.press("Sam⏎");
+    let submitted_by = rig.last_stamp();
+    rig.focus_moves(Focus::Target);
+    rig.press("z");
+    rig.submit_at(token, &[("who", "Sam")], submitted_by);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Review blocker 2: the submission is accepted while the worker is still busy (here with a
+/// Quick Search insert whose target won't come forward). A key that reaches the target before
+/// the worker starts the submission interrupts it.
+#[test]
+fn a_key_after_the_submission_is_accepted_interrupts_before_the_worker_starts_it() {
+    let rig = Rig::new(&[
+        snippet(";addr", "Dear {{field name=who}}, hi"),
+        snippet(";x", "other"),
+    ]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.engine.set_suppressed(true);
+    rig.show_form(token);
+    rig.press("Sam");
+    // The worker blocks in the Quick Search insert's activation until released.
+    let (entered, busy) = std::sync::mpsc::channel();
+    let (release, released) = std::sync::mpsc::channel::<()>();
+    let released = std::sync::Mutex::new(released);
+    rig.with(|s| s.activation_works = false);
+    rig.at(At::Activate(0), move |d| {
+        entered.send(()).unwrap();
+        released.lock().unwrap().recv().unwrap();
+        d.with(|s| s.activation_works = true);
+    });
+    rig.engine
+        .insert_snippet(rig.snippet_id(";x"), Some(super::desk::mail()));
+    busy.recv().unwrap();
+    let values = super::rig::form_values(&[("who", "Sam")]);
+    rig.engine.submit_form(token, values, rig.last_stamp());
+    // The panel closes; its blur report is late.
+    rig.with(|s| s.panels.late = true);
+    rig.focus_moves(Focus::Target);
+    rig.desk.key_at_focus("z", true);
+    rig.desk.key_at_focus("z", false);
+    release.send(()).unwrap();
+    rig.settle();
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The form window moves focus to the target (no click) while its main thread is busy, and the
+/// user keeps typing: those keys reach the target before the blur report. The report's stamp
+/// shows they came after the change, so they interrupt.
+#[test]
+fn a_late_blur_catches_typing_routed_to_the_target_before_it_arrived() {
+    let (rig, token) = opened(true);
+    rig.press("Sa");
+    rig.focus_moves(Focus::Target);
+    rig.press("z");
+    rig.focus_moves(Focus::Form);
+    rig.deliver_reports();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(rig.doc(), ";addrz|");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Typing in the form before a late blur was in the panel: the form goes ahead.
+#[test]
+fn typing_in_the_form_before_a_late_blur_is_not_an_interruption() {
+    let (rig, token) = opened(true);
+    rig.press("Sam");
+    rig.focus_moves(Focus::Panel);
+    rig.focus_moves(Focus::Form);
+    rig.deliver_reports();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+}

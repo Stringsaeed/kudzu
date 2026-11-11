@@ -110,6 +110,9 @@ extern "C" {
     pub fn CGEventGetIntegerValueField(event: CGEventRef, field: u32) -> i64;
     pub fn CGEventSetIntegerValueField(event: CGEventRef, field: u32, value: i64);
     pub fn CGEventGetFlags(event: CGEventRef) -> CGEventFlags;
+    pub fn CGEventGetTimestamp(event: CGEventRef) -> u64;
+    /// Only the protocol tests set timestamps (on events they never post).
+    pub fn CGEventSetTimestamp(event: CGEventRef, timestamp: u64);
     pub fn CGEventSetFlags(event: CGEventRef, flags: CGEventFlags);
     pub fn CGEventKeyboardGetUnicodeString(
         event: CGEventRef,

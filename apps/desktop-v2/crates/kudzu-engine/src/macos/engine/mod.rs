@@ -37,7 +37,7 @@ use crate::activity::Recorder;
 use crate::hold::HoldReplayQueue;
 use crate::input::KeyContext;
 use crate::library::Library;
-use crate::{lock, AppInfo, EngineHost, EngineLibrary, EngineStatus};
+use crate::{lock, AppInfo, EngineHost, EngineLibrary, EngineStatus, EventStamp};
 
 mod activity;
 mod explicit;
@@ -255,8 +255,12 @@ impl Imp {
         self.current_status()
     }
 
-    pub fn submit_form(&self, token: u64, values: HashMap<String, String>) {
-        self.send(Job::Submit { token, values });
+    /// Accepts the submission of form `token` now, on the caller's thread, so input from now on
+    /// counts against it; the worker does the rest.
+    pub fn submit_form(&self, token: u64, values: HashMap<String, String>, at: EventStamp) {
+        if self.accept_submission(token, at) {
+            self.send(Job::Submit { token, values });
+        }
     }
 
     pub fn insert_snippet(
