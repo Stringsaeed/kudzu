@@ -19,7 +19,9 @@
 //!   report's boundary), one with the same stamp that isn't that event, and one with no stamp
 //!   count as after it. A submission without its event counts every provisional key-down
 //!   against it.
-//! - After the submission every key-down and click interrupts until the trigger is deleted.
+//! - After the submission every key-down interrupts until the trigger is deleted, and so does
+//!   every click outside Kudzu's windows. A click in one (the second click of a double-click
+//!   on Submit) can't move the target's caret, so it doesn't.
 //! - An interruption is final.
 
 use crate::{InputEvent, PanelFocus, Submission};
@@ -93,8 +95,9 @@ impl Interruption {
     }
 
     /// A mouse-down reached the session; `on_kudzu` when it lands in one of Kudzu's windows.
+    /// That stays true after the submission: such a click can't reach the target.
     pub fn click(&mut self, on_kudzu: bool) {
-        if self.submitted.is_some() || !on_kudzu {
+        if !on_kudzu {
             self.interrupted = true;
         }
     }

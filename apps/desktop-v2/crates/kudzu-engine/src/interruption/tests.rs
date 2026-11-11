@@ -230,14 +230,19 @@ fn a_report_without_a_boundary_can_not_place_earlier_typing() {
 }
 
 #[test]
-fn after_the_submission_any_key_or_click_interrupts() {
-    let then: [fn(&mut Interruption); 2] = [|f| f.key_down(9, A, false), |f| f.click(true)];
+fn after_the_submission_any_key_or_a_click_outside_kudzu_interrupts() {
+    let then: [fn(&mut Interruption); 2] = [|f| f.key_down(9, A, false), |f| f.click(false)];
     for then in then {
         let mut form = key();
         form.submit(submission(2, None, 1));
         then(&mut form);
         assert!(form.interrupted());
     }
+    // The second click of a double-click on Submit lands on Kudzu's panel.
+    let mut form = key();
+    form.submit(submission(2, None, 1));
+    form.click(true);
+    assert!(!form.interrupted());
 }
 
 #[test]

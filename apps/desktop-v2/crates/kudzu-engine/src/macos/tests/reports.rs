@@ -234,3 +234,47 @@ fn without_kudzus_windows_every_click_interrupts() {
     assert_eq!(rig.log(), []);
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
+
+// MARK: A click's process (third review, majors 2 and 5)
+
+/// Kudzu's window N closed and the target's new window got number N before the host's next
+/// push: the stale snapshot matches, but the session routes the click to the target's process.
+#[test]
+fn a_click_the_session_routes_to_another_process_interrupts_despite_the_snapshot() {
+    let (rig, token) = opened(false);
+    rig.click_routed_to(windows::FORM, editor().pid.unwrap());
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The session naming Kudzu's process still needs the snapshot to name the window.
+#[test]
+fn a_click_routed_to_kudzu_still_needs_a_listed_window() {
+    let (rig, token) = opened(false);
+    rig.click_routed_to(windows::OTHER, super::desk::own_pid());
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Routed to Kudzu and on a listed window: the form goes ahead.
+#[test]
+fn a_click_routed_to_kudzu_on_a_listed_window_does_not_interrupt() {
+    let (rig, token) = opened(false);
+    rig.click_routed_to(windows::FORM, super::desk::own_pid());
+    rig.press("Sam");
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+}
+
+/// A double-click on Submit: the second click arrives while the target comes forward. It
+/// lands on Kudzu's panel, so it can't move the target's caret, and the submission goes ahead.
+#[test]
+fn the_second_click_of_a_double_click_on_submit_does_not_interrupt() {
+    let (rig, token) = opened(false);
+    rig.press("Sam");
+    rig.at(At::Activate(0), |d| d.click_in(windows::FORM));
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+}

@@ -536,6 +536,16 @@ impl Desk {
         self.click_event(CgEvent::click_fields(under, handles));
     }
 
+    /// A mouse-down on `window` that the session says goes to process `pid`
+    /// (`kCGEventTargetUnixProcessID`).
+    pub fn click_routed_to(&self, window: i64, pid: i32) {
+        let event = CgEvent::click(window);
+        unsafe {
+            CGEventSetIntegerValueField(event.0, kCGEventTargetUnixProcessID, i64::from(pid))
+        };
+        self.click_event(event);
+    }
+
     fn click_event(&self, event: CgEvent) {
         self.stamp(&event);
         self.received(event.0, None, true);

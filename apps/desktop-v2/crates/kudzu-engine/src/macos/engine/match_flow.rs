@@ -68,9 +68,14 @@ impl Imp {
     }
 
     /// Whether a mouse-down lands in one of Kudzu's own windows: the window the session says
-    /// will receive it is in the host's snapshot and doesn't pass clicks through. Unknown counts
-    /// as no.
+    /// will receive it is in the host's snapshot and doesn't pass clicks through, and the
+    /// session doesn't route it to another process (`kCGEventTargetUnixProcessID`, when filled:
+    /// a window number reused by another app before the host's next push). Unknown counts as
+    /// no; the process naming Kudzu still needs the snapshot.
     fn clicked_on_kudzu(&self, event: CGEventRef) -> bool {
+        if tap::target_pid(event).is_some_and(|pid| pid != self.own_pid) {
+            return false;
+        }
         let Some(window) = tap::window_receiving(event) else {
             return false;
         };

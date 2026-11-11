@@ -241,9 +241,9 @@ impl Engine {
 
     /// Fills a pending form: the engine brings the target app back, deletes the trigger (if it
     /// was typed) and inserts. The submission is accepted at once, on the caller's thread: a
-    /// key-down after its event, any key-down or click from now until the trigger is deleted,
-    /// and a focus report it counted that hasn't arrived by then, all make a typed form delete
-    /// nothing. A stale or repeated token does nothing.
+    /// key-down after its event, any key-down (or click outside Kudzu's own windows) from now
+    /// until the trigger is deleted, and a focus report it counted that hasn't arrived by then,
+    /// all make a typed form delete nothing. A stale or repeated token does nothing.
     pub fn submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission) {
         self.imp.submit_form(token, values, submission);
     }
