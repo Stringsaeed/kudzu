@@ -1,0 +1,131 @@
+{
+  "dark": {
+    "popover_active": {
+      "mean_rgb": [
+        55.9,
+        52.2,
+        52.8
+      ],
+      "stddev_rgb": [
+        8.6,
+        9.0,
+        9.4
+      ]
+    },
+    "popover_inactive": {
+      "mean_rgb": [
+        55.9,
+        52.2,
+        52.8
+      ],
+      "stddev_rgb": [
+        8.6,
+        9.0,
+        9.4
+      ]
+    },
+    "reference": {
+      "mean_rgb": [
+        28.2,
+        25.2,
+        23.2
+      ],
+      "stddev_rgb": [
+        1.8,
+        1.7,
+        1.8
+      ]
+    },
+    "sidebar_active": {
+      "mean_rgb": [
+        45.8,
+        43.2,
+        43.3
+      ],
+      "stddev_rgb": [
+        4.3,
+        4.5,
+        4.7
+      ]
+    },
+    "sidebar_inactive": {
+      "mean_rgb": [
+        37.0,
+        37.0,
+        36.0
+      ],
+      "stddev_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "light": {
+    "popover_active": {
+      "mean_rgb": [
+        237.8,
+        236.2,
+        236.2
+      ],
+      "stddev_rgb": [
+        5.2,
+        5.4,
+        5.7
+      ]
+    },
+    "popover_inactive": {
+      "mean_rgb": [
+        237.8,
+        236.2,
+        236.2
+      ],
+      "stddev_rgb": [
+        5.2,
+        5.4,
+        5.7
+      ]
+    },
+    "reference": {
+      "mean_rgb": [
+        249.8,
+        249.8,
+        248.8
+      ],
+      "stddev_rgb": [
+        1.4,
+        1.4,
+        1.5
+      ]
+    },
+    "sidebar_active": {
+      "mean_rgb": [
+        243.0,
+        242.3,
+        241.8
+      ],
+      "stddev_rgb": [
+        1.6,
+        1.6,
+        1.8
+      ]
+    },
+    "sidebar_inactive": {
+      "mean_rgb": [
+        245.0,
+        245.0,
+        245.0
+      ],
+      "stddev_rgb": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    }
+  },
+  "traffic_lights_light_popover_active": {
+    "close_diameter_pt": 12.0,
+    "close_left_pt": 19.0,
+    "close_top_pt": 22.0
+  }
+}
