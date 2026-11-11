@@ -37,7 +37,7 @@ use crate::activity::Recorder;
 use crate::hold::HoldReplayQueue;
 use crate::input::KeyContext;
 use crate::library::Library;
-use crate::{lock, AppInfo, EngineHost, EngineLibrary, EngineStatus, Submission};
+use crate::{lock, AppInfo, EngineHost, EngineLibrary, EngineStatus, KudzuWindow, Submission};
 
 mod activity;
 mod explicit;
@@ -130,6 +130,8 @@ pub(crate) struct Imp {
     tap: Mutex<Option<Box<dyn Listener>>>,
     jobs: Mutex<Option<Sender<Job>>>,
     last_status: Mutex<Option<EngineStatus>>,
+    /// Kudzu's own windows, as the host last said; read by the listener on every click.
+    kudzu_windows: Mutex<Arc<[KudzuWindow]>>,
     own_pid: i32,
     /// Jobs sent and not yet finished, so tests can wait until the worker is idle.
     #[cfg(test)]
@@ -195,6 +197,7 @@ impl Imp {
                 tap: Mutex::new(None),
                 jobs: Mutex::new(spawned.ok().map(|_| sender)),
                 last_status: Mutex::new(None),
+                kudzu_windows: Mutex::new(Arc::from([])),
                 own_pid: std::process::id() as i32,
                 #[cfg(test)]
                 in_flight: AtomicUsize::new(0),
@@ -253,6 +256,11 @@ impl Imp {
 
     pub fn status(&self) -> EngineStatus {
         self.current_status()
+    }
+
+    /// Replaces the snapshot of Kudzu's windows the listener compares clicks with.
+    pub fn set_kudzu_windows(&self, windows: &[KudzuWindow]) {
+        *lock(&self.kudzu_windows) = Arc::from(windows);
     }
 
     /// Accepts the submission of form `token` now, on the caller's thread, so input from now on

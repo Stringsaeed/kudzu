@@ -44,9 +44,13 @@ impl Imp {
 
     pub(super) fn receive(&self, kind: CGEventType, event: CGEventRef, mode: TapMode) -> bool {
         let mut effects = Effects::default();
+        // Where a click lands is decided before the engine lock is taken: a field of the event
+        // against the host's snapshot of Kudzu's windows, with no window-server call.
+        let clicked = kind != kCGEventKeyDown && kind != kCGEventKeyUp;
+        let on_kudzu = clicked && self.clicked_on_kudzu(event);
         let swallow = {
             let mut core = lock(&self.core);
-            self.receive_locked(&mut core, kind, event, mode, &mut effects)
+            self.receive_locked(&mut core, kind, event, mode, on_kudzu, &mut effects)
         };
         for held in effects.post_unmatched {
             self.events().post_held(held, SYNTHETIC_MARKER);
@@ -63,11 +67,17 @@ impl Imp {
         swallow
     }
 
-    /// Whether a mouse-down lands in one of Kudzu's own windows, as the window server says.
-    /// Unknown counts as no.
+    /// Whether a mouse-down lands in one of Kudzu's own windows: the window the session says
+    /// will receive it is in the host's snapshot and doesn't pass clicks through. Unknown counts
+    /// as no.
     fn clicked_on_kudzu(&self, event: CGEventRef) -> bool {
-        tap::window_under_pointer(event).and_then(|window| self.observe().window_owner(window))
-            == Some(self.own_pid)
+        let Some(window) = tap::window_receiving(event) else {
+            return false;
+        };
+        let windows = lock(&self.kudzu_windows).clone();
+        windows
+            .iter()
+            .any(|w| w.number == window && !w.passes_clicks_through)
     }
 
     fn receive_locked(
@@ -76,6 +86,7 @@ impl Imp {
         kind: CGEventType,
         event: CGEventRef,
         mode: TapMode,
+        on_kudzu: bool,
         effects: &mut Effects,
     ) -> bool {
         if kind == kCGEventTapDisabledByTimeout || kind == kCGEventTapDisabledByUserInput {
@@ -89,14 +100,12 @@ impl Imp {
         }
         if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
             let suppressed = self.flags.suppressed.load(Ordering::SeqCst);
-            let mut on_kudzu = None;
-            let mut on_kudzu = || *on_kudzu.get_or_insert_with(|| self.clicked_on_kudzu(event));
-            core.note_form_click(&mut on_kudzu);
+            core.note_form_click(on_kudzu);
             // A click moves the caret or focus: the typed context is gone, and any insertion in
             // flight stops. Suppression only spares clicks in Kudzu's own windows (form,
             // palette), which don't touch the target document; it never hides a click
             // elsewhere from an insertion (whoever holds the suppression).
-            if !suppressed || !on_kudzu() {
+            if !suppressed || !on_kudzu {
                 effects.post_unmatched = core.invalidate();
             }
             return false;

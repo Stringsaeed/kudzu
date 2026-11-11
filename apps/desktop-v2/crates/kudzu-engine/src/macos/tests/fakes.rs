@@ -11,13 +11,10 @@ use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use super::desk::{
-    editor, mail, own_pid, plain, windows, At, BoardOp, Desk, Ev, Key, ListenerOp, Out, Slot, Tick,
-    PLAIN,
-};
+use super::desk::{plain, At, BoardOp, Desk, Ev, Key, ListenerOp, Out, Slot, Tick, PLAIN};
 use super::keyboard::{apply_event, apply_key, decode, label, unicode};
 use crate::macos::events::{Events, Listener};
-use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp, CGEventFlags, CGKeyCode, CGWindowID};
+use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp, CGEventFlags, CGKeyCode};
 use crate::macos::keys::{self, KeyError, REPLAY_MARKER};
 use crate::macos::observe::{CaretMark, Clock, Observe};
 use crate::macos::pasteboard::{Board, Item, Items};
@@ -274,15 +271,6 @@ impl Observe for FakeObserve {
 
     fn name_of(&self, pid: i32) -> Option<String> {
         self.app_of(pid).map(|a| a.name)
-    }
-
-    fn window_owner(&self, window: CGWindowID) -> Option<i32> {
-        match i64::from(window) {
-            windows::TARGET => editor().pid,
-            windows::FORM | windows::PANEL => Some(own_pid()),
-            windows::OTHER => mail().pid,
-            _ => None,
-        }
     }
 
     fn resolve_pid(&self, app: &AppInfo) -> Option<i32> {

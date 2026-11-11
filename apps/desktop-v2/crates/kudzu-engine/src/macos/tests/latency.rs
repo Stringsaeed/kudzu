@@ -74,3 +74,34 @@ fn the_tap_callback_stays_within_its_cpu_budget() {
         "tap callback p99 {cpu_p99:?} > 0.2 ms"
     );
 }
+
+/// The click path while a typed form is pending (re-review major 8): reading the window the
+/// click lands on and comparing it with Kudzu's windows costs the tap callback no more than a
+/// key does. No window-server call is made; the budget is the same 0.2 ms of thread CPU at p99.
+#[test]
+fn a_click_during_a_typed_form_stays_within_the_cpu_budget() {
+    use super::desk::windows;
+    use super::keyboard::CgEvent;
+    use crate::macos::ffi::kCGEventLeftMouseDown;
+
+    let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, hi")]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.show_form(token);
+    let mut cpu = Vec::with_capacity(SAMPLES);
+    let mut wall = Vec::with_capacity(SAMPLES);
+    for _ in 0..SAMPLES {
+        let event = CgEvent::click(windows::FORM);
+        let (started, cpu_started) = (Instant::now(), thread_cpu());
+        rig.deliver(kCGEventLeftMouseDown, event.0);
+        cpu.push(thread_cpu().saturating_sub(cpu_started));
+        wall.push(started.elapsed());
+    }
+    let cpu_p99 = percentile(&mut cpu, 0.99);
+    let wall_p99 = percentile(&mut wall, 0.99);
+    println!("click during a typed form p99: {cpu_p99:?} thread CPU, {wall_p99:?} wall clock");
+    assert!(
+        cpu_p99 <= Duration::from_micros(200),
+        "click callback p99 {cpu_p99:?} > 0.2 ms"
+    );
+}

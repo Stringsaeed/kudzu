@@ -86,6 +86,15 @@ pub struct PanelFocus {
     pub after: Option<InputEvent>,
 }
 
+/// One of Kudzu's own windows, as the host knows it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KudzuWindow {
+    /// Its window number (`NSWindow.windowNumber`, the window server's id).
+    pub number: u32,
+    /// It lets clicks through to whatever is under it (an overlay that ignores mouse events).
+    pub passes_clicks_through: bool,
+}
+
 /// How a form was submitted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Submission {
@@ -253,6 +262,14 @@ impl Engine {
     /// the key panel and clicking in Kudzu's windows are not interruptions.
     pub fn form_panel_focused(&self, token: u64, focus: PanelFocus) {
         self.imp.form_panel_focused(token, focus);
+    }
+
+    /// Replaces the set of Kudzu's windows on screen. Call it whenever one opens, closes, or
+    /// changes whether it passes clicks through. A click counts as in Kudzu only when the
+    /// window the session says can handle it is in this set and doesn't pass clicks through;
+    /// before the first call, every click interrupts a typed form.
+    pub fn set_kudzu_windows(&self, windows: &[KudzuWindow]) {
+        self.imp.set_kudzu_windows(windows);
     }
 
     /// Quick Search insert: brings `target` (the app frontmost before the palette opened) back,

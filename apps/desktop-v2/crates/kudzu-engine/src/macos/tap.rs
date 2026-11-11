@@ -252,17 +252,19 @@ pub(crate) fn marker(event: CGEventRef) -> i64 {
     unsafe { CGEventGetIntegerValueField(event, kCGEventSourceUserData) }
 }
 
-/// The window a mouse-down lands on, as the window server routes it: the one under the pointer
-/// that can handle the event, else the one under the pointer. `None` when the event doesn't say.
-pub(crate) fn window_under_pointer(event: CGEventRef) -> Option<CGWindowID> {
-    [
-        kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent,
-        kCGMouseEventWindowUnderMousePointer,
-    ]
-    .into_iter()
-    .map(|field| unsafe { CGEventGetIntegerValueField(event, field) })
-    .find(|&window| window > 0)
-    .and_then(|window| CGWindowID::try_from(window).ok())
+/// The window that will receive a mouse-down, as the window server routes it: the one under the
+/// pointer that can handle the event. `None` when the event doesn't say. The plain window under
+/// the pointer is no substitute: it may pass the click through to what is below.
+pub(crate) fn window_receiving(event: CGEventRef) -> Option<CGWindowID> {
+    let window = unsafe {
+        CGEventGetIntegerValueField(
+            event,
+            kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent,
+        )
+    };
+    CGWindowID::try_from(window)
+        .ok()
+        .filter(|&window| window > 0)
 }
 
 /// The process the session routes the event to, when it says (`kCGEventTargetUnixProcessID`).

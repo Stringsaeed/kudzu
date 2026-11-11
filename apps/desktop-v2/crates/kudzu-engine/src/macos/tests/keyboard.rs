@@ -125,16 +125,22 @@ impl CgEvent {
 
     /// A mouse-down on `window` (0: the event names no window), as the window server routes it.
     pub fn click(window: i64) -> CgEvent {
+        CgEvent::click_fields(window, window)
+    }
+
+    /// A mouse-down whose window under the pointer is `under` and whose window that can handle
+    /// it is `handles` (0: not named).
+    pub fn click_fields(under: i64, handles: i64) -> CgEvent {
         let at = CGPoint { x: 10.0, y: 10.0 };
         unsafe {
             let event = CGEventCreateMouseEvent(ptr::null_mut(), kCGEventLeftMouseDown, at, 0);
             assert!(!event.is_null(), "CGEventCreateMouseEvent failed");
-            for field in [
-                kCGMouseEventWindowUnderMousePointer,
+            CGEventSetIntegerValueField(event, kCGMouseEventWindowUnderMousePointer, under);
+            CGEventSetIntegerValueField(
+                event,
                 kCGMouseEventWindowUnderMousePointerThatCanHandleThisEvent,
-            ] {
-                CGEventSetIntegerValueField(event, field, window);
-            }
+                handles,
+            );
             CgEvent(event)
         }
     }

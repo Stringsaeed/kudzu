@@ -37,6 +37,16 @@ pub(super) mod windows {
     pub const PANEL: i64 = 13;
     /// Another app's window.
     pub const OTHER: i64 = 14;
+
+    /// Kudzu's windows, as the host reports them: the form panel and another panel.
+    pub fn kudzu() -> Vec<crate::KudzuWindow> {
+        [FORM, PANEL]
+            .map(|number| crate::KudzuWindow {
+                number: number as u32,
+                passes_clicks_through: false,
+            })
+            .to_vec()
+    }
 }
 
 /// One synthetic or replayed event the engine posted, decoded.
@@ -540,7 +550,15 @@ impl Desk {
 
     /// A mouse-down on `window` (see [`windows`]), handed to the listeners.
     pub fn click_in(&self, window: i64) {
-        let event = CgEvent::click(window);
+        self.click_event(CgEvent::click(window));
+    }
+
+    /// A mouse-down whose two window fields differ (see [`CgEvent::click_fields`]).
+    pub fn click_with_fields(&self, under: i64, handles: i64) {
+        self.click_event(CgEvent::click_fields(under, handles));
+    }
+
+    fn click_event(&self, event: CgEvent) {
         self.stamp(&event);
         self.received(event.0, None, true);
         self.deliver(kCGEventLeftMouseDown, event.0);

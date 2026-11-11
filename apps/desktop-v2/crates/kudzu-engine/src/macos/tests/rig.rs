@@ -15,7 +15,7 @@ use kudzu_core::matching::MatchingConfig;
 use kudzu_core::{FireMode, InsertionMethod, SnippetRecord};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::desk::{Desk, Ev, Out};
+use super::desk::{windows, Desk, Ev, Out};
 use super::fakes::{FakeBoard, FakeEvents, FakeObserve};
 use crate::macos::keys::KEY_RETURN;
 use crate::macos::pasteboard::Pasteboard;
@@ -173,6 +173,7 @@ impl Rig {
         let engine = Engine::with_platform(host.clone(), platform);
         desk.attach(&engine);
         engine.reload(library(snippets));
+        engine.set_kudzu_windows(&windows::kudzu());
         Rig {
             desk,
             engine,

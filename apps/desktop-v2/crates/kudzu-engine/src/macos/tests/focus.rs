@@ -561,3 +561,61 @@ fn a_click_during_a_quick_search_pause_stops_it_while_suppressed() {
     assert_eq!(rig.posted(), [Out::Type("one".into())]);
     assert_eq!(rig.doc(), "|one");
 }
+
+// MARK: Which windows are Kudzu's (re-review majors 8 and 9)
+
+/// The window that can handle the click isn't named, though the one under the pointer is the
+/// form panel: that window may pass the click through, so it isn't proof. Interrupted.
+#[test]
+fn a_click_naming_only_the_window_under_the_pointer_interrupts() {
+    let (rig, token) = opened(false);
+    rig.click_with_fields(windows::FORM, 0);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// A Kudzu window the host says passes clicks through isn't where the click lands.
+#[test]
+fn a_click_on_a_kudzu_window_that_passes_clicks_through_interrupts() {
+    let (rig, token) = opened(false);
+    rig.engine.set_kudzu_windows(&[
+        crate::KudzuWindow {
+            number: windows::FORM as u32,
+            passes_clicks_through: false,
+        },
+        crate::KudzuWindow {
+            number: windows::PANEL as u32,
+            passes_clicks_through: true,
+        },
+    ]);
+    rig.click_in(windows::PANEL);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// A window the host no longer lists (it closed) isn't Kudzu's any more.
+#[test]
+fn a_click_on_a_window_kudzu_no_longer_lists_interrupts() {
+    let (rig, token) = opened(false);
+    rig.engine.set_kudzu_windows(&[crate::KudzuWindow {
+        number: windows::FORM as u32,
+        passes_clicks_through: false,
+    }]);
+    rig.click_in(windows::PANEL);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Until the host says which windows are Kudzu's, no click is known to be in Kudzu.
+#[test]
+fn without_kudzus_windows_every_click_interrupts() {
+    let (rig, token) = opened(false);
+    rig.engine.set_kudzu_windows(&[]);
+    rig.click_in(windows::FORM);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
