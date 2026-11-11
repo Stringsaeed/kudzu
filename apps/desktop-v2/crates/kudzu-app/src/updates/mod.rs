@@ -180,7 +180,11 @@ impl Updates {
     }
 
     fn publish(&self, next: UpdateState) {
-        self.inner.publisher.replace(next).notify();
+        self.inner
+            .publisher
+            .replace(Arc::new(next))
+            .notification
+            .notify();
     }
 
     fn current(&self) -> UpdateState {

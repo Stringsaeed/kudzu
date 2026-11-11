@@ -1,4 +1,4 @@
-//! kudzu-app — reserved for the owning implementation steps.
+//! Application services, persistence and consumer-specific ports, independent of UI and OS APIs.
 pub mod activity;
 pub mod agents;
 pub mod apps;

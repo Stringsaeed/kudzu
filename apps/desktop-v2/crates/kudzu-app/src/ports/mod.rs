@@ -1,4 +1,6 @@
-//! ports: reserved for services and adapters.
+//! Consumer-specific boundaries implemented by system adapters and deterministic fakes.
+//! S40: assembly owns an EngineRouter implementing EngineEvents. It forwards to expansion,
+//! library, forms, activity and clipboard, so expansion never depends on those four services.
 pub mod apps;
 pub mod clock;
 pub mod cloudkit;
@@ -14,10 +16,12 @@ pub mod thumbnails;
 pub mod update_install;
 
 pub mod ids;
-pub use apps::AppDirectory;
+pub use apps::{AppCatalog, TargetApp};
 pub use clock::Clock;
 pub use cloudkit::{CloudAvailability, CloudBatch, CloudEvents, CloudStore};
-pub use engine::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormRequest};
+pub use engine::{
+    EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest,
+};
 pub use fetch::{Cancel, Fetch, FetchRequest};
 pub use files::FileOpener;
 pub use hotkey_registrar::{HotkeyRegistrar, ShortcutSlot};
@@ -34,9 +38,11 @@ pub use update_install::{InstallProbe, UpdateInstaller, UpdatePackage};
 #[derive(Clone)]
 pub struct Ports {
     pub engine: std::sync::Arc<dyn ExpansionEngine>,
+    pub forms: std::sync::Arc<dyn FormChannel>,
     pub pasteboard: std::sync::Arc<dyn Pasteboard>,
     pub thumbnails: std::sync::Arc<dyn Thumbnailer>,
-    pub apps: std::sync::Arc<dyn AppDirectory>,
+    pub apps: std::sync::Arc<dyn AppCatalog>,
+    pub target_app: std::sync::Arc<dyn TargetApp>,
     pub settings: std::sync::Arc<dyn SystemSettings>,
     pub login_item: std::sync::Arc<dyn LoginItem>,
     pub files: std::sync::Arc<dyn FileOpener>,

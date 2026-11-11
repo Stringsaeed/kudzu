@@ -170,9 +170,11 @@ impl Fixtures {
     pub fn ports(&self) -> Ports {
         Ports {
             engine: self.engine.clone(),
+            forms: self.engine.clone(),
             pasteboard: self.pasteboard.clone(),
             thumbnails: self.thumbnails.clone(),
             apps: self.apps.clone(),
+            target_app: self.apps.clone(),
             settings: self.settings.clone(),
             login_item: self.login_item.clone(),
             files: self.files.clone(),
@@ -193,6 +195,35 @@ mod tests {
     use crate::error::PortError;
     use crate::ports::*;
     use std::{sync::Arc, time::Duration};
+
+    #[test]
+    fn narrow_ports_share_an_adapter_without_giving_consumers_unrelated_operations() {
+        let fixtures = Fixtures::new().unwrap();
+        let ports = fixtures.ports();
+        let catalog: &dyn AppCatalog = ports.apps.as_ref();
+        let target: &dyn TargetApp = ports.target_app.as_ref();
+        let forms: &dyn FormChannel = ports.forms.as_ref();
+        let app = catalog.installed().unwrap().remove(0);
+        target.activate(&app).unwrap();
+        assert_eq!(target.frontmost().unwrap(), Some(app));
+        forms.panel_focused(3, true);
+        forms.cancel_form(3);
+        forms.submit_form(4, Default::default()).unwrap();
+        assert_eq!(fixtures.engine.state.lock().unwrap().cancelled, [3]);
+        assert_eq!(fixtures.engine.state.lock().unwrap().focus, [(3, true)]);
+        let library = EngineLibrary::default();
+        assert!(library == library.clone());
+        let request = FormRequest {
+            token: 1,
+            snippet_id: uuid::Uuid::nil(),
+            snippet_name: String::new(),
+            fields: vec![],
+            target: None,
+            caret: None,
+            selection: None,
+        };
+        assert!(request == request.clone());
+    }
 
     #[test]
     fn fixture_inputs_and_identity_are_repeatable_without_host_state() {

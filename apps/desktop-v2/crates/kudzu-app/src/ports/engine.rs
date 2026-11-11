@@ -10,14 +10,14 @@ use kudzu_core::{
 };
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
-#[derive(Clone, Default)]
+#[derive(Clone, Default, PartialEq)]
 pub struct EngineLibrary {
     pub snippets: Vec<SnippetRecord>,
     pub groups: Vec<GroupRecord>,
     pub config: MatchingConfig,
     pub locale: String,
 }
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct FormRequest {
     pub token: u64,
     pub snippet_id: Uuid,
@@ -52,6 +52,8 @@ pub trait ExpansionEngine: Send + Sync {
         target: Option<AppInfo>,
         selection: Option<String>,
     ) -> Result<(), PortError>;
+}
+pub trait FormChannel: Send + Sync {
     fn submit_form(&self, token: u64, values: HashMap<String, String>) -> Result<(), PortError>;
     fn cancel_form(&self, token: u64);
     /// Focus is independent of suppression: typing outside a form still interrupts it.

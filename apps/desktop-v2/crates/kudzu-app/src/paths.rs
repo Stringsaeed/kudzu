@@ -1,4 +1,5 @@
-//! Paths are supplied by composition. This module never discovers or creates directories.
+//! Paths are supplied by composition; no host directory discovery happens here.
+//! JsonFile creates parent directories when writing. Hold the single-instance guard first.
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

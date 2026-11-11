@@ -1,7 +1,7 @@
 //! Controllable engine and callback collector. All callbacks run outside fake locks.
 use crate::{
     error::PortError,
-    ports::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormRequest},
+    ports::{EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest},
 };
 use kudzu_core::{
     activity::ActivityEvent,
@@ -130,6 +130,8 @@ impl ExpansionEngine for FakeEngine {
         });
         Ok(())
     }
+}
+impl FormChannel for FakeEngine {
     fn submit_form(&self, token: u64, values: HashMap<String, String>) -> Result<(), PortError> {
         let mut state = self.state.lock().unwrap();
         if let Some(e) = state.failure {
