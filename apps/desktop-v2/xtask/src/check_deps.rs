@@ -54,29 +54,39 @@ fn contained(root: &Path, path: &Path) -> Result<PathBuf> {
     Ok(path)
 }
 
-fn allowed(name: &str) -> &[&str] {
+/// First-party crates with rules below. Any other first-party crate fails the check,
+/// except throwaway spikes under `spikes/`, which may compose every layer.
+const KNOWN: &[&str] = &[
+    "kudzu",
+    "kudzu-core",
+    "kudzu-engine",
+    "kudzu-app",
+    "kudzu-system",
+    "kudzu-appkit",
+    "kudzu-ui",
+    "xtask",
+];
+
+const LAYERS: &[&str] = &[
+    "kudzu-core",
+    "kudzu-app",
+    "kudzu-engine",
+    "kudzu-system",
+    "kudzu-appkit",
+    "kudzu-ui",
+];
+
+fn allowed(name: &str, spike: bool) -> &'static [&'static str] {
+    if spike {
+        return LAYERS;
+    }
     match name {
-        "kudzu-core" | "kudzu-appkit" | "xtask" => &[],
         "kudzu-engine" | "kudzu-app" => &["kudzu-core"],
         "kudzu-system" => &["kudzu-app", "kudzu-core", "kudzu-engine"],
         "kudzu-ui" => &["kudzu-app", "kudzu-core", "kudzu-appkit"],
-        "kudzu" => &[
-            "kudzu-core",
-            "kudzu-app",
-            "kudzu-engine",
-            "kudzu-system",
-            "kudzu-appkit",
-            "kudzu-ui",
-        ],
-        // Spikes may compose any layer.
-        _ => &[
-            "kudzu-core",
-            "kudzu-app",
-            "kudzu-engine",
-            "kudzu-system",
-            "kudzu-appkit",
-            "kudzu-ui",
-        ],
+        "kudzu" => LAYERS,
+        // kudzu-core, kudzu-appkit, xtask; unknown crates are rejected before this.
+        _ => &[],
     }
 }
 
@@ -116,11 +126,21 @@ fn validate(root: &Path, metadata: &Value) -> Result<()> {
         .iter()
         .map(|n| (n["id"].as_str().unwrap(), n))
         .collect();
-    for package in packages {
-        let id = package["id"].as_str().unwrap();
-        if !members.contains(id) && !package["source"].is_null() {
-            continue;
+    let first_party = |package: &&Value| {
+        members.contains(package["id"].as_str().unwrap()) || package["source"].is_null()
+    };
+    for package in packages.iter().filter(first_party) {
+        let owner = package["name"].as_str().unwrap();
+        let manifest = contained(root, Path::new(package["manifest_path"].as_str().unwrap()))?;
+        let spike = manifest.starts_with(root.join("spikes"));
+        if !spike && !KNOWN.contains(&owner) {
+            return Err(format!(
+                "unknown first-party crate {owner}: add its rules to check-deps"
+            ));
         }
+    }
+    for package in packages.iter().filter(first_party) {
+        let id = package["id"].as_str().unwrap();
         let manifest = contained(root, Path::new(package["manifest_path"].as_str().unwrap()))?;
         let dir = manifest.parent().unwrap();
         for dep in package["dependencies"]
@@ -144,10 +164,11 @@ fn validate(root: &Path, metadata: &Value) -> Result<()> {
         }
         scan(root, dir)?;
         let owner = package["name"].as_str().unwrap();
+        let spike = dir.starts_with(root.join("spikes"));
         if let Some(node) = nodes.get(id) {
             for dep in node["dependencies"].as_array().unwrap() {
                 let name = by_id[dep.as_str().unwrap()]["name"].as_str().unwrap();
-                if name.starts_with("kudzu-") && !allowed(owner).contains(&name) {
+                if name.starts_with("kudzu-") && !allowed(owner, spike).contains(&name) {
                     return Err(format!("forbidden edge: {owner} -> {name}"));
                 }
             }
@@ -162,7 +183,7 @@ fn validate(root: &Path, metadata: &Value) -> Result<()> {
                 for dep in node["dependencies"].as_array().unwrap() {
                     let dep = dep.as_str().unwrap();
                     let name = by_id[dep]["name"].as_str().unwrap();
-                    if forbidden(owner, name) {
+                    if !spike && forbidden(owner, name) {
                         return Err(format!("forbidden dependency tree: {owner} -> {name}"));
                     }
                     pending.push(dep);
@@ -181,7 +202,10 @@ fn scan(root: &Path, path: &Path) -> Result<()> {
     if path.is_dir() {
         for entry in fs::read_dir(&path).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
-            if matches!(entry.file_name().to_str(), Some("target" | ".git")) {
+            if matches!(
+                entry.file_name().to_str(),
+                Some("target" | ".git" | "__pycache__")
+            ) {
                 continue;
             }
             scan(root, &entry.path())?;
@@ -196,11 +220,8 @@ fn scan(root: &Path, path: &Path) -> Result<()> {
         return Ok(());
     }
     let source = fs::read_to_string(&path).map_err(|e| e.to_string())?;
-    // Split the spellings so the checker does not flag its own implementation.
-    for forbidden in [concat!("apps/", "desktop/"), concat!("../", "desktop")] {
-        if source.contains(forbidden) {
-            return Err(format!("reference to frozen app: {}", path.display()));
-        }
+    if mentions_frozen_app(&source) {
+        return Err(format!("reference to frozen app: {}", path.display()));
     }
     if path.file_name().and_then(|s| s.to_str()) == Some("Cargo.toml") {
         let items = tokenize(&source, true)?;
@@ -218,6 +239,23 @@ fn scan(root: &Path, path: &Path) -> Result<()> {
         source_paths(root, &path, &source)?;
     }
     Ok(())
+}
+
+/// Defence in depth beside the structural checks: a literal mention of the frozen Tauri app.
+/// `apps/desktop-v2` and `../desktop-v2` are this workspace, so a name character after the
+/// match (`-`, `_`, alphanumeric) is not a mention.
+fn mentions_frozen_app(source: &str) -> bool {
+    // Split the spellings so the checker does not flag its own implementation.
+    [concat!("apps/", "desktop"), concat!("../", "desktop")]
+        .iter()
+        .any(|needle| {
+            source.match_indices(needle).any(|(at, _)| {
+                !source[at + needle.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c == '-' || c == '_' || c.is_alphanumeric())
+            })
+        })
 }
 
 /// Resolve literal paths; reject computed include paths rather than silently trusting them.
@@ -243,7 +281,14 @@ fn source_paths(root: &Path, file: &Path, source: &str) -> Result<()> {
         if value.contains('\\') {
             return Err(format!("escaped source path in {}", file.display()));
         }
-        contained(root, &file.parent().unwrap().join(value))?;
+        let target = contained(root, &file.parent().unwrap().join(value))?;
+        // `#[path]` and `include!` pull in Rust that `scan` must also read, so they must name
+        // a `.rs` file. `include_str!` and `include_bytes!` read data, not code.
+        let code = is_path || token == "include";
+        if code && target.extension().and_then(|s| s.to_str()) != Some("rs") {
+            let what = if is_path { "#[path]" } else { "include!" };
+            return Err(format!("{what} must name a .rs file in {}", file.display()));
+        }
     }
     Ok(())
 }

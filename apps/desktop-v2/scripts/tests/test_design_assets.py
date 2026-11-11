@@ -13,7 +13,7 @@ class DesignAssetCheck(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="kudzu-asset-check-")
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / "apps/desktop"
+        self.root = Path(self.temp.name) / "apps/desktop-v2"
         manifest = json.loads((ROOT / "design/assets-manifest.json").read_text())
         # A source can name part of a file ("pnpm-lock.yaml#@tauri-apps/cli"); copy the whole file.
         files = {name.split("#")[0] for name in manifest["sources"]} | set(manifest["outputs"]) | {

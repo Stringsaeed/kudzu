@@ -164,3 +164,84 @@ fn unused_manifest_path_dependency_fails() {
     fs::write(p, s).unwrap();
     assert!(f.check().unwrap_err().contains("escapes workspace"));
 }
+
+fn add_path_crate(f: &Fixture, dir: &str, name: &str, deps: &str) {
+    fs::create_dir_all(f.0.join(dir).join("src")).unwrap();
+    fs::write(
+        f.0.join(dir).join("Cargo.toml"),
+        format!("[package]\nname='{name}'\nversion='0.1.0'\nedition='2021'\n{deps}"),
+    )
+    .unwrap();
+    fs::write(f.0.join(dir).join("src/lib.rs"), "").unwrap();
+    let p = f.0.join("Cargo.toml");
+    let mut s = fs::read_to_string(&p).unwrap();
+    if !s.contains("[dependencies]") {
+        s.push_str("\n[dependencies]\n");
+    }
+    s.push_str(&format!("{name}={{path='{dir}'}}\n"));
+    fs::write(p, s).unwrap();
+}
+
+#[test]
+fn unknown_first_party_crate_fails() {
+    let f = Fixture::new();
+    add_path_crate(&f, "bench", "kudzu-bench", "");
+    assert!(f.check().unwrap_err().contains("unknown first-party crate"));
+}
+
+#[test]
+fn spike_may_compose_layers() {
+    let f = Fixture::new();
+    add_path_crate(&f, "core", "kudzu-core", "");
+    add_path_crate(
+        &f,
+        "spikes/editor",
+        "spike-editor",
+        "[dependencies]\nkudzu-core={path='../../core'}\n",
+    );
+    assert!(f.check().is_ok(), "{:?}", f.check());
+}
+
+#[test]
+fn non_rust_path_and_include_targets_fail() {
+    for expr in ["#[path = \"x.txt\"] mod x;", "include!(\"x.txt\");"] {
+        let f = Fixture::new();
+        fs::write(f.0.join("src/x.txt"), "").unwrap();
+        fs::write(f.0.join("src/lib.rs"), expr).unwrap();
+        assert!(f.check().unwrap_err().contains("must name a .rs file"));
+    }
+}
+
+#[test]
+fn data_includes_may_name_any_file() {
+    let f = Fixture::new();
+    fs::write(f.0.join("src/x.txt"), "").unwrap();
+    fs::write(
+        f.0.join("src/lib.rs"),
+        "const X: &str = include_str!(\"x.txt\");",
+    )
+    .unwrap();
+    assert!(f.check().is_ok());
+}
+
+#[test]
+fn frozen_app_mentions_fail_and_this_workspace_passes() {
+    let frozen = concat!("apps/", "desktop");
+    let parent = concat!("../", "desktop");
+    for bad in [
+        format!("{frozen}/README.md"),
+        frozen.to_string(),
+        format!("{parent}/src"),
+    ] {
+        let f = Fixture::new();
+        fs::write(f.0.join("src/lib.rs"), format!("const P: &str = {bad:?};")).unwrap();
+        assert!(f.check().unwrap_err().contains("frozen app"), "{bad}");
+    }
+    let f = Fixture::new();
+    fs::write(
+        f.0.join("src/lib.rs"),
+        format!("const P: &str = \"{frozen}-v2/README.md\";"),
+    )
+    .unwrap();
+    assert!(f.check().is_ok());
+}
