@@ -18,14 +18,49 @@
 //! service re-derives resends from its index; the adapter never re-adds `requeue` names itself.
 //!
 //! `CloudSend.conflicts` is only `ServerRecordChanged`. The adapter replaces its cached record
-//! (change tag) with the server copy before reporting. `UnknownItem` drops the cached record and
-//! lists the name in `requeue`.
+//! (change tag) with the server copy before reporting. A save's `UnknownItem` drops the cached
+//! record and lists the name in `requeue`. A delete's `UnknownItem` is reported in `deleted`.
 //!
 //! Transient codes stay inside the adapter (`NetworkUnavailable`, `NetworkFailure`,
 //! `ServiceUnavailable`, `RequestRateLimited`, `ZoneBusy`). `QuotaExceeded` maps to
 //! [`CloudSendFailure::QuotaExceeded`]. Everything else is [`CloudSendFailure::Permanent`].
 //! `Err` from `fetch` or `send` means the request could not be issued at all. Never forward
 //! `localizedDescription`.
+//!
+//! # Contract
+//!
+//! These decisions bind the sync service and the S37 adapter.
+//!
+//! 1. **Conflicts.** When the adapter reports a name in `conflicts`, it first drops that name's
+//!    pending payload. The service merges the server copy and resends only if its result still
+//!    differs. The adapter never resends a losing payload by itself.
+//! 2. **Failures.** [`CloudSend::failure`] (`QuotaExceeded` or `Permanent`) applies to the records
+//!    of that send that are in neither `saved` nor `deleted`. The adapter drops those records from
+//!    its pending set, as `CKSyncEngine` does. On any failure the service clears those names from
+//!    its in-flight set and queues a resend on its next push. Sends are idempotent upserts. Status
+//!    shows the failure sentence until a later send succeeds.
+//! 3. **Deletes of missing records.** A delete whose record is already gone on the server
+//!    (`unknownItem`) is reported in `deleted`, so the service can clear it.
+//! 4. **Restored engine state.** `CKSyncEngine` state restored at `start` may contain pending
+//!    record changes whose payloads the adapter no longer has. The adapter drops restored pending
+//!    record changes. The service re-derives everything not acknowledged from its index after start.
+//! 5. **Fetch.** Every `fetch` call is answered by at least one `full_fetch: true` batch when a
+//!    fetch completes, even when it coalesces with one already running. A fetch that fails
+//!    transiently produces no batch and no `failed`. Status follows the Tauri app: "Syncing…" is
+//!    shown while a fetch or send is outstanding. If no `full_fetch` or `sent` arrives by the next
+//!    tick, the service returns to its last settled status (`UpToDate` keeps its earlier time).
+//!    Before the first full fetch it stays "Syncing…". A partial fetch does not set
+//!    `initial_merge_done`. Zone deletion is not a fetch: it marks the index past the first fetch
+//!    so the kept library is re-sent.
+//! 6. **Unknown records.** The adapter drops records in the Kudzu zone whose type isn't a
+//!    `RecordKind` or whose name doesn't parse, and logs only a count.
+//! 7. **Volume.** `send` may carry thousands of records. The adapter hands them to `CKSyncEngine`'s
+//!    pending set, which batches them itself. The service coalesces state: per worker turn it keeps
+//!    only the newest state bytes and writes them once at flush.
+//! 8. **`failed(Unavailable)` mid-run** is allowed. The process lost its entitlement or iCloud
+//!    became restricted. The service treats `Unavailable` as permanent for the process lifetime:
+//!    it stops the port, shows Unavailable, and never calls the port again until relaunch. Turning
+//!    sync off and on does not retry.
 //!
 //! Account status after every successful `start`, and on every later change:
 //! `Available`, `NoAccount`, `Restricted`, and `TemporarilyUnavailable` are reported as

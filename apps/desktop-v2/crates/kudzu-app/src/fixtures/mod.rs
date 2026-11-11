@@ -452,4 +452,51 @@ mod tests {
             "a send failure left the records pending"
         );
     }
+
+    #[test]
+    fn a_retained_failure_keeps_the_pending_record() {
+        let cloud = super::cloudkit::FakeCloud::default();
+        let events = Arc::new(super::cloudkit::FakeCloudEvents::default());
+        cloud.start(1, None, events).unwrap();
+        cloud.state.lock().unwrap().retain_failed = true;
+        let record = pending_record("snippet-c");
+        cloud.script(vec![super::cloudkit::CloudScript::Sent(CloudSend {
+            failure: Some(CloudSendFailure::QuotaExceeded),
+            ..CloudSend::default()
+        })]);
+        cloud
+            .send(
+                1,
+                CloudBatch {
+                    records: vec![record],
+                    ..CloudBatch::default()
+                },
+            )
+            .unwrap();
+        assert!(cloud
+            .state
+            .lock()
+            .unwrap()
+            .pending
+            .contains_key("snippet-c"));
+    }
+
+    #[test]
+    fn a_delete_of_a_missing_record_is_reported_in_deleted() {
+        let cloud = super::cloudkit::FakeCloud::default();
+        let events = Arc::new(super::cloudkit::FakeCloudEvents::default());
+        cloud.start(1, None, events).unwrap();
+        cloud
+            .send(
+                1,
+                CloudBatch {
+                    deleted: vec!["snippet-missing".into()],
+                    ..CloudBatch::default()
+                },
+            )
+            .unwrap();
+        let report = cloud.take_report(1);
+        assert_eq!(report.deleted, vec!["snippet-missing".to_string()]);
+        assert!(report.requeue.is_empty());
+    }
 }

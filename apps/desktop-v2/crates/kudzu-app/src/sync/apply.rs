@@ -45,25 +45,12 @@ impl Job {
         self.finish_uploads(shared);
     }
 
-    pub(super) fn on_state(&mut self, shared: &Shared, bytes: Vec<u8>) {
-        if bytes.is_empty() {
+    pub(super) fn on_state(&mut self, _shared: &Shared, bytes: Vec<u8>) {
+        if bytes.is_empty() || self.merge_failed {
             return;
         }
-        let revision = shared.library.watch().revision().0;
-        let mut slot = shared.hold.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(existing) = slot.as_mut() {
-            existing.state = Some(bytes);
-            if revision > existing.revision {
-                existing.revision = revision;
-                existing.index = self.index.clone();
-            }
-        } else {
-            *slot = Some(Hold {
-                revision,
-                index: self.index.clone(),
-                state: Some(bytes),
-            });
-        }
+        // One turn can carry several state events. Only the newest is staged at flush.
+        self.pending_state = Some(bytes);
     }
 
     pub(super) fn on_zone_deleted(&mut self, shared: &Shared) {
@@ -72,6 +59,9 @@ impl Job {
             ..SyncIndex::default()
         };
         self.in_flight.clear();
+        self.sent_batches.clear();
+        self.pending_state = None;
+        self.send_failed = false;
         *shared.hold.lock().unwrap_or_else(PoisonError::into_inner) = None;
         if !write_index(shared, &self.index) {
             self.publish_live(
@@ -126,6 +116,9 @@ impl Job {
         let device_id = shared.device_id.clone();
         let prior = self.index.clone();
         let full_fetch = batch.full_fetch;
+        if full_fetch {
+            self.waiting = false;
+        }
         let records = batch.records;
         let deleted = batch.deleted;
         let merged = shared.library.transact(move |library| {
@@ -140,6 +133,7 @@ impl Job {
             })
         });
         let Ok((merged, _)) = merged else {
+            self.merge_failed = true;
             self.publish_live(
                 shared,
                 SyncStatus::Error {
@@ -148,6 +142,7 @@ impl Job {
             );
             return;
         };
+        self.merge_failed = false;
         self.index = merged.index;
         let blocked = self.index.blocked_by_newer_format() || merged.needs_update;
         if full_fetch && !was_done && !blocked {
@@ -160,16 +155,13 @@ impl Job {
         }
         // A partial batch stays Syncing. Up to date waits for the fetch that finished.
         if full_fetch && !self.will_send(shared) {
-            self.publish_progress(
-                shared,
-                SyncStatus::UpToDate {
-                    last_sync: shared.clock.now(),
-                },
-            );
+            self.show_up_to_date(shared);
         }
     }
 
     pub(super) fn on_sent(&mut self, shared: &Shared, report: CloudSend) {
+        self.waiting = false;
+        let batch = self.sent_batches.pop_front().unwrap_or_default();
         for record in &report.saved {
             self.in_flight.remove(&record.name);
             record_saved(&mut self.index, record);
@@ -186,6 +178,22 @@ impl Job {
         }
         if report.zone_missing {
             self.in_flight.clear();
+            self.sent_batches.clear();
+        }
+        if report.failure.is_some() {
+            let accepted = report
+                .saved
+                .iter()
+                .map(|record| record.name.as_str())
+                .chain(report.deleted.iter().map(String::as_str))
+                .collect::<std::collections::BTreeSet<_>>();
+            for name in &batch {
+                if !accepted.contains(name.as_str()) {
+                    self.in_flight.remove(name);
+                }
+            }
+            self.pending_push = true;
+            self.send_failed = true;
         }
         if !report.conflicts.is_empty() {
             let device_id = shared.device_id.clone();
@@ -197,8 +205,12 @@ impl Job {
                 Ok::<_, LibraryError>(index)
             });
             match merged {
-                Ok((index, _)) => self.index = index,
+                Ok((index, _)) => {
+                    self.merge_failed = false;
+                    self.index = index;
+                }
                 Err(_) => {
+                    self.merge_failed = true;
                     self.publish_live(
                         shared,
                         SyncStatus::Error {
@@ -209,9 +221,7 @@ impl Job {
                 }
             }
         }
-        if report.failure.is_none()
-            && (report.zone_missing || !report.requeue.is_empty() || !report.conflicts.is_empty())
-        {
+        if report.failure.is_none() && (report.zone_missing || !report.requeue.is_empty()) {
             self.force_usage = true;
         }
         if self.index.blocked_by_newer_format() {
@@ -231,15 +241,18 @@ impl Job {
             );
             return;
         }
-        if self.force_usage {
+        self.send_failed = false;
+        let follow_up = {
+            let library = shared.library.watch().get();
+            !outbound(&library, &self.index, &shared.device_id, self.force_usage).is_empty()
+        };
+        if follow_up {
+            self.queued_send = true;
+        }
+        if self.force_usage || follow_up {
             self.publish_progress(shared, SyncStatus::Syncing);
         } else {
-            self.publish_progress(
-                shared,
-                SyncStatus::UpToDate {
-                    last_sync: shared.clock.now(),
-                },
-            );
+            self.show_up_to_date(shared);
         }
     }
 
@@ -249,6 +262,7 @@ impl Job {
         if self.pending_reset.is_some() {
             return;
         }
+        self.stage_state(shared);
         let dirty = take_dirty(shared);
         let revision = shared.library.watch().revision().0;
         if dirty || self.index != *disk_index(shared) {
@@ -285,7 +299,20 @@ impl Job {
             return;
         }
         // One snapshot so an edit between the diff and the encode cannot drop a record.
-        let library = shared.library.watch().get();
+        // A zone or account reset clears the durability hold; this still refuses a library
+        // revision that has not reached disk.
+        let (revision, library) = shared.library.snapshot();
+        let saved = shared.library.saved().get();
+        if saved.error.is_some() || saved.durable < revision {
+            self.pending_push = true;
+            if include_usage {
+                self.force_usage = true;
+            }
+            if allow_empty {
+                self.queued_send = true;
+            }
+            return;
+        }
         let changes = outbound(&library, &self.index, &shared.device_id, include_usage);
         let records = changes
             .saves
@@ -309,33 +336,68 @@ impl Job {
         let empty = batch.records.is_empty() && batch.deleted.is_empty();
         match shared.cloud.send(self.generation, batch.clone()) {
             Ok(()) => {
+                let mut names = std::collections::BTreeSet::new();
                 for record in &batch.records {
+                    names.insert(record.name.clone());
                     self.in_flight
                         .insert(record.name.clone(), Flight::Save(record.payload.clone()));
                 }
                 for name in &batch.deleted {
+                    names.insert(name.clone());
                     self.in_flight.insert(name.clone(), Flight::Delete);
                 }
+                if !names.is_empty() {
+                    self.sent_batches.push_back(names);
+                }
                 if empty {
-                    self.publish_progress(
-                        shared,
-                        SyncStatus::UpToDate {
-                            last_sync: shared.clock.now(),
-                        },
-                    );
-                } else {
+                    // A fetch that has not answered yet stays Syncing. UpToDate waits for it.
+                    if !self.waiting && !self.send_failed {
+                        self.show_up_to_date(shared);
+                    }
+                } else if !self.send_failed {
                     self.publish_progress(shared, SyncStatus::Syncing);
                 }
             }
             Err(_) => {
                 self.pending_push = true;
-                self.publish_progress(
-                    shared,
-                    SyncStatus::Error {
-                        message: status::TEMPORARILY_UNAVAILABLE.into(),
-                    },
-                );
+                if !self.send_failed {
+                    self.publish_progress(
+                        shared,
+                        SyncStatus::Error {
+                            message: status::TEMPORARILY_UNAVAILABLE.into(),
+                        },
+                    );
+                }
             }
+        }
+    }
+
+    fn show_up_to_date(&mut self, shared: &Shared) {
+        let status = SyncStatus::UpToDate {
+            last_sync: shared.clock.now(),
+        };
+        self.settled = Some(status.clone());
+        self.publish_progress(shared, status);
+    }
+
+    fn stage_state(&mut self, shared: &Shared) {
+        let Some(bytes) = self.pending_state.take() else {
+            return;
+        };
+        let revision = shared.library.watch().revision().0;
+        let mut slot = shared.hold.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(existing) = slot.as_mut() {
+            existing.state = Some(bytes);
+            if revision > existing.revision {
+                existing.revision = revision;
+                existing.index = self.index.clone();
+            }
+        } else {
+            *slot = Some(Hold {
+                revision,
+                index: self.index.clone(),
+                state: Some(bytes),
+            });
         }
     }
 

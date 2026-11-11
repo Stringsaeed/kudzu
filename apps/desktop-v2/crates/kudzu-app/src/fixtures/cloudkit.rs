@@ -50,6 +50,8 @@ pub struct CloudState {
     pub start_failure: Option<PortError>,
     pub fetch_failure: Option<PortError>,
     pub send_failure: Option<PortError>,
+    /// Keeps pending records when a `CloudSend.failure` is reported. The default drops them.
+    pub retain_failed: bool,
     pub script: Vec<CloudScript>,
 }
 
@@ -91,6 +93,32 @@ impl FakeCloud {
             .start_failure = error;
     }
 
+    /// Reports the pending set. Every delete is `deleted`, including one whose record
+    /// was already missing, and the report is delivered to the service.
+    pub fn take_report(&self, generation: u64) -> CloudSend {
+        let report = {
+            let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+            let pending = std::mem::take(&mut state.pending);
+            let mut saved = Vec::new();
+            let mut deleted = Vec::new();
+            for (name, record) in pending {
+                match record {
+                    PendingRecord::Save(record) => saved.push(record),
+                    PendingRecord::Delete => deleted.push(name),
+                }
+            }
+            CloudSend {
+                saved,
+                deleted,
+                ..CloudSend::default()
+            }
+        };
+        if let Some(events) = self.events(generation) {
+            events.sent(generation, report.clone());
+        }
+        report
+    }
+
     pub fn script(&self, events: Vec<CloudScript>) {
         self.state
             .lock()
@@ -118,7 +146,13 @@ impl FakeCloud {
             }
             match event {
                 CloudScript::Fetched(batch) => events.fetched(generation, batch),
-                CloudScript::Sent(report) => events.sent(generation, report),
+                CloudScript::Sent(report) => {
+                    {
+                        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
+                        apply_sent(&mut state, &report);
+                    }
+                    events.sent(generation, report);
+                }
                 CloudScript::State(bytes) => events.state(generation, bytes),
                 CloudScript::Availability(availability) => {
                     events.availability(generation, availability)
@@ -199,6 +233,33 @@ impl CloudStore for FakeCloud {
         }
         self.drain_script(generation);
         Ok(())
+    }
+}
+
+fn apply_sent(state: &mut CloudState, report: &CloudSend) {
+    for record in &report.conflicts {
+        state.pending.remove(&record.name);
+    }
+    if report.failure.is_none() || state.retain_failed {
+        return;
+    }
+    let Some((_, batch)) = state.sends.last() else {
+        return;
+    };
+    let batch = batch.clone();
+    for record in &batch.records {
+        let kept = report.saved.iter().any(|saved| saved.name == record.name)
+            || report.deleted.iter().any(|name| name == &record.name);
+        if !kept {
+            state.pending.remove(&record.name);
+        }
+    }
+    for name in &batch.deleted {
+        let kept = report.saved.iter().any(|saved| &saved.name == name)
+            || report.deleted.iter().any(|deleted| deleted == name);
+        if !kept {
+            state.pending.remove(name);
+        }
     }
 }
 

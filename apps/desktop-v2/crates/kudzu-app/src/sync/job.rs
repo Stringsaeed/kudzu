@@ -14,7 +14,7 @@ use super::{bump, enqueue, stop_port, Shared, Work};
 use crate::error::PortError;
 use crate::ports::{AccountChange, CloudAvailability, CloudEvents};
 use kudzu_core::sync::SyncIndex;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
@@ -29,7 +29,18 @@ pub(super) struct Job {
     pub(super) queued_send: bool,
     pub(super) pending_push: bool,
     start_failed: bool,
+    /// `failed(Unavailable)` or an unentitled `start`. Stays set until relaunch.
     permanent_unavailable: bool,
+    /// A `CloudSend.failure` is on screen until a later send succeeds.
+    pub(super) send_failed: bool,
+    /// A fetch or send is still waiting for `full_fetch` or `sent`.
+    pub(super) waiting: bool,
+    pub(super) merge_failed: bool,
+    pub(super) settled: Option<SyncStatus>,
+    /// Newest engine state seen this turn. Written once, from `finish_uploads`.
+    pub(super) pending_state: Option<Vec<u8>>,
+    /// Record names of each `send` that has not been reported yet, oldest first.
+    pub(super) sent_batches: VecDeque<BTreeSet<String>>,
     pub(super) signed_out: bool,
     pub(super) availability: Option<CloudAvailability>,
     pub(super) pending_reset: Option<AccountChange>,
@@ -55,6 +66,12 @@ impl Job {
             pending_push: false,
             start_failed: false,
             permanent_unavailable: false,
+            send_failed: false,
+            waiting: false,
+            merge_failed: false,
+            settled: None,
+            pending_state: None,
+            sent_batches: VecDeque::new(),
             signed_out: false,
             availability: None,
             pending_reset: None,
@@ -105,7 +122,16 @@ impl Job {
             );
             return;
         }
-        self.permanent_unavailable = false;
+        // Unavailable is permanent for this process. Off and on does not call the port again.
+        if self.permanent_unavailable {
+            publish(
+                shared,
+                SyncStatus::Unavailable {
+                    reason: UNENTITLED.into(),
+                },
+            );
+            return;
+        }
         self.begin(shared, Resume::Stored);
     }
 
@@ -120,13 +146,17 @@ impl Job {
         self.force_usage = false;
         self.queued_send = false;
         self.pending_push = false;
+        self.waiting = false;
+        self.pending_state = None;
         let _ = super::apply::flush(shared);
         stop_port(shared);
     }
 
     pub(super) fn begin(&mut self, shared: &Arc<Shared>, resume: Resume) {
         let keep_signed_out = self.signed_out;
-        if !keep_signed_out {
+        let retrying = self.start_failed;
+        // A retry keeps the error already on screen. The first start still shows Starting.
+        if !keep_signed_out && !retrying && !self.blocks_progress() {
             publish(shared, SyncStatus::Starting);
         }
         self.disarm(shared);
@@ -136,6 +166,11 @@ impl Job {
         self.queued_send = false;
         self.pending_push = false;
         self.in_flight.clear();
+        self.sent_batches.clear();
+        self.pending_state = None;
+        self.waiting = false;
+        self.send_failed = false;
+        self.merge_failed = false;
         self.running = false;
         self.start_failed = false;
         let checkpoint = match resume {
@@ -191,13 +226,17 @@ impl Job {
                         },
                     );
                 }
-                if shared.cloud.fetch(self.generation).is_err() && !keep_signed_out {
-                    self.publish_live(
-                        shared,
-                        SyncStatus::Error {
-                            message: TEMPORARILY_UNAVAILABLE.into(),
-                        },
-                    );
+                if shared.cloud.fetch(self.generation).is_err() {
+                    if !keep_signed_out {
+                        self.publish_live(
+                            shared,
+                            SyncStatus::Error {
+                                message: TEMPORARILY_UNAVAILABLE.into(),
+                            },
+                        );
+                    }
+                } else {
+                    self.waiting = true;
                 }
             }
         }
@@ -271,6 +310,7 @@ impl Job {
             }
             return;
         }
+        self.expire_wait(shared);
         self.usage_credit += status::FETCH_INTERVAL;
         let include_usage = self.usage_credit >= status::USAGE_INTERVAL;
         if include_usage {
@@ -290,7 +330,7 @@ impl Job {
             return;
         }
         if shared.cloud.fetch(self.generation).is_err() {
-            if !self.blocks_progress() {
+            if !self.blocks_progress() && !self.send_failed {
                 self.publish_live(
                     shared,
                     SyncStatus::Error {
@@ -304,7 +344,8 @@ impl Job {
             publish(shared, SyncStatus::NeedsUpdate);
             return;
         }
-        if !self.blocks_progress() {
+        self.waiting = true;
+        if !self.blocks_progress() && !self.send_failed {
             publish(shared, SyncStatus::Syncing);
         }
         if self.index.initial_merge_done {
@@ -332,6 +373,10 @@ impl Job {
         self.force_usage = false;
         self.queued_send = false;
         self.pending_push = false;
+        self.send_failed = false;
+        self.waiting = false;
+        self.pending_state = None;
+        self.sent_batches.clear();
         self.in_flight.clear();
         stop_port(shared);
         self.pending_reset = Some(change);
@@ -366,6 +411,11 @@ impl Job {
     fn on_failed(&mut self, shared: &Arc<Shared>, error: PortError) {
         if error == PortError::Unavailable {
             self.permanent_unavailable = true;
+            self.running = false;
+            self.start_failed = false;
+            self.waiting = false;
+            self.disarm(shared);
+            stop_port(shared);
             publish(
                 shared,
                 SyncStatus::Unavailable {
@@ -387,6 +437,21 @@ impl Job {
 
     pub(super) fn blocks_progress(&self) -> bool {
         self.signed_out || self.availability.is_some()
+    }
+
+    /// The fetch or send that put Syncing on screen produced neither `full_fetch` nor `sent`.
+    fn expire_wait(&mut self, shared: &Shared) {
+        if !self.waiting
+            || !self.index.initial_merge_done
+            || self.blocks_progress()
+            || self.send_failed
+        {
+            return;
+        }
+        self.waiting = false;
+        if let Some(settled) = self.settled.clone() {
+            self.publish_progress(shared, settled);
+        }
     }
 
     pub(super) fn publish_live(&self, shared: &Shared, status: SyncStatus) {
