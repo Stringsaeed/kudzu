@@ -129,7 +129,9 @@ impl Pasteboard {
     }
 
     /// Pastes `text` via ⌘V, then restores the previous clipboard after [`RESTORE_DELAY`]
-    /// (blocking, on `clock`).
+    /// (blocking, on `clock`). The engine prepares first ([`Pasteboard::prepare_paste`]); tests
+    /// paste in one go.
+    #[cfg(test)]
     pub fn paste_text(
         &self,
         events: &dyn Events,
@@ -137,6 +139,18 @@ impl Pasteboard {
         text: &str,
         html: Option<&str>,
     ) -> Result<(), PasteError> {
+        self.prepare_paste(text, html)?.paste(events, clock)
+    }
+
+    /// The first half of a paste: saves the user's clipboard and writes `text` (and `html`) in
+    /// its place, ready for [`PreparedPaste::paste`]. Nothing is posted yet, so a caller can do
+    /// this before it deletes anything (D14). Fails, leaving the user's clipboard as it was,
+    /// when the clipboard can't be saved or written.
+    pub fn prepare_paste(
+        &self,
+        text: &str,
+        html: Option<&str>,
+    ) -> Result<PreparedPaste<'_>, PasteError> {
         // A previous paste still pending restoration owns the "real" clipboard; put it back first.
         self.restore_pending();
         let saved = self.board.snapshot().ok_or(PasteError::Unavailable)?;
@@ -145,13 +159,10 @@ impl Pasteboard {
             return Err(PasteError::Unavailable);
         }
         *lock(&self.pending) = Some((saved, self.board.change_count()));
-        if let Err(error) = keys::paste(events) {
-            self.restore_pending();
-            return Err(PasteError::Key(error));
-        }
-        clock.sleep(RESTORE_DELAY);
-        self.restore_pending();
-        Ok(())
+        Ok(PreparedPaste {
+            pasteboard: self,
+            open: true,
+        })
     }
 
     /// Restores the clipboard a paste replaced, unless the user copied something since. Also
@@ -184,6 +195,36 @@ impl Pasteboard {
             self.restore(&saved);
         }
         text
+    }
+}
+
+/// A paste whose clipboard is saved and written, waiting for its ⌘V. Dropping it without
+/// pasting puts the user's clipboard back at once.
+pub(crate) struct PreparedPaste<'a> {
+    pasteboard: &'a Pasteboard,
+    open: bool,
+}
+
+impl PreparedPaste<'_> {
+    /// Presses ⌘V, then restores the user's clipboard after [`RESTORE_DELAY`] (blocking, on
+    /// `clock`). When ⌘V can't be posted the clipboard comes back at once.
+    pub fn paste(mut self, events: &dyn Events, clock: &dyn Clock) -> Result<(), PasteError> {
+        self.open = false;
+        if let Err(error) = keys::paste(events) {
+            self.pasteboard.restore_pending();
+            return Err(PasteError::Key(error));
+        }
+        clock.sleep(RESTORE_DELAY);
+        self.pasteboard.restore_pending();
+        Ok(())
+    }
+}
+
+impl Drop for PreparedPaste<'_> {
+    fn drop(&mut self) {
+        if self.open {
+            self.pasteboard.restore_pending();
+        }
     }
 }
 

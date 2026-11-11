@@ -1,5 +1,6 @@
 //! Rendering and delivering an expansion that replaces a typed trigger: a single delivery, or a
-//! sequence of text, key presses and pauses.
+//! sequence of text, key presses and pauses. How the trigger itself is deleted, and put back
+//! when a paste is refused (D14), is in `replace`.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -8,19 +9,12 @@ use kudzu_core::matching::{case_propagation, TriggerMatch};
 use kudzu_core::template::RenderResult;
 use kudzu_core::{InsertionMethod, SnippetRecord};
 
-use super::super::input_source;
 use super::super::keys;
+use super::replace::TypedTrigger;
 use super::{Guard, Imp, InsertError, KEY_SETTLE, PAUSE_SLICE};
 use crate::library::{self, Library};
 use crate::plan::{self, InsertionPlan, PlanMode, Sequence, Step};
 use crate::{lock, ExpansionEvent};
-
-/// What a sequence replaces: a typed trigger, or nothing (palette).
-pub(super) struct TypedTrigger<'a> {
-    pub(super) trigger: &'a TriggerMatch,
-    pub(super) mode: PlanMode,
-    pub(super) swallowed: Option<&'a str>,
-}
 
 impl Imp {
     pub(super) fn render(
@@ -76,9 +70,16 @@ impl Imp {
         method: InsertionMethod,
         sequence: Sequence,
     ) -> Result<bool, InsertError> {
+        // D14: a first step that pastes is prepared before the trigger is deleted.
+        let mut first = None;
         if let Some(t) = &typed {
-            let plan = InsertionPlan::new(t.trigger, String::new(), None, t.mode, t.swallowed);
-            keys::delete_backward(self.events(), plan.delete_count)?;
+            if let Some(Step::Text { text, spans }) = sequence.steps.first() {
+                let html = spans
+                    .as_ref()
+                    .map(|spans| kudzu_core::formatting::html(text, spans));
+                first = Some(self.prepare_or_put_back(t, text, html.as_deref(), method)?);
+            }
+            self.delete_trigger(t, &mut first)?;
         }
         let pid = self.observe().frontmost_pid();
         let live = |imp: &Imp| {
@@ -92,10 +93,15 @@ impl Imp {
             match step {
                 Step::Text { text, spans } => {
                     self.keep_holding(token, Duration::ZERO);
-                    let html = spans
-                        .as_ref()
-                        .map(|spans| kudzu_core::formatting::html(text, spans));
-                    self.deliver(text, html.as_deref(), method)?;
+                    match (first.take(), &typed) {
+                        (Some(delivery), Some(t)) => self.complete_or_put_back(t, delivery)?,
+                        _ => {
+                            let html = spans
+                                .as_ref()
+                                .map(|spans| kudzu_core::formatting::html(text, spans));
+                            self.deliver(text, html.as_deref(), method)?;
+                        }
+                    }
                 }
                 Step::Key { key, count } => {
                     self.keep_holding(token, Duration::ZERO);
@@ -171,17 +177,8 @@ impl Imp {
         html: Option<&str>,
         method: InsertionMethod,
     ) -> Result<(), InsertError> {
-        if text.is_empty() {
-            return Ok(());
-        }
-        if plan::types(method, text, html.is_some(), input_source::composing()) {
-            keys::type_text(self.events(), text)?;
-        } else {
-            let clock = self.observe();
-            self.pasteboard()
-                .paste_text(self.events(), clock, text, html)?;
-        }
-        Ok(())
+        let delivery = self.prepare(text, html, method)?;
+        self.complete(delivery)
     }
 
     pub(super) fn insert_expansion(
@@ -227,11 +224,24 @@ impl Imp {
                     .any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. }))
             });
         let mut plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
-        keys::delete_backward(self.events(), plan.delete_count)?;
-        let caret = has_images
-            .then(|| self.observe().caret_snapshot())
-            .flatten();
-        self.deliver(&plan.text, html.as_deref(), trigger.insertion)?;
+        let typed = TypedTrigger {
+            trigger,
+            mode,
+            swallowed,
+        };
+        let caret = {
+            let delivery =
+                self.prepare_or_put_back(&typed, &plan.text, html.as_deref(), trigger.insertion)?;
+            let mut prepared = Some(delivery);
+            self.delete_trigger(&typed, &mut prepared)?;
+            let caret = has_images
+                .then(|| self.observe().caret_snapshot())
+                .flatten();
+            if let Some(delivery) = prepared.take() {
+                self.complete_or_put_back(&typed, delivery)?;
+            }
+            caret
+        };
         let mut can_undo = true;
         if has_images {
             if let Some((text, cursor)) = plan::image_delivery(

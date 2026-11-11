@@ -125,6 +125,8 @@ pub(super) struct State {
     /// Some promised data can't be read, so a snapshot is impossible.
     pub unreadable: bool,
     pub transient_fails: bool,
+    /// ⌘V can't be posted (its event can't be created); other keys still can.
+    pub paste_refused: bool,
     // Observations.
     pub elapsed: Duration,
     pub frontmost: Option<AppInfo>,
@@ -209,6 +211,7 @@ impl Desk {
             count: 100,
             unreadable: false,
             transient_fails: false,
+            paste_refused: false,
             elapsed: Duration::ZERO,
             frontmost: Some(editor()),
             running: vec![editor(), mail()],
