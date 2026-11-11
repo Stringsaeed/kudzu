@@ -1,0 +1,33 @@
+# S33 re-review — sync fixes
+
+Independent re-review (Claude Sonnet) of `test(desktop-v2): add sync review regressions` and `refactor(desktop-v2): hold the sync index until the library is durable`. Verdict: **no blocker; B1 is closed.** Fix M-A and M-B, the minors, and state the contract decisions below in the port docs. (An earlier re-review on another provider was discarded because it cited code that doesn't exist.)
+
+Confirmed by reading and probes: index and checkpoint are written only by `flush` (`sync/apply.rs:352`) once `saved.error.is_none()` and `saved.durable >= hold.revision`; conflicts and requeue go through the same hold; a failed library write keeps the hold and pushes nothing; shutdown is join → drain → flush and `Drop` writes nothing; the account reset is safe (empty index with `initial_merge_done=false` blocks pushes until the next full fetch); state events are processed in order and empty bytes are rejected in four places; statuses, lifecycle and lock ordering hold.
+
+## Majors
+
+**M-A. A record can stay "in flight" forever after a send failure** (`apply.rs:172-244` `on_sent`, `apply.rs:293` `same_inflight_save`). `in_flight` is cleared only by `saved`, `deleted`, `conflicts`, `requeue`, `zone_missing`, an account change or a restart; a `CloudSend { failure: Quota | Permanent }` clears nothing. Probe: after a `Permanent` failure, three ticks and Sync now, sends were `[1,0,0,0,0]` records. After the user frees iCloud space, the snippet never uploads until it is edited or the app relaunches. Fix: see decision 2.
+
+**M-B. A state event can persist the token past a batch that failed to merge** (`apply.rs:142-150` returns early on a `transact` error; `on_state` at `apply.rs:48` still accepts the next state). Probe with the writer stopped: `merged=false token_on_disk=true`. Rare (needs a stopped library writer), but the loss is silent and permanent. Fix: on a merge failure, set `merge_failed` and ignore `State` events until a merge succeeds (or restart with `begin(Stored)`).
+
+## Minors
+
+1. **M-C. Two paths clear the hold and can push non-durable library state.** `on_zone_deleted` (`apply.rs:75`) and `try_reset` (`apply.rs:95`) set `hold = None`; `flush` with no hold returns true without checking library durability, and `push` (`apply.rs:288`) takes its own snapshot after `flush`. Probe: `sent=true durable=0 rev=2` right after `zone_deleted`. A delete merged just before a zone reset can be resurrected. Fix: in `push`, take `(rev, library) = library.snapshot()`; if `saved.error` is set or `durable < rev`, set `pending_push` and return. That enforces "nothing sent while non-durable" on every path.
+2. **`failed(Unavailable)` mid-run is overwritten** (`job.rs:367` sets `permanent_unavailable` but `running` stays true; the next tick's `sync_now` at `job.rs:292-309` fetches and publishes Syncing). `apply_enabled` (`job.rs:108`) resets `permanent_unavailable` on every toggle and calls the port again. Fix: decision 8.
+3. **A start retry flickers the status:** `begin` (`job.rs:129`) publishes `Starting` over a displayed NoAccount or Error on each retry. Keep the displayed status during retries.
+4. **No push after an ack when the local copy already matches the index** (for example a snippet restored by undo while its delete is in flight): it waits for the next tick. Queue a push when an ack leaves the local copy different from what the server now holds.
+5. **Tests.** Add a `state` event to both crash tests (`tests.rs:909`, `:1242`) so the token half of B1 is covered; test an index or checkpoint write failure inside `flush` and the `saved.error` hold; test `on_sent` failure handling (M-A); restore the check that a failed checkpoint write keeps the previous bytes; use a non-zero debounce in at least the hold tests (`Harness::open` uses `Duration::ZERO`); let the fake retain or drop pending after a failure and clear pending on a conflict, per the decisions below.
+6. **PLAN S33 Accept** still says the merge "commits the sync index in the same job". Update it to describe the durability hold.
+
+## Contract decisions (orchestrator, binding on the S33 fix and the S37 follow-up)
+
+These extend the "Port decisions" in `S33-sync.md`. The S33 fix writes them into the module docs of `ports/cloudkit.rs`; S37 implements the adapter side.
+
+1. **Conflicts.** When the adapter reports a name in `conflicts`, it first drops that name's pending payload. The service merges the server copy and resends only if its result still differs. The adapter never resends a losing payload by itself.
+2. **Failures.** `CloudSend.failure` (`QuotaExceeded` or `Permanent`) applies to the records of that send that are in neither `saved` nor `deleted`; the adapter drops those records from its pending set, as CKSyncEngine does. On any failure the service clears those names from `in_flight` and queues a resend on its next push (sends are idempotent upserts). Status shows the failure sentence until a later send succeeds.
+3. **Deletes of missing records.** A delete whose record is already gone on the server (`unknownItem`) is reported in `deleted`, so the service can clear it.
+4. **Restored engine state.** CKSyncEngine state restored at `start` may contain pending record changes whose payloads the adapter no longer has. The adapter drops restored pending record changes; the service re-derives everything not acknowledged from its index after start.
+5. **Fetch.** Every `fetch` call is answered by at least one `full_fetch: true` batch when a fetch completes, even when it coalesces with one already running. A fetch that fails transiently produces no batch and no `failed`. Status follows the Tauri app: "Syncing…" is shown while a fetch or send is outstanding; if no `full_fetch` or `sent` arrives by the next tick, the service returns to its last settled status (UpToDate keeps its earlier time). Before the first full fetch it stays "Syncing…". `initial_merge_done` is set only by a real `full_fetch`.
+6. **Unknown records.** The adapter drops records in the Kudzu zone whose type isn't a `RecordKind` or whose name doesn't parse, and logs only a count.
+7. **Volume.** `send` may carry thousands of records; the adapter hands them to CKSyncEngine's pending set, which batches them itself. The service coalesces state: per worker turn it keeps only the newest state bytes and writes them once at `flush`.
+8. **`failed(Unavailable)` mid-run** is allowed (the process lost its entitlement or iCloud became restricted). The service treats `Unavailable` as permanent for the process lifetime: it stops the port, shows Unavailable, and never calls the port again until relaunch. Turning sync off and on does not retry.
