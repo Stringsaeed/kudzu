@@ -1,12 +1,11 @@
-//! §1.7's engine budget, measured on the poster seam: from the key that completes a trigger to
-//! the first synthetic event ≤ 15 ms at p95, and the tap callback itself ≤ 0.2 ms at p99. The
-//! fakes cost almost nothing and sleeps are virtual, so this measures the engine's own work:
-//! the callback's matching, the hand-off to the worker, rendering and planning.
+//! A CPU regression check on §1.7's engine budget, measured on the poster seam. The fakes cost
+//! almost nothing and sleeps are virtual, so this measures the engine's own work.
 //!
-//! The callback is held to the budget by its thread CPU time: what it costs the tap thread,
-//! without the time other processes take the core away (on a busy machine that alone exceeds
-//! 0.2 ms). Its wall-clock time is printed beside it. The trigger-to-event time crosses threads,
-//! so it is wall-clock. The release-build figures are S72's to record.
+//! Only the tap callback is asserted: ≤ 0.2 ms at p99 of its thread CPU time, what it costs the
+//! tap thread without the time other processes take the core away. Its wall-clock time and the
+//! trigger-to-first-event time (≤ 15 ms at p95 in §1.7) are printed, not asserted: the second
+//! crosses threads, and both depend on how the machine schedules them. Release-build wall
+//! times with real posting are S72's to measure.
 
 use std::time::{Duration, Instant};
 
@@ -33,7 +32,7 @@ fn percentile(samples: &mut [Duration], p: f64) -> Duration {
 }
 
 #[test]
-fn trigger_to_first_synthetic_event_meets_the_budget() {
+fn the_tap_callback_stays_within_its_cpu_budget() {
     let rig = Rig::new(&[
         snippet(";sig", "Best regards,\nSam"),
         snippet(";addr", "1 Infinite Loop"),
@@ -73,9 +72,5 @@ fn trigger_to_first_synthetic_event_meets_the_budget() {
     assert!(
         cpu_p99 <= Duration::from_micros(200),
         "tap callback p99 {cpu_p99:?} > 0.2 ms"
-    );
-    assert!(
-        first_p95 <= Duration::from_millis(15),
-        "trigger to first synthetic event p95 {first_p95:?} > 15 ms"
     );
 }
