@@ -53,6 +53,8 @@ pub struct MainModel {
     pub hotkey_error: Option<HotkeyError>,
     pub(crate) hotkeys_seen: Option<HotkeyInputs>,
     pub(crate) started: bool,
+    /// The appearance last sent to `NSApp.appearance` (recorded headless too).
+    pub applied_appearance: Option<crate::theme::Appearance>,
     /// `main` opens at launch (not `--hidden`, or the first run).
     pub(crate) open_at_launch: bool,
     pub(crate) tray: Option<Tray>,

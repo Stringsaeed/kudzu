@@ -381,3 +381,15 @@ fn the_first_poll_registers_both_hotkeys_and_pushes_no_window_yet() {
         "no native window exists"
     );
 }
+
+#[test]
+fn the_first_poll_applies_a_stored_dark_theme() {
+    let mut r = rig();
+    assert_eq!(r.kudzu.settings.watch().get().theme, Theme::Dark);
+    r.p.main.sync();
+    assert_eq!(r.p.main.model.applied_appearance, Some(Appearance::Dark));
+    assert!(
+        r.p.palette.sync(),
+        "every window draws the stored theme once"
+    );
+}

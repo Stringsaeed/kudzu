@@ -33,8 +33,10 @@ impl WindowList {
         self.port.set_kudzu_windows(&windows);
     }
 
+    /// Drops handles whose window is gone; a recreated window is tracked again by `on_window`.
     fn current(&self) -> Vec<KudzuWindow> {
-        let handles = self.handles.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut handles = self.handles.lock().unwrap_or_else(PoisonError::into_inner);
+        handles.retain(|handle| handle.window_number().is_some());
         let mut windows: Vec<KudzuWindow> = handles
             .iter()
             .filter_map(|handle| handle.window_number())
@@ -47,5 +49,35 @@ impl WindowList {
         windows.sort_by_key(|window| window.number);
         windows.dedup();
         windows
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::WindowList;
+    use kudzu_app::fixtures::engine::FakeEngine;
+    use std::sync::Arc;
+
+    #[test]
+    fn a_handle_without_a_window_number_is_dropped() {
+        let engine = Arc::new(FakeEngine::default());
+        let list = WindowList::new(engine.clone());
+        // A handle whose window was never created (or was destroyed) has no number.
+        let mut host = rune::App::new(rune::AppSpec::new(
+            "host",
+            (10.0, 10.0),
+            || (),
+            |_, _| rune::col(),
+        ));
+        let (_, handle) = host.window(rune::WindowSpec::new(
+            "closed",
+            rune::AppSpec::new("closed", (10.0, 10.0), || (), |_, _| rune::col()),
+        ));
+        list.track(&handle);
+        assert_eq!(list.handles.lock().unwrap().len(), 0);
+        assert_eq!(
+            engine.state.lock().unwrap().windows.last(),
+            Some(&Vec::new())
+        );
     }
 }

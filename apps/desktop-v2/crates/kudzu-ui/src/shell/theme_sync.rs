@@ -21,15 +21,17 @@ impl Default for ThemeSync {
 }
 
 impl ThemeSync {
-    /// Pull the settings when they changed. True when the Appearance changed.
+    /// Pull the settings when they changed. True on the first pull, whatever the stored
+    /// theme, and afterwards when the Appearance changed.
     pub fn sync(&mut self, settings: &Watch<Settings>) -> bool {
         let revision = settings.revision();
         if self.seen == Some(revision) {
             return false;
         }
+        let first = self.seen.is_none();
         self.seen = Some(revision);
         let next = appearance(settings.get().theme);
-        let changed = next != self.appearance;
+        let changed = first || next != self.appearance;
         self.appearance = next;
         changed
     }
@@ -72,7 +74,11 @@ mod tests {
     fn a_window_reports_a_change_once_and_ignores_unrelated_settings() {
         let settings = Publisher::new(Settings::default());
         let mut sync = ThemeSync::default();
-        assert!(!sync.sync(&settings.watch()), "the default is already dark");
+        assert!(
+            sync.sync(&settings.watch()),
+            "the first pull applies the stored theme"
+        );
+        assert_eq!(sync.appearance(), Appearance::Dark);
         let mut light = Settings {
             theme: Preference::Light,
             ..Settings::default()

@@ -89,7 +89,6 @@ impl MainState {
             Ok(tray) => self.model.tray = Some(tray),
             Err(error) => log::error!("the menu-bar item could not be installed: {error}"),
         }
-        self.apply_appearance();
     }
 
     /// Close Windows ⌘Q goes in as soon as Rune's menu bar exists, even before any Dock
@@ -117,12 +116,15 @@ impl MainState {
         }
     }
 
-    fn apply_appearance(&self) {
+    /// `sync` calls this on the first poll and on every Appearance change.
+    fn apply_appearance(&mut self) {
+        let appearance = self.model.theme.appearance();
+        self.model.applied_appearance = Some(appearance);
         if !self.shell.native() {
             return;
         }
         if let Some(mtm) = objc2_foundation::MainThreadMarker::new() {
-            let preference = theme_sync::native(self.model.theme.appearance());
+            let preference = theme_sync::native(appearance);
             if let Err(error) = kudzu_appkit::appearance::apply(mtm, preference) {
                 log::warn!("the app appearance was not set: {error}");
             }
