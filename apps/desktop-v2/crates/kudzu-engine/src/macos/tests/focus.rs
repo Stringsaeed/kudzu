@@ -66,3 +66,100 @@ fn typing_in_another_kudzu_panel_then_returning_interrupts_the_form() {
     assert_eq!(rig.doc(), ";addr|");
     assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
 }
+
+// MARK: Clicks
+
+/// The user clicks into the target while the form is key, which moves the caret, then clicks
+/// back on the form. The panel's reports arrive late, so the listener saw both clicks while the
+/// panel still counted as key. The click that left the panel interrupts the form.
+#[test]
+fn a_click_in_the_target_then_back_on_the_form_interrupts_it() {
+    let (rig, token) = opened(true);
+    rig.click_on(Focus::Target, Some(2));
+    rig.click_on(Focus::Form, None);
+    rig.deliver_reports();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// The same, coming back without a click (the form window makes its panel key again).
+#[test]
+fn a_click_in_the_target_then_focus_back_on_the_form_interrupts_it() {
+    let (rig, token) = opened(false);
+    rig.click_on(Focus::Target, Some(2));
+    rig.focus_moves(Focus::Form);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Clicks inside the key panel (into a field, on a menu) stay there.
+#[test]
+fn clicks_inside_the_form_do_not_interrupt_it() {
+    let (rig, token) = opened(true);
+    rig.click_on(Focus::Form, None);
+    rig.press("Sa");
+    rig.click_on(Focus::Form, None);
+    rig.press("m");
+    rig.deliver_reports();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+    assert_eq!(rig.doc(), "Dear Sam, hi|");
+}
+
+/// Focus left the form without a click (a shortcut opened Quick Search, nothing typed); the
+/// click that makes the form key again is on the form, not in the target.
+#[test]
+fn the_click_that_makes_the_form_key_does_not_interrupt_it() {
+    let (rig, token) = opened(false);
+    rig.focus_moves(Focus::Panel);
+    rig.click_on(Focus::Form, None);
+    rig.press("Sam");
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+    assert_eq!(rig.doc(), "Dear Sam, hi|");
+}
+
+/// A late report still settles that click, as long as nothing came between.
+#[test]
+fn a_late_report_claims_the_click_that_made_the_form_key() {
+    let (rig, token) = opened(true);
+    rig.focus_moves(Focus::Panel);
+    rig.deliver_reports();
+    rig.click_on(Focus::Form, None);
+    rig.deliver_reports();
+    rig.press("Sam");
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), inserted());
+}
+
+/// Conservative: typing before a late report claims the click counts as typing elsewhere.
+#[test]
+fn typing_before_a_late_report_claims_the_click_interrupts() {
+    let (rig, token) = opened(true);
+    rig.focus_moves(Focus::Panel);
+    rig.deliver_reports();
+    rig.click_on(Focus::Form, None);
+    rig.press("S");
+    rig.deliver_reports();
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.log(), []);
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}
+
+/// Before the panel was ever key, a click can't be on it.
+#[test]
+fn a_click_before_the_form_is_shown_interrupts_it() {
+    let rig = Rig::new(&[snippet(";addr", "Dear {{field name=who}}, hi")]);
+    rig.type_(";addr");
+    let token = rig.host.form_token();
+    rig.engine.set_suppressed(true);
+    rig.click_on(Focus::Target, Some(2));
+    rig.show_form(token);
+    rig.submit(token, &[("who", "Sam")]);
+    assert_eq!(rig.doc(), ";a|ddr");
+    assert_eq!(form_outcomes(&rig), [ActivityOutcome::Interrupted]);
+}

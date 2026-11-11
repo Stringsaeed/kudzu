@@ -11,6 +11,7 @@ use super::super::keys;
 use super::form_flow::{FormKind, PendingForm};
 use super::session::decode;
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
+use crate::interruption::Interruption;
 use crate::library::Library;
 use crate::plan::{self, Sequence};
 use crate::{lock, AppInfo, ExpansionEvent, FormRequest, TapMode};
@@ -74,8 +75,7 @@ impl Imp {
                     snippet_id,
                     kind: FormKind::Palette,
                     target: target.clone(),
-                    interrupted: false,
-                    panel_focused: false,
+                    input: Interruption::default(),
                     selection: selection.clone(),
                 });
                 form_token

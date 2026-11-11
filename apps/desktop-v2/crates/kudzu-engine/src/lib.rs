@@ -40,6 +40,7 @@ compile_error!("kudzu-engine is macOS-only");
 mod activity;
 mod hold;
 mod input;
+mod interruption;
 mod library;
 mod macos;
 mod plan;
@@ -183,11 +184,15 @@ impl Engine {
         self.imp.cancel_form(token);
     }
 
-    /// The form panel for `token` became key (`true`) or stopped being key (`false`). Call it as
-    /// soon as the panel's key status changes, starting when it first becomes key. While the
-    /// panel is not key, any key-down or click reaches the target app instead, so a typed form
-    /// that sees one is marked interrupted and its submission deletes nothing (FRM-4). A form
-    /// starts out not key.
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). A form
+    /// starts out not key. Call it from the panel's key-status notification, on the main thread,
+    /// before the panel handles any later event, starting when it first becomes key; the
+    /// engine relies on that order. Make the panel key on any click in it.
+    ///
+    /// A typed form whose trigger may have moved is interrupted, and its submission deletes
+    /// nothing (FRM-4): a key-down while the panel is not key, a click after which the panel
+    /// lost key, or a click while it was not key that didn't make it key. Clicks and typing in
+    /// the key panel, and the click that makes it key, are not interruptions.
     pub fn form_panel_focused(&self, token: u64, focused: bool) {
         self.imp.form_panel_focused(token, focused);
     }

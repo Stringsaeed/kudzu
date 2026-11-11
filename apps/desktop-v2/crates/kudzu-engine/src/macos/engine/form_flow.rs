@@ -9,6 +9,7 @@ use uuid::Uuid;
 use super::super::keys::{self, SYNTHETIC_MARKER};
 use super::super::tap::HeldEvent;
 use super::{activity, Guard, Imp, InsertError, ACTIVATION_TIMEOUT, SETTLE};
+use crate::interruption::Interruption;
 use crate::library;
 use crate::plan::PlanMode;
 use crate::{lock, AppInfo, FormRequest};
@@ -27,21 +28,20 @@ pub(super) struct PendingForm {
     pub(super) snippet_id: Uuid,
     pub(super) kind: FormKind,
     pub(super) target: Option<AppInfo>,
-    /// Typing reached the target after the trigger; deleting it now would delete the wrong text.
-    pub(super) interrupted: bool,
-    /// The form panel is key, so keys and clicks go to it rather than the target (FRM-4).
-    pub(super) panel_focused: bool,
+    /// What reached the session since the form was requested, and where the panel's focus is:
+    /// whether deleting a typed trigger now could delete the wrong text (FRM-4).
+    pub(super) input: Interruption,
     /// Selection captured before a palette insert (never set for a typed trigger).
     pub(super) selection: Option<String>,
 }
 
 impl Imp {
-    /// The form panel for `token` became key (`true`) or stopped being key (`false`). While it
-    /// is not key, a key-down or click reaches the target app and interrupts a typed form.
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). It
+    /// settles where the clicks before it went (see `crate::interruption`).
     pub fn form_panel_focused(&self, token: u64, focused: bool) {
         let mut core = lock(&self.core);
         if let Some(form) = core.pending_form.as_mut().filter(|f| f.token == token) {
-            form.panel_focused = focused;
+            form.input.focus(focused);
         }
     }
 
@@ -101,8 +101,7 @@ impl Imp {
                 snippet_id: snippet.id,
                 kind: FormKind::Typed(trigger),
                 target: target.clone(),
-                interrupted: false,
-                panel_focused: false,
+                input: Interruption::default(),
                 selection: None,
             });
             form_token
@@ -134,7 +133,9 @@ impl Imp {
                 }
             }
         };
-        if form.interrupted && matches!(form.kind, FormKind::Typed(_)) {
+        let mut form = form;
+        form.input.submit();
+        if form.input.interrupted() && matches!(form.kind, FormKind::Typed(_)) {
             return;
         }
         if !self.explicit_allowed() {

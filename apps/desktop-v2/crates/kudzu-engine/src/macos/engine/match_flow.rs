@@ -80,7 +80,7 @@ impl Imp {
             return false;
         }
         if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
-            core.note_form_input();
+            core.note_form_click();
             // A click moves the caret or focus: the typed context is gone. Clicks in our own
             // focused windows (form, palette) don't affect the target document.
             if !self.flags.suppressed.load(Ordering::SeqCst) {
@@ -111,7 +111,7 @@ impl Imp {
         // trigger sits in. Typing into the form panel itself doesn't. (The engine this was copied
         // from skipped this check while suppressed, which is the whole time a form is open; D9.)
         if key_down {
-            core.note_form_input();
+            core.note_form_key_down();
         }
         // Listen-only can't withhold keys. Anything typed before our backspaces go out would
         // land inside the deletion range, so the pending insertion is abandoned instead.

@@ -94,14 +94,18 @@ impl Core {
                 .is_some_and(|t| now.saturating_duration_since(t) > HOLD_LIMIT + self.hold_extra)
     }
 
-    /// FRM-4 (D9): a key-down or click while the form panel is not key reaches the target app,
-    /// which changes the document the typed trigger sits in. Suppression doesn't matter here: it
-    /// stops matching, not this.
-    pub(super) fn note_form_input(&mut self) {
+    /// FRM-4 (D9): a key-down that reached the session, for the pending form. Suppression
+    /// doesn't matter here: it stops matching, not this.
+    pub(super) fn note_form_key_down(&mut self) {
         if let Some(form) = self.pending_form.as_mut() {
-            if !form.panel_focused {
-                form.interrupted = true;
-            }
+            form.input.key_down();
+        }
+    }
+
+    /// FRM-4 (D9): a click that reached the session, for the pending form.
+    pub(super) fn note_form_click(&mut self) {
+        if let Some(form) = self.pending_form.as_mut() {
+            form.input.click();
         }
     }
 }

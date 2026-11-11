@@ -1,8 +1,9 @@
 //! FRM-4, typed forms. A trigger whose snippet has fields stays in the document (the withheld
 //! key is typed back) while the form is open; submitting deletes it and inserts the result.
 //! Anything that may have changed the document in between makes the submission delete
-//! nothing: typing while the form is prepared, and (D9) any key-down or click that reaches the
-//! target app while the form panel is not key. A token acts once; a stale one does nothing.
+//! nothing: typing while the form is prepared, and (D9) a key-down or click that may have
+//! reached the target app (the rules are in `crate::interruption`; `focus.rs` drives them with
+//! the panels modelled). A token acts once; a stale one does nothing.
 //!
 //! **Deliberately different from the copied engine (D9):** it skipped the interruption check
 //! while suppressed, which is the whole time a form is open, and never counted clicks, so
