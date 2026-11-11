@@ -8,3 +8,14 @@ license.workspace = true
 kudzu-app = { path = "../kudzu-app" }
 kudzu-core = { path = "../kudzu-core" }
 kudzu-engine = { path = "../kudzu-engine" }
+auto-launch.workspace = true
+ureq.workspace = true
+blake3.workspace = true
+semver.workspace = true
+plist.workspace = true
+uuid.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+objc2-foundation.workspace = true
+objc2-app-kit.workspace = true
