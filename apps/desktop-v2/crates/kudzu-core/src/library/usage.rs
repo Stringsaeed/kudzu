@@ -1,5 +1,10 @@
 //! Usage statistics: per-snippet totals across devices, time saved and palette ranking.
-//! S21 adds the remaining aggregation from `lib/stats.ts`.
+//!
+//! Two aggregations live here. [`summary`] feeds the Stats window and the agent tools. The
+//! Insights view, list badges and the search ranking use [`usage_by_id`] and [`totals`], ported
+//! from the Tauri app's `lib/stats.ts`; they differ in two ways kept on purpose: a usage row with
+//! a negative `chars_saved` counts as zero, and usage of snippets that no longer exist still
+//! counts towards the totals.
 
 use std::collections::HashMap;
 
@@ -107,6 +112,59 @@ pub fn summary(
         total_expansions,
         total_chars_saved,
         estimated_time_saved: time_saved(total_chars_saved, typing_speed_wpm),
+    }
+}
+
+/// One snippet's usage summed across devices.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct SnippetUsage {
+    pub count: i64,
+    /// Characters saved; each device's contribution is clamped at zero before summing.
+    pub chars: i64,
+    /// The latest use on any device, in Unix milliseconds; 0 when never used.
+    pub last_ms: i64,
+}
+
+/// Sums the per-device usage rows by snippet.
+pub fn usage_by_id(usage: &[UsageRecord]) -> HashMap<Uuid, SnippetUsage> {
+    let mut by_id: HashMap<Uuid, SnippetUsage> = HashMap::new();
+    for row in usage {
+        let total = by_id.entry(row.snippet_id).or_default();
+        total.count += row.count;
+        total.chars += row.chars_saved.max(0);
+        if let Some(last) = row.last_used_at {
+            total.last_ms = total.last_ms.max(last.timestamp_millis());
+        }
+    }
+    by_id
+}
+
+/// Headline numbers of the Insights view.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Totals {
+    pub expansions: i64,
+    pub chars: i64,
+    pub minutes_saved: f64,
+    pub active_snippets: usize,
+    /// Snippets with at least one recorded expansion.
+    pub used_snippets: usize,
+}
+
+/// Totals over `usage` (from [`usage_by_id`]) and the enabled snippets. Time saved is the
+/// characters at five per word and `typing_speed_wpm` words a minute (at least 1).
+pub fn totals(
+    snippets: &[SnippetRecord],
+    usage: &HashMap<Uuid, SnippetUsage>,
+    typing_speed_wpm: u32,
+) -> Totals {
+    let expansions = usage.values().map(|u| u.count).sum();
+    let chars: i64 = usage.values().map(|u| u.chars).sum();
+    Totals {
+        expansions,
+        chars,
+        minutes_saved: chars as f64 / CHARACTERS_PER_WORD / f64::from(typing_speed_wpm.max(1)),
+        active_snippets: snippets.iter().filter(|s| s.is_enabled).count(),
+        used_snippets: usage.values().filter(|u| u.count > 0).count(),
     }
 }
 
@@ -278,5 +336,30 @@ mod tests {
         assert!(s.usage_rank_for(b.id, now) > s.usage_rank_for(a.id, now));
         assert_eq!(s.usage_rank_for(c.id, now), 0.0);
         assert_eq!(s.usage_ranks(now).len(), 2);
+    }
+
+    #[test]
+    fn insights_aggregation_clamps_negative_chars_and_keeps_deleted_snippets() {
+        let (a, b, _) = snippets();
+        let gone = Uuid::new_v4();
+        let rows = [
+            row(a.id, "mac1", 2, 100, Some(t0())),
+            row(a.id, "mac2", 1, -40, Some(t0() + Duration::seconds(5))),
+            row(gone, "mac1", 4, 50, None),
+        ];
+        let by_id = usage_by_id(&rows);
+        let a_usage = by_id[&a.id];
+        assert_eq!(
+            (a_usage.count, a_usage.chars, a_usage.last_ms),
+            (3, 100, t0().timestamp_millis() + 5_000)
+        );
+        assert_eq!(by_id[&gone].last_ms, 0);
+        let mut off = b.clone();
+        off.is_enabled = false;
+        let t = totals(&[a, off], &by_id, 0);
+        assert_eq!((t.expansions, t.chars), (7, 150));
+        // A typing speed of 0 counts as 1 word a minute: 150 / 5 / 1.
+        assert_eq!(t.minutes_saved, 30.0);
+        assert_eq!((t.active_snippets, t.used_snippets), (1, 2));
     }
 }

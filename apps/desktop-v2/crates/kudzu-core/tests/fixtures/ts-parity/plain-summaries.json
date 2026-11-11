@@ -1,0 +1,20 @@
+{
+ "Best regards,\nSaeed\n{{date format=\"MMMM d, yyyy\"}}": "Best regards, Saeed ‹Date · Long date›",
+ "Hi {{field name=\"Name\"}},\n\nThanks for the time today. As discussed, {{cursor}}\n\n{{snippet id=\"c5af65ac-e426-4046-802b-11ccdd3a62ba\"}}": "Hi ‹Name›, Thanks for the time today. As discussed, ‹Cursor› ‹↳ Missing snippet›",
+ "I'm out of the office until {{date format=\"EEEE, MMMM d\" offset=\"+1w\"}} with limited access to email.": "I'm out of the office until ‹Date · Weekday + date +1w› with limited access to email.",
+ "{{date}}": "‹Date · ISO date›",
+ "{{time format=\"h:mm a\"}}": "‹Time · 12-hour time›",
+ "¯\\_(ツ)_/¯": "¯\\_(ツ)_/¯",
+ "> {{clipboard trim=true}}": "> ‹Clipboard (trimmed)›",
+ "**Environment:** {{choice name=\"Platform\" options=\"macOS|Windows|Linux\"}}\n**Steps:**\n1. {{cursor}}\n**Expected:**\n**Actual:**": "**Environment:** ‹Platform ▾› **Steps:** 1. ‹Cursor› **Expected:** **Actual:**",
+ "console.log({{clipboard}})": "console.log(‹Clipboard›)",
+ "Co-authored-by: {{field name=\"Author\"}} <{{field name=\"Email\"}}>": "Co-authored-by: ‹Author› <‹Email›>",
+ "221B Baker Street\nLondon NW1 6XE\nUnited Kingdom": "221B Baker Street London NW1 6XE United Kingdom",
+ "+44 20 7946 0958": "+44 20 7946 0958",
+ "Thank you so much — really appreciate it!": "Thank you so much — really appreciate it!",
+ "You can grab a time that works here: https://cal.com/saeed/30min": "You can grab a time that works here: https://cal.com/saeed/30min",
+ "Saeed{{key name=\"tab\"}}saeed@example.com{{key name=\"tab\" count=2}}{{random options=\"Thanks|Cheers|Best\"}}{{delay ms=300}}{{key name=\"return\"}}": "Saeed‹⇥ Tab›saeed@example.com‹⇥ Tab ×2›‹Random · 3 options›‹Pause 300 ms›‹↵ Return›",
+ "> {{selection trim=true}}\n\nSee also: {{clipboard history=1}}": "> ‹Selection (trimmed)› See also: ‹Previous copy›",
+ "req-{{uuid}}": "req-‹UUID›",
+ "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+}

@@ -1,0 +1,136 @@
+[
+  {
+    "groups": [
+      {
+        "id": "a",
+        "name": "A",
+        "parentID": "b",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      {
+        "id": "b",
+        "name": "B",
+        "parentID": "a",
+        "sortIndex": 1,
+        "isEnabled": false
+      }
+    ],
+    "tree": [],
+    "paths": [
+      {
+        "id": "a",
+        "path": [
+          "B",
+          "A"
+        ],
+        "descendants": [
+          "a",
+          "b"
+        ],
+        "enabled": false
+      },
+      {
+        "id": "b",
+        "path": [
+          "A",
+          "B"
+        ],
+        "descendants": [
+          "b",
+          "a"
+        ],
+        "enabled": false
+      }
+    ],
+    "counts": []
+  },
+  {
+    "groups": [
+      {
+        "id": "a",
+        "name": "Orphan",
+        "parentID": "missing",
+        "sortIndex": 0,
+        "isEnabled": true
+      }
+    ],
+    "tree": [
+      {
+        "group": {
+          "id": "a",
+          "name": "Orphan",
+          "parentID": "missing",
+          "sortIndex": 0,
+          "isEnabled": true
+        },
+        "depth": 0,
+        "children": []
+      }
+    ],
+    "paths": [
+      {
+        "id": "a",
+        "path": [
+          "Orphan"
+        ],
+        "descendants": [
+          "a"
+        ],
+        "enabled": true
+      }
+    ],
+    "counts": []
+  },
+  {
+    "groups": [
+      {
+        "id": "a",
+        "name": "First",
+        "sortIndex": 0,
+        "isEnabled": true
+      },
+      {
+        "id": "a",
+        "name": "Duplicate",
+        "sortIndex": 1,
+        "isEnabled": false
+      }
+    ],
+    "tree": [
+      {
+        "group": {
+          "id": "a",
+          "name": "First",
+          "sortIndex": 0,
+          "isEnabled": true
+        },
+        "depth": 0,
+        "children": []
+      }
+    ],
+    "paths": [
+      {
+        "id": "a",
+        "path": [
+          "Duplicate"
+        ],
+        "descendants": [
+          "a"
+        ],
+        "enabled": false
+      },
+      {
+        "id": "a",
+        "path": [
+          "Duplicate"
+        ],
+        "descendants": [
+          "a"
+        ],
+        "enabled": false
+      }
+    ],
+    "counts": []
+  }
+]

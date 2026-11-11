@@ -17,7 +17,7 @@ including the temporary orchestration modules noted below.
 | `sync` | Records, payloads, local index and merge rules; no CloudKit calls |
 | `activity` | In-memory event ring and explanations; no production serialization |
 | `system` | `AppInfo`, `Rect`, `PermissionStatus`, `TapMode`, `EngineStatus` vocabulary for application ports |
-| `search` | S21: ranking, indexing and highlight ranges |
+| `search` | Fuzzy ranking: `index`, `rank`, `highlight`, and `locale_compare` for tie-breaks |
 | `color` | S24: colour parsing, representations and contrast |
 | `keys` | S24: accelerator grammar, symbols, spoken labels and recorder rules |
 | `release_notes` | S24: release-note presentation |
@@ -30,8 +30,9 @@ is also available directly. Cross-domain calls use the owning domain's path.
 
 ## Follow-on ownership
 
-- S21 fills `search.rs` and extends `library/{groups,usage}.rs` without reshaping
-  the moved inheritance and usage rules.
+- S21 filled `search` (`search/{fuzzy,collate}.rs`) and extended `library/{groups,usage}.rs`
+  (group tree, paths, counts, `usage_by_id`, `totals`). The search index takes the template
+  summariser as a function; wire S23's `template::summary` plain summary (2,000 units) into it.
 - S22 fills `clipboard/{query,sections,facts}.rs`.
 - S23 fills `template/{doc,chips,presets,summary,lists,images}.rs`.
 - S24 fills `color.rs`, `keys.rs`, `release_notes.rs` and `fmt.rs`.

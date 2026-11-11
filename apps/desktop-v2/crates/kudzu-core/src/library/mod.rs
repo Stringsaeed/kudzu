@@ -3,12 +3,12 @@
 //! - [`model`]: the records (snippet, group, usage, app rule) and the ISO-8601 date codec. The
 //!   JSON shape of these types is the library file format; changes must be additive.
 //! - [`json`]: the Kudzu JSON codec (deterministic, sorted keys).
-//! - [`groups`]: inheritance of enablement, app rules and insertion through the group tree.
-//!   S21 adds the tree, paths, counts and descendant sets.
+//! - [`groups`]: inheritance of enablement, app rules and insertion through the group tree, and
+//!   the tree itself: ordered nodes, flattening, paths, descendant sets and recursive counts.
 //! - [`triggers`]: validation of triggers typed into the editor.
 //! - [`conflicts`]: duplicate and shadowed triggers.
-//! - [`usage`]: usage totals across devices, time saved and the palette's usage rank. S21 adds
-//!   the remaining aggregation.
+//! - [`usage`]: usage totals across devices, time saved and the palette's usage rank, plus the
+//!   Insights aggregation (`usage_by_id`, `totals`).
 //! - [`dedupe`]: deterministic duplicate detection and merging after sync or import.
 //! - [`naming`]: collision-free names and triggers for duplicates and new snippets.
 //! - [`starter`]: the Getting Started snippets.
