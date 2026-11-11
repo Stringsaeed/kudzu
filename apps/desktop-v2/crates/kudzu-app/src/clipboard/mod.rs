@@ -199,6 +199,11 @@ impl ClipboardService {
         notice.notify();
         Ok(result)
     }
+    /// The process clock. Callers that must not read the host wall time use this.
+    pub fn clock(&self) -> Arc<dyn Clock> {
+        Arc::clone(&self.clock)
+    }
+
     /// Last capture failure, with no clipboard content in its error.
     pub fn capture_error(&self) -> Watch<Option<ClipboardError>> {
         self.capture_error.watch()

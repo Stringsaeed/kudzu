@@ -106,12 +106,12 @@ impl PaletteKeys {
         if let Key::Modifier { modifier, pressed } = key.key {
             if !pressed && releases_numbers(modifier) {
                 self.show_numbers = false;
-            } else if pressed && (key.mods.cmd || key.mods.ctrl) {
+            } else if pressed && key.mods.cmd {
                 self.show_numbers = true;
             }
             return Effect::None;
         }
-        if key.mods.cmd || key.mods.ctrl {
+        if key.mods.cmd {
             self.show_numbers = true;
         }
         let total = rows.len() + usize::from(create);
@@ -215,10 +215,7 @@ impl PaletteKeys {
 }
 
 fn releases_numbers(modifier: Modifier) -> bool {
-    matches!(
-        modifier,
-        Modifier::ControlLeft | Modifier::ControlRight | Modifier::SuperLeft | Modifier::SuperRight
-    )
+    matches!(modifier, Modifier::SuperLeft | Modifier::SuperRight)
 }
 
 /// Control+letter, whether it arrived as text (macOS Control bindings) or as a command.
@@ -459,11 +456,40 @@ mod tests {
     }
 
     #[test]
-    fn modifiers_light_the_number_hints_and_releasing_either_clears_them() {
+    fn effect_debug_redacts_the_create_seed() {
+        let effect = Effect::Create(create_seed("secret name", ";"));
+        let rendered = format!("{effect:?}");
+        assert!(rendered.contains("value_len"), "{rendered}");
+        assert!(!rendered.contains("secret"), "{rendered}");
+    }
+
+    #[test]
+    fn command_lights_the_number_hints_and_releasing_it_clears_them() {
         let mut keys = PaletteKeys::default();
         let rows = ids(1);
         keys.on_key(&with(Key::Command('a'), cmd()), &rows, false, ";", false);
         assert!(keys.show_numbers);
+        let still_cmd = Mods {
+            cmd: true,
+            ..Mods::default()
+        };
+        keys.on_key(
+            &with(
+                Key::Modifier {
+                    modifier: Modifier::ControlLeft,
+                    pressed: false,
+                },
+                still_cmd,
+            ),
+            &rows,
+            false,
+            ";",
+            false,
+        );
+        assert!(
+            keys.show_numbers,
+            "releasing Control leaves the hints Command lit"
+        );
         keys.on_key(
             &with(
                 Key::Modifier {
@@ -485,27 +511,9 @@ mod tests {
             ";",
             false,
         );
-        assert!(keys.show_numbers);
-        let still_cmd = Mods {
-            cmd: true,
-            ..Mods::default()
-        };
-        keys.on_key(
-            &with(
-                Key::Modifier {
-                    modifier: Modifier::ControlLeft,
-                    pressed: false,
-                },
-                still_cmd,
-            ),
-            &rows,
-            false,
-            ";",
-            false,
-        );
         assert!(
             !keys.show_numbers,
-            "releasing Control clears the hints even if Command is held"
+            "Control does not light the number hints"
         );
         keys.show_numbers = true;
         keys.blur();

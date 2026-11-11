@@ -5,10 +5,6 @@ mod footer;
 mod preview_pane;
 mod rows;
 
-use std::sync::Arc;
-
-use chrono::Utc;
-use kudzu_core::KudzuLibrary;
 use rune::{col, icon, row, text, Cx, El, TextStyle};
 
 use crate::shell::windows::PaletteState;
@@ -26,7 +22,6 @@ pub fn view(state: &PaletteState, cx: &mut Cx<PaletteState>) -> El {
         state.model.theme.appearance()
     };
     let theme = Theme::resolve(appearance, cx.system_dark());
-    let library = library(state);
     let c = &theme.c;
     let card = col()
         .key("palette-card")
@@ -43,14 +38,8 @@ pub fn view(state: &PaletteState, cx: &mut Cx<PaletteState>) -> El {
                 .grow(1.0)
                 .min_h(0.0)
                 .w_full()
-                .child(rows::results(state, theme, &library))
-                .child(preview_pane::pane(
-                    state,
-                    theme,
-                    &library,
-                    preview_now_ms(state),
-                    zone_offset_minutes(),
-                )),
+                .child(rows::results(state, theme))
+                .child(preview_pane::pane(state, theme, preview_now_ms(state), 0)),
         )
         .child(footer::footer(state, theme));
     let root = col()
@@ -62,29 +51,13 @@ pub fn view(state: &PaletteState, cx: &mut Cx<PaletteState>) -> El {
     release_on_key_up(root, |s: &mut PaletteState| &mut s.model.search.held)
 }
 
-fn library(state: &PaletteState) -> Arc<KudzuLibrary> {
-    state
-        .model
-        .search
-        .frozen
-        .clone()
-        .unwrap_or_else(|| state.svc.library.watch().get())
-}
-
 fn preview_now_ms(state: &PaletteState) -> i64 {
     // A frozen scene is the capture: "Used" has to stay on that clock.
+    // Live rows use the injected clock and offset 0. The host zone is not a palette input.
     if state.model.search.frozen.is_some() {
         super::scenes::fixture_now().timestamp_millis()
     } else {
-        Utc::now().timestamp_millis()
-    }
-}
-
-fn zone_offset_minutes() -> i32 {
-    if rune::is_headless() {
-        0
-    } else {
-        chrono::Local::now().offset().local_minus_utc() / 60
+        super::model::utc_from(state.svc.clock.as_ref()).timestamp_millis()
     }
 }
 
@@ -105,11 +78,16 @@ fn search_row(state: &PaletteState, theme: &Theme) -> El {
 
 fn field(state: &PaletteState, theme: &Theme) -> El {
     let c = &theme.c;
+    // The icon is centered in the 58pt row. The line box shares that center.
+    // Padding is inside the border box, so the combobox rect stays put.
+    let line = theme.ty.search.line_px();
+    let pad = ((58.0 - line) / 2.0).max(0.0);
     rune::text_input(&state.model.search.edit, theme.ty.search)
         .key("palette-field")
         .grow(1.0)
         .h_full()
         .min_w(0.0)
+        .py(pad)
         .single_line()
         .color(c.foreground)
         .placeholder("Search snippets…", c.foreground)

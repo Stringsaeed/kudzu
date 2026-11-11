@@ -1,6 +1,5 @@
 //! The preview beside the list. "Will insert" is painted in the foreground: the
 //! capture's computed ink is the foreground, while the stylesheet says faint.
-use kudzu_core::KudzuLibrary;
 use rune::{col, icon, row, text, El, ScrollSpec, TextStyle};
 
 use crate::shell::windows::PaletteState;
@@ -10,21 +9,15 @@ use crate::widgets::formatted_text::formatted_text;
 use crate::widgets::trigger_chip::trigger_chip;
 
 use super::super::clamped;
-use super::super::rank::{form_badge, used_line, Row};
+use super::super::rank::{used_line, Row};
 
-pub(super) fn pane(
-    state: &PaletteState,
-    theme: &Theme,
-    library: &KudzuLibrary,
-    now_ms: i64,
-    offset_minutes: i32,
-) -> El {
+pub(super) fn pane(state: &PaletteState, theme: &Theme, now_ms: i64, offset_minutes: i32) -> El {
     let c = &theme.c;
     let presentation = &state.model.search.presentation;
     let index = clamped(state);
     let current = presentation.rows.get(index);
     let body = match current {
-        Some(row) => snippet_body(state, theme, library, row, now_ms, offset_minutes),
+        Some(row) => snippet_body(state, theme, row, now_ms, offset_minutes),
         None if presentation.create => col().grow(1.0).center().child(
             text("Opens Kudzu with a new snippet".to_owned())
                 .font(TextStyle::new(12.0, 400.0))
@@ -48,18 +41,11 @@ pub(super) fn pane(
 fn snippet_body(
     state: &PaletteState,
     theme: &Theme,
-    library: &KudzuLibrary,
     item: &Row,
     now_ms: i64,
     offset_minutes: i32,
 ) -> El {
     let c = &theme.c;
-    let content = library
-        .snippets
-        .iter()
-        .find(|snippet| snippet.id == item.id)
-        .map(|snippet| snippet.content.as_str())
-        .unwrap_or("");
     let mut copy = col()
         .key("preview-copy")
         .grow(1.0)
@@ -78,8 +64,8 @@ fn snippet_body(
                 .color(c.foreground),
         )
         .child(render(state, theme, item));
-    if let Some(badge) = form_badge(content) {
-        copy = copy.child(badge_row(theme, &badge));
+    if let Some(badge) = item.form_badge.as_deref() {
+        copy = copy.child(badge_row(theme, badge));
     }
     col()
         .w_full()

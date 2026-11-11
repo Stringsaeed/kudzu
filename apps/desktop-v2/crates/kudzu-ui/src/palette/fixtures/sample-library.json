@@ -1,0 +1,382 @@
+{
+  "formatVersion": 1,
+  "groups": [
+    {
+      "id": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+      "name": "Work",
+      "sortIndex": 0,
+      "isEnabled": true
+    },
+    {
+      "id": "d199e481-217b-4d81-97e5-778d9a849eee",
+      "name": "Email",
+      "parentID": "294be326-0bf6-4380-8e1a-5f5ce269c306",
+      "sortIndex": 0,
+      "isEnabled": true
+    },
+    {
+      "id": "1de7727d-b502-4053-b854-45bb5d316475",
+      "name": "Developer",
+      "sortIndex": 1,
+      "isEnabled": true
+    },
+    {
+      "id": "8528dba5-59a6-4137-bc64-ad0a4c676c3b",
+      "name": "Personal",
+      "sortIndex": 2,
+      "isEnabled": true
+    }
+  ],
+  "snippets": [
+    {
+      "id": "c5af65ac-e426-4046-802b-11ccdd3a62ba",
+      "name": "Email signature",
+      "triggers": [
+        ";sig"
+      ],
+      "content": "Best regards,\nSaeed\n{{date format=\"MMMM d, yyyy\"}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": true,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-09T12:00:00Z",
+      "groupID": "d199e481-217b-4d81-97e5-778d9a849eee"
+    },
+    {
+      "id": "20493e8e-c034-4ff0-b926-e5ae3e119630",
+      "name": "Meeting follow-up",
+      "triggers": [
+        ";fu",
+        ";followup"
+      ],
+      "content": "Hi {{field name=\"Name\"}},\n\nThanks for the time today. As discussed, {{cursor}}\n\n{{snippet id=\"c5af65ac-e426-4046-802b-11ccdd3a62ba\"}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-30T12:00:00Z",
+      "groupID": "d199e481-217b-4d81-97e5-778d9a849eee"
+    },
+    {
+      "id": "0330ec1e-83cc-4b3a-a19a-ea9ff6bbe03d",
+      "name": "Out of office",
+      "triggers": [
+        ";ooo"
+      ],
+      "content": "I'm out of the office until {{date format=\"EEEE, MMMM d\" offset=\"+1w\"}} with limited access to email.",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-06T12:00:00Z",
+      "groupID": "d199e481-217b-4d81-97e5-778d9a849eee"
+    },
+    {
+      "id": "1694192f-e0a1-4ea2-be74-ca80a9a0973d",
+      "name": "Today",
+      "triggers": [
+        ";date"
+      ],
+      "content": "{{date}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": true,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-28T12:00:00Z"
+    },
+    {
+      "id": "aadb79bc-0f3a-4eb0-ae17-0669de8cc5c1",
+      "name": "Current time",
+      "triggers": [
+        ";now"
+      ],
+      "content": "{{time format=\"h:mm a\"}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-24T12:00:00Z"
+    },
+    {
+      "id": "a5c4a947-fb64-4f49-a98b-ced9cdd4fede",
+      "name": "Shrug",
+      "triggers": [
+        ";shrug"
+      ],
+      "content": "\u00af\\_(\u30c4)_/\u00af",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": true,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-07T12:00:00Z"
+    },
+    {
+      "id": "66e39ffc-1d2a-4e53-aefe-907e44d16c8c",
+      "name": "Paste as quote",
+      "triggers": [
+        ";quote"
+      ],
+      "content": "> {{clipboard trim=true}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-09T12:00:00Z"
+    },
+    {
+      "id": "341b08b7-3246-4f19-885d-b98fe547672b",
+      "name": "Bug report",
+      "triggers": [
+        ";bug"
+      ],
+      "content": "**Environment:** {{choice name=\"Platform\" options=\"macOS|Windows|Linux\"}}\n**Steps:**\n1. {{cursor}}\n**Expected:**\n**Actual:**",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-03T12:00:00Z",
+      "groupID": "1de7727d-b502-4053-b854-45bb5d316475"
+    },
+    {
+      "id": "f6b04cab-794f-4073-a044-1f6a1d460fd7",
+      "name": "Console log",
+      "triggers": [
+        ";cl"
+      ],
+      "content": "console.log({{clipboard}})",
+      "fireMode": "wholeWord",
+      "caseMode": "exact",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-11T12:00:00Z",
+      "groupID": "1de7727d-b502-4053-b854-45bb5d316475"
+    },
+    {
+      "id": "c322f888-3d93-4987-9a05-cdef84f71ee0",
+      "name": "Git commit co-author",
+      "triggers": [
+        ";coa"
+      ],
+      "content": "Co-authored-by: {{field name=\"Author\"}} <{{field name=\"Email\"}}>",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-28T12:00:00Z",
+      "groupID": "1de7727d-b502-4053-b854-45bb5d316475"
+    },
+    {
+      "id": "6077dd69-71f7-4d82-bf8e-095eb554b112",
+      "name": "Home address",
+      "triggers": [
+        ";addr"
+      ],
+      "content": "221B Baker Street\nLondon NW1 6XE\nUnited Kingdom",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-23T12:00:00Z",
+      "groupID": "8528dba5-59a6-4137-bc64-ad0a4c676c3b"
+    },
+    {
+      "id": "43b68916-0ddc-4530-a348-ae28b80d2b57",
+      "name": "Phone number",
+      "triggers": [
+        ";ph"
+      ],
+      "content": "+44 20 7946 0958",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-03T12:00:00Z",
+      "groupID": "8528dba5-59a6-4137-bc64-ad0a4c676c3b"
+    },
+    {
+      "id": "4047fbd5-11d7-4be7-9711-e7a567b8e9cc",
+      "name": "Thanks",
+      "triggers": [
+        ";ty"
+      ],
+      "content": "Thank you so much \u2014 really appreciate it!",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-08T12:00:00Z"
+    },
+    {
+      "id": "ca7aa1ab-86b7-4aaa-8b6a-bf84065181e1",
+      "name": "Calendar link",
+      "triggers": [
+        ";cal"
+      ],
+      "content": "You can grab a time that works here: https://cal.com/saeed/30min",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-31T12:00:00Z",
+      "groupID": "294be326-0bf6-4380-8e1a-5f5ce269c306"
+    },
+    {
+      "id": "8a7c7f80-f171-4b72-b570-ef1ee63efba3",
+      "name": "Sign-up form",
+      "triggers": [
+        ";signup"
+      ],
+      "content": "Saeed{{key name=\"tab\"}}saeed@example.com{{key name=\"tab\" count=2}}{{random options=\"Thanks|Cheers|Best\"}}{{delay ms=300}}{{key name=\"return\"}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-11T12:00:00Z",
+      "groupID": "294be326-0bf6-4380-8e1a-5f5ce269c306"
+    },
+    {
+      "id": "4e5a3915-0e9b-4e6d-9fe0-6bebcc60ff96",
+      "name": "Quote the selection",
+      "triggers": [
+        ";sel"
+      ],
+      "content": "> {{selection trim=true}}\n\nSee also: {{clipboard history=1}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-27T12:00:00Z"
+    },
+    {
+      "id": "fc52defc-5a90-4d75-80f9-b4d185ab193b",
+      "name": "Request ID",
+      "triggers": [
+        ";rid"
+      ],
+      "content": "req-{{uuid}}",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": true,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-10-24T12:00:00Z",
+      "groupID": "1de7727d-b502-4053-b854-45bb5d316475"
+    },
+    {
+      "id": "c1e619d2-e76c-4bc4-aeff-2b5361c17227",
+      "name": "Lorem ipsum",
+      "triggers": [
+        ";lorem"
+      ],
+      "content": "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+      "fireMode": "immediate",
+      "caseMode": "propagate",
+      "isFavorite": false,
+      "isEnabled": false,
+      "createdAt": "2026-10-02T12:00:00Z",
+      "updatedAt": "2026-11-10T12:00:00Z"
+    }
+  ],
+  "usage": [
+    {
+      "snippetID": "c5af65ac-e426-4046-802b-11ccdd3a62ba",
+      "deviceID": "mock",
+      "count": 129,
+      "charsSaved": 5914,
+      "lastUsedAt": "2026-11-11T12:00:00Z"
+    },
+    {
+      "snippetID": "20493e8e-c034-4ff0-b926-e5ae3e119630",
+      "deviceID": "mock",
+      "count": 75,
+      "charsSaved": 9750,
+      "lastUsedAt": "2026-11-09T19:12:00Z"
+    },
+    {
+      "snippetID": "0330ec1e-83cc-4b3a-a19a-ea9ff6bbe03d",
+      "deviceID": "mock",
+      "count": 53,
+      "charsSaved": 5135,
+      "lastUsedAt": "2026-11-08T02:24:00Z"
+    },
+    {
+      "snippetID": "1694192f-e0a1-4ea2-be74-ca80a9a0973d",
+      "deviceID": "mock",
+      "count": 41,
+      "charsSaved": 123,
+      "lastUsedAt": "2026-11-06T09:36:00Z"
+    },
+    {
+      "snippetID": "aadb79bc-0f3a-4eb0-ae17-0669de8cc5c1",
+      "deviceID": "mock",
+      "count": 33,
+      "charsSaved": 667,
+      "lastUsedAt": "2026-11-04T16:48:00Z"
+    },
+    {
+      "snippetID": "a5c4a947-fb64-4f49-a98b-ced9cdd4fede",
+      "deviceID": "mock",
+      "count": 28,
+      "charsSaved": 84,
+      "lastUsedAt": "2026-11-03T00:00:00Z"
+    },
+    {
+      "snippetID": "66e39ffc-1d2a-4e53-aefe-907e44d16c8c",
+      "deviceID": "mock",
+      "count": 24,
+      "charsSaved": 462,
+      "lastUsedAt": "2026-11-01T07:12:00Z"
+    },
+    {
+      "snippetID": "341b08b7-3246-4f19-885d-b98fe547672b",
+      "deviceID": "mock",
+      "count": 21,
+      "charsSaved": 2571,
+      "lastUsedAt": "2026-10-30T14:24:00Z"
+    },
+    {
+      "snippetID": "f6b04cab-794f-4073-a044-1f6a1d460fd7",
+      "deviceID": "mock",
+      "count": 19,
+      "charsSaved": 440,
+      "lastUsedAt": "2026-10-28T21:36:00Z"
+    },
+    {
+      "snippetID": "c322f888-3d93-4987-9a05-cdef84f71ee0",
+      "deviceID": "mock",
+      "count": 17,
+      "charsSaved": 1038,
+      "lastUsedAt": "2026-10-27T04:48:00Z"
+    },
+    {
+      "snippetID": "6077dd69-71f7-4d82-bf8e-095eb554b112",
+      "deviceID": "mock",
+      "count": 16,
+      "charsSaved": 663,
+      "lastUsedAt": "2026-10-25T12:00:00Z"
+    },
+    {
+      "snippetID": "43b68916-0ddc-4530-a348-ae28b80d2b57",
+      "deviceID": "mock",
+      "count": 15,
+      "charsSaved": 189,
+      "lastUsedAt": "2026-10-23T19:12:00Z"
+    }
+  ]
+}

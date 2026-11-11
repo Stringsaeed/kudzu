@@ -12,6 +12,9 @@ pub mod view;
 
 mod drive;
 
+#[cfg(test)]
+mod regress;
+
 pub(crate) use drive::{apply, clamped, on_input_key, on_key, pick, place, poll, setup};
 pub use keys::{Effect, PaletteKeys};
 pub use notice::{classify, NoticeKind};

@@ -1,5 +1,4 @@
 //! The result list: section, hits, the create row, and the empty-scope copy.
-use kudzu_core::KudzuLibrary;
 use rune::{col, icon, row, text, El, Icon, ScrollSpec, Span, TextStyle};
 
 use crate::shell::windows::PaletteState;
@@ -9,9 +8,9 @@ use crate::widgets::shortcut::{Shortcut, Tone};
 use crate::widgets::trigger_chip::trigger_chip;
 
 use super::super::clamped;
-use super::super::rank::{kind_of, Kind, Row};
+use super::super::rank::{Kind, Row};
 
-pub(super) fn results(state: &PaletteState, theme: &Theme, library: &KudzuLibrary) -> El {
+pub(super) fn results(state: &PaletteState, theme: &Theme) -> El {
     let presentation = &state.model.search.presentation;
     let active = clamped(state);
     let mut list = col().key("palette-rows").gap(0.0).w_full();
@@ -26,7 +25,6 @@ pub(super) fn results(state: &PaletteState, theme: &Theme, library: &KudzuLibrar
         for (index, item) in presentation.rows.iter().enumerate() {
             list = list.child(hit(
                 theme,
-                library,
                 item,
                 index,
                 index == active,
@@ -108,21 +106,8 @@ fn empty_state(theme: &Theme, message: &str, scope: super::super::rank::Scope) -
         )
 }
 
-fn hit(
-    theme: &Theme,
-    library: &KudzuLibrary,
-    item: &Row,
-    index: usize,
-    active: bool,
-    numbers: bool,
-) -> El {
+fn hit(theme: &Theme, item: &Row, index: usize, active: bool, numbers: bool) -> El {
     let c = &theme.c;
-    let content = library
-        .snippets
-        .iter()
-        .find(|snippet| snippet.id == item.id)
-        .map(|snippet| snippet.content.as_str())
-        .unwrap_or("");
     let mut line = row()
         .key(format!("pal-row-{index}"))
         .role("option")
@@ -147,7 +132,7 @@ fn hit(
         line = line.opacity(0.6);
     }
     line = line
-        .child(kind_box(theme, kind_of(content), active))
+        .child(kind_box(theme, item.kind, active))
         .child(titles(theme, item))
         .child(row().grow(1.0));
     if let Some(trigger) = item.triggers.first() {

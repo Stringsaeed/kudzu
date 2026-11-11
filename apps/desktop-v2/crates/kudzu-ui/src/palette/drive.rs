@@ -4,19 +4,18 @@
 //! frame clock so a headless script and the window agree.
 
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
 
-use chrono::Utc;
-use kudzu_app::expansion::InsertionOutcome;
-use rune::{Key, KeyEvent, Tx, Waker};
+use rune::{Key, KeyEvent, Mods, Tx, Waker};
 use uuid::Uuid;
 
 use super::keys::Effect;
-use super::model::{log_start, CopyJob, RenderInflight};
+use super::model::{log_start, utc_from, CopyJob, HeldList, RenderInflight};
 use super::notice::{classify, NoticeKind};
 use super::place::{display_local_origin, HEIGHT, WIDTH};
 use super::preview::COPY_HIDE_AFTER;
 use super::query::CreateAs;
-use super::rank::present;
 use crate::shell::routes::{NewSnippet, Route};
 use crate::shell::windows::PaletteState;
 use crate::widgets::key_hints::hint_for;
@@ -25,8 +24,13 @@ pub fn setup(state: &mut PaletteState, waker: Waker) {
     state.model.search.search.set_waker(waker);
 }
 
+/// How long an insert keeps the palette from opening again.
+/// `expansion::hold::OUTCOME_DEADLINE` is the same ten seconds and is crate-private.
+const INSERT_HOLD: Duration = Duration::from_secs(10);
+
 pub fn poll(state: &mut PaletteState, now: f64, tx: &mut Tx) -> bool {
     let mut changed = state.sync();
+    changed |= commit_pending(state);
     changed |= pull_search(state);
     changed |= advance_preview(state, now, tx);
     changed |= advance_copy(state, now, tx);
@@ -87,11 +91,14 @@ pub fn place(state: &PaletteState) {
 }
 
 fn dispatch(state: &mut PaletteState, key: &KeyEvent, tx: &mut Tx) {
+    state.model.search.held.press(hint_for(key));
+    if hold_until_the_list_matches(state, key) {
+        return;
+    }
     let prefix = trigger_prefix(state);
     let rows = hit_ids(state);
     let create = state.model.search.presentation.create;
     let main_focused = state.shell.main_focused();
-    state.model.search.held.press(hint_for(key));
     let effect = state
         .model
         .search
@@ -111,7 +118,10 @@ fn dispatch(state: &mut PaletteState, key: &KeyEvent, tx: &mut Tx) {
 pub fn apply(state: &mut PaletteState, effect: Effect) {
     match effect {
         Effect::None => {}
-        Effect::QueryCleared => state.model.search.edit.replace_text(""),
+        Effect::QueryCleared => {
+            state.model.search.held_list = None;
+            state.model.search.edit.replace_text("");
+        }
         Effect::Insert(id) => insert(state, id),
         Effect::Copy(id) => start_copy(state, id),
         Effect::Edit(id) => {
@@ -148,21 +158,24 @@ fn pull_search(state: &mut PaletteState) -> bool {
     }
     if state.model.search.frozen.is_none() {
         let (revision, library) = state.svc.library.watch().snapshot();
+        let revision = revision.0;
         let scope = state.model.search.keys.scope;
-        let now = Utc::now();
-        let library = library.clone();
+        let now = utc_from(state.svc.clock.as_ref());
+        let library = Arc::clone(&library);
+        let cache = Arc::clone(&state.model.search.cache);
         state
             .model
             .search
             .search
-            .request_if_changed(&(revision.0, text, scope), move |(_, query, scope)| {
-                present(&library, &query, scope, now)
+            .request_if_changed(&(revision, text, scope), move |(_, query, scope)| {
+                cache.answer(revision, &library, &query, scope, now)
             });
     }
     if let Some(next) = state.model.search.search.take() {
         if state.model.search.frozen.is_none() {
             state.model.search.presentation = next;
             changed = true;
+            flush_held(state);
         }
     }
     changed
@@ -272,6 +285,7 @@ fn advance_insert(state: &mut PaletteState) -> bool {
             if !matches!(result, Ok(Ok(()))) {
                 log::warn!("quick search insert was not admitted");
                 state.model.search.pending = None;
+                state.model.search.insert_until = None;
             }
             true
         }
@@ -292,14 +306,13 @@ fn advance_outcomes(state: &mut PaletteState) -> bool {
         NoticeKind::EngineStopped => {
             log::warn!("quick search stopped because the engine stopped");
             state.model.search.pending = None;
+            state.model.search.insert_until = None;
             state.model.search.baseline = notice.sequence;
             true
         }
-        NoticeKind::Settled(outcome) => {
-            if outcome != InsertionOutcome::Expanded {
-                super::model::log_outcome(outcome);
-            }
+        NoticeKind::Settled(_) => {
             state.model.search.pending = None;
+            state.model.search.insert_until = None;
             state.model.search.baseline = notice.sequence;
             true
         }
@@ -344,20 +357,28 @@ fn start_copy(state: &mut PaletteState, id: Uuid) {
 }
 
 fn insert(state: &mut PaletteState, id: Uuid) {
+    // The capture task stays put. Dropping it here loses the session, and the pick with it.
+    state.model.search.pending_pick = Some(id);
+    commit_pending(state);
+}
+
+/// Run a queued pick once the session exists. Hiding can blur back into `dismiss`, which
+/// must not clear `pending`: the guard has already moved into the insert task.
+fn commit_pending(state: &mut PaletteState) -> bool {
+    let Some(id) = state.model.search.pending_pick else {
+        return false;
+    };
+    let Some(session) = state.model.session.take() else {
+        return false;
+    };
+    state.model.search.pending_pick = None;
     let baseline = match *state.svc.expansion.outcomes().get() {
         Some(notice) => notice.sequence,
         None => 0,
     };
     state.model.search.baseline = baseline;
     state.model.search.pending = Some(id);
-    state.model.capture = None;
-    // Take the session before hide. A blur from hiding calls `dismiss`, which would
-    // otherwise drop the guard before `insert` moves it into the task.
-    let Some(session) = state.model.session.take() else {
-        log::warn!("quick search insert had no captured target");
-        state.model.search.pending = None;
-        return;
-    };
+    state.model.search.insert_until = Some(state.svc.clock.now() + INSERT_HOLD);
     state.model.open = false;
     state.shell.handles().palette.hide();
     match session.insert(id) {
@@ -365,6 +386,85 @@ fn insert(state: &mut PaletteState, id: Uuid) {
         Err(error) => {
             log_start("quick search insert", error);
             state.model.search.pending = None;
+            state.model.search.insert_until = None;
+        }
+    }
+    true
+}
+
+/// Enter and ⌘1–9 name a row. They wait until `presentation` was built for this field.
+fn hold_until_the_list_matches(state: &mut PaletteState, key: &KeyEvent) -> bool {
+    let Some(action) = list_action(key) else {
+        return false;
+    };
+    if list_matches(state) {
+        state.model.search.held_list = None;
+        return false;
+    }
+    if key.mods.cmd {
+        state.model.search.keys.show_numbers = true;
+    }
+    state.model.search.held_list = Some(action);
+    true
+}
+
+fn flush_held(state: &mut PaletteState) {
+    if !list_matches(state) {
+        return;
+    }
+    let Some(action) = state.model.search.held_list.take() else {
+        return;
+    };
+    let key = action.event();
+    let prefix = trigger_prefix(state);
+    let rows = hit_ids(state);
+    let create = state.model.search.presentation.create;
+    let main_focused = state.shell.main_focused();
+    let effect = state
+        .model
+        .search
+        .keys
+        .on_key(&key, &rows, create, &prefix, main_focused);
+    apply(state, effect);
+}
+
+fn list_matches(state: &PaletteState) -> bool {
+    let search = &state.model.search;
+    search.presentation.for_query == search.edit.text
+        && search.presentation.for_scope == search.keys.scope
+}
+
+fn list_action(key: &KeyEvent) -> Option<HeldList> {
+    if matches!(key.key, Key::Enter) {
+        return Some(HeldList::Enter { copy: key.mods.cmd });
+    }
+    if key.mods.cmd && !key.mods.ctrl {
+        if let Key::Command(c) = key.key {
+            if let Some(digit) = c.to_digit(10).filter(|d| (1..=9).contains(d)) {
+                return Some(HeldList::Digit(digit as u8));
+            }
+        }
+    }
+    None
+}
+
+impl HeldList {
+    fn event(self) -> KeyEvent {
+        match self {
+            HeldList::Enter { copy } => KeyEvent {
+                key: Key::Enter,
+                mods: Mods {
+                    cmd: copy,
+                    ..Mods::default()
+                },
+            },
+            HeldList::Digit(n) => KeyEvent {
+                key: Key::Command(char::from(b'0' + n)),
+                mods: Mods {
+                    cmd: true,
+                    ..Mods::default()
+                },
+            },
         }
     }
 }

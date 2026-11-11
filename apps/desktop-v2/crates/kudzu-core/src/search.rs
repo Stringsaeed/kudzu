@@ -34,8 +34,14 @@ mod collate;
 mod collation_tests;
 mod content;
 mod fuzzy;
+mod palette;
 #[cfg(test)]
 mod tests;
+
+pub use palette::{
+    create_seed, form_badge, kind_of, present, split_query, used_line, CreateAs, CreateSeed, Kind,
+    PaletteCache, Presentation, Row, Scope, RESULT_LIMIT,
+};
 
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};

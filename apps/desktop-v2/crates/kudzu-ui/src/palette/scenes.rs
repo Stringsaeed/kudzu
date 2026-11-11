@@ -92,10 +92,10 @@ fn sample_library() -> Arc<KudzuLibrary> {
     static LIBRARY: OnceLock<Arc<KudzuLibrary>> = OnceLock::new();
     LIBRARY
         .get_or_init(|| {
-            let raw = include_str!("../../../../docs/migration/reference/fixtures/mock-state.json");
-            let value: serde_json::Value = serde_json::from_str(raw).expect("mock state");
-            let library: KudzuLibrary =
-                serde_json::from_value(value["library"].clone()).expect("mock library");
+            // The release headless binary paints `--scene`, so the fixture is part of the
+            // crate. A feature flag would strip it from that binary.
+            let raw = include_str!("fixtures/sample-library.json");
+            let library: KudzuLibrary = serde_json::from_str(raw).expect("sample library");
             Arc::new(library)
         })
         .clone()

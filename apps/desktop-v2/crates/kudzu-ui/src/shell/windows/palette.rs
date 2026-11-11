@@ -8,6 +8,7 @@ use crate::palette::model::SearchModel;
 use kudzu_app::assembly::Kudzu;
 use kudzu_app::expansion::{ExpansionError, ExpansionService, QuickSearchSession};
 use kudzu_app::library::LibraryService;
+use kudzu_app::ports::Clock;
 use kudzu_app::settings::SettingsService;
 use kudzu_app::tasks::Task;
 use std::sync::Arc;
@@ -16,6 +17,7 @@ pub struct PaletteServices {
     pub settings: Arc<SettingsService>,
     pub library: Arc<LibraryService>,
     pub expansion: Arc<ExpansionService>,
+    pub clock: Arc<dyn Clock>,
 }
 
 impl From<&Arc<Kudzu>> for PaletteServices {
@@ -24,6 +26,7 @@ impl From<&Arc<Kudzu>> for PaletteServices {
             settings: kudzu.settings.clone(),
             library: kudzu.library.clone(),
             expansion: kudzu.expansion.clone(),
+            clock: kudzu.clipboard.clock(),
         }
     }
 }
@@ -56,7 +59,11 @@ impl PaletteState {
     }
 
     /// The Quick Search shortcut and the tray row.
+    /// An insert that has not settled, and is still inside its hold, keeps the panel hidden.
     pub fn toggle(&mut self) {
+        if self.model.search.insert_in_flight(self.svc.clock.now()) {
+            return;
+        }
         if self.model.open {
             self.dismiss(true);
         } else {
@@ -67,7 +74,7 @@ impl PaletteState {
     /// Start the capture (frontmost app, and the selection only when a snippet needs it),
     /// then show the panel on the next turn, after the hidden panel drew this state.
     fn open(&mut self) {
-        self.model.search.reset();
+        self.model.search.reset(self.svc.clock.now());
         match self.svc.expansion.begin_quick_search() {
             Ok(task) => self.model.capture = Some(task),
             Err(error) => log::warn!("Quick Search could not start: {error}"),
@@ -86,9 +93,14 @@ impl PaletteState {
     /// target (Escape, the shortcut again) unless `main` is focused. A blur just drops
     /// the session.
     pub fn dismiss(&mut self, restore: bool) {
+        // `main` resigns as soon as this panel is key, so `main_focused` is false whenever
+        // a key dismisses the palette. The flag stays as an S71 live check: a focused main
+        // window still has to be able to suppress restoring the target.
         let restore = restore && !self.shell.main_focused();
         self.model.search.keys.blur();
         self.model.search.copy_due = None;
+        self.model.search.pending_pick = None;
+        self.model.search.held_list = None;
         // Dropping an unfinished capture drops its session, and so its guard, when it lands.
         self.model.capture = None;
         if let Some(session) = self.model.session.take() {
