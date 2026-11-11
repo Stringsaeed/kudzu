@@ -1339,6 +1339,11 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D18 | **Export file name** uses the local date (`kudzu-YYYY-MM-DD.json`), not Tauri's UTC date, which could name an evening export after tomorrow (2026-11-11). | S29 |
 | D19 | **"Before update" backup retries:** the version is marked done only after its backup succeeds, so a failed backup is tried again on the next launch. Tauri never retries (2026-11-11). | S29, S40 |
 | D20 | **Insertion ports are fire-and-forget (2026-11-11, after the S27 review):** `ExpansionEngine::insert` and `FormChannel::submit_form` return only admission errors (no engine, stale token, busy). Outcomes (expanded, interrupted, failed, trigger lost) arrive through `EngineEvents` and Activity, as in the S34 engine and the Tauri app. The services expose a content-free outcome `Watch` for windows. | S27, S35, S40, S56, S57 |
+| D21 | **Match these S07 differences now (2026-11-11):**
+- the secret cover keeps the hidden content's measured height, without putting the secret in the tree;
+- the checkbox gets its raised depth and sheen, the select its 3 pt focus halo, and the toast is 356 pt wide;
+- the formatted-preview cursor is a 2 pt bar;
+- key hints release on the real key-up, and keyboard activation shows the pressed look, using an AppKit key-up monitor in `kudzu-appkit` (`RUNE-GAP`) until Rune reports key-up and press state (#360). | S07, S38 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
