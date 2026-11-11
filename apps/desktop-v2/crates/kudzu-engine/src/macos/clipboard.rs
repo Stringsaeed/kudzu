@@ -8,26 +8,27 @@ use objc2::AnyThread;
 use objc2_app_kit::NSImage;
 use objc2_foundation::NSData;
 
-use super::{apps, keys, pasteboard};
+use super::events::SystemEvents;
+use super::pasteboard::Pasteboard;
+use super::{apps, keys};
 use crate::clipboard::{PasteError, Thumbnail};
 use crate::AppInfo;
 
 pub fn change_count() -> i64 {
-    pasteboard::change_count() as i64
+    Pasteboard::shared().change_count() as i64
 }
 
 pub fn is_own_change(count: i64) -> bool {
-    pasteboard::is_own_change(count as isize)
+    Pasteboard::shared().is_own_change(count as isize)
 }
 
 pub fn read() -> Vec<Vec<(String, Vec<u8>)>> {
-    pasteboard::read_items()
+    Pasteboard::shared().read_items()
 }
 
 pub fn write(items: &[Vec<(String, Vec<u8>)>]) -> i64 {
-    // A snippet paste still waiting to restore must not overwrite what the user picks now.
-    pasteboard::restore_pending();
-    pasteboard::write_items(items) as i64
+    // Finishes a snippet paste still waiting to restore first (see `Pasteboard::write_items`).
+    Pasteboard::shared().write_items(items) as i64
 }
 
 pub fn can_paste() -> bool {
@@ -42,7 +43,7 @@ pub fn paste(target: Option<&AppInfo>) -> Result<(), PasteError> {
         // Let the target's key window settle before ⌘V.
         thread::sleep(Duration::from_millis(40));
     }
-    keys::paste().map_err(|_| PasteError::NotAllowed)
+    keys::paste(&SystemEvents).map_err(|_| PasteError::NotAllowed)
 }
 
 pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {

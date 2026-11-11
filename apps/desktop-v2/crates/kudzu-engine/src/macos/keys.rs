@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::events::Events;
 use super::ffi::*;
 use super::input_source;
 use crate::input::{self, Retyped};
@@ -13,16 +14,16 @@ pub(crate) const SYNTHETIC_MARKER: i64 = 0x004B_5544_5A55;
 /// `eventSourceUserData` on held physical keys we re-post; the tap matches them like real typing.
 pub(crate) const REPLAY_MARKER: i64 = 0x004B_5552_504C;
 
-const KEY_DELETE: CGKeyCode = 51;
-const KEY_LEFT: CGKeyCode = 123;
-const KEY_RIGHT: CGKeyCode = 124;
-const KEY_DOWN: CGKeyCode = 125;
-const KEY_UP: CGKeyCode = 126;
-const KEY_TAB: CGKeyCode = 48;
-const KEY_RETURN: CGKeyCode = 36;
-const KEY_ESCAPE: CGKeyCode = 53;
-const KEY_SPACE: CGKeyCode = 49;
-const KEY_FORWARD_DELETE: CGKeyCode = 117;
+pub(crate) const KEY_DELETE: CGKeyCode = 51;
+pub(crate) const KEY_LEFT: CGKeyCode = 123;
+pub(crate) const KEY_RIGHT: CGKeyCode = 124;
+pub(crate) const KEY_DOWN: CGKeyCode = 125;
+pub(crate) const KEY_UP: CGKeyCode = 126;
+pub(crate) const KEY_TAB: CGKeyCode = 48;
+pub(crate) const KEY_RETURN: CGKeyCode = 36;
+pub(crate) const KEY_ESCAPE: CGKeyCode = 53;
+pub(crate) const KEY_SPACE: CGKeyCode = 49;
+pub(crate) const KEY_FORWARD_DELETE: CGKeyCode = 117;
 /// Longest Unicode string per synthetic event (apps truncate longer ones).
 const CHUNK_UTF16: usize = 20;
 
@@ -52,7 +53,9 @@ pub(crate) fn can_post() -> bool {
     unsafe { CGPreflightPostEventAccess() && IsSecureEventInputEnabled() == 0 }
 }
 
-fn press(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), KeyError> {
+/// Posts one key press (down, then up) marked [`SYNTHETIC_MARKER`]: the real
+/// [`Events::press`](super::events::Events::press).
+pub(super) fn post(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), KeyError> {
     if !can_post() {
         return Err(KeyError::NotAllowed);
     }
@@ -75,26 +78,26 @@ fn press(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), Key
     Ok(())
 }
 
-fn repeat(key: CGKeyCode, count: usize) -> Result<(), KeyError> {
+fn repeat(events: &dyn Events, key: CGKeyCode, count: usize) -> Result<(), KeyError> {
     for _ in 0..count {
-        press(key, 0, &[])?;
+        events.press(key, 0, &[])?;
     }
     Ok(())
 }
 
 /// Presses Delete `count` times.
-pub(crate) fn delete_backward(count: usize) -> Result<(), KeyError> {
-    repeat(KEY_DELETE, count)
+pub(crate) fn delete_backward(events: &dyn Events, count: usize) -> Result<(), KeyError> {
+    repeat(events, KEY_DELETE, count)
 }
 
 /// Presses Left Arrow `count` times.
-pub(crate) fn move_left(count: usize) -> Result<(), KeyError> {
-    repeat(KEY_LEFT, count)
+pub(crate) fn move_left(events: &dyn Events, count: usize) -> Result<(), KeyError> {
+    repeat(events, KEY_LEFT, count)
 }
 
 /// Presses Right Arrow `count` times.
-pub(crate) fn move_right(count: usize) -> Result<(), KeyError> {
-    repeat(KEY_RIGHT, count)
+pub(crate) fn move_right(events: &dyn Events, count: usize) -> Result<(), KeyError> {
+    repeat(events, KEY_RIGHT, count)
 }
 
 /// The virtual key code of a `{{key}}` tag's key (ANSI layout-independent keys only).
@@ -115,37 +118,41 @@ fn key_code(key: kudzu_core::template::Key) -> CGKeyCode {
 }
 
 /// Presses `key` `count` times, without modifiers.
-pub(crate) fn press_key(key: kudzu_core::template::Key, count: u32) -> Result<(), KeyError> {
-    repeat(key_code(key), count as usize)
+pub(crate) fn press_key(
+    events: &dyn Events,
+    key: kudzu_core::template::Key,
+    count: u32,
+) -> Result<(), KeyError> {
+    repeat(events, key_code(key), count as usize)
 }
 
 /// Presses ⌘C: Command with whichever key is "c" on the current layout.
-pub(crate) fn copy() -> Result<(), KeyError> {
-    press(input_source::copy_key(), kCGEventFlagMaskCommand, &[])
+pub(crate) fn copy(events: &dyn Events) -> Result<(), KeyError> {
+    events.press(input_source::copy_key(), kCGEventFlagMaskCommand, &[])
 }
 
 /// Presses ⌘V: Command with whichever key is "v" on the current layout.
-pub(crate) fn paste() -> Result<(), KeyError> {
-    press(input_source::paste_key(), kCGEventFlagMaskCommand, &[])
+pub(crate) fn paste(events: &dyn Events) -> Result<(), KeyError> {
+    events.press(input_source::paste_key(), kCGEventFlagMaskCommand, &[])
 }
 
 /// Types `text` as Unicode keystrokes, chunked on grapheme boundaries so emoji ZWJ sequences
 /// and combining marks never split across events.
-pub(crate) fn type_text(text: &str) -> Result<(), KeyError> {
+pub(crate) fn type_text(events: &dyn Events, text: &str) -> Result<(), KeyError> {
     for chunk in chunks(text) {
-        press(0, 0, &chunk)?;
+        events.press(0, 0, &chunk)?;
     }
     Ok(())
 }
 
 /// Types again what the user typed (a withheld key, a trigger, a separator). Unlike
 /// [`type_text`], Return and Tab are pressed as their own keys, as the user pressed them.
-pub(crate) fn retype(text: &str) -> Result<(), KeyError> {
+pub(crate) fn retype(events: &dyn Events, text: &str) -> Result<(), KeyError> {
     for piece in input::retyped(text) {
         match piece {
-            Retyped::Text(text) => type_text(text)?,
-            Retyped::Return => press(KEY_RETURN, 0, &[])?,
-            Retyped::Tab => press(KEY_TAB, 0, &[])?,
+            Retyped::Text(text) => type_text(events, text)?,
+            Retyped::Return => events.press(KEY_RETURN, 0, &[])?,
+            Retyped::Tab => events.press(KEY_TAB, 0, &[])?,
         }
     }
     Ok(())

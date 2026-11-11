@@ -167,8 +167,21 @@ pub struct Engine {
 impl Engine {
     /// Creates a stopped engine.
     pub fn new(host: Arc<dyn EngineHost>) -> Arc<Engine> {
+        #[cfg(target_os = "macos")]
+        let imp = platform::Imp::new(host, platform::Platform::system());
+        #[cfg(not(target_os = "macos"))]
+        let imp = platform::Imp::new(host);
+        Arc::new(Engine { imp })
+    }
+
+    /// Creates a stopped engine on `platform`'s seams (the protocol tests' fakes).
+    #[cfg(all(test, target_os = "macos"))]
+    pub(crate) fn with_platform(
+        host: Arc<dyn EngineHost>,
+        platform: macos::Platform,
+    ) -> Arc<Engine> {
         Arc::new(Engine {
-            imp: platform::Imp::new(host),
+            imp: platform::Imp::new(host, platform),
         })
     }
 
@@ -210,6 +223,14 @@ impl Engine {
     /// Abandons a pending form; a typed trigger stays as typed.
     pub fn cancel_form(&self, token: u64) {
         self.imp.cancel_form(token);
+    }
+
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). Call it
+    /// whenever the panel's key status changes. While the panel is not key, any key-down or
+    /// click reaches the target app instead, so a typed form that sees one is marked
+    /// interrupted and its submission deletes nothing (FRM-4). A form starts out not key.
+    pub fn form_panel_focused(&self, token: u64, focused: bool) {
+        self.imp.form_panel_focused(token, focused);
     }
 
     /// Palette insert: reactivates `target` (the app frontmost before the palette opened), renders the
@@ -260,7 +281,7 @@ impl Engine {
         let snippet = library.snippets.get(&snippet_id)?;
         let values = library::with_defaults(&library.form_fields(snippet), form_values);
         let clipboard = if library.uses_clipboard(snippet) {
-            system::read_clipboard()
+            self.imp.clipboard_text()
         } else {
             None
         };

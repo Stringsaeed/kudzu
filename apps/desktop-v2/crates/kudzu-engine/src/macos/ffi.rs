@@ -117,6 +117,13 @@ extern "C" {
         key_down: bool,
     ) -> CGEventRef;
     pub fn CGEventCreateCopy(event: CGEventRef) -> CGEventRef;
+    /// Only the protocol tests create mouse events (never posted).
+    pub fn CGEventCreateMouseEvent(
+        source: CGEventSourceRef,
+        kind: CGEventType,
+        location: CGPoint,
+        button: u32,
+    ) -> CGEventRef;
     pub fn CGEventPost(tap: u32, event: CGEventRef);
     pub fn CGEventSourceCreate(state: i32) -> CGEventSourceRef;
     pub fn CGPreflightListenEventAccess() -> bool;

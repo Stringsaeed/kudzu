@@ -13,10 +13,8 @@ use kudzu_core::activity::{
 use kudzu_core::matching::{MatcherEvent, MatchingConfig, SkipReason, SkippedMatch};
 use uuid::Uuid;
 
-use super::{
-    apps, ax, tap, CGEventRef, CGEventType, Core, Imp, InsertError, KeyError, Matched, PasteError,
-};
 use super::{kCGEventTapDisabledByTimeout, AppInfo};
+use super::{tap, CGEventRef, CGEventType, Core, Imp, InsertError, KeyError, Matched, PasteError};
 use crate::activity::{activity_app, Subject};
 use crate::library::Library;
 
@@ -114,11 +112,12 @@ pub(super) fn excluded(bundle_id: &str) -> ActivityOutcome {
     }
 }
 
-fn app_of(pid: Option<i32>) -> Option<ActivityApp> {
-    pid.and_then(apps::app_of).map(|app| activity_app(&app))
-}
-
 impl Imp {
+    fn activity_app_of(&self, pid: Option<i32>) -> Option<ActivityApp> {
+        pid.and_then(|pid| self.observe().app_of(pid))
+            .map(|app| activity_app(&app))
+    }
+
     /// Why nothing may be inserted right now, in the order the guards check it. Flag reads
     /// only, so it is safe under the `core` lock; the Secure Input owner is filled in later.
     fn blocked(&self) -> Option<ActivityOutcome> {
@@ -136,10 +135,14 @@ impl Imp {
     }
 
     /// Names the app holding Secure Input, when macOS reports one.
-    fn with_owner(outcome: ActivityOutcome) -> ActivityOutcome {
+    fn with_owner(&self, outcome: ActivityOutcome) -> ActivityOutcome {
         match outcome {
             ActivityOutcome::SecureInput { owner: None } => ActivityOutcome::SecureInput {
-                owner: ax::secure_input().1.and_then(apps::name_of),
+                owner: self
+                    .observe()
+                    .secure_input()
+                    .1
+                    .and_then(|pid| self.observe().name_of(pid)),
             },
             other => other,
         }
@@ -149,7 +152,9 @@ impl Imp {
     /// else the user's own typing, click or app switch got in first.
     pub(super) fn unresolved(&self) -> ActivityOutcome {
         self.blocked()
-            .map_or(ActivityOutcome::Interrupted, Self::with_owner)
+            .map_or(ActivityOutcome::Interrupted, |outcome| {
+                self.with_owner(outcome)
+            })
     }
 
     /// The attempt a matched trigger starts; `None` for an undo.
@@ -161,7 +166,7 @@ impl Imp {
             source: ActivitySource::Typed,
             snippet_id: trigger.snippet_id,
             trigger: Some(trigger.trigger.clone()),
-            app: app_of(m.pid),
+            app: self.activity_app_of(m.pid),
         })
     }
 
@@ -173,7 +178,7 @@ impl Imp {
     ) -> Option<Subject> {
         let app = target
             .cloned()
-            .or_else(apps::frontmost_app)
+            .or_else(|| self.observe().frontmost_app())
             .map(|app| activity_app(&app));
         Some(Subject {
             source: ActivitySource::QuickSearch,
@@ -213,10 +218,10 @@ impl Imp {
             return None;
         }
         let input = tap::classify(event)?;
-        let pid = apps::frontmost_pid();
+        let pid = self.observe().frontmost_pid();
         if pid != core.frontmost_pid {
             core.frontmost_pid = pid;
-            core.frontmost_bundle = pid.and_then(apps::bundle_id_of);
+            core.frontmost_bundle = pid.and_then(|pid| self.observe().bundle_id_of(pid));
             core.reset_matcher();
         }
         if pid == Some(self.own_pid) {
@@ -252,9 +257,9 @@ impl Imp {
                     source: ActivitySource::Typed,
                     snippet_id,
                     trigger: Some(trigger),
-                    app: app_of(pid),
+                    app: self.activity_app_of(pid),
                 };
-                self.recorder.note(subject, Self::with_owner(outcome));
+                self.recorder.note(subject, self.with_owner(outcome));
             }
         }
     }

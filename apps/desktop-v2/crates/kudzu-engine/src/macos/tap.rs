@@ -222,12 +222,22 @@ impl HeldEvent {
         self.key_down
     }
 
-    /// Posts the event with `marker` in its source user data.
+    /// Posts the event with `marker` in its source user data: the real
+    /// [`Events::post_held`](super::events::Events::post_held).
     pub fn post(self, marker: i64) {
-        unsafe {
-            CGEventSetIntegerValueField(self.event, kCGEventSourceUserData, marker);
-            CGEventPost(kCGSessionEventTap, self.event);
-        }
+        self.mark(marker);
+        unsafe { CGEventPost(kCGSessionEventTap, self.event) };
+    }
+
+    /// Puts `marker` in the event's source user data.
+    pub fn mark(&self, marker: i64) {
+        unsafe { CGEventSetIntegerValueField(self.event, kCGEventSourceUserData, marker) };
+    }
+
+    /// The held copy, for a fake event stream to read and deliver again.
+    #[cfg(test)]
+    pub fn raw(&self) -> CGEventRef {
+        self.event
     }
 }
 

@@ -9,8 +9,14 @@
 //!   enforces the 1 s hold deadline every 100 ms.
 //!
 //! Host callbacks are never invoked while `core` is locked.
+//!
+//! The platform is reached through three seams (`super::Platform`): the event stream (posting
+//! and the listener), the pasteboard, and observations (clock, frontmost app, permissions,
+//! caret). The protocol tests in `super::tests` drive this coordinator through fakes of them.
 
 use std::collections::HashMap;
+#[cfg(test)]
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, Ordering};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex, Weak};
@@ -25,15 +31,17 @@ use kudzu_core::{InsertionMethod, SnippetRecord};
 use objc2::rc::autoreleasepool;
 use uuid::Uuid;
 
+use super::events::{Events, Listener};
 use super::ffi::{
     kCGEventKeyDown, kCGEventKeyUp, kCGEventTapDisabledByTimeout, kCGEventTapDisabledByUserInput,
     CGEventRef, CGEventType,
 };
 use super::input_source;
 use super::keys::{self, KeyError, REPLAY_MARKER, SYNTHETIC_MARKER};
-use super::pasteboard::{self, PasteError};
-use super::tap::{self, HeldEvent, TapHandle};
-use super::{apps, ax};
+use super::observe::Observe;
+use super::pasteboard::{PasteError, Pasteboard};
+use super::tap::{self, HeldEvent};
+use super::Platform;
 use crate::activity::Recorder;
 use crate::hold::{HoldReplayQueue, HoldState};
 use crate::input::{self, Follow, KeyContext};
@@ -86,6 +94,8 @@ struct PendingForm {
     target: Option<AppInfo>,
     /// Typing reached the target after the trigger; deleting it now would delete the wrong text.
     interrupted: bool,
+    /// The form panel is key, so keys and clicks go to it rather than the target (FRM-4).
+    panel_focused: bool,
     /// Selection captured before a palette insert (never set for a typed trigger).
     selection: Option<String>,
 }
@@ -156,9 +166,9 @@ impl Core {
         self.undo_caret_left = 0;
     }
 
-    fn start_hold(&mut self) {
+    fn start_hold(&mut self, now: Instant) {
         if self.held.state() != HoldState::Inserting {
-            self.hold_since = Some(Instant::now());
+            self.hold_since = Some(now);
         }
         self.hold_extra = Duration::ZERO;
         self.held.begin();
@@ -187,11 +197,22 @@ impl Core {
         next
     }
 
-    fn hold_expired(&self) -> bool {
+    fn hold_expired(&self, now: Instant) -> bool {
         self.held.state() == HoldState::Inserting
             && self
                 .hold_since
-                .is_some_and(|t| t.elapsed() > HOLD_LIMIT + self.hold_extra)
+                .is_some_and(|t| now.saturating_duration_since(t) > HOLD_LIMIT + self.hold_extra)
+    }
+
+    /// FRM-4 (D9): a key-down or click while the form panel is not key reaches the target app,
+    /// which changes the document the typed trigger sits in. Suppression doesn't matter here: it
+    /// stops matching, not this.
+    fn note_form_input(&mut self) {
+        if let Some(form) = self.pending_form.as_mut() {
+            if !form.panel_focused {
+                form.interrupted = true;
+            }
+        }
     }
 }
 
@@ -266,16 +287,20 @@ pub(crate) struct Imp {
     host: Arc<dyn EngineHost>,
     recorder: Arc<Recorder>,
     weak: Weak<Imp>,
+    platform: Platform,
     core: Mutex<Core>,
     flags: Flags,
-    tap: Mutex<Option<TapHandle>>,
+    tap: Mutex<Option<Box<dyn Listener>>>,
     jobs: Mutex<Option<Sender<Job>>>,
     last_status: Mutex<Option<EngineStatus>>,
     own_pid: i32,
+    /// Jobs sent and not yet finished, so tests can wait until the worker is idle.
+    #[cfg(test)]
+    in_flight: AtomicUsize,
 }
 
 impl Imp {
-    pub fn new(host: Arc<dyn EngineHost>) -> Arc<Imp> {
+    pub fn new(host: Arc<dyn EngineHost>, platform: Platform) -> Arc<Imp> {
         Arc::new_cyclic(|weak: &Weak<Imp>| {
             let (sender, receiver) = mpsc::channel::<Job>();
             let worker = weak.clone();
@@ -285,27 +310,31 @@ impl Imp {
                     for job in receiver {
                         let Some(imp) = worker.upgrade() else { break };
                         autoreleasepool(|_| imp.run(job));
+                        #[cfg(test)]
+                        imp.in_flight.fetch_sub(1, Ordering::SeqCst);
                     }
                 });
             if let Err(error) = &spawned {
                 log::error!("engine worker failed to start: {error}");
             }
             let flags = Flags::default();
+            let observe = &platform.observe;
             flags
                 .post_event
-                .store(ax::post_event_allowed(), Ordering::Relaxed);
+                .store(observe.post_event_allowed(), Ordering::Relaxed);
             flags
                 .secure_input
-                .store(ax::secure_input().0, Ordering::Relaxed);
+                .store(observe.secure_input().0, Ordering::Relaxed);
             flags
                 .input_monitoring
-                .store(ax::permissions().input_monitoring, Ordering::Relaxed);
+                .store(observe.permissions().input_monitoring, Ordering::Relaxed);
             input_source::install();
             let recorder = Arc::new(Recorder::new(host));
             Imp {
                 host: recorder.clone(),
                 recorder,
                 weak: weak.clone(),
+                platform,
                 core: Mutex::new(Core {
                     matcher: ExpansionMatcher::new(),
                     library: Arc::new(Library::default()),
@@ -330,8 +359,34 @@ impl Imp {
                 jobs: Mutex::new(spawned.ok().map(|_| sender)),
                 last_status: Mutex::new(None),
                 own_pid: std::process::id() as i32,
+                #[cfg(test)]
+                in_flight: AtomicUsize::new(0),
             }
         })
+    }
+
+    fn events(&self) -> &dyn Events {
+        self.platform.events.as_ref()
+    }
+
+    fn observe(&self) -> &dyn Observe {
+        self.platform.observe.as_ref()
+    }
+
+    /// The pasteboard this engine pastes through (the process-wide one outside tests).
+    fn pasteboard(&self) -> &Pasteboard {
+        &self.platform.pasteboard
+    }
+
+    /// Plain-text clipboard, for rendering `{{clipboard}}` outside an insertion.
+    pub fn clipboard_text(&self) -> Option<String> {
+        self.pasteboard().read_string()
+    }
+
+    /// Whether every job sent to the worker has finished.
+    #[cfg(test)]
+    pub fn idle(&self) -> bool {
+        self.in_flight.load(Ordering::SeqCst) == 0
     }
 
     // MARK: - Public surface
@@ -343,25 +398,26 @@ impl Imp {
         autoreleasepool(|_| self.refresh());
         let epoch = self.flags.poll_epoch.fetch_add(1, Ordering::SeqCst) + 1;
         let weak = self.weak.clone();
-        let spawned = thread::Builder::new()
-            .name("kudzu-engine-poll".into())
-            .spawn(move || {
-                let mut tick: u32 = 0;
-                loop {
-                    thread::sleep(POLL_TICK);
-                    let Some(imp) = weak.upgrade() else { break };
-                    if imp.flags.poll_epoch.load(Ordering::SeqCst) != epoch
-                        || !imp.flags.running.load(Ordering::SeqCst)
-                    {
-                        break;
-                    }
-                    tick = tick.wrapping_add(1);
-                    if tick.is_multiple_of(STATUS_EVERY_TICKS) {
-                        autoreleasepool(|_| imp.refresh());
-                    }
-                    imp.enforce_hold_deadline();
-                }
-            });
+        let mut tick: u32 = 0;
+        let poll = move || {
+            let Some(imp) = weak.upgrade() else {
+                return false;
+            };
+            if imp.flags.poll_epoch.load(Ordering::SeqCst) != epoch
+                || !imp.flags.running.load(Ordering::SeqCst)
+            {
+                return false;
+            }
+            tick = tick.wrapping_add(1);
+            if tick.is_multiple_of(STATUS_EVERY_TICKS) {
+                autoreleasepool(|_| imp.refresh());
+            }
+            imp.enforce_hold_deadline();
+            true
+        };
+        let spawned = self
+            .observe()
+            .every("kudzu-engine-poll", POLL_TICK, Box::new(poll));
         if let Err(error) = spawned {
             log::error!("engine poll failed to start: {error}");
         }
@@ -379,7 +435,7 @@ impl Imp {
             .tap_mode
             .store(encode(TapMode::Off), Ordering::SeqCst);
         self.invalidate();
-        pasteboard::restore_pending();
+        self.pasteboard().restore_pending();
         self.publish_status();
     }
 
@@ -428,6 +484,15 @@ impl Imp {
         self.send(Job::Submit { token, values });
     }
 
+    /// The form panel for `token` became key (`true`) or stopped being key (`false`). While it
+    /// is not key, a key-down or click reaches the target app and interrupts a typed form.
+    pub fn form_panel_focused(&self, token: u64, focused: bool) {
+        let mut core = lock(&self.core);
+        if let Some(form) = core.pending_form.as_mut().filter(|f| f.token == token) {
+            form.panel_focused = focused;
+        }
+    }
+
     pub fn cancel_form(&self, token: u64) {
         {
             let mut core = lock(&self.core);
@@ -458,15 +523,16 @@ impl Imp {
     // MARK: - Status
 
     fn current_status(&self) -> EngineStatus {
-        let permissions = ax::permissions();
-        let (secure_input, owner_pid) = ax::secure_input();
+        let observe = self.observe();
+        let permissions = observe.permissions();
+        let (secure_input, owner_pid) = observe.secure_input();
         status::build(StatusInputs {
             paused: self.flags.paused.load(Ordering::SeqCst),
             tap: decode(self.flags.tap_mode.load(Ordering::SeqCst)),
             permissions,
-            post_event: ax::post_event_allowed(),
+            post_event: observe.post_event_allowed(),
             secure_input,
-            secure_input_owner: owner_pid.and_then(apps::name_of),
+            secure_input_owner: owner_pid.and_then(|pid| observe.name_of(pid)),
         })
     }
 
@@ -486,9 +552,9 @@ impl Imp {
     fn refresh(&self) {
         // The change notification normally keeps this current; re-reading is a cheap backstop.
         input_source::request_refresh();
-        let permissions = ax::permissions();
-        let post_event = ax::post_event_allowed();
-        let secure = ax::secure_input().0;
+        let permissions = self.observe().permissions();
+        let post_event = self.observe().post_event_allowed();
+        let secure = self.observe().secure_input().0;
         let was_secure = self.flags.secure_input.swap(secure, Ordering::SeqCst);
         let could_post = self.flags.post_event.swap(post_event, Ordering::SeqCst);
         let could_listen = self
@@ -522,7 +588,7 @@ impl Imp {
             TapMode::ListenOnly
         };
         let mut slot = lock(&self.tap);
-        let current = slot.as_ref().map(TapHandle::mode);
+        let current = slot.as_ref().map(|tap| tap.mode());
         if !accessibility && !input_monitoring {
             if slot.take().is_some() {
                 drop(slot);
@@ -538,10 +604,12 @@ impl Imp {
         if current == Some(desired) {
             return;
         }
-        let mut created = TapHandle::start(desired, self.tap_handler(desired));
+        let mut created = self.events().listen(desired, self.tap_handler(desired));
         if created.is_none() && current.is_none() && desired == TapMode::Active && input_monitoring
         {
-            created = TapHandle::start(TapMode::ListenOnly, self.tap_handler(TapMode::ListenOnly));
+            created = self
+                .events()
+                .listen(TapMode::ListenOnly, self.tap_handler(TapMode::ListenOnly));
         }
         let Some(new) = created else { return };
         // Stop the old tap before enabling the new one so no key is matched twice.
@@ -570,7 +638,9 @@ impl Imp {
 
     fn allowed(&self, guard: Guard) -> bool {
         match guard {
-            Guard::Typed => self.typed_allowed() && apps::frontmost_pid() != Some(self.own_pid),
+            Guard::Typed => {
+                self.typed_allowed() && self.observe().frontmost_pid() != Some(self.own_pid)
+            }
             Guard::Explicit => self.explicit_allowed(),
         }
     }
@@ -588,7 +658,7 @@ impl Imp {
             self.receive_locked(&mut core, kind, event, mode, &mut effects)
         };
         for held in effects.post_unmatched {
-            held.post(SYNTHETIC_MARKER);
+            self.events().post_held(held, SYNTHETIC_MARKER);
         }
         if let Some(job) = effects.job {
             self.send(job);
@@ -620,6 +690,7 @@ impl Imp {
             return false;
         }
         if kind != kCGEventKeyDown && kind != kCGEventKeyUp {
+            core.note_form_input();
             // A click moves the caret or focus: the typed context is gone. Clicks in our own
             // focused windows (form, palette) don't affect the target document.
             if !self.flags.suppressed.load(Ordering::SeqCst) {
@@ -629,7 +700,7 @@ impl Imp {
         }
         let replay = marker == REPLAY_MARKER;
         let key_down = kind == kCGEventKeyDown;
-        if core.hold_expired() {
+        if core.hold_expired(self.observe().now()) {
             effects.post_unmatched = core.invalidate();
         }
         // Holding comes first: typing during an insertion is replayed after it rather than
@@ -646,17 +717,11 @@ impl Imp {
             effects.replay = replay;
             return false;
         }
-        let suppressed = self.flags.suppressed.load(Ordering::SeqCst);
         // Typing that reaches another app while a form is open changes the document the
-        // trigger sits in. Typing into our own windows (the form itself) doesn't.
-        if key_down
-            && !suppressed
-            && core.pending_form.is_some()
-            && apps::frontmost_pid() != Some(self.own_pid)
-        {
-            if let Some(form) = core.pending_form.as_mut() {
-                form.interrupted = true;
-            }
+        // trigger sits in. Typing into the form panel itself doesn't. (The engine this was copied
+        // from skipped this check while suppressed, which is the whole time a form is open; D9.)
+        if key_down {
+            core.note_form_input();
         }
         // Listen-only can't withhold keys. Anything typed before our backspaces go out would
         // land inside the deletion range, so the pending insertion is abandoned instead.
@@ -713,10 +778,10 @@ impl Imp {
         } else {
             input
         };
-        let pid = apps::frontmost_pid();
+        let pid = self.observe().frontmost_pid();
         if pid != core.frontmost_pid {
             core.frontmost_pid = pid;
-            core.frontmost_bundle = pid.and_then(apps::bundle_id_of);
+            core.frontmost_bundle = pid.and_then(|pid| self.observe().bundle_id_of(pid));
             core.reset_matcher();
         }
         if pid == Some(self.own_pid) {
@@ -743,7 +808,7 @@ impl Imp {
         core.busy = true;
         core.listen_only_interrupted = false;
         if mode == TapMode::Active {
-            core.start_hold();
+            core.start_hold(self.observe().now());
         }
         core.generation += 1;
         // The app commits a dead-key accent only when it sees the key that completes it, so that
@@ -766,16 +831,17 @@ impl Imp {
     }
 
     fn enforce_hold_deadline(&self) {
+        let now = self.observe().now();
         let expired = {
             let mut core = lock(&self.core);
-            if core.hold_expired() {
+            if core.hold_expired(now) {
                 core.invalidate()
             } else {
                 Vec::new()
             }
         };
         for held in expired {
-            held.post(SYNTHETIC_MARKER);
+            self.events().post_held(held, SYNTHETIC_MARKER);
         }
     }
 
@@ -783,13 +849,18 @@ impl Imp {
         let drained = lock(&self.core).invalidate();
         // Never leave physical input trapped after focus, permission or pause changes.
         for held in drained {
-            held.post(SYNTHETIC_MARKER);
+            self.events().post_held(held, SYNTHETIC_MARKER);
         }
     }
 
     fn send(&self, job: Job) {
         if let Some(sender) = lock(&self.jobs).as_ref() {
-            let _ = sender.send(job);
+            #[cfg(test)]
+            self.in_flight.fetch_add(1, Ordering::SeqCst);
+            if sender.send(job).is_err() {
+                #[cfg(test)]
+                self.in_flight.fetch_sub(1, Ordering::SeqCst);
+            }
         }
     }
 
@@ -832,7 +903,7 @@ impl Imp {
                 if let Some(held) = next {
                     // One event at a time: its callback can start another expansion before we
                     // release the rest (including triggers typed during a paste).
-                    held.post(REPLAY_MARKER);
+                    self.events().post_held(held, REPLAY_MARKER);
                 }
             }
         }
@@ -849,20 +920,21 @@ impl Imp {
             core.next_replay()
         };
         if let Some(held) = next {
-            held.post(REPLAY_MARKER);
+            self.events().post_held(held, REPLAY_MARKER);
         }
     }
 
     /// Starts an explicit insertion: holds typing (active tap) and returns its generation.
     fn begin_explicit(&self) -> u64 {
         let active = decode(self.flags.tap_mode.load(Ordering::SeqCst)) == TapMode::Active;
+        let now = self.observe().now();
         let mut core = lock(&self.core);
         core.generation += 1;
         core.busy = true;
         core.listen_only_interrupted = false;
         core.reset_matcher();
         if active {
-            core.start_hold();
+            core.start_hold(now);
         }
         core.generation
     }
@@ -871,9 +943,11 @@ impl Imp {
         let token = m.generation;
         if m.mode == PlanMode::ListenOnly {
             // Listen-only can't hold input: let the final key reach the app before deleting.
-            thread::sleep(LISTEN_ONLY_SETTLE);
+            self.observe().sleep(LISTEN_ONLY_SETTLE);
         }
-        if !self.is_current(token) || !self.allowed(Guard::Typed) || apps::frontmost_pid() != m.pid
+        if !self.is_current(token)
+            || !self.allowed(Guard::Typed)
+            || self.observe().frontmost_pid() != m.pid
         {
             return Ok(());
         }
@@ -908,11 +982,12 @@ impl Imp {
                 self.insert_expansion(token, &trigger, rendered, m.mode, swallowed, Guard::Typed)
             }
             MatcherEvent::Undo(undo) => {
-                keys::move_right(m.undo_caret)?;
+                let events = self.events();
+                keys::move_right(events, m.undo_caret)?;
                 // A listen-only backspace already reached the document.
                 let already = usize::from(m.mode == PlanMode::ListenOnly);
-                keys::delete_backward(undo.delete_count.saturating_sub(already))?;
-                keys::retype(&undo.retype)?;
+                keys::delete_backward(events, undo.delete_count.saturating_sub(already))?;
+                keys::retype(events, &undo.retype)?;
                 self.recorder.undone();
                 Ok(())
             }
@@ -928,7 +1003,7 @@ impl Imp {
     ) -> RenderResult {
         // Read before any paste of ours replaces the clipboard, and only when the template needs it.
         let clipboard = if library.uses_clipboard(snippet) {
-            pasteboard::read_string()
+            self.pasteboard().read_string()
         } else {
             None
         };
@@ -951,7 +1026,7 @@ impl Imp {
     fn keep_holding(&self, token: u64, extra: Duration) {
         let mut core = lock(&self.core);
         if core.generation == token && core.hold_since.is_some() {
-            core.hold_since = Some(Instant::now());
+            core.hold_since = Some(self.observe().now());
             core.hold_extra = extra;
         }
     }
@@ -974,11 +1049,12 @@ impl Imp {
     ) -> Result<bool, InsertError> {
         if let Some(t) = &typed {
             let plan = InsertionPlan::new(t.trigger, String::new(), None, t.mode, t.swallowed);
-            keys::delete_backward(plan.delete_count)?;
+            keys::delete_backward(self.events(), plan.delete_count)?;
         }
-        let pid = apps::frontmost_pid();
-        let live =
-            |imp: &Imp| imp.is_current(token) && imp.allowed(guard) && apps::frontmost_pid() == pid;
+        let pid = self.observe().frontmost_pid();
+        let live = |imp: &Imp| {
+            imp.is_current(token) && imp.allowed(guard) && imp.observe().frontmost_pid() == pid
+        };
         for step in &sequence.steps {
             if !live(self) {
                 lock(&self.core).reset_matcher();
@@ -994,17 +1070,17 @@ impl Imp {
                 }
                 Step::Key { key, count } => {
                     self.keep_holding(token, Duration::ZERO);
-                    keys::press_key(*key, *count)?;
-                    thread::sleep(KEY_SETTLE);
+                    keys::press_key(self.events(), *key, *count)?;
+                    self.observe().sleep(KEY_SETTLE);
                 }
                 Step::Pause(duration) => {
                     self.keep_holding(token, *duration);
-                    let until = Instant::now() + *duration;
+                    let until = self.observe().now() + *duration;
                     while let Some(left) = until
-                        .checked_duration_since(Instant::now())
+                        .checked_duration_since(self.observe().now())
                         .filter(|d| !d.is_zero())
                     {
-                        thread::sleep(left.min(PAUSE_SLICE));
+                        self.observe().sleep(left.min(PAUSE_SLICE));
                         if !self.is_current(token) {
                             break;
                         }
@@ -1028,12 +1104,12 @@ impl Imp {
             .filter(|_| !sequence.has_keys)
             .and_then(|t| t.trigger.separator.as_deref());
         if let Some(separator) = separator {
-            keys::retype(separator)?;
+            keys::retype(self.events(), separator)?;
             if caret_left > 0 {
                 caret_left += plan::grapheme_count(separator);
             }
         }
-        keys::move_left(caret_left)?;
+        keys::move_left(self.events(), caret_left)?;
         let mut core = lock(&self.core);
         if core.generation == token {
             match &typed {
@@ -1070,9 +1146,11 @@ impl Imp {
             return Ok(());
         }
         if plan::types(method, text, html.is_some(), input_source::composing()) {
-            keys::type_text(text)?;
+            keys::type_text(self.events(), text)?;
         } else {
-            pasteboard::paste_text(text, html)?;
+            let clock = self.observe();
+            self.pasteboard()
+                .paste_text(self.events(), clock, text, html)?;
         }
         Ok(())
     }
@@ -1120,8 +1198,10 @@ impl Imp {
                     .any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. }))
             });
         let mut plan = InsertionPlan::new(trigger, text, offset, mode, swallowed);
-        keys::delete_backward(plan.delete_count)?;
-        let caret = has_images.then(ax::caret_snapshot).flatten();
+        keys::delete_backward(self.events(), plan.delete_count)?;
+        let caret = has_images
+            .then(|| self.observe().caret_snapshot())
+            .flatten();
         self.deliver(&plan.text, html.as_deref(), trigger.insertion)?;
         let mut can_undo = true;
         if has_images {
@@ -1141,9 +1221,9 @@ impl Imp {
             return Ok(());
         }
         if let Some(separator) = &plan.reemit_separator {
-            keys::retype(separator)?;
+            keys::retype(self.events(), separator)?;
         }
-        keys::move_left(plan.caret_left_count)?;
+        keys::move_left(self.events(), plan.caret_left_count)?;
         {
             let mut core = lock(&self.core);
             if core.generation == token && can_undo {
@@ -1175,7 +1255,7 @@ impl Imp {
         // the form submission then deletes it like listen-only would.
         if mode == PlanMode::Active {
             if let Some(text) = &swallowed {
-                keys::retype(text)?;
+                keys::retype(self.events(), text)?;
             }
         }
         let queued = {
@@ -1188,10 +1268,10 @@ impl Imp {
         };
         let interrupted = queued.iter().any(HeldEvent::is_key_down);
         for held in queued {
-            held.post(SYNTHETIC_MARKER);
+            self.events().post_held(held, SYNTHETIC_MARKER);
         }
-        thread::sleep(SETTLE);
-        let target = apps::frontmost_app();
+        self.observe().sleep(SETTLE);
+        let target = self.observe().frontmost_app();
         let form_token = {
             let mut core = lock(&self.core);
             core.preparing_form = false;
@@ -1209,6 +1289,7 @@ impl Imp {
                 kind: FormKind::Typed(trigger),
                 target: target.clone(),
                 interrupted: false,
+                panel_focused: false,
                 selection: None,
             });
             form_token
@@ -1222,7 +1303,7 @@ impl Imp {
             snippet_id: snippet.id,
             snippet_name: snippet.name.clone(),
             fields,
-            caret: ax::caret_rect(),
+            caret: self.observe().caret_rect(),
             target_app: target,
             selection: None,
         });
@@ -1246,16 +1327,19 @@ impl Imp {
         if !self.explicit_allowed() {
             return;
         }
-        let target = form.target.clone().or_else(apps::frontmost_app);
+        let target = form
+            .target
+            .clone()
+            .or_else(|| self.observe().frontmost_app());
         if let Some(app) = &target {
-            if !apps::activate_and_wait(app, ACTIVATION_TIMEOUT) {
+            if !self.observe().activate_and_wait(app, ACTIVATION_TIMEOUT) {
                 log::warn!("form target {} did not come to the front", app.bundle_id);
                 self.recorder.resolve(activity::target_gone());
                 return;
             }
         }
         let generation = self.begin_explicit();
-        thread::sleep(SETTLE);
+        self.observe().sleep(SETTLE);
         let result = self.insert_submitted(generation, &form, target.as_ref(), values);
         if let Err(error) = result {
             log::warn!("form insertion failed: {error}");
@@ -1299,9 +1383,10 @@ impl Imp {
 
     fn target_is_front(&self, target: Option<&AppInfo>) -> bool {
         match target {
-            Some(app) => {
-                apps::resolve_pid(app).is_some_and(|pid| apps::frontmost_pid() == Some(pid))
-            }
+            Some(app) => self
+                .observe()
+                .resolve_pid(app)
+                .is_some_and(|pid| self.observe().frontmost_pid() == Some(pid)),
             None => true,
         }
     }
@@ -1314,7 +1399,7 @@ impl Imp {
         let Some(snippet) = library.snippets.get(&snippet_id) else {
             return;
         };
-        let target = target.or_else(apps::frontmost_app);
+        let target = target.or_else(|| self.observe().frontmost_app());
         // Global exclusions (password managers, login window) apply to explicit inserts too.
         if self.note_excluded(&library, target.as_ref().map(|t| t.bundle_id.as_str())) {
             return;
@@ -1335,6 +1420,7 @@ impl Imp {
                     kind: FormKind::Palette,
                     target: target.clone(),
                     interrupted: false,
+                    panel_focused: false,
                     selection: selection.clone(),
                 });
                 form_token
@@ -1344,21 +1430,25 @@ impl Imp {
                 snippet_id,
                 snippet_name: snippet.name.clone(),
                 fields,
-                caret: if target_front { ax::caret_rect() } else { None },
+                caret: if target_front {
+                    self.observe().caret_rect()
+                } else {
+                    None
+                },
                 target_app: target,
                 selection,
             });
             return;
         }
         if let Some(app) = &target {
-            if !apps::activate_and_wait(app, ACTIVATION_TIMEOUT) {
+            if !self.observe().activate_and_wait(app, ACTIVATION_TIMEOUT) {
                 log::warn!("palette target {} did not come to the front", app.bundle_id);
                 self.recorder.resolve(activity::target_gone());
                 return;
             }
         }
         let generation = self.begin_explicit();
-        thread::sleep(SETTLE);
+        self.observe().sleep(SETTLE);
         let result = if self.is_current(generation)
             && self.explicit_allowed()
             && self.target_is_front(target.as_ref())
@@ -1414,7 +1504,9 @@ impl Imp {
                 s.iter()
                     .any(|s| matches!(s.style, kudzu_core::formatting::FormatStyle::Image { .. }))
             });
-        let caret = has_images.then(ax::caret_snapshot).flatten();
+        let caret = has_images
+            .then(|| self.observe().caret_snapshot())
+            .flatten();
         self.deliver(&rendered.text, html.as_deref(), method)?;
         if !self.is_current(generation) || !self.explicit_allowed() {
             return Ok(());
@@ -1430,7 +1522,7 @@ impl Imp {
             Some((rendered.text.clone(), rendered.cursor_offset))
         };
         if let Some((text, Some(offset))) = delivered {
-            keys::move_left(plan::graphemes_after_utf16(&text, offset))?;
+            keys::move_left(self.events(), plan::graphemes_after_utf16(&text, offset))?;
         }
         self.host.expanded(ExpansionEvent {
             snippet_id: snippet.id,

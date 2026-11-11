@@ -66,6 +66,12 @@ impl Imp {
 
     pub fn cancel_form(&self, _token: u64) {}
 
+    pub fn form_panel_focused(&self, _token: u64, _focused: bool) {}
+
+    pub fn clipboard_text(&self) -> Option<String> {
+        None
+    }
+
     pub fn insert_snippet(
         &self,
         _snippet_id: Uuid,
