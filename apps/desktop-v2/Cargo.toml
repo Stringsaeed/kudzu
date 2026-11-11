@@ -61,8 +61,13 @@ opt-level = 3
 panic = "unwind"
 strip = true
 
+# Keep debug builds small: many worktrees build in parallel on one disk.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.dev.package."*"]
 opt-level = 2
+debug = false
 
 [dev-dependencies]
 serde_json.workspace = true
