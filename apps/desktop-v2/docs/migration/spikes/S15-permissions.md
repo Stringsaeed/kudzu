@@ -92,3 +92,43 @@ From `apps/desktop-v2`:
 cargo test -p permissions-spike
 cargo run -p permissions-spike -- --probe
 ```
+
+## Review findings (Claude Sonnet review, 2026-11-11)
+
+**Corrected verdict for Q5:** the overlay is **not proven**. The report shows a plain winit window (`behavior: 0`, `ignores_mouse: false`), and nothing proved it drew anything or let a click through (Rune #574). **The native click-through `NSPanel` is the default for the guide** (S38 builds it, S66 uses it). This section supersedes the "overlay" decision above, and Rune #574 is filed.
+
+**What holds:**
+- placement maths matching the Tauri `macos.m` exactly;
+- the metadata-only Settings lookup (pid, layer and bounds only; no titles, no capture);
+- the `drag_out` file payload of the running bundle;
+- the companion's window properties.
+
+**Evidence to treat with care:**
+- `released_on_companion` and `never_over_settings` were written as literals, not measured.
+- The cancel proof is headless only.
+- The drag events were posted into an inactive app, which bypasses `acceptsFirstMouse`.
+- "Visible while Settings is active" checked only its own flags, not the window order.
+- Placement was checked against its own formula, on one display.
+- `report.json` holds absolute home paths, which should be redacted.
+
+**S38 and S66 must add:**
+- **Native guide panel.**
+  - Panel: borderless, non-activating, `ignoresMouseEvents`, level 3, `CanJoinAllSpaces | FullScreenAuxiliary`, non-opaque with a clear background, no shadow, `hidesOnDeactivate` false, `releasedWhenClosed` false.
+  - Behaviour: a hit-test-nil drawing view, `orderFrontRegardless`, spanning the union canvas across displays. Take the window pointer from `with_raw_handle` and never store it.
+- **Real drawing.** A dashed outline and the app icon from `NSWorkspace.iconForFile`, with its source rect taken from the real icon element.
+- **Lifecycle from `macos.m`.**
+  - A generation counter.
+  - A 450 ms delay, then the first try plus 12 retries at 200 ms.
+  - Stop on a real drag, a grant, Settings or the companion moving, another app in front, close, Reduce Motion, or the 4.8 s cap.
+  - Use the real companion frame (the spike passed (0,0)).
+  - Pick the screen by the Settings midpoint, falling back to `window.screen ?: mainScreen`.
+- **Input Monitoring pane:** `Privacy_ListenEvent`, plus the macOS 27 "Device Control" label.
+- **Keyboard alternative:** an accessible button next to the draggable icon.
+- **Privacy guard:** a test or grep that fails on `CGWindowListCreateImage`, ScreenCaptureKit, `kCGWindowName` or `kCGWindowOwnerName`. Never log the raw window dictionaries. Record `CGPreflightScreenCaptureAccess()` and confirm no Screen Recording is needed for pid, layer and bounds.
+- **Placement tests with exact values from the Obj-C formula:**
+  - a second display with an x offset or negative y;
+  - a right flip that then clamps;
+  - a window taller than the visible frame.
+
+  Call `place` before `set_origin`.
+- **Ordering:** read the `CGWindowList` order (pid and layer only) to show the companion above Settings.
