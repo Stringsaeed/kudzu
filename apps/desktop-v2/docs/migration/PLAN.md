@@ -991,6 +991,14 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Goal:** The content field: chips, slash menu, Insert menu, undo, IME.
 - **Owns:** `crates/kudzu-ui/src/main/editor/{content,chips,slash,insert_menu,history}.rs`, and stubs for `tags/mod.rs`, `format_bar.rs`, `link.rs`, `lists.rs`, `images.rs` that S53 and S54 take over.
 - **Read first:** `docs/migration/spikes/S13-editor.md`, including the review guidance and the "Follow-up (S13b)" section. D15 and clipboard behaviour are integration gates.
+- **From S13b** (see "Follow-up (S13b)" in `docs/migration/spikes/S13-editor.md`):
+  - Chip ids are `{tone}:{source}`, because Rune's rich HTML keeps only the pill id. Move `chip_id`, `source_of`, `copy_content` and `paste_own` into `kudzu-ui/src/main/editor/`, and tag the double-click detector `RUNE-GAP(#128)`.
+  - Wire `on_input_key` (Cmd+C and Cmd+X go through `Tx::copy_rich` with the template source as plain text), `on_input_paste` (own rich copies paste back as chips in one undo step), and `on_pointer_move_local` (the D15 detector; call `Tx::live_only()` unless it fires).
+  - **D15 gate:** check the inferred double-click in a real window, including a trackpad tap and a nudged double-click. If it's unreliable, add a visible "Configure" button beside the caret whenever the selection is exactly one chip or the caret touches one. Return and Space always work.
+  - Clear history after every load, including a snippet switch.
+  - **Parity:** plain text containing `{{tags}}` pasted from another app becomes chips, because today's CodeMirror document *is* the source. Confirm the macOS Edit menu's Copy arrives as Cmd+C.
+  - **Temporary difference:** the field's right-click Cut and Copy copy chip labels until Rune #578 adds a copy hook. We keep the spelling menu rather than take over `on_secondary_press`.
+  - Image pills copy as their alt text (S76).
 - **Accept:** Binding tests without a window: edits on `TextEdit` ↔ `EditorDoc` ↔ source keep S23's round-trip over the `template_grammar` corpus. A chip's configuration opens per D15 (a double-click on the chip, or Return or Space when the selection is exactly that chip; a single click once Rune #128 lands), with the gesture proven against an adjacent word, a drag selection and a keyboard selection, as the S13b spike shows. Copying a selection with chips puts the `{{tag}}` source on the plain-text pasteboard and a rich form that same-app paste turns back into chips. The first Undo on an untouched document does nothing. Chips are atomic; unknown and verbatim chips are red with a source tooltip and an accessible edit label. The slash menu opens only for a typed `/` at a word start (start, whitespace, `(`, `[`, a quote), searches variables and snippets, leaves out the snippet itself, caps nested snippets at 400, shows "Nothing matches.", inserts on Return, closes on Escape and returns focus. The Insert menu's 13 entries and the quick toolbar's four. A configurable tag opens its form at once (a stub until S53). Undo and redo restore text and chips. A composition never lands in a chip. Wrapping, Tab indentation, spell checking and the standard editing keys. A script types `/da`, Return, and gets a date chip.
 - **Closes:** EDT-5, EDT-6, EDT-7, EDT-8 (popover mechanics).
 - **Depends:** S13, S23, S51 · **Parallel with:** S60, S62, S63
@@ -1291,6 +1299,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 
 - Images in the editor are chips with a preview (D2), until S76 or Rune.
 - A chip's settings open on a double-click or Return/Space, not a single click (D15), until Rune #128.
+- Until Rune #578, the editor's right-click Cut and Copy copy chip labels rather than `{{tag}}` source. Keyboard and Edit-menu copy are correct.
 - rune-kit's own metrics outside buttons, inputs and switches (D6).
 - The three save-failure fixes (D5).
 - No data migration: the copy from `sh.saeed.kudzu.desktop` is not built (no users).
