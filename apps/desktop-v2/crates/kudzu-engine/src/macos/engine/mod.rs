@@ -64,6 +64,8 @@ const KEY_SETTLE: Duration = Duration::from_millis(30);
 const PAUSE_SLICE: Duration = Duration::from_millis(50);
 const POLL_TICK: Duration = Duration::from_millis(100);
 const STATUS_EVERY_TICKS: u32 = 10;
+/// The locale of a library that comes without one. The host passes the system locale.
+const DEFAULT_LOCALE: &str = "en_US";
 
 /// Which guard an insertion re-checks between steps.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,7 +232,7 @@ impl Imp {
     }
 
     pub fn reload(&self, library: EngineLibrary) {
-        let new = Library::new(&library, super::outgoing::locale);
+        let new = Library::new(&library, || DEFAULT_LOCALE.to_string());
         let current = lock(&self.core).library.clone();
         // Usage saves after every expansion can trigger reloads. Rebuilding would clear the live
         // key buffer and undo, dropping whatever was typed since, so skip no-op reloads.

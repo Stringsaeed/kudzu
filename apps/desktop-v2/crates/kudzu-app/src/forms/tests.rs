@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    expansion::testing::{finish, form_token, Harness, Memory},
+    expansion::testing::{finish, focus, form_token, Harness, Memory},
     persist::Revision,
     ports::FormRequest as EngineRequest,
 };
@@ -71,23 +71,23 @@ fn tokens_complete_once_replacement_and_close_release_only_their_guard() {
         .submit(
             form_token(0),
             HashMap::new(),
-            crate::ports::EventStamp::from_cg_event_timestamp(100)
+            crate::expansion::testing::submitted_at(100)
         )
         .unwrap()
         .is_none());
     assert!(forms.cancel(form_token(0)).unwrap().is_none());
-    forms.panel_focused(form_token(1), true, None);
-    forms.panel_focused(form_token(0), false, None);
+    forms.panel_focused(form_token(1), focus(true, 1));
+    forms.panel_focused(form_token(0), focus(false, 2));
     assert_eq!(
         h.engine.state.lock().unwrap().focus,
-        [(form_token(1), true, None)]
+        [(form_token(1), focus(true, 1))]
     );
     let result = finish(
         forms
             .submit(
                 form_token(1),
                 HashMap::from([("who".into(), "Ada".into())]),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                crate::expansion::testing::submitted_at(100),
             )
             .unwrap()
             .unwrap(),
@@ -99,7 +99,7 @@ fn tokens_complete_once_replacement_and_close_release_only_their_guard() {
         .submit(
             form_token(1),
             HashMap::new(),
-            crate::ports::EventStamp::from_cg_event_timestamp(100)
+            crate::expansion::testing::submitted_at(100)
         )
         .unwrap()
         .is_none());
@@ -198,7 +198,7 @@ fn memory_uses_valid_fallbacks_caps_smallest_uuid_and_prunes_deleted_snippets() 
             .submit(
                 form_token(2),
                 HashMap::from([("who".into(), "Newest".into())]),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                crate::expansion::testing::submitted_at(100),
             )
             .unwrap()
             .unwrap(),
@@ -252,9 +252,9 @@ fn interrupted_submission_reports_an_outcome_after_admission_while_suppressed() 
     });
     let forms = forms(&h, FormMemory::default());
     forms.requested(request(1, id));
-    forms.panel_focused(form_token(1), true, None);
+    forms.panel_focused(form_token(1), focus(true, 1));
     h.engine.input_outside_form(form_token(1));
-    forms.panel_focused(form_token(1), false, None);
+    forms.panel_focused(form_token(1), focus(false, 2));
     assert!(h.engine.state.lock().unwrap().suppressed);
     h.engine.input_outside_form(form_token(1));
     let preview = finish(
@@ -270,7 +270,7 @@ fn interrupted_submission_reports_an_outcome_after_admission_while_suppressed() 
             .submit(
                 form_token(1),
                 HashMap::new(),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                crate::expansion::testing::submitted_at(100),
             )
             .unwrap()
             .unwrap(),
@@ -332,7 +332,7 @@ fn memory_is_accepted_before_submission_and_a_disk_failure_does_not_block_insert
             .submit(
                 form_token(1),
                 HashMap::from([("who".into(), "Remember me".into())]),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                crate::expansion::testing::submitted_at(100),
             )
             .unwrap()
             .unwrap(),
@@ -375,7 +375,7 @@ fn submitted_memory_reopens_from_the_local_json_file() {
                 .submit(
                     form_token(1),
                     HashMap::from([("who".into(), "Saved locally".into())]),
-                    crate::ports::EventStamp::from_cg_event_timestamp(100),
+                    crate::expansion::testing::submitted_at(100),
                 )
                 .unwrap()
                 .unwrap(),
@@ -445,7 +445,7 @@ fn concurrent_submit_and_cancel_consume_one_token_and_preserve_another_suppressi
                         .submit(
                             form_token(1),
                             HashMap::new(),
-                            crate::ports::EventStamp::from_cg_event_timestamp(100),
+                            crate::expansion::testing::submitted_at(100),
                         )
                         .unwrap()
                         .map(|task| {

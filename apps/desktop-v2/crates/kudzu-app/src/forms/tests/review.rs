@@ -157,7 +157,7 @@ fn restarted_engine_token_one_is_distinct_and_old_tokens_cannot_cancel_it() {
         .submit(
             old,
             HashMap::new(),
-            crate::ports::EventStamp::from_cg_event_timestamp(100)
+            crate::expansion::testing::submitted_at(100)
         )
         .unwrap()
         .is_none());
@@ -165,7 +165,7 @@ fn restarted_engine_token_one_is_distinct_and_old_tokens_cannot_cancel_it() {
         h.engine.submit_form(
             old,
             HashMap::new(),
-            crate::ports::EventStamp::from_cg_event_timestamp(100)
+            crate::expansion::testing::submitted_at(100)
         ),
         Err(AdmissionError::StaleToken)
     );
@@ -176,7 +176,7 @@ fn restarted_engine_token_one_is_distinct_and_old_tokens_cannot_cancel_it() {
                 .submit(
                     new,
                     HashMap::new(),
-                    crate::ports::EventStamp::from_cg_event_timestamp(100)
+                    crate::expansion::testing::submitted_at(100)
                 )
                 .unwrap()
                 .unwrap()
@@ -188,7 +188,7 @@ fn restarted_engine_token_one_is_distinct_and_old_tokens_cannot_cancel_it() {
 
 #[test]
 fn submission_and_focus_forward_the_original_cg_event_boundaries() {
-    use crate::ports::EventStamp;
+    use crate::ports::{EventStamp, FormSubmission, InputEvent, PanelFocus};
     let snippet = SnippetRecord::new("Form", vec![], "");
     let id = snippet.id;
     let h = Harness::new(KudzuLibrary {
@@ -198,21 +198,46 @@ fn submission_and_focus_forward_the_original_cg_event_boundaries() {
     let forms = forms(&h, FormMemory::default());
     let token = form_token(1);
     forms.requested(request(1, id));
-    let after = EventStamp::from_cg_event_timestamp(9_007_199_254_740_993);
-    let at = EventStamp::from_cg_event_timestamp(u64::MAX - 17);
-    forms.panel_focused(token, true, Some(after));
-    forms.panel_focused(token, false, None);
+    let after = InputEvent {
+        stamp: EventStamp::from_cg_event_timestamp(9_007_199_254_740_993),
+        key_code: Some(36),
+    };
+    let became_key = PanelFocus {
+        key: true,
+        seq: 1,
+        after: Some(after),
+    };
+    let lost_key = PanelFocus {
+        key: false,
+        seq: 2,
+        after: None,
+    };
+    let submission = FormSubmission {
+        event: Some(InputEvent {
+            stamp: EventStamp::from_cg_event_timestamp(u64::MAX - 17),
+            key_code: None,
+        }),
+        focus_seq: 2,
+    };
+    forms.panel_focused(token, became_key);
+    forms.panel_focused(token, lost_key);
     assert_eq!(
-        finish(forms.submit(token, HashMap::new(), at).unwrap().unwrap()).admission,
+        finish(
+            forms
+                .submit(token, HashMap::new(), submission)
+                .unwrap()
+                .unwrap()
+        )
+        .admission,
         Ok(())
     );
     let engine = h.engine.state.lock().unwrap();
+    assert_eq!(engine.focus, [(token, became_key), (token, lost_key)]);
+    assert_eq!(engine.submissions[0].2, submission);
     assert_eq!(
-        engine.focus,
-        [(token, true, Some(after)), (token, false, None)]
+        submission.event.unwrap().stamp.cg_event_timestamp(),
+        u64::MAX - 17
     );
-    assert_eq!(engine.submissions[0].2, at);
-    assert_eq!(at.cg_event_timestamp(), u64::MAX - 17);
 }
 
 #[test]
@@ -244,7 +269,7 @@ fn submit_start_failure_uses_cancel_target_restoration_and_reports_both_results(
     let failure = match forms.submit(
         form_token(1),
         HashMap::from([("who".into(), "Kept".into())]),
-        crate::ports::EventStamp::from_cg_event_timestamp(123),
+        crate::expansion::testing::submitted_at(123),
     ) {
         Err(failure) => failure,
         Ok(_) => panic!("submission unexpectedly started"),
@@ -284,7 +309,7 @@ fn submit_start_failure_uses_cancel_target_restoration_and_reports_both_results(
 
 #[test]
 fn an_admission_rejection_cancels_the_consumed_engine_form_without_claiming_completion() {
-    use crate::ports::{engine::AdmissionError, EventStamp};
+    use crate::ports::engine::AdmissionError;
     let snippet = SnippetRecord::new("Form", vec![], "");
     let id = snippet.id;
     let h = Harness::new(KudzuLibrary {
@@ -299,7 +324,7 @@ fn an_admission_rejection_cancels_the_consumed_engine_form_without_claiming_comp
             .submit(
                 form_token(1),
                 HashMap::new(),
-                EventStamp::from_cg_event_timestamp(11),
+                crate::expansion::testing::submitted_at(11),
             )
             .unwrap()
             .unwrap(),

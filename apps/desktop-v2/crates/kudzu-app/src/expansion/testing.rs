@@ -174,3 +174,21 @@ pub(crate) fn form_token(native: u64) -> crate::ports::FormToken {
         .next_engine()
         .form_token(native)
 }
+/// A submission by an event stamped `stamp` (no key code), after no focus report.
+pub(crate) fn submitted_at(stamp: u64) -> crate::ports::FormSubmission {
+    crate::ports::FormSubmission {
+        event: Some(crate::ports::InputEvent {
+            stamp: crate::ports::EventStamp::from_cg_event_timestamp(stamp),
+            key_code: None,
+        }),
+        focus_seq: 0,
+    }
+}
+/// Key-status report number `seq`, with no current event.
+pub(crate) fn focus(key: bool, seq: u64) -> crate::ports::PanelFocus {
+    crate::ports::PanelFocus {
+        key,
+        seq,
+        after: None,
+    }
+}

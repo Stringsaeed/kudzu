@@ -6,7 +6,8 @@ use crate::{
         EngineEvents, EngineLibrary, Expansion, ExpansionEngine, FormChannel, FormRequest,
         TriggerLost,
     },
-    ports::{EngineInstance, EngineInstances, EventStamp, FormToken},
+    ports::{EngineInstance, EngineInstances, FormSubmission, FormToken},
+    ports::{KudzuWindow, KudzuWindows, PanelFocus},
 };
 use kudzu_core::{
     activity::ActivityEvent,
@@ -32,9 +33,11 @@ pub struct EngineState {
     pub library: EngineLibrary,
     pub reloads: usize,
     pub insertions: Vec<InsertRequest>,
-    pub submissions: Vec<(FormToken, HashMap<String, String>, EventStamp)>,
+    pub submissions: Vec<(FormToken, HashMap<String, String>, FormSubmission)>,
     pub cancelled: Vec<FormToken>,
-    pub focus: Vec<(FormToken, bool, Option<EventStamp>)>,
+    pub focus: Vec<(FormToken, PanelFocus)>,
+    /// Every list the shell pushed, newest last.
+    pub windows: Vec<Vec<KudzuWindow>>,
     pub failure: Option<PortError>,
     pub admission_error: Option<AdmissionError>,
     pub interrupted_forms: std::collections::HashSet<FormToken>,
@@ -62,6 +65,7 @@ impl Default for EngineState {
             submissions: Vec::new(),
             cancelled: Vec::new(),
             focus: Vec::new(),
+            windows: Vec::new(),
             failure: None,
             admission_error: None,
             interrupted_forms: Default::default(),
@@ -112,8 +116,8 @@ impl FakeEngine {
             .focus
             .iter()
             .rev()
-            .find(|(t, _, _)| *t == token)
-            .is_some_and(|(_, focused, _)| *focused);
+            .find(|(t, _)| *t == token)
+            .is_some_and(|(_, focus)| focus.key);
         if !focused {
             state.interrupted_forms.insert(token);
         }
@@ -207,7 +211,7 @@ impl FormChannel for FakeEngine {
         &self,
         token: FormToken,
         values: HashMap<String, String>,
-        at: EventStamp,
+        submission: FormSubmission,
     ) -> Result<(), AdmissionError> {
         {
             admit(&self.state.lock().unwrap())?;
@@ -221,7 +225,7 @@ impl FormChannel for FakeEngine {
         if state.instance.native_token(token).is_none() {
             return Err(AdmissionError::StaleToken);
         }
-        state.submissions.push((token, values, at));
+        state.submissions.push((token, values, submission));
         Ok(())
     }
     fn cancel_form(&self, token: FormToken) {
@@ -231,11 +235,16 @@ impl FormChannel for FakeEngine {
             state.cancelled.push(token);
         }
     }
-    fn panel_focused(&self, token: FormToken, focused: bool, after: Option<EventStamp>) {
+    fn panel_focused(&self, token: FormToken, focus: PanelFocus) {
         let mut state = self.state.lock().unwrap();
         if state.instance.native_token(token).is_some() {
-            state.focus.push((token, focused, after));
+            state.focus.push((token, focus));
         }
+    }
+}
+impl KudzuWindows for FakeEngine {
+    fn set_kudzu_windows(&self, windows: &[KudzuWindow]) {
+        self.state.lock().unwrap().windows.push(windows.to_vec());
     }
 }
 impl FakeEngine {

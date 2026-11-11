@@ -3,6 +3,7 @@
 pub mod apps;
 pub mod clock;
 pub mod cloudkit;
+pub mod contract;
 pub mod engine;
 pub mod fetch;
 pub mod files;
@@ -171,6 +172,7 @@ impl Fixtures {
         Ports {
             engine: self.engine.clone(),
             forms: self.engine.clone(),
+            windows: self.engine.clone(),
             pasteboard: self.pasteboard.clone(),
             thumbnails: self.thumbnails.clone(),
             apps: self.apps.clone(),
@@ -196,6 +198,13 @@ mod tests {
     use crate::error::PortError;
     use crate::ports::*;
     use std::{sync::Arc, time::Duration};
+    fn focus_report(key: bool) -> PanelFocus {
+        PanelFocus {
+            key,
+            seq: 1,
+            after: None,
+        }
+    }
 
     #[test]
     fn narrow_ports_share_an_adapter_without_giving_consumers_unrelated_operations() {
@@ -213,19 +222,24 @@ mod tests {
         let app = catalog.installed().unwrap().remove(0);
         target.activate(&app).unwrap();
         assert_eq!(target.frontmost().unwrap(), Some(app));
-        forms.panel_focused(fixtures.engine.form_token(3), true, None);
+        forms.panel_focused(fixtures.engine.form_token(3), focus_report(true));
         forms.cancel_form(fixtures.engine.form_token(3));
         forms
             .submit_form(
                 fixtures.engine.form_token(4),
                 Default::default(),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                FormSubmission::default(),
             )
             .unwrap();
         let cancelled = fixtures.engine.state.lock().unwrap().cancelled.clone();
         assert_eq!(cancelled, [fixtures.engine.form_token(3)]);
         let focus = fixtures.engine.state.lock().unwrap().focus.clone();
-        assert_eq!(focus, [(fixtures.engine.form_token(3), true, None)]);
+        assert_eq!(focus, [(fixtures.engine.form_token(3), focus_report(true))]);
+        ports.windows.set_kudzu_windows(&[KudzuWindow {
+            number: 7,
+            passes_clicks_through: false,
+        }]);
+        assert_eq!(fixtures.engine.state.lock().unwrap().windows.len(), 1);
         let library = EngineLibrary::default();
         assert!(library == library.clone());
         let request = FormRequest {
@@ -337,10 +351,10 @@ mod tests {
         engine.emit_expansion(expansion);
         assert_eq!(*events.expansions.lock().unwrap(), [expansion]);
         engine.set_suppressed(true);
-        engine.panel_focused(engine.form_token(5), false, None);
+        engine.panel_focused(engine.form_token(5), focus_report(false));
         assert!(engine.state.lock().unwrap().suppressed);
         let focus = engine.state.lock().unwrap().focus.clone();
-        assert_eq!(focus, [(engine.form_token(5), false, None)]);
+        assert_eq!(focus, [(engine.form_token(5), focus_report(false))]);
         engine.stop();
         engine.emit_expansion(expansion);
         assert_eq!(events.expansions.lock().unwrap().len(), 1);

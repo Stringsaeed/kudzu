@@ -25,7 +25,7 @@ pub use cloudkit::{
 };
 pub use engine::{
     EngineEvents, EngineLibrary, EventStamp, Expansion, ExpansionEngine, FormChannel, FormRequest,
-    TriggerLost,
+    FormSubmission, InputEvent, KudzuWindow, KudzuWindows, PanelFocus, TriggerLost,
 };
 pub use fetch::{Cancel, Fetch, FetchRequest};
 pub use files::FileOpener;
@@ -44,6 +44,7 @@ pub use update_install::{InstallProbe, UpdateInstaller, UpdatePackage};
 pub struct Ports {
     pub engine: std::sync::Arc<dyn ExpansionEngine>,
     pub forms: std::sync::Arc<dyn FormChannel>,
+    pub windows: std::sync::Arc<dyn KudzuWindows>,
     pub pasteboard: std::sync::Arc<dyn Pasteboard>,
     pub thumbnails: std::sync::Arc<dyn Thumbnailer>,
     pub apps: std::sync::Arc<dyn AppCatalog>,

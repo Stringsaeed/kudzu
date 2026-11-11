@@ -15,8 +15,8 @@
 //! - [`system`]: permissions, Secure Input, the frontmost app, the caret and the selection.
 //! - The value types come from [`kudzu_core::system`] and are re-exported here.
 //!
-//! [`outgoing`] holds what doesn't belong to the engine (app enumeration, icons, thumbnails,
-//! Settings links, the locale) until S35 moves it into `kudzu-system`.
+//! App enumeration, icons, image thumbnails, Settings links and the system locale are not the
+//! engine's: they live in `kudzu-system`.
 //!
 //! # Threading
 //!
@@ -175,7 +175,8 @@ pub struct EngineLibrary {
     pub snippets: Vec<SnippetRecord>,
     pub groups: Vec<GroupRecord>,
     pub config: MatchingConfig,
-    /// Locale for date tags, e.g. `en_US`. Empty uses the system locale.
+    /// Locale for date tags, e.g. `en_US`. The host passes the system locale; the engine never
+    /// reads it from the OS, and an empty one means `en_US`.
     pub locale: String,
 }
 
@@ -469,47 +470,5 @@ pub mod system {
     /// Whether Secure Input is on, and the owning app's name if known.
     pub fn secure_input() -> (bool, Option<String>) {
         macos::system::secure_input()
-    }
-}
-
-/// Not the engine's: app enumeration, icons, image thumbnails, Settings links and the locale.
-/// S35 moves their code into `kudzu-system` and deletes this module.
-#[doc(hidden)]
-pub mod outgoing {
-    use super::{macos, AppInfo};
-
-    /// A PNG thumbnail plus the original image's pixel size.
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct Thumbnail {
-        pub png: Vec<u8>,
-        pub width: u32,
-        pub height: u32,
-    }
-
-    /// Installed apps (/Applications, ~/Applications, /System/Applications, …), sorted by name.
-    /// Reads every bundle's Info.plist: call off the UI thread.
-    pub fn installed_apps() -> Vec<AppInfo> {
-        macos::outgoing::installed_apps()
-    }
-
-    /// PNG bytes of an app's icon at `size` px, by bundle path.
-    pub fn app_icon_png(path: &str, size: u32) -> Option<Vec<u8>> {
-        macos::outgoing::app_icon_png(path, size)
-    }
-
-    /// Decodes image data (PNG, TIFF, JPEG, HEIC, PDF …) and renders a PNG at most `max_px` on
-    /// its longer side (never upscaled).
-    pub fn thumbnail(data: &[u8], max_px: u32) -> Option<Thumbnail> {
-        macos::outgoing::thumbnail(data, max_px)
-    }
-
-    /// Opens System Settings at `pane`: "accessibility" | "inputMonitoring" | "loginItems".
-    pub fn open_settings(pane: &str) {
-        macos::outgoing::open_settings(pane)
-    }
-
-    /// Best-effort system locale identifier, e.g. `en_US`.
-    pub fn locale() -> String {
-        macos::outgoing::locale()
     }
 }

@@ -114,7 +114,7 @@ fn typed_engine_callbacks_route_to_service_snapshots_and_post_insertion_usage() 
             .submit(
                 h.engine.form_token(1),
                 Default::default(),
-                crate::ports::EventStamp::from_cg_event_timestamp(100),
+                crate::expansion::testing::submitted_at(100),
             )
             .unwrap()
             .unwrap(),

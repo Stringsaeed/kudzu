@@ -12,7 +12,7 @@ use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
 /// Opaque CGEvent timestamp. S57 captures CGEventGetTimestamp from the CGEvent of
 /// NSApp.currentEvent in the submit/key-status handler. Do not substitute wall time,
-/// NSEvent's floating-point seconds, or the time a worker eventually runs.
+/// NSEvent's floating-point seconds, or the time a worker eventually runs. 0 means unknown.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EventStamp(u64);
 impl EventStamp {
@@ -22,6 +22,41 @@ impl EventStamp {
     pub fn cg_event_timestamp(self) -> u64 {
         self.0
     }
+}
+/// The CGEvent behind NSApp.currentEvent, as the form window saw it. The key code tells it
+/// apart from another event with the same stamp; with neither, the engine assumes the worst.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InputEvent {
+    pub stamp: EventStamp,
+    /// kCGKeyboardEventKeycode for a key event; None for a click.
+    pub key_code: Option<u16>,
+}
+/// One change of the form panel's key status, from the panel's key-status notification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PanelFocus {
+    /// The panel became key (true) or stopped being key.
+    pub key: bool,
+    /// 1 for the first change of this form's panel, then 2, 3, …; a gap interrupts a typed form.
+    pub seq: u64,
+    /// NSApp.currentEvent when the change happened; None when there was none. Never invented.
+    pub after: Option<InputEvent>,
+}
+/// How a form was submitted. Maps to the native engine's `Submission`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FormSubmission {
+    /// The submitting event (Return, the click on Insert); None counts any typing since the
+    /// last focus report as after it.
+    pub event: Option<InputEvent>,
+    /// The `seq` of the panel's last key-status change before submitting (0 if none).
+    pub focus_seq: u64,
+}
+/// One of Kudzu's own windows on screen, for judging clicks against a typed form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KudzuWindow {
+    /// NSWindow.windowNumber.
+    pub number: u32,
+    /// The window ignores mouse events (an overlay), so clicks go to what is under it.
+    pub passes_clicks_through: bool,
 }
 /// Admission only (D20). Expansion results are reported by EngineEvents/Activity later.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -104,24 +139,26 @@ pub trait ExpansionEngine: Send + Sync {
 }
 pub trait FormChannel: Send + Sync {
     /// Admission only, never a final insertion outcome.
-    /// Maps to native submit_form, which enqueues and returns. Ok is acceptance only;
-    /// EngineEvents reports the outcome later. Native submission marks the supplied event
-    /// boundary at admission; its worker consumes the matching token,
-    /// rechecks interruption independently of suppression, activates/waits for the target,
-    /// then inserts. `at` is the submitting event's CGEvent timestamp, captured by S57
-    /// from NSApp.currentEvent, never a delayed worker timestamp. Hide the UI before calling.
-    /// An interrupted typed form deletes nothing.
+    /// Maps to native submit_form, which accepts on the calling thread and enqueues. Ok is
+    /// acceptance only; EngineEvents reports the outcome later. Input after
+    /// `submission.event`, and any focus report up to `submission.focus_seq` that has not
+    /// arrived when the trigger would be deleted, interrupts a typed form: it deletes nothing.
+    /// S57 fills both from NSApp.currentEvent, never from a delayed worker. Hide the UI first.
     fn submit_form(
         &self,
         token: FormToken,
         values: HashMap<String, String>,
-        at: EventStamp,
+        submission: FormSubmission,
     ) -> Result<(), AdmissionError>;
     /// Ignore tokens belonging to a retired EngineInstance.
     fn cancel_form(&self, token: FormToken);
-    /// S57 passes CGEventGetTimestamp of NSApp.currentEvent's CGEvent as `after`, captured
-    /// at the key-status change. S35 maps Some to form_panel_focused_after and None to the
-    /// conservative form_panel_focused fallback. Never invent a stamp for a missing event.
-    /// Native click targets are determined by the window server, independently of focus.
-    fn panel_focused(&self, token: FormToken, focused: bool, after: Option<EventStamp>);
+    /// Every key-status change of the form panel, numbered from 1 per form. Reports may arrive
+    /// late, even after submission, and still count. Ignore retired tokens.
+    fn panel_focused(&self, token: FormToken, focus: PanelFocus);
+}
+/// The shell's narrow handle for telling the engine which windows are Kudzu's. Push the full
+/// list whenever a Kudzu window opens, closes or changes click-through; until the first push
+/// every click interrupts a typed form. Cheap and non-blocking; safe on the UI thread.
+pub trait KudzuWindows: Send + Sync {
+    fn set_kudzu_windows(&self, windows: &[KudzuWindow]);
 }

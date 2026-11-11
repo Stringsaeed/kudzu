@@ -4,7 +4,9 @@ mod submission;
 use crate::{
     expansion::{ExpansionService, SuppressionGuard},
     persist::{PersistError, Persisted, Revision, SaveState},
-    ports::{EventStamp, FormChannel, FormRequest as EngineRequest, FormToken, TargetApp},
+    ports::{
+        FormChannel, FormRequest as EngineRequest, FormSubmission, FormToken, PanelFocus, TargetApp,
+    },
     tasks::{Task, TaskError},
     watch::{Publisher, Watch},
 };
@@ -204,11 +206,12 @@ impl FormService {
     }
     /// Hide the panel before calling. Memory is accepted before engine submission; disk I/O
     /// never blocks insertion. EngineEvents::expanded, not this result, records usage.
+    /// `submission` comes from NSApp.currentEvent in the submitting handler (S57).
     pub fn submit(
         &self,
         token: FormToken,
         values: HashMap<String, String>,
-        at: EventStamp,
+        submission: FormSubmission,
     ) -> Result<Option<Task<Submission>>, SubmitStartError> {
         let Some(pending) = self.take(Some(token)) else {
             return Ok(None);
@@ -219,7 +222,7 @@ impl FormService {
         drop(pending.guard);
         let channel = self.channel.clone();
         match self.submit_worker.spawn(Box::new(move || {
-            let admission = channel.submit_form(token, values, at);
+            let admission = channel.submit_form(token, values, submission);
             if admission.is_err() {
                 channel.cancel_form(token);
             }
@@ -299,7 +302,8 @@ impl FormService {
             .preview_snippet(request.snippet_id, request.selection.clone(), values)
             .map(Some)
     }
-    pub fn panel_focused(&self, token: FormToken, focused: bool, after: Option<EventStamp>) {
+    /// Forwards every key-status change of the pending form's panel, numbered from 1.
+    pub fn panel_focused(&self, token: FormToken, focus: PanelFocus) {
         if self
             .pending()
             .get()
@@ -307,7 +311,7 @@ impl FormService {
             .as_ref()
             .is_some_and(|p| p.token == token)
         {
-            self.channel.panel_focused(token, focused, after);
+            self.channel.panel_focused(token, focus);
         }
     }
 }

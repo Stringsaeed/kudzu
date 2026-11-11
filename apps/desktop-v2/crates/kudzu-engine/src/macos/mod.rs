@@ -11,7 +11,6 @@ mod ffi;
 mod input_source;
 mod keys;
 mod observe;
-pub(crate) mod outgoing;
 mod pasteboard;
 mod tap;
 #[cfg(test)]

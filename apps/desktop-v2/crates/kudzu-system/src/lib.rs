@@ -4,6 +4,7 @@ pub mod cloudkit;
 pub mod engine;
 pub mod files;
 pub mod instance;
+pub mod locale;
 pub mod login_item;
 pub mod pasteboard;
 pub mod relaunch;
