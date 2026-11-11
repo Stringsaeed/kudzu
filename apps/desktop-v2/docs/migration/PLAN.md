@@ -889,6 +889,9 @@ Every service is tested against the fakes in `kudzu_app::fixtures`. The behaviou
   - Forward `trigger_lost` (D17).
   - `clipboard::write` and `system::write_clipboard` may wait a few ms for an in-flight paste, and `copy_selection` holds the pasteboard for up to 300 ms, so call them off the UI thread.
   - The engine crate is macOS-only. Its protocol fakes are test-private, so S35's contract suite needs its own fakes.
+- **From the S34 safety fixes:**
+  - `Engine::submit_form` takes `at: EventStamp` (the submitting event's `CGEventGetTimestamp`), and `form_panel_focused_after(token, focused, after)` bounds key-downs after a late blur. The port (S27's D20 work) and the adapter pass these through.
+  - Clicks are judged by their window-under-pointer and its owner pid, so the engine needs Kudzu's pid and window list.
 - **Accept:** Each adapter passes the same contract test suite as its fake (the suite is generic over the port; the real adapter runs on macOS for cases that need no permission). The engine tests that moved with the code (`apps`, thumbnails) pass here. The commit body lists what S71 must check by hand.
 - **Closes:** none alone (enables EXP, CLP and PKR live checks).
 - **Depends:** S27, S28, S30, S34 · **Parallel with:** S32, S37, S70
@@ -1072,6 +1075,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Owns:** `crates/kudzu-ui/src/form/**`.
 - **Read first:** the "Review caveats" in `docs/migration/spikes/S11-panels.md` (what this step must re-measure or prove).
 - **From S34 (FRM-4 contract):** report `form_panel_focused(token, true)` from the panel's key-status notification on the main thread, before the panel handles the next event, and make the panel key on any click inside it. Clicks are settled by the next focus report, so a late report makes the engine conservative: some submits are refused rather than risking text deleted at the wrong caret. S71 checks where each click actually lands.
+- **From the S34 safety fixes:** submit with `EventStamp` = `CGEventGetTimestamp` of `NSApp.currentEvent`'s CGEvent, and report focus changes with the stamp of the event that caused them (`form_panel_focused_after`). Typing in another Kudzu panel, or right after clicking the form before its report arrives, interrupts conservatively.
 - **Accept:** The window shows itself when `forms.pending()` appears: at caret x − 24, y + caret height + 6; above the caret when it would overflow; x clamped 8 pt inside the screen; centred at 28% without a caret. A draggable header with the snippet and target app. Text, multi-line and choice controls in first-definition order; one value per shared name. The first field is focused; ↩ submits outside a multi-line field and ⌘↩ inside one; Escape cancels and returns to the target. Preview after 50 ms with formatting, images, actions and the selection; shimmer first; at most 160 pt. Height follows content within 160–640, as today (the window itself clamps at 680). No dismissal on blur; the window reports `panel_focused` to `forms`.
 - **Closes:** FRM-2, FRM-5 (UI), FRM-6.
 - **Depends:** S07, S27, S40 · **Parallel with:** S41, S56, S66
@@ -1216,6 +1220,11 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
   - Clicks, listen-only typing, pause and target changes while clipboard preparation waits behind a selection copy or promised data.
   - A slow paste consumer, with a history write right after ⌘V, throughout the 400 ms window.
   - Leading-delay refusals and permission loss (whole-word and submitted-form variants). The clipboard must be restored, and the D17 notice must show through S35 and S57.
+- **Live checks from the S34 safety fixes:**
+  - The window-under-pointer fields are filled in at Kudzu's session tap. If they aren't, every click interrupts typed forms.
+  - The window-owner lookup returns Kudzu's own pid for its panels.
+  - `CGEventGetTimestamp` at the tap equals the CGEvent timestamp of `NSApp.currentEvent` (check the tick units on Apple Silicon).
+  - A trigger left visible during a leading delay (D24) doesn't confuse target-app autocomplete.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
@@ -1360,6 +1369,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - key hints release on the real key-up, and keyboard activation shows the pressed look, using an AppKit key-up monitor in `kudzu-appkit` (`RUNE-GAP`) until Rune reports key-up and press state (#360). | S07, S38 |
 | D22 | **Update downloads use macOS trust and the system proxy (2026-11-11):** ureq's `platform-verifier` feature (adds `rustls-platform-verifier`) and the system proxy, matching today's updater on managed networks. Archives are fetched byte for byte, with no `Accept-Encoding`. | S36 |
 | D23 | **Old Tauri login agent at cut-over:** S75 removes `~/Library/LaunchAgents/Kudzu.plist` (Label `Kudzu`, written by tauri-plugin-autostart), but only when its program path is this bundle's executable, so one agent starts Kudzu at login (S36 review). | S75 |
+| D24 | **A sequence that starts with `{{delay}}` keeps its trigger visible during that delay** and deletes it just before the first delivery, so a refused first paste can't lose it (follows from D14; S34 safety fixes, 2026-11-11). This is a visible difference from the Tauri engine. | S34, S71 |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
@@ -1373,7 +1383,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 - The palette, picker and form are non-activating panels, not focusable app windows (WIN-3). What the user sees must be the same; S11 and S71 check it.
 - No visible change: `kzclip://` is gone; the version lives in `version.txt`; the updater checks an archive before installing it.
 - FRM-4: a typed form interrupted by typing in the target app is not submitted (D9).
-- A refused paste-based expansion keeps the trigger text (D14). The Tauri engine skips that check while a form is open.
+- A refused paste-based expansion keeps the trigger text (D14). A sequence that starts with a delay keeps its trigger visible during the delay (D24). The Tauri engine skips that check while a form is open.
 
 ---
 
