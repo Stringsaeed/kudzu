@@ -16,6 +16,8 @@ struct Recorded {
     log: NativeLog,
     paused: bool,
     starts: usize,
+    /// Native form tokens requested and not yet submitted or cancelled, as the engine keeps.
+    pending: std::collections::HashSet<u64>,
 }
 
 /// Records commands in port terms and reports through the host, as the native engine would.
@@ -68,18 +70,22 @@ impl Native for FakeNative {
         token: u64,
         values: HashMap<String, String>,
         s: kudzu_engine::Submission,
-    ) {
+    ) -> bool {
         let submission = FormSubmission {
             event: s.event.map(port_event),
             focus_seq: s.focus_seq,
         };
-        self.state()
-            .log
-            .submissions
-            .push((token, values, submission));
+        let mut state = self.state();
+        if !state.pending.remove(&token) {
+            return false;
+        }
+        state.log.submissions.push((token, values, submission));
+        true
     }
     fn cancel_form(&self, token: u64) {
-        self.state().log.cancels.push(token);
+        let mut state = self.state();
+        state.pending.remove(&token);
+        state.log.cancels.push(token);
     }
     fn form_panel_focused(&self, token: u64, focus: kudzu_engine::PanelFocus) {
         let focus = PanelFocus {
@@ -131,6 +137,7 @@ impl Forwarding {
 
 impl NativeSide for Forwarding {
     fn request_form(&self, native: u64, snippet: Uuid, target: Option<AppInfo>) {
+        self.native.state().pending.insert(native);
         self.host().form_requested(kudzu_engine::FormRequest {
             token: native,
             snippet_id: snippet,

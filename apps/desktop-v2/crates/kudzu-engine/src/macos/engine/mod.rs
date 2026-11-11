@@ -272,10 +272,17 @@ impl Imp {
 
     /// Accepts the submission of form `token` now, on the caller's thread, so input from now on
     /// counts against it; the worker does the rest.
-    pub fn submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission) {
-        if self.accept_submission(token, submission) {
+    pub fn submit_form(
+        &self,
+        token: u64,
+        values: HashMap<String, String>,
+        submission: Submission,
+    ) -> bool {
+        let accepted = self.accept_submission(token, submission);
+        if accepted {
             self.send(Job::Submit { token, values });
         }
+        accepted
     }
 
     pub fn insert_snippet(

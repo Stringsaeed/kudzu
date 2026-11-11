@@ -13,7 +13,13 @@ pub(super) trait Native: Send + Sync {
     fn set_paused(&self, paused: bool);
     fn set_suppressed(&self, suppressed: bool);
     fn insert(&self, snippet: Uuid, target: Option<AppInfo>, selection: Option<String>);
-    fn submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission);
+    /// Whether the native engine accepted the token (it is that engine's pending form).
+    fn submit_form(
+        &self,
+        token: u64,
+        values: HashMap<String, String>,
+        submission: Submission,
+    ) -> bool;
     fn cancel_form(&self, token: u64);
     fn form_panel_focused(&self, token: u64, focus: PanelFocus);
     fn set_kudzu_windows(&self, windows: &[KudzuWindow]);
@@ -44,8 +50,13 @@ impl Native for System {
         self.0
             .insert_snippet_with_selection(snippet, target, selection);
     }
-    fn submit_form(&self, token: u64, values: HashMap<String, String>, submission: Submission) {
-        self.0.submit_form(token, values, submission);
+    fn submit_form(
+        &self,
+        token: u64,
+        values: HashMap<String, String>,
+        submission: Submission,
+    ) -> bool {
+        self.0.submit_form(token, values, submission)
     }
     fn cancel_form(&self, token: u64) {
         self.0.cancel_form(token);

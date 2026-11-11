@@ -222,7 +222,11 @@ impl FormChannel for FakeEngine {
         }
         let mut state = self.state.lock().unwrap();
         admit(&state)?;
-        if state.instance.native_token(token).is_none() {
+        // Like the native engine: another instance's token, or one already submitted or
+        // cancelled, is no longer a pending form.
+        let taken =
+            state.submissions.iter().any(|(t, ..)| *t == token) || state.cancelled.contains(&token);
+        if state.instance.native_token(token).is_none() || taken {
             return Err(AdmissionError::StaleToken);
         }
         state.submissions.push((token, values, submission));

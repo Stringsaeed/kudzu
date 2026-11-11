@@ -127,8 +127,9 @@ impl ExpansionEngine for EngineAdapter {
 }
 
 impl FormChannel for EngineAdapter {
-    /// `StaleToken` for another instance's token. The native engine also ignores a token that
-    /// is no longer its pending form; that case is admitted and produces no outcome.
+    /// `StaleToken` for another instance's token, and for one the native engine no longer has
+    /// as its pending form (already submitted, cancelled or replaced), which would otherwise
+    /// produce no outcome: the forms service cancels on it.
     fn submit_form(
         &self,
         token: FormToken,
@@ -140,7 +141,7 @@ impl FormChannel for EngineAdapter {
             .instance
             .native_token(token)
             .ok_or(AdmissionError::StaleToken)?;
-        self.native.submit_form(
+        let accepted = self.native.submit_form(
             native,
             values,
             kudzu_engine::Submission {
@@ -148,7 +149,7 @@ impl FormChannel for EngineAdapter {
                 focus_seq: submission.focus_seq,
             },
         );
-        Ok(())
+        accepted.then_some(()).ok_or(AdmissionError::StaleToken)
     }
 
     fn cancel_form(&self, token: FormToken) {

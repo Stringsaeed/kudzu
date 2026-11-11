@@ -10,6 +10,8 @@
 //! typing or clicking in the target app and then submitting deleted text at the wrong place.
 //! The tests marked D9 pin the fix; the rest pin the copied behaviour.
 
+use std::collections::HashMap;
+
 use kudzu_core::activity::{ActivityOutcome, ActivitySource};
 
 use super::desk::{editor, At, Ev, Key, Out};
@@ -232,4 +234,26 @@ fn a_palette_form_inserts_at_the_caret_whatever_was_typed() {
         ]
     );
     assert_eq!(rig.doc(), "qDear Sam, hi|");
+}
+
+/// `submit_form` says whether the engine took the token (third review): the pending form's
+/// token once, never a stale, repeated or cancelled one, so the adapter can refuse those.
+#[test]
+fn submit_form_says_whether_it_accepted_the_token() {
+    let (rig, token) = opened();
+    rig.focus_panel(token, true);
+    let submission = || rig.desk.submission(token);
+    let values = || HashMap::from([("who".to_string(), "Sam".to_string())]);
+    assert!(!rig.engine.submit_form(token + 1, values(), submission()));
+    assert!(rig.engine.submit_form(token, values(), submission()));
+    assert!(!rig.engine.submit_form(token, values(), submission()));
+    rig.settle();
+    assert_eq!(rig.doc(), "Dear Sam, hi|");
+    // A cancelled form's token is refused too.
+    rig.type_(";addr");
+    let next = rig.host.form_token();
+    rig.engine.cancel_form(next);
+    assert!(!rig
+        .engine
+        .submit_form(next, values(), rig.desk.submission(next)));
 }

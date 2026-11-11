@@ -171,6 +171,11 @@ pub fn with_native(h: &dyn EngineHarness) {
         h.forms().submit_form(token, values.clone(), submission(99)),
         Ok(())
     );
+    assert_eq!(
+        h.forms().submit_form(token, HashMap::new(), submission(98)),
+        Err(AdmissionError::StaleToken),
+        "a token the engine already took is refused, so the forms service can cancel"
+    );
     h.forms().cancel_form(token);
     let log = native.log();
     assert_eq!(log.focus, [(7, focus(true, 1)), (7, focus(false, 2))]);
