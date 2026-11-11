@@ -7,6 +7,11 @@ use crate::shell::MainState;
 use crate::theme::Theme;
 use crate::widgets::kit_ext::dialog::Dialog;
 
+/// `⌘/` and `?`.
+pub fn toggle(s: &mut MainState) {
+    s.frame.shortcuts_open = !s.frame.shortcuts_open;
+}
+
 /// Placeholder shortcuts cheat sheet modal until S43 lands.
 pub fn view(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) {
     Dialog::new("shortcuts-cheatsheet", "Keyboard shortcuts")

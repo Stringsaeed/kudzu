@@ -8,7 +8,7 @@ use crate::theme::Theme;
 
 /// Per-screen state owned by the settings module (S61–S63).
 #[derive(Clone, Debug, Default)]
-pub struct State;
+pub struct State {}
 
 impl State {
     pub fn is_composing(&self) -> bool {

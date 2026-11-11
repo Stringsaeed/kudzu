@@ -7,7 +7,7 @@ use crate::theme::Theme;
 
 /// Per-screen state owned by the Insights module (S64).
 #[derive(Clone, Debug, Default)]
-pub struct State;
+pub struct State {}
 
 impl State {
     pub fn is_composing(&self) -> bool {
@@ -17,6 +17,8 @@ impl State {
     pub fn is_editing_text(&self) -> bool {
         false
     }
+
+    pub fn blur_inputs(&mut self) {}
 }
 
 /// Placeholder Insights screen until S64 lands.

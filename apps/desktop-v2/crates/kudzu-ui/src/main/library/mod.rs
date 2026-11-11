@@ -1,5 +1,7 @@
 //! Library list screen stub. Owned and filled out by S50 (`crates/kudzu-ui/src/main/library/**`).
 
+pub mod actions;
+
 use rune::{col, text, El, TextEdit, Tx};
 
 use crate::main::state::LibraryFilter;

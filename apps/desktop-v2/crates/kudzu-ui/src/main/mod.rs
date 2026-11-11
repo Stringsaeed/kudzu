@@ -1,10 +1,20 @@
-//! Main window frame, navigation, breadcrumbs, window shortcuts, toast host, and pre-declared
-//! screen module boundaries (`PLAN.md` S41).
+//! The main window: frame, navigation, shortcuts, toasts, and one module per screen
+//! (`PLAN.md` S41). `shell/windows/main.rs` holds only the services, `MainState` and the window
+//! spec; everything a screen does lives in that screen's module, so parallel steps edit their
+//! own files:
 //!
-//! Later Wave 9–11 steps fill the screen and modal modules declared below (`sidebar`, `library`,
-//! `editor`, `clipboard`, `settings`, `insights`, `onboarding`, `command_menu`, `cheatsheet`,
-//! `group_settings`, `update_toast`) and append scene entries to [`scenes::SCENES`] without
-//! colliding on `main/mod.rs` or `MainState`.
+//! - Frame (S41): `mod`, `state`, `nav` (views, selection, routes, pane focus), `keys` (key
+//!   routing, the action dispatcher, input guards), `frame`, `toolbar`, `toasts`, `scenes`.
+//! - `sidebar/**` (S42): the view, `State`, and `sidebar/actions.rs` (groups, pause).
+//! - `command_menu.rs` and `cheatsheet.rs` (S43).
+//! - `library/**` (S50): the list, `State`, and `library/actions.rs` (snippet actions, delete
+//!   with Undo, list focus).
+//! - `editor/**` (S51–S54), `group_settings.rs` (S55), `clipboard/**` (S58), `settings/**`
+//!   (S61–S63), `insights/**` (S64), `onboarding/**` (S65), `update_toast.rs` (S63).
+//!
+//! Each screen's `State` is built with `Default` and answers `is_composing`, `is_editing_text`
+//! and `blur_inputs` for the guards in `keys`. Scenes go in [`scenes::SCENES`], one per line.
+//! Tests: `tests/mod.rs` is the rig, and each area adds its own file beside it.
 
 pub mod cheatsheet;
 pub mod clipboard;
@@ -15,6 +25,7 @@ pub mod group_settings;
 pub mod insights;
 pub mod keys;
 pub mod library;
+pub mod nav;
 pub mod onboarding;
 pub mod scenes;
 pub mod settings;
@@ -28,7 +39,7 @@ pub mod update_toast;
 mod tests;
 
 pub use frame::{view, CONTENT_GUTTER, SIDEBAR_W};
-pub use keys::{apply_focus_after_action, handle_key};
+pub use keys::{handle_key, run};
 pub use state::{
     settings_pane_label, ClipFilter, LibraryFilter, MainFrame, MainPane, MainView, NavHistory,
     LIBRARY_PANES, MAX_NAV_HISTORY, SINGLE_PANE, TWO_PANES,

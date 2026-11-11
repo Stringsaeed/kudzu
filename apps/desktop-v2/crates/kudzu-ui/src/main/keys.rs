@@ -2,15 +2,15 @@
 //!
 //! Enforces IME composition blocking (`TextEdit::is_composing`), modal Escape dismissal and
 //! shortcut suppression, editor-to-list Escape focus return, editable-input shortcut filtering, and
-//! [`crate::actions::Action`] dispatch for [`MainAction`].
+//! [`crate::actions::Action`] dispatch for [`MainAction`], and the input guards every screen's
+//! `State` feeds (`is_composing`, `is_editing_text`, `blur_inputs`).
 
 use rune::{Key, KeyEvent, Keybind, Tx};
 
 use crate::actions::main::{ActionContext, MainAction};
 use crate::actions::Action;
-use crate::main::clipboard;
-use crate::main::library;
-use crate::main::state::{MainPane, MainView};
+use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
+use crate::main::{cheatsheet, clipboard, command_menu, editor, library, nav, sidebar};
 use crate::shell::MainState;
 
 /// Window-level `on_key` handler wired into `AppSpec::on_key` for `main`.
@@ -56,10 +56,7 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         && s.frame.view.in_library()
         && (s.editor.is_editing_text() || s.frame.focus.is_active(MainPane::Editor))
     {
-        s.blur_all_inputs();
-        tx.blur();
-        s.frame.focus.move_to(MainPane::List);
-        tx.focus(library::LIST_KEY, false);
+        library::actions::focus_list(s, tx);
         return true;
     }
 
@@ -82,52 +79,77 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     true
 }
 
-/// Applies Rune `Tx` focus transitions after an action mutates `MainState`.
-pub fn apply_focus_after_action(s: &mut MainState, action: MainAction, tx: &mut Tx) {
+/// Runs a [`MainAction`] from a shortcut or the command menu (`LIB-14`). Each arm calls the
+/// module that owns the action, which also moves focus.
+pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
+    s.frame.clock_secs = tx.clock();
     match action {
+        MainAction::CommandMenu => command_menu::toggle(s),
+        MainAction::NewSnippet => library::actions::new_snippet(s, tx),
+        MainAction::NewGroup => sidebar::actions::new_group(s),
         MainAction::FocusFilter => match s.frame.view {
-            MainView::Clipboard(_) => {
-                s.blur_all_inputs();
-                s.frame.focus.move_to(MainPane::List);
-                s.clipboard.focus_search(tx);
-            }
-            _ => {
-                s.blur_all_inputs();
-                s.frame.focus.move_to(MainPane::List);
-                s.library.focus_filter(tx);
-            }
+            MainView::Clipboard(_) => clipboard::focus_search(s, tx),
+            _ => library::actions::focus_filter(s, tx),
         },
-        MainAction::FocusList => {
-            s.blur_all_inputs();
-            tx.blur();
-            s.frame.focus.move_to(MainPane::List);
-            match s.frame.view {
-                MainView::Clipboard(_) => tx.focus(clipboard::LIST_KEY, false),
-                _ => tx.focus(library::LIST_KEY, false),
-            }
+        MainAction::FocusList => match s.frame.view {
+            MainView::Clipboard(_) => clipboard::focus_list(s, tx),
+            _ => library::actions::focus_list(s, tx),
+        },
+        MainAction::EditContent => editor::edit_content(s, tx),
+        MainAction::DuplicateSnippet => library::actions::duplicate_selected(s),
+        MainAction::ToggleFavorite => library::actions::toggle_favorite(s),
+        MainAction::ToggleEnabled => library::actions::toggle_enabled(s),
+        MainAction::DeleteSnippet => library::actions::delete_selected(s),
+        MainAction::TogglePause => sidebar::actions::toggle_pause(s),
+        MainAction::ViewAll => nav::view(s, MainView::Library(LibraryFilter::All), tx),
+        MainAction::ViewFavorites => {
+            nav::view(s, MainView::Library(LibraryFilter::Favorites), tx);
         }
-        MainAction::EditContent | MainAction::NewSnippet => {
-            if s.frame.selected_snippet.is_some() {
-                s.blur_all_inputs();
-                s.frame.focus.move_to(MainPane::Editor);
-                s.editor.focus_content(tx);
-            }
-        }
-        MainAction::ViewAll
-        | MainAction::ViewFavorites
-        | MainAction::ViewRecent
-        | MainAction::ViewInsights
-        | MainAction::ViewClipboard
-        | MainAction::OpenSettings
-        | MainAction::Back
-        | MainAction::Forward => {
-            s.blur_all_inputs();
-            tx.blur();
-        }
-        _ => {}
+        MainAction::ViewRecent => nav::view(s, MainView::Library(LibraryFilter::Recent), tx),
+        MainAction::ViewInsights => nav::view(s, MainView::Insights, tx),
+        MainAction::ViewClipboard => nav::view(s, MainView::Clipboard(ClipFilter::All), tx),
+        MainAction::OpenSettings => nav::open_settings(s, tx),
+        MainAction::OpenShortcuts => cheatsheet::toggle(s),
+        MainAction::Back => nav::back(s, tx),
+        MainAction::Forward => nav::forward(s, tx),
+        MainAction::ToggleSidebar => s.toggle_sidebar(),
     }
-
     if let Some(due) = s.frame.toasts.next_due() {
         tx.wake_at(due);
+    }
+}
+
+impl MainState {
+    /// True while any screen's text field has an IME composition open.
+    pub fn is_composing(&self) -> bool {
+        self.sidebar.is_composing()
+            || self.library.is_composing()
+            || self.editor.is_composing()
+            || self.clipboard.is_composing()
+            || self.settings.is_composing()
+            || self.insights.is_composing()
+            || self.onboarding.is_composing()
+    }
+
+    /// True while any screen's editable text field holds keyboard focus.
+    pub fn is_editing_text(&self) -> bool {
+        self.sidebar.is_editing_text()
+            || self.library.is_editing_text()
+            || self.editor.is_editing_text()
+            || self.clipboard.is_editing_text()
+            || self.settings.is_editing_text()
+            || self.insights.is_editing_text()
+            || self.onboarding.is_editing_text()
+    }
+
+    /// Clears every screen's text-field focus flag before pane focus moves.
+    pub fn blur_all_inputs(&mut self) {
+        self.sidebar.blur_inputs();
+        self.library.blur_inputs();
+        self.editor.blur_inputs();
+        self.clipboard.blur_inputs();
+        self.settings.blur_inputs();
+        self.insights.blur_inputs();
+        self.onboarding.blur_inputs();
     }
 }

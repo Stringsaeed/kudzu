@@ -36,6 +36,15 @@ impl State {
     }
 }
 
+/// `⌘E`: focus the open snippet's content.
+pub fn edit_content(s: &mut MainState, tx: &mut Tx) {
+    if s.frame.selected_snippet.is_some() {
+        s.blur_all_inputs();
+        s.frame.focus.move_to(MainPane::Editor);
+        s.editor.focus_content(tx);
+    }
+}
+
 /// Placeholder editor pane until S51 lands. Renders an empty state when no snippet is selected, or
 /// a `"Snippet content"` field for keyboard focus (`⌘E` / `Escape`) and IME guard verification.
 pub fn view(s: &MainState, theme: &Theme, pane_focused: bool) -> El {
@@ -71,10 +80,7 @@ pub fn view(s: &MainState, theme: &Theme, pane_focused: bool) -> El {
                         && !st.is_composing()
                         && !st.frame.any_modal_open()
                     {
-                        st.blur_all_inputs();
-                        tx.blur();
-                        st.frame.focus.move_to(MainPane::List);
-                        tx.focus(library::LIST_KEY, false);
+                        library::actions::focus_list(st, tx);
                         return true;
                     }
                     false

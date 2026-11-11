@@ -2,7 +2,8 @@
 
 use rune::{col, text, El, TextEdit, Tx};
 
-use crate::main::state::ClipFilter;
+use crate::main::nav;
+use crate::main::state::{ClipFilter, MainPane};
 use crate::shell::MainState;
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::input::Input;
@@ -33,6 +34,18 @@ impl State {
     pub fn blur_inputs(&mut self) {
         self.search.focused = false;
     }
+}
+
+/// `⌘F` on the clipboard screen.
+pub fn focus_search(s: &mut MainState, tx: &mut Tx) {
+    s.blur_all_inputs();
+    s.frame.focus.move_to(MainPane::List);
+    s.clipboard.focus_search(tx);
+}
+
+/// `⌘L` on the clipboard screen.
+pub fn focus_list(s: &mut MainState, tx: &mut Tx) {
+    nav::focus_list_pane(s, LIST_KEY, tx);
 }
 
 /// Placeholder clipboard history screen until S58 lands.

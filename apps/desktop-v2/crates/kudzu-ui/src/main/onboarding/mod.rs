@@ -7,7 +7,7 @@ use crate::theme::Theme;
 
 /// Per-screen state owned by the first-run Onboarding module (S65).
 #[derive(Clone, Debug, Default)]
-pub struct State;
+pub struct State {}
 
 impl State {
     pub fn is_composing(&self) -> bool {

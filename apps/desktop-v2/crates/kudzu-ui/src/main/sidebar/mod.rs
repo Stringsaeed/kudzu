@@ -1,5 +1,7 @@
 //! Sidebar screen stub. Owned and filled out by S42 (`crates/kudzu-ui/src/main/sidebar/**`).
 
+pub mod actions;
+
 use rune::{col, text, El};
 
 use crate::shell::MainState;
@@ -7,7 +9,7 @@ use crate::theme::Theme;
 
 /// Per-screen state owned by the sidebar module (S42).
 #[derive(Clone, Debug, Default)]
-pub struct State;
+pub struct State {}
 
 impl State {
     pub fn is_composing(&self) -> bool {
@@ -17,6 +19,8 @@ impl State {
     pub fn is_editing_text(&self) -> bool {
         false
     }
+
+    pub fn blur_inputs(&mut self) {}
 }
 
 /// Placeholder sidebar slot until S42 lands. Exposes the `"Library"` navigation landmark inside

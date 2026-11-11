@@ -6,6 +6,11 @@ use crate::shell::MainState;
 use crate::theme::Theme;
 use crate::widgets::kit_ext::dialog::Dialog;
 
+/// `⌘K`.
+pub fn toggle(s: &mut MainState) {
+    s.frame.command_open = !s.frame.command_open;
+}
+
 /// Placeholder command menu modal until S43 lands.
 pub fn view(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) {
     Dialog::new("command-menu", "Search commands and snippets")

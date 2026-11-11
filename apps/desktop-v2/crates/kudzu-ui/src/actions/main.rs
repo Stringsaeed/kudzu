@@ -267,9 +267,7 @@ impl Action<MainState> for MainAction {
     }
 
     fn run(self, s: &mut MainState, tx: &mut Tx) {
-        s.frame.clock_secs = tx.clock();
-        s.dispatch_action(self);
-        crate::main::keys::apply_focus_after_action(s, self, tx);
+        crate::main::keys::run(s, self, tx);
     }
 }
 
