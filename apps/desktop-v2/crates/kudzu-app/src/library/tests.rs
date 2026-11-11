@@ -234,13 +234,16 @@ fn groups_append_and_move_at_a_clamped_sort_index_and_refuse_cycles() {
         })
         .unwrap();
     assert_eq!(blank.name, "Renamed");
-    assert!(h
-        .service
-        .update_group(kudzu_core::library::model::GroupRecord {
-            parent_id: Some(child.id),
-            ..a.clone()
-        })
-        .is_err());
+    let before_cycle_update = h.service.snapshot();
+    assert_eq!(
+        h.service
+            .update_group(kudzu_core::library::model::GroupRecord {
+                parent_id: Some(child.id),
+                ..a.clone()
+            }),
+        Err(LibraryError::GroupCycle)
+    );
+    assert_eq!(h.service.snapshot(), before_cycle_update);
     h.service.move_group(b.id, None, i64::MAX).unwrap();
     assert_eq!(
         h.service
@@ -363,3 +366,22 @@ fn expansions_accumulate_per_snippet_and_device_and_clamp_negative_savings() {
 mod conflicts;
 mod storage;
 mod transactions;
+
+#[test]
+fn missing_duplicate_and_update_keep_their_distinct_reference_errors() {
+    let h = Harness::new(KudzuLibrary::default());
+    let before = h.service.snapshot();
+    assert_eq!(
+        h.service
+            .duplicate_snippet(Uuid::nil())
+            .unwrap_err()
+            .to_string(),
+        "Snippet not found"
+    );
+    let snippet = SnippetRecord::new("Missing", vec![], "");
+    assert_eq!(
+        h.service.update_snippet(snippet).unwrap_err().to_string(),
+        "That snippet no longer exists."
+    );
+    assert_eq!(h.service.snapshot(), before);
+}

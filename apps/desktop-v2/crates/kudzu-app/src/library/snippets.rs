@@ -99,7 +99,7 @@ impl LibraryService {
                 .snippets
                 .iter()
                 .position(|s| s.id == id)
-                .ok_or(LibraryError::MissingSnippet)?;
+                .ok_or(LibraryError::DuplicateSourceMissing)?;
             let mut copy = library.snippets[at].clone();
             let taken: HashSet<_> = library
                 .snippets

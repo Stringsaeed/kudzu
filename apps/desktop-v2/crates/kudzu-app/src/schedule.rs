@@ -2,7 +2,7 @@
 
 use crate::error::IoFailure;
 use crate::ports::clock::Clock;
-use crate::watch::Subscription;
+use crate::watch::{Publisher, Subscription, Watch};
 use std::collections::BinaryHeap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -18,6 +18,17 @@ pub enum ScheduleError {
     Stopped,
     #[error("The repeat interval must be positive.")]
     ZeroInterval,
+    #[error("A timer callback stopped unexpectedly.")]
+    Panicked,
+    #[error("The timer worker stopped unexpectedly.")]
+    WorkerStopped,
+}
+
+/// Redacted, sticky failure state. The count makes repeated identical failures observable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ScheduleFailure {
+    pub count: u64,
+    pub error: ScheduleError,
 }
 struct Entry {
     due: Duration,
@@ -48,10 +59,10 @@ struct Queue {
     next: u64,
     entries: BinaryHeap<Arc<Entry>>,
 }
-#[derive(Default)]
 struct Shared {
     queue: Mutex<Queue>,
     changed: Condvar,
+    failures: Publisher<Option<ScheduleFailure>>,
 }
 
 /// Keep each timer handle in its service; dropping it cancels future executions.
@@ -89,7 +100,11 @@ pub struct Scheduler {
 }
 impl Scheduler {
     pub fn new(clock: Arc<dyn Clock>) -> Result<Self, ScheduleError> {
-        let shared = Arc::new(Shared::default());
+        let shared = Arc::new(Shared {
+            queue: Mutex::new(Queue::default()),
+            changed: Condvar::new(),
+            failures: Publisher::new(None),
+        });
         let wake = Arc::downgrade(&shared);
         let subscription = clock.subscribe(Arc::new(move || {
             if let Some(shared) = wake.upgrade() {
@@ -102,7 +117,8 @@ impl Scheduler {
         let worker = std::thread::Builder::new()
             .name("kudzu-schedule".into())
             .spawn(move || {
-                let _ = catch_unwind(AssertUnwindSafe(|| run(thread_state.clone(), thread_clock)));
+                let result =
+                    catch_unwind(AssertUnwindSafe(|| run(thread_state.clone(), thread_clock)));
                 let entries = {
                     let mut queue = thread_state
                         .queue
@@ -112,6 +128,9 @@ impl Scheduler {
                     thread_state.changed.notify_all();
                     std::mem::take(&mut queue.entries)
                 };
+                if result.is_err() {
+                    report_failure(&thread_state, ScheduleError::WorkerStopped);
+                }
                 drop(entries);
             })
             .map_err(IoFailure::from)?;
@@ -121,6 +140,10 @@ impl Scheduler {
             worker: Mutex::new(Some(worker)),
             _clock_wake: subscription,
         })
+    }
+    /// Composition observes this alongside service errors. No panic payload is retained.
+    pub fn failures(&self) -> Watch<Option<ScheduleFailure>> {
+        self.shared.failures.watch()
     }
     pub fn after(
         &self,
@@ -244,12 +267,28 @@ fn run(shared: Arc<Shared>, clock: Arc<dyn Clock>) {
             }));
         }
         drop(queue);
-        if entry.active.load(Ordering::Acquire) {
-            let _ = catch_unwind(AssertUnwindSafe(|| (entry.run)()));
+        if entry.active.load(Ordering::Acquire)
+            && catch_unwind(AssertUnwindSafe(|| (entry.run)())).is_err()
+        {
+            report_failure(&shared, ScheduleError::Panicked);
         }
         drop(entry);
         queue = shared.queue.lock().unwrap_or_else(PoisonError::into_inner);
     }
+}
+
+// Only the timer worker writes this state, and callbacks run with the queue unlocked.
+fn report_failure(shared: &Shared, error: ScheduleError) {
+    let count = shared
+        .failures
+        .watch()
+        .get()
+        .map_or(1, |previous| previous.count.saturating_add(1));
+    shared
+        .failures
+        .replace(Arc::new(Some(ScheduleFailure { count, error })))
+        .notification
+        .notify();
 }
 
 #[cfg(test)]
@@ -257,6 +296,95 @@ mod tests {
     use super::*;
     use crate::fixtures::clock::FakeClock;
     use std::sync::mpsc;
+
+    #[test]
+    fn callback_panics_publish_redacted_failures_and_later_timers_still_run() {
+        let clock = Arc::new(FakeClock::default());
+        let scheduler = Scheduler::new(clock.clone()).unwrap();
+        let failures = scheduler.failures();
+        let read = failures.clone();
+        let (tx, rx) = mpsc::channel();
+        let _subscription = failures.subscribe(move || {
+            tx.send(*read.get()).unwrap();
+        });
+        assert!(failures.get().is_none());
+        let bad = scheduler
+            .every(Duration::from_secs(1), Duration::from_secs(1), || {
+                panic!("PRIVATE-CALLBACK-PAYLOAD")
+            })
+            .unwrap();
+        let (ran, done) = mpsc::channel();
+        let good = scheduler
+            .after(Duration::from_secs(2), move || {
+                ran.send(()).unwrap();
+            })
+            .unwrap();
+        for count in 1..=2 {
+            clock.advance(Duration::from_secs(1));
+            let failure = rx
+                .recv_timeout(Duration::from_secs(2))
+                .expect("callback panic was silent")
+                .unwrap();
+            assert_eq!(
+                failure,
+                ScheduleFailure {
+                    count,
+                    error: ScheduleError::Panicked
+                }
+            );
+            assert!(!format!("{failure:?} {}", failure.error).contains("PRIVATE"));
+        }
+        done.recv_timeout(Duration::from_secs(2)).unwrap();
+        drop((bad, good));
+        scheduler.shutdown();
+    }
+
+    #[test]
+    fn worker_panic_is_published_without_a_later_admission() {
+        struct BrokenClock;
+        impl Clock for BrokenClock {
+            fn now(&self) -> std::time::SystemTime {
+                std::time::SystemTime::UNIX_EPOCH
+            }
+            fn monotonic(&self) -> Duration {
+                assert_ne!(
+                    std::thread::current().name(),
+                    Some("kudzu-schedule"),
+                    "PRIVATE-WORKER-PAYLOAD"
+                );
+                Duration::ZERO
+            }
+            fn subscribe(&self, _: Arc<dyn Fn() + Send + Sync>) -> Subscription {
+                Subscription::default()
+            }
+        }
+        let scheduler = Scheduler::new(Arc::new(BrokenClock)).unwrap();
+        let failures = scheduler.failures();
+        let read = failures.clone();
+        let (tx, rx) = mpsc::channel();
+        let _subscription = failures.subscribe(move || {
+            tx.send(*read.get()).unwrap();
+        });
+        let timer = scheduler.after(Duration::from_secs(1), || {}).unwrap();
+        let failure = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("dead timer worker was silent")
+            .unwrap();
+        assert_eq!(
+            failure,
+            ScheduleFailure {
+                count: 1,
+                error: ScheduleError::WorkerStopped
+            }
+        );
+        assert!(!format!("{failure:?} {}", failure.error).contains("PRIVATE"));
+        assert!(matches!(
+            scheduler.after(Duration::ZERO, || {}),
+            Err(ScheduleError::Stopped)
+        ));
+        drop(timer);
+        scheduler.shutdown();
+    }
 
     #[test]
     fn unexpected_worker_exit_stops_timer_admission() {

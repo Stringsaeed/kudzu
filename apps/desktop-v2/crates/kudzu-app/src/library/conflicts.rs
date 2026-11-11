@@ -47,6 +47,16 @@ impl ConflictWorker {
         state: Arc<Mutex<Publisher<KudzuLibrary>>>,
         scheduler: Arc<Scheduler>,
     ) -> Result<Self, LibraryError> {
+        Self::start(state, scheduler, |library| {
+            find_conflicts(&library.snippets, &library.groups)
+        })
+    }
+
+    fn start(
+        state: Arc<Mutex<Publisher<KudzuLibrary>>>,
+        scheduler: Arc<Scheduler>,
+        calculate: impl Fn(&KudzuLibrary) -> Vec<TriggerConflict> + Send + 'static,
+    ) -> Result<Self, LibraryError> {
         let library = state.lock().unwrap_or_else(PoisonError::into_inner).watch();
         let shared = Arc::new(Shared {
             state,
@@ -69,7 +79,7 @@ impl ConflictWorker {
         let worker = std::thread::Builder::new()
             .name("kudzu-conflicts".into())
             .spawn(move || {
-                let result = catch_unwind(AssertUnwindSafe(|| run(&thread_state)));
+                run(&thread_state, &calculate);
                 let timer = {
                     let mut pending = thread_state
                         .pending
@@ -79,9 +89,6 @@ impl ConflictWorker {
                     pending.timer.take()
                 };
                 drop(timer);
-                if result.is_err() {
-                    report(&thread_state, LibraryError::WorkerStopped);
-                }
             })
             .map_err(IoFailure::from)?;
         Ok(Self {
@@ -143,7 +150,7 @@ fn arm(shared: &Arc<Shared>) -> Result<(), LibraryError> {
     Ok(())
 }
 
-fn run(shared: &Shared) {
+fn run(shared: &Shared, calculate: &impl Fn(&KudzuLibrary) -> Vec<TriggerConflict>) {
     loop {
         let requested = {
             let mut pending = shared
@@ -166,7 +173,13 @@ fn run(shared: &Shared) {
         if requested != Some(revision) {
             continue;
         }
-        let items = find_conflicts(&library.snippets, &library.groups);
+        let items = match catch_unwind(AssertUnwindSafe(|| calculate(&library))) {
+            Ok(items) => items,
+            Err(_) => {
+                report(shared, LibraryError::ConflictPanicked);
+                continue;
+            }
+        };
         let notification = {
             let state = shared.state.lock().unwrap_or_else(PoisonError::into_inner);
             if state.watch().revision() != revision {
@@ -184,6 +197,9 @@ fn run(shared: &Shared) {
         notification.notify();
     }
 }
+
+#[cfg(test)]
+mod tests;
 
 fn report(shared: &Shared, error: LibraryError) {
     let notification = {

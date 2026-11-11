@@ -14,7 +14,7 @@ use std::{
 pub enum SettingsError {
     #[error("Settings could not be saved or loaded.")]
     Persistence(#[from] PersistError),
-    #[error("The trigger prefix must be at most four characters.")]
+    #[error("The trigger prefix must be at most four UTF-16 code units.")]
     TriggerPrefix,
     #[error("Keep history for 1 to 3650 days, or forever.")]
     Retention,
@@ -28,8 +28,9 @@ pub struct SettingsService {
 
 impl SettingsService {
     /// Startup I/O only. Missing keys inherit this variant's defaults before typed decoding.
+    /// Out-of-range stored fields are clamped and queued for repair without discarding preferences.
     pub fn open(path: PathBuf, variant: Variant, writer: &Writer) -> Result<Self, SettingsError> {
-        let (file, loaded) = JsonFile::open_with(
+        let (file, mut loaded) = JsonFile::open_with(
             path,
             || Settings::for_variant(variant),
             |bytes| {
@@ -47,7 +48,8 @@ impl SettingsService {
             },
             |value| serde_json::to_vec_pretty(value).map_err(|_| PersistError::Encode),
         )?;
-        let durable = if loaded.source == LoadSource::Existing {
+        let repaired = clamp_stored(&mut loaded.value);
+        let durable = if loaded.source == LoadSource::Existing && !repaired {
             Revision(1)
         } else {
             Revision(0)
@@ -117,6 +119,23 @@ impl SettingsService {
     pub fn set_clipboard_retention_days(&self, days: u32) -> Result<Revision, SettingsError> {
         self.update(|s| s.clipboard_retention_days = days)
     }
+}
+
+fn clamp_stored(settings: &mut Settings) -> bool {
+    let mut units = 0;
+    let end = settings
+        .default_trigger_prefix
+        .char_indices()
+        .find_map(|(at, character)| {
+            units += character.len_utf16();
+            (units > 4).then_some(at)
+        });
+    if let Some(end) = end {
+        settings.default_trigger_prefix.truncate(end);
+    }
+    let retention_invalid = settings.clipboard_retention_days > 3650;
+    settings.clipboard_retention_days = settings.clipboard_retention_days.min(3650);
+    end.is_some() || retention_invalid
 }
 
 fn validate(settings: &Settings) -> Result<(), SettingsError> {

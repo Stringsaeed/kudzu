@@ -1,9 +1,11 @@
 use super::*;
-use crate::fixtures::clock::FakeClock;
+use crate::{fixtures::clock::FakeClock, ports::Clock, watch::Subscription};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    mpsc,
+    mpsc, Arc, Mutex,
 };
+
+use std::time::Duration;
 
 #[test]
 fn shutdown_times_out_without_claiming_durability_or_waiting_again() {

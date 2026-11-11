@@ -24,8 +24,8 @@ pub enum LibraryError {
     Schedule(#[from] ScheduleError),
     #[error("The trigger conflict worker could not start.")]
     WorkerStart(#[from] crate::error::IoFailure),
-    #[error("The trigger conflict worker stopped unexpectedly.")]
-    WorkerStopped,
+    #[error("Trigger conflicts could not be checked. Kudzu will retry after the next edit.")]
+    ConflictPanicked,
     #[error("That trigger is already in use.")]
     TriggerTaken,
     #[error("Group not found")]
@@ -34,6 +34,8 @@ pub enum LibraryError {
     GroupCycle,
     #[error("That snippet no longer exists.")]
     MissingSnippet,
+    #[error("Snippet not found")]
+    DuplicateSourceMissing,
     #[error("The library could not be saved or loaded.")]
     Persistence(#[from] PersistError),
 }
@@ -97,7 +99,9 @@ impl LibraryService {
 
     /// Run a pure closure on a working copy of the latest library, under one lock.
     /// No I/O or service calls inside the closure. Errors and panics leave the snapshot intact.
+    /// The mutex is not re-entrant: calling watch() or snapshot() inside the closure would deadlock.
     /// Use this boundary for agent edits, import/restore and sync merges, including their checks.
+    /// S29 (data), S32 (agents) and S33 (sync) must call transact from their workers, off the UI thread.
     pub fn transact<T>(
         &self,
         edit: impl FnOnce(&mut KudzuLibrary) -> Result<T, LibraryError>,

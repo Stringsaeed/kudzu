@@ -204,3 +204,55 @@ fn panic_rolls_back_settings_and_notifications_run_after_unlock() {
     );
     assert_eq!(settings.snapshot(), before);
 }
+
+#[test]
+fn opening_out_of_range_settings_repairs_only_invalid_fields_and_allows_later_edits() {
+    for (prefix, days, expected_prefix, expected_days, dirty) in [
+        ("ab😀x", 4000, "ab😀", 3650, true),
+        ("abc😀", 7, "abc", 7, true),
+        ("😀😀", 0, "😀😀", 0, false),
+    ] {
+        let folder = Folder::new();
+        fs::write(
+            folder.path(),
+            serde_json::to_vec(&serde_json::json!({
+                "defaultTriggerPrefix": prefix,
+                "clipboardRetentionDays": days,
+                "paused": true,
+                "theme": "light"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let writes = writer();
+        let settings = SettingsService::open(folder.path(), Variant::Production, &writes).unwrap();
+        let current = settings.watch().get();
+        assert_eq!(current.default_trigger_prefix, expected_prefix);
+        assert_eq!(current.clipboard_retention_days, expected_days);
+        assert!(current.paused);
+        assert_eq!(current.theme, Theme::Light);
+        assert_eq!(
+            settings.saved().get().durable,
+            if dirty { Revision(0) } else { Revision(1) }
+        );
+        let revision = settings
+            .update(|s| s.show_in_dock = false)
+            .expect("a bad stored field blocked an unrelated edit");
+        writes.shutdown().unwrap();
+        assert_eq!(settings.saved().get().durable, revision);
+        let writes = writer();
+        let reopened = SettingsService::open(folder.path(), Variant::Production, &writes).unwrap();
+        assert_eq!(
+            reopened.watch().get().default_trigger_prefix,
+            expected_prefix
+        );
+        assert_eq!(
+            reopened.watch().get().clipboard_retention_days,
+            expected_days
+        );
+        assert!(!reopened.watch().get().show_in_dock);
+        assert_eq!(reopened.saved().get().durable, Revision(1));
+        writes.shutdown().unwrap();
+        assert_eq!(fs::read_dir(&folder.0).unwrap().count(), 1);
+    }
+}
