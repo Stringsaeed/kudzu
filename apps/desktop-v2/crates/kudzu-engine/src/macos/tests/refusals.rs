@@ -330,3 +330,46 @@ fn a_leading_delay_then_lost_permission_reports_the_lost_trigger() {
         }]
     );
 }
+
+// MARK: A half of a key press can't be created (review finding 5)
+
+/// The second Backspace (press 1) can't be created, at its key-down or its key-up. Either way
+/// nothing of that press went out: one Backspace is typed back, with the withheld key.
+#[test]
+fn a_backspace_with_either_half_refused_posts_nothing_of_it() {
+    for down in [true, false] {
+        let rig = Rig::with(&[pasted(";sig", "Best, Sam")], |d| {
+            d.with(|s| s.refuse_half = Some((1, down)))
+        });
+        rig.type_(";sig");
+        let expected = [
+            vec![transient("Best, Sam")],
+            outs(backspaces(1)),
+            vec![restored(), typed("ig")],
+        ]
+        .concat();
+        assert_eq!(rig.log(), expected, "key-down refused: {down}");
+        assert_eq!(rig.doc(), ";sig|", "key-down refused: {down}");
+    }
+}
+
+/// The ⌘V (press 3) can't be created at either half: nothing is pasted, the clipboard comes
+/// back and the trigger is typed back.
+#[test]
+fn a_paste_keystroke_with_either_half_refused_pastes_nothing() {
+    for down in [true, false] {
+        let rig = Rig::with(&[pasted(";sig", "Best, Sam")], |d| {
+            d.with(|s| s.refuse_half = Some((3, down)))
+        });
+        rig.type_(";sig");
+        let expected = [
+            vec![transient("Best, Sam")],
+            outs(backspaces(3)),
+            vec![restored(), typed(";sig")],
+        ]
+        .concat();
+        assert_eq!(rig.log(), expected, "key-down refused: {down}");
+        assert_eq!(rig.doc(), ";sig|", "key-down refused: {down}");
+        assert_eq!(rig.clipboard(), user_clipboard());
+    }
+}

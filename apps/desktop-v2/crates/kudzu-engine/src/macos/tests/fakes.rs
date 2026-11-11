@@ -18,7 +18,7 @@ use super::desk::{
 use super::keyboard::{apply_event, apply_key, decode, label, unicode};
 use crate::macos::events::{Events, Listener};
 use crate::macos::ffi::{kCGEventKeyDown, kCGEventKeyUp, CGEventFlags, CGKeyCode, CGWindowID};
-use crate::macos::keys::{KeyError, REPLAY_MARKER};
+use crate::macos::keys::{self, KeyError, REPLAY_MARKER};
 use crate::macos::observe::{CaretMark, Clock, Observe};
 use crate::macos::pasteboard::{Board, Item, Items};
 use crate::macos::tap::{self, Handler, HeldEvent};
@@ -27,28 +27,34 @@ use crate::{AppInfo, PermissionStatus, Rect, TapMode};
 pub(super) struct FakeEvents(pub Desk);
 
 impl Events for FakeEvents {
+    /// The real poster's two-half logic ([`keys::press_with`]) on the fake session: a half
+    /// that can't be created fails as `CGEventCreateKeyboardEvent` would, and a key-down that
+    /// goes out reaches the listener and the document at once.
     fn press(&self, key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), KeyError> {
         let text = String::from_utf16_lossy(unicode);
+        let out = decode(key, flags, &text);
         self.0.with(|s| {
             if !s.post_event || s.secure.0 {
                 return Err(KeyError::NotAllowed);
             }
-            if s.paste_refused && decode(key, flags, &text) == Out::Paste {
-                return Err(KeyError::EventCreation);
-            }
-            if s.refuse_press == Some(s.presses) {
-                s.refuse_press = None;
-                return Err(KeyError::EventCreation);
-            }
-            s.log.push(Ev::Out(decode(key, flags, &text)));
-            s.press_times.push(Instant::now());
             Ok(())
         })?;
-        let swallowed = self.0.synthetic(key, flags, &text);
+        keys::press_with(
+            |down| self.0.with(|s| s.can_create(&out, down)).then_some(down),
+            |down| {
+                if down {
+                    self.0.with(|s| {
+                        s.log.push(Ev::Out(out.clone()));
+                        s.press_times.push(Instant::now());
+                    });
+                }
+                let swallowed = self.0.synthetic(key, flags, &text, down);
+                if down && !swallowed {
+                    self.0.with(|s| apply_key(s, key, flags, &text));
+                }
+            },
+        )?;
         let n = self.0.with(|s| {
-            if !swallowed {
-                apply_key(s, key, flags, &text);
-            }
             s.presses += 1;
             s.presses - 1
         });

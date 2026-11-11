@@ -156,6 +156,8 @@ pub(super) struct State {
     pub paste_refused: bool,
     /// The press with this index (counting the ones that went out) can't be created, once.
     pub refuse_press: Option<usize>,
+    /// That press's key-down (`true`) or key-up half can't be created, once.
+    pub refuse_half: Option<(usize, bool)>,
     // Observations.
     pub elapsed: Duration,
     pub frontmost: Option<AppInfo>,
@@ -229,6 +231,24 @@ struct Inner {
 #[derive(Clone)]
 pub(super) struct Desk(Arc<Inner>);
 
+impl State {
+    /// Whether the fake session can create this half of press `out` (the next press).
+    pub fn can_create(&mut self, out: &Out, down: bool) -> bool {
+        if down && self.paste_refused && *out == Out::Paste {
+            return false;
+        }
+        if down && self.refuse_press == Some(self.presses) {
+            self.refuse_press = None;
+            return false;
+        }
+        if self.refuse_half == Some((self.presses, down)) {
+            self.refuse_half = None;
+            return false;
+        }
+        true
+    }
+}
+
 impl Desk {
     pub fn new() -> Desk {
         let state = State {
@@ -248,6 +268,7 @@ impl Desk {
             transient_fails: false,
             paste_refused: false,
             refuse_press: None,
+            refuse_half: None,
             elapsed: Duration::ZERO,
             frontmost: Some(editor()),
             running: vec![editor(), mail()],
@@ -514,18 +535,14 @@ impl Desk {
 
     /// A synthetic press reaching the session: the listener sees its down and up, marked as
     /// ours, as it would on macOS. Whether a listener swallowed either (it never should).
-    pub fn synthetic(&self, code: CGKeyCode, flags: CGEventFlags, text: &str) -> bool {
-        let mut swallowed = false;
-        for down in [true, false] {
-            let event = CgEvent::key(code, text, down);
-            unsafe {
-                CGEventSetFlags(event.0, flags);
-                CGEventSetIntegerValueField(event.0, kCGEventSourceUserData, SYNTHETIC_MARKER);
-            }
-            let kind = if down { kCGEventKeyDown } else { kCGEventKeyUp };
-            swallowed |= self.deliver(kind, event.0);
+    pub fn synthetic(&self, code: CGKeyCode, flags: CGEventFlags, text: &str, down: bool) -> bool {
+        let event = CgEvent::key(code, text, down);
+        unsafe {
+            CGEventSetFlags(event.0, flags);
+            CGEventSetIntegerValueField(event.0, kCGEventSourceUserData, SYNTHETIC_MARKER);
         }
-        swallowed
+        let kind = if down { kCGEventKeyDown } else { kCGEventKeyUp };
+        self.deliver(kind, event.0)
     }
 
     /// macOS disables the tap because a callback took too long.

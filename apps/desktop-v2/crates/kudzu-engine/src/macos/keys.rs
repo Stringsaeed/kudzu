@@ -53,29 +53,64 @@ pub(crate) fn can_post() -> bool {
     unsafe { CGPreflightPostEventAccess() && IsSecureEventInputEnabled() == 0 }
 }
 
-/// Posts one key press (down, then up) marked [`SYNTHETIC_MARKER`]: the real
-/// [`Events::press`](super::events::Events::press).
-pub(super) fn post(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), KeyError> {
-    if !can_post() {
-        return Err(KeyError::NotAllowed);
-    }
-    for down in [true, false] {
-        // SAFETY: the event is created, configured, posted and released here.
+/// Posts one key press as its two halves: `create(down)` makes the key-down or the key-up
+/// (`None` when it can't be created) and `post` sends it. Both are created before either is
+/// posted, so a failure posts nothing: a key-down sent without its key-up would leave the key
+/// pressed and its effect (a deleted character, a paste) applied while the caller is told the
+/// press failed.
+pub(crate) fn press_with<E>(
+    mut create: impl FnMut(bool) -> Option<E>,
+    mut post: impl FnMut(E),
+) -> Result<(), KeyError> {
+    let down = create(true).ok_or(KeyError::EventCreation)?;
+    let up = create(false).ok_or(KeyError::EventCreation)?;
+    post(down);
+    post(up);
+    Ok(())
+}
+
+/// A synthetic key event, released when dropped.
+struct Synthetic(CGEventRef);
+
+impl Synthetic {
+    /// Creates and configures one half of a key press, marked [`SYNTHETIC_MARKER`].
+    fn new(key: CGKeyCode, down: bool, flags: CGEventFlags, unicode: &[u16]) -> Option<Self> {
+        // SAFETY: the event is created and configured here; `Drop` releases it.
         unsafe {
             let event = CGEventCreateKeyboardEvent(source(), key, down);
             if event.is_null() {
-                return Err(KeyError::EventCreation);
+                return None;
             }
             CGEventSetFlags(event, flags);
             CGEventSetIntegerValueField(event, kCGEventSourceUserData, SYNTHETIC_MARKER);
             if !unicode.is_empty() {
                 CGEventKeyboardSetUnicodeString(event, unicode.len(), unicode.as_ptr());
             }
-            CGEventPost(kCGSessionEventTap, event);
-            core_foundation_sys::base::CFRelease(event as _);
+            Some(Synthetic(event))
         }
     }
-    Ok(())
+
+    fn post(self) {
+        unsafe { CGEventPost(kCGSessionEventTap, self.0) };
+    }
+}
+
+impl Drop for Synthetic {
+    fn drop(&mut self) {
+        unsafe { core_foundation_sys::base::CFRelease(self.0 as _) };
+    }
+}
+
+/// Posts one key press (down, then up) marked [`SYNTHETIC_MARKER`]: the real
+/// [`Events::press`](super::events::Events::press).
+pub(super) fn post(key: CGKeyCode, flags: CGEventFlags, unicode: &[u16]) -> Result<(), KeyError> {
+    if !can_post() {
+        return Err(KeyError::NotAllowed);
+    }
+    press_with(
+        |down| Synthetic::new(key, down, flags, unicode),
+        Synthetic::post,
+    )
 }
 
 fn repeat(events: &dyn Events, key: CGKeyCode, count: usize) -> Result<(), KeyError> {
@@ -190,6 +225,24 @@ mod tests {
         assert_eq!(key_code(kudzu_core::template::Key::Return), 36);
         assert_eq!(key_code(kudzu_core::template::Key::Backspace), 51);
         assert_eq!(key_code(kudzu_core::template::Key::Delete), 117);
+    }
+
+    /// Both halves exist before either is posted: a key-down whose key-up can't be created
+    /// would leave the key pressed, and its effect (a deleted character, a paste) applied.
+    #[test]
+    fn a_press_posts_nothing_unless_both_halves_were_created() {
+        for refused in [true, false] {
+            let mut posted = Vec::new();
+            let result = press_with(
+                |down| (down != refused).then_some(down),
+                |half| posted.push(half),
+            );
+            assert_eq!(result, Err(KeyError::EventCreation));
+            assert!(posted.is_empty(), "key-down refused: {refused}");
+        }
+        let mut posted = Vec::new();
+        assert_eq!(press_with(Some, |half| posted.push(half)), Ok(()));
+        assert_eq!(posted, [true, false]);
     }
 
     #[test]
