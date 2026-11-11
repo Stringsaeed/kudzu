@@ -7,14 +7,15 @@
 //! inner elements a decoration cannot resize. Kudzu's are 32 × 18.4 with a 16 point knob
 //! (`default`) and 24 × 14 with a 12 point knob (`sm`), capsule-round, 1 point in from the edge.
 //!
-//! Not reachable: the knob's live stretch while pressed (`group-active/switch:scale-x-[1.2]`
-//! from the leading or trailing edge). Rune draws a pressed overlay (`El::press`) and a uniform
-//! press scale about the centre, nothing that moves a child's geometry while its parent is held;
-//! the stretch shows only for a forced `State::Pressed` (galleries).
+//! The knob's stretch while the switch is held (`group-active/switch:scale-x-[1.2]`, from the
+//! edge facing its travel) is a live frame on the knob's face that the switch's drag handler
+//! sets on Down and clears on Up (D6, after S06; `RUNE-GAP(#360)`, see `super::press`). A
+//! forced `State::Pressed` (galleries) draws it statically.
 
-use rune::{el, Color, El, Shadow, Tx};
+use rune::{el, Color, El, Live, Phase, Shadow, Tx};
 use rune_kit::State;
 
+use super::press::press_spring;
 use crate::theme::{motion, Theme};
 
 /// shadcn's `size`.
@@ -118,15 +119,37 @@ impl Switch {
         } else {
             INSET
         };
-        let knob = theme.depth.knob.iter().fold(
-            el().key("thumb")
-                .size(knob_w, side)
-                .absolute(x, (h - side) / 2.0)
-                .radius(side / 2.0)
-                .fill(knob_fill)
-                .motion(motion::SOFT),
+        // The knob's face: drawn inside the thumb's layout box, so it can stretch without moving
+        // the thumb (D6, `RUNE-GAP(#360)`, see `super::press`).
+        let face = theme.depth.knob.iter().fold(
+            el().key("face").radius(side / 2.0).fill(knob_fill),
             |k, s| k.box_shadow(*s),
         );
+        let live = matches!(self.state, State::Rest | State::Focus);
+        let thumb = el()
+            .key("thumb")
+            .size(knob_w, side)
+            .absolute(x, (h - side) / 2.0)
+            .motion(motion::SOFT);
+        let (knob, hold) = if live {
+            let rest = [0.0, 0.0, side, side];
+            // Stretched from the edge facing the travel: the leading edge when on.
+            let lead = if self.checked {
+                side - side * STRETCH
+            } else {
+                0.0
+            };
+            let held = [lead, 0.0, side * STRETCH, side];
+            let rect = Live::new(rest);
+            let face = face
+                .absolute(0.0, 0.0)
+                .size(side, side)
+                .live_rect(rect.smooth(press_spring()));
+            (thumb.child(face), Some((rect, rest, held)))
+        } else {
+            let face = face.pin(Some(0.0), Some(0.0), Some(0.0), Some(0.0));
+            (thumb.child(face), None)
+        };
         let shadows: Vec<Shadow> = if self.checked {
             vec![Shadow {
                 y: 1.0,
@@ -159,6 +182,13 @@ impl Switch {
             State::Focus => e = e.outline(3.0, 0.0, c.ring.alpha(0.5)),
             State::Disabled => e = e.layer_opacity(0.5),
             _ => {}
+        }
+        if let Some((rect, rest, held)) = hold.filter(|_| !disabled) {
+            e = e.on_drag_any(move |d, tx| {
+                let on = d.phase == Phase::Down || (d.phase == Phase::Move && !d.cancelled());
+                rect.set(if on { held } else { rest });
+                tx.live_only();
+            });
         }
         if !disabled {
             for f in self.attach {

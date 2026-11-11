@@ -1,4 +1,4 @@
-//! widgets — reserved for the owning implementation steps.
+//! Kudzu's shared compositions (PLAN §1.4; S07) and, in `kit_ext`, the rune-kit wrappers.
 pub mod app_icon;
 pub mod app_picker;
 pub mod breadcrumbs;

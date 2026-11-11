@@ -3,6 +3,7 @@
 pub mod components;
 pub mod icons;
 pub mod tokens;
+pub mod widgets;
 
 use std::sync::LazyLock;
 
@@ -19,11 +20,14 @@ pub enum Page {
     Tokens,
     Icons,
     Component(components::Primitive),
+    Widget(widgets::Widget),
 }
 
 #[derive(Debug, Default)]
 pub struct GalleryState {
     page: Page,
+    /// The field the widget scenes edit (the stepper's text).
+    scratch: rune::TextEdit,
 }
 
 fn tokens_page(s: &mut GalleryState) {
@@ -40,7 +44,8 @@ type Scene = (&'static str, fn(&mut GalleryState));
 const SCENES: &[Scene] = &[("tokens", tokens_page), ("icons", icons_page)];
 
 /// The gallery's own scenes, then one per shadcn primitive (S06).
-static ALL_SCENES: LazyLock<Vec<Scene>> = LazyLock::new(|| [SCENES, components::SCENES].concat());
+static ALL_SCENES: LazyLock<Vec<Scene>> =
+    LazyLock::new(|| [SCENES, components::SCENES, widgets::SCENES].concat());
 
 fn view(s: &GalleryState, cx: &mut Cx<GalleryState>) -> El {
     // The gallery follows `--theme`; the app follows the Appearance setting.
@@ -49,6 +54,7 @@ fn view(s: &GalleryState, cx: &mut Cx<GalleryState>) -> El {
         Page::Tokens => tokens::view(theme),
         Page::Icons => icons::scene(theme),
         Page::Component(p) => components::view(p, theme),
+        Page::Widget(w) => widgets::view(w, s, cx, theme),
     }
 }
 

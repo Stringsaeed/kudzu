@@ -2,13 +2,13 @@
 //! [`rune_kit::TextInput`], decorated.
 //!
 //! Verdict in `PARITY_MATRIX.md`: **decorated**. rune-kit's field is 28 points tall with 13/16
-//! type, 2 points before the text and 8 after, `radius.md` corners, a hover tint and a 1 point
+//! type, a 2 point spacer and a 6 point gap before the text and 8 after, `radius.md` corners, a hover tint and a 1 point
 //! inside focus ring. Kudzu's is 32 tall (`h-8`), 14/20 (`md:text-sm`), 11 points either side
 //! (`px-2.5` plus the transparent border), 10 point corners, no hover, a `well` shadow at rest
 //! and at focus a 1 point ring-coloured border with a 3 point `ring/50` halo. Height and type go
 //! through the builder (`height`, `text_style`); padding, radius, fill and the focus look are
-//! overrides on the built element. Upstream: gap 17, "rune-kit `TextInput`: take padding,
-//! radius and the focus ring from `Kit`" (proposed in S06).
+//! overrides on the built element. Upstream: Rune #573 (gap 17), "rune-kit `TextInput`: take
+//! padding, radius and the focus ring from `Kit`".
 
 use rune::{Color, El, Icon, Shadow, TextEdit, TextStyle};
 use rune_kit::{State, TextInput};
@@ -19,8 +19,9 @@ use crate::theme::{radius, Theme};
 pub const HEIGHT: f32 = 32.0;
 /// `px-2.5` plus the 1 point transparent border.
 pub const INSET: f32 = 11.0;
-/// rune-kit's spacer before the editor when no icon leads.
+/// rune-kit's spacer before the editor when no icon leads, and the value row's gap after it.
 const KIT_LEAD: f32 = 2.0;
+const KIT_GAP: f32 = 6.0;
 /// `input-group-addon`'s `pl-2` plus the border: where a leading icon starts.
 const ADDON_INSET: f32 = 9.0;
 /// rune-kit's padding before a leading icon.
@@ -31,6 +32,7 @@ pub struct Input {
     inner: TextInput,
     focused: bool,
     leading: bool,
+    icon_at: f32,
     state: State,
     invalid: bool,
     style: Option<TextStyle>,
@@ -42,6 +44,7 @@ impl Input {
             inner: TextInput::new(edit).height(HEIGHT).width(None),
             focused: edit.focused,
             leading: false,
+            icon_at: ADDON_INSET,
             state: State::Rest,
             invalid: false,
             style: None,
@@ -63,6 +66,12 @@ impl Input {
         self.leading = true;
         self
     }
+    /// Where a leading icon starts: the group addon's 9 by default; the library and clipboard
+    /// filters place theirs at `left-2.5` (10).
+    pub fn icon_at(mut self, x: f32) -> Self {
+        self.icon_at = x;
+        self
+    }
     pub fn state(mut self, s: State) -> Self {
         self.inner = self.inner.state(s);
         self.state = s;
@@ -76,9 +85,9 @@ impl Input {
 
     pub fn build(self, theme: &Theme) -> El {
         let lead = if self.leading {
-            ADDON_INSET - KIT_ICON_LEAD
+            self.icon_at - KIT_ICON_LEAD
         } else {
-            INSET - KIT_LEAD
+            INSET - KIT_LEAD - KIT_GAP
         };
         let e = self
             .inner
@@ -148,8 +157,9 @@ mod tests {
 
     #[test]
     fn text_starts_where_the_web_puts_it() {
-        // rune-kit draws a 2 point spacer before the editor: 9 + 2 = 11, `px-2.5` + border.
-        assert_eq!(INSET - KIT_LEAD + KIT_LEAD, 11.0);
+        // rune-kit draws a 2 point spacer and a 6 point gap before the editor: 3 + 2 + 6 = 11,
+        // `px-2.5` plus the border.
+        assert_eq!(INSET - KIT_LEAD - KIT_GAP, 3.0);
         assert_eq!(HEIGHT, 32.0);
         assert_eq!(Theme::light().ty.input.size, 14.0);
     }

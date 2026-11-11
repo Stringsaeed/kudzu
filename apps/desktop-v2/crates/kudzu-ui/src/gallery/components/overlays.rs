@@ -4,8 +4,7 @@
 
 use rune::{col, row, text, El, TextEdit};
 use rune_kit::{
-    Dialog, Menu, MenuItem, Placement, Popover, PopupItem, PopupList, Toast, Tooltip,
-    TooltipAppearance,
+    Menu, MenuItem, Placement, Popover, PopupItem, PopupList, Toast, Tooltip, TooltipAppearance,
 };
 
 use super::line;
@@ -13,7 +12,9 @@ use crate::gallery::GalleryState;
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::{
     button::{Button, Size, Variant},
+    dialog::Dialog,
     input::Input,
+    menu, toast,
 };
 
 /// An overlay finds its trigger by the key rune-kit gave it, so the sample key goes on a
@@ -85,27 +86,23 @@ fn footer(theme: &Theme, confirm: &str, variant: Variant) -> El {
         .child(Button::new(confirm).variant(variant).build(theme))
 }
 
-/// The group settings dialog's shape: a title, a field, a footer.
+/// The group settings dialog's shape: a title, a field, a footer. Kudzu's own dialogs are
+/// `rounded-2xl` (18) on `shadow-float`; `kit_ext::dialog` (D6, after S06).
 pub fn dialog(theme: &Theme, layer: &mut Vec<El>) -> El {
-    let k = theme.kit();
     Dialog::new("group", "Group settings")
         .description("Applies to every snippet in the group.")
         .child(
-            col()
-                .padding(16.0)
-                .gap(16.0)
-                .child(
-                    Input::new(&TextEdit::new("Work"))
-                        .with(|t| t.label("Group name").width(None))
-                        .build(theme),
-                )
-                .child(footer(theme, "Save", Variant::Default)),
+            Input::new(&TextEdit::new("Work"))
+                .with(|t| t.label("Group name").width(None))
+                .build(theme),
         )
+        .child(footer(theme, "Save", Variant::Default))
         .width(520.0)
-        .fit()
+        .kudzu()
+        .sample("spec:dialog/kudzu:520x_")
         .open(true)
         .on_close(|_: &mut GalleryState| {})
-        .build(k, layer);
+        .build(theme, layer);
     col().child(
         text("Open over a scrim")
             .font(theme.ty.body)
@@ -113,22 +110,17 @@ pub fn dialog(theme: &Theme, layer: &mut Vec<El>) -> El {
     )
 }
 
-/// Clear clipboard history: an alert dialog is the same `Dialog` with a destructive action.
+/// Clear clipboard history: an alert dialog is the same `Dialog` with a destructive action,
+/// shadcn's `rounded-xl` (14) and `sm:max-w-sm` (384).
 pub fn alert_dialog(theme: &Theme, layer: &mut Vec<El>) -> El {
-    let k = theme.kit();
     Dialog::new("clear", "Clear clipboard history?")
         .description("This deletes 42 items. Pinned items stay.")
-        .child(
-            col()
-                .padding(16.0)
-                .child(footer(theme, "Clear history", Variant::Destructive)),
-        )
-        .width(440.0)
-        .fit()
+        .child(footer(theme, "Clear history", Variant::Destructive))
+        .sample("spec:alert-dialog:384x_")
         .open(true)
         .click_outside(false)
         .on_close(|_: &mut GalleryState| {})
-        .build(k, layer);
+        .build(theme, layer);
     col().child(
         text("Open over a scrim")
             .font(theme.ty.body)
@@ -146,8 +138,7 @@ fn snippet_actions() -> Vec<MenuItem> {
 
 /// The snippet editor's "More actions" menu.
 pub fn dropdown_menu(theme: &Theme, layer: &mut Vec<El>) -> El {
-    let k = theme.kit();
-    let mut menu = Menu::new("more").trigger(
+    let mut m = Menu::new("more").trigger(
         Button::new("More actions")
             .variant(Variant::Ghost)
             .size(Size::IconSm)
@@ -155,17 +146,17 @@ pub fn dropdown_menu(theme: &Theme, layer: &mut Vec<El>) -> El {
             .expanded(true)
             .build(theme),
     );
-    menu = menu.group_label("Snippet");
+    m = m.group_label("Snippet");
     for item in snippet_actions() {
-        menu = menu.item(item);
+        m = m.item(item);
     }
-    let t = menu
+    let m = m
         .separator()
         .item(MenuItem::new("Delete").icon(&icons::TRASH_2).danger(true))
         .placement(Placement::BottomEnd)
         .open(true)
-        .on_close(|_: &mut GalleryState| {})
-        .build(k, layer);
+        .on_close(|_: &mut GalleryState| {});
+    let t = menu::build(m, theme, layer);
     col().items_end().w(420.0).child(line(
         theme,
         "Open from its trigger",
@@ -175,8 +166,7 @@ pub fn dropdown_menu(theme: &Theme, layer: &mut Vec<El>) -> El {
 
 /// The sidebar group's context menu, opened at the pointer.
 pub fn context_menu(theme: &Theme, layer: &mut Vec<El>) -> El {
-    let k = theme.kit();
-    let t = Menu::new("group-menu")
+    let m = Menu::new("group-menu")
         .trigger(
             text("Right-click a group")
                 .font(theme.ty.body)
@@ -193,8 +183,8 @@ pub fn context_menu(theme: &Theme, layer: &mut Vec<El>) -> El {
         )
         .at(120.0, 140.0)
         .open(true)
-        .on_close(|_: &mut GalleryState| {})
-        .build(k, layer);
+        .on_close(|_: &mut GalleryState| {});
+    let t = menu::build(m, theme, layer);
     col().child(keep_anchor(t, "info:context-menu/trigger"))
 }
 
@@ -218,16 +208,19 @@ pub fn command(theme: &Theme, layer: &mut Vec<El>) -> El {
         .width(320.0)
         .open(true)
         .build(k, layer);
+    // The list anchors to the field's own key, so the sample key goes on a wrapper.
+    let field = col().key("spec:command/field:320x32").child(field);
     col().child(line(theme, "Input group over a popup list", [field]))
 }
 
-/// shadcn's `sonner`: rune-kit's `Toast` (the undo toast after a delete).
+/// shadcn's `sonner`: rune-kit's `Toast` (the undo toast after a delete), with Sonner's 14
+/// point corners (`kit_ext::toast`, D6 after S06).
 pub fn sonner(theme: &Theme) -> El {
     let k = theme.kit();
-    let toast = Toast::new("deleted", "Snippet deleted")
+    let t = Toast::new("deleted", "Snippet deleted")
         .description("“Email signature” moved to the trash.")
-        .action(k, "Undo", true, |_: &mut GalleryState, _| {})
-        .build(k);
+        .action(k, "Undo", true, |_: &mut GalleryState, _| {});
+    let toast = toast::build(t, theme);
     col().child(line(
         theme,
         "Toast with an action",

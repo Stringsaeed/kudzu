@@ -1,7 +1,8 @@
-//! Goldens for the S06 gallery scenes: the three exact-metric primitives (button, switch, input),
-//! one overlay on the kit's palette and elevation (dropdown-menu) and the icon set, rendered
+//! Goldens for the gallery scenes: S06's three exact-metric primitives (button, switch, input),
+//! one overlay on the kit's palette and elevation (dropdown-menu) and the icon set; S07's D6
+//! select and four shared widgets (breadcrumb, selection pill, key hints, settings card), rendered
 //! headless with the bundled fonts (`KUDZU_FONTS=bundled`). Regression tests for the kit
-//! mapping and `widgets::kit_ext`, not parity evidence: `cargo xtask parity` is (PLAN §1.7).
+//! mapping, `widgets::kit_ext` and `widgets`, not parity evidence: `cargo xtask parity` is (PLAN §1.7).
 //! `KUDZU_BLESS=1` rewrites them.
 
 use std::path::{Path, PathBuf};
@@ -14,12 +15,17 @@ const CHANNEL_TOLERANCE: u8 = 2;
 const CHANGED_SHARE: f64 = 0.0002;
 
 /// Scene and window size in points: only as tall as the scene draws, to keep the PNGs small.
-const SCENES: [(&str, &str); 5] = [
-    ("button", "1160x460"),
+const SCENES: [(&str, &str); 10] = [
+    ("button", "1160x540"),
     ("switch", "1160x260"),
-    ("input", "1160x300"),
+    ("input", "1160x220"),
     ("dropdown-menu", "1160x340"),
     ("icons", "1160x600"),
+    ("select", "1160x320"),
+    ("breadcrumb", "1160x480"),
+    ("selection-pill", "1160x260"),
+    ("key-hints", "1160x160"),
+    ("settings-card", "1160x420"),
 ];
 
 fn golden(scene: &str, theme: &str) -> PathBuf {

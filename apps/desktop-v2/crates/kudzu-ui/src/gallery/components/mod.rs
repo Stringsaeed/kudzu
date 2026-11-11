@@ -25,6 +25,7 @@ pub enum Primitive {
     Switch,
     Checkbox,
     Input,
+    InputGroup,
     Textarea,
     Label,
     Select,
@@ -52,7 +53,8 @@ pub const UNUSED: [&str; 6] = [
     "toggle-group",
 ];
 
-/// Rendered by a Kudzu composition (S07's `widgets::breadcrumbs`), which has its own scene.
+/// Rendered by a Kudzu composition (S07's `widgets::breadcrumbs`), whose scene is in
+/// `gallery::widgets`.
 pub const COMPOSED: [&str; 1] = ["breadcrumb"];
 
 macro_rules! scenes {
@@ -76,6 +78,7 @@ scenes! {
     "switch" => Switch,
     "checkbox" => Checkbox,
     "input" => Input,
+    "input-group" => InputGroup,
     "textarea" => Textarea,
     "label" => Label,
     "select" => Select,
@@ -102,6 +105,7 @@ pub fn view(p: Primitive, theme: &Theme) -> El {
         Primitive::Switch => forms::switch(theme),
         Primitive::Checkbox => forms::checkbox(theme),
         Primitive::Input => forms::input(theme),
+        Primitive::InputGroup => forms::input_group(theme),
         Primitive::Textarea => forms::textarea(theme),
         Primitive::Label => forms::label(theme),
         Primitive::Select => forms::select(theme, &mut layer),
@@ -157,9 +161,8 @@ mod tests {
         unique.sort_unstable();
         unique.dedup();
         assert_eq!(unique.len(), names.len());
-        // 28 files in components/ui: 20 scenes, 6 unused, 1 composed by a Kudzu widget, and
-        // `input-group`, which shares the `input` scene.
-        assert_eq!(names.len() + UNUSED.len() + COMPOSED.len() + 1, 28);
+        // 28 files in components/ui: 21 scenes, 6 unused, 1 composed by a Kudzu widget.
+        assert_eq!(names.len() + UNUSED.len() + COMPOSED.len(), 28);
         for (name, setup) in SCENES {
             let mut s = GalleryState::default();
             setup(&mut s);

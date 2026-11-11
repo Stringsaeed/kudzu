@@ -5,13 +5,19 @@
 //! Tailwind ones (24/28/32/36, `px-2`/`px-2.5`, 8 or 10 point corners, 12 to 14 point labels).
 //! The built element takes them as overrides: height, padding, radius, gap, the label (drawn
 //! with `label_with` in Kudzu's type, the icon at Kudzu's size), the fill of the variants rune-kit
-//! has no skin for, the sheen, the focus ring and the press scale. Upstream: gap 17,
-//! "rune-kit `Button`: take height, padding and radius per size from `Kit`" (proposed in S06).
-//! Not reachable by decoration: the `raised-hover` and `pressed` shadows (rune-kit swaps fills,
-//! not shadows, under the pointer), recorded in the matrix.
+//! has no skin for, the sheen, the focus ring and the press scale. Upstream: Rune #573
+//! (gap 17), "rune-kit `Button`: take height, padding and radius per size from `Kit`".
+//! The depth is Kudzu's own (D6, added after S06): rune-kit's button shadows are left out (the
+//! button is built with a kit whose button elevations are empty) and the `raised`,
+//! `raised-hover` and `pressed` shadows, with the sheen, are layers inside the button that
+//! follow hover and press ([`super::press`], `RUNE-GAP(#360)`).
+
+use std::sync::LazyLock;
 
 use rune::{icon, row, text, Color, El, Icon, TextStyle, Tx};
-use rune_kit::{ButtonVariant, ControlSize, State};
+use rune_kit::{ButtonVariant, ControlSize, Kit, State};
+
+use super::press::{raised_layers, Faces, Look};
 
 use crate::theme::kit::{destructive_soft, hover};
 use crate::theme::{motion, palette::fixed, radius, Theme};
@@ -107,6 +113,26 @@ impl Size {
 }
 
 type Attach = Box<dyn FnOnce(rune_kit::Button) -> rune_kit::Button>;
+
+/// The theme's kit without button shadows: the depth layers draw them.
+fn flat(theme: &Theme) -> &'static Kit {
+    static LIGHT: LazyLock<Kit> = LazyLock::new(|| flatten(Theme::light()));
+    static DARK: LazyLock<Kit> = LazyLock::new(|| flatten(Theme::dark()));
+    if theme.dark {
+        &DARK
+    } else {
+        &LIGHT
+    }
+}
+
+fn flatten(theme: &Theme) -> Kit {
+    let mut k = theme.kit().clone();
+    let input = k.elevation.input().to_vec();
+    k.elevation = k.elevation.with_input(input);
+    k.elevation.button_neutral.clear();
+    k.elevation.button_contrast.clear();
+    k
+}
 
 /// `Button::new("Save").variant(Variant::Outline).size(Size::Sm).build(theme)`. An icon-only size
 /// uses the label as the accessible name.
@@ -236,7 +262,7 @@ impl Button {
             b = f(b);
         }
         let mut e = b
-            .build(theme.kit())
+            .build(flat(theme))
             .h(m.height)
             .radius(m.radius)
             .gap(m.gap)
@@ -251,10 +277,52 @@ impl Button {
         if let Some(f) = fill {
             e = e.fill(if hovered { over(hover(theme), f) } else { f });
         }
-        if matches!(self.variant, Variant::Outline | Variant::Secondary) {
-            let [(_, top), (_, bottom)] = fixed::SHEEN;
-            e = e.gradient(top.color(), bottom.color());
-        }
+        let d = &theme.depth;
+        let look = match self.state {
+            State::Hover => Look::Hover,
+            State::Pressed => Look::Pressed,
+            State::Disabled => Look::Rest,
+            _ => Look::Live,
+        };
+        let sheen = |stops: [(f32, crate::theme::palette::Oklch); 2]| {
+            let [(_, top), (_, bottom)] = stops;
+            Some((top.color(), bottom.color()))
+        };
+        // The face at rest and hovered (`button.tsx`'s `hover:` fills).
+        let faces = match self.variant {
+            Variant::Default => Some(Faces {
+                rest: c.primary,
+                hover: over(c.primary.alpha(0.9), c.background),
+                sheen: sheen(fixed::SHEEN_STRONG),
+            }),
+            Variant::Outline => Some(Faces {
+                rest: c.surface_raised,
+                hover: if theme.dark {
+                    over(Color::WHITE.alpha(0.04), c.surface_raised)
+                } else {
+                    c.muted
+                },
+                sheen: sheen(fixed::SHEEN),
+            }),
+            Variant::Secondary => Some(Faces {
+                rest: c.secondary,
+                hover: over(c.foreground.alpha(0.05), c.secondary),
+                sheen: sheen(fixed::SHEEN),
+            }),
+            Variant::Ghost => Some(Faces {
+                rest: Color::TRANSPARENT,
+                hover: hover(theme),
+                sheen: None,
+            }),
+            Variant::Destructive | Variant::Link => None,
+        };
+        e = match (faces, self.variant) {
+            (Some(f), Variant::Ghost) => raised_layers(e, m.radius, f, &[], &[], &d.pressed, look),
+            (Some(f), _) => {
+                raised_layers(e, m.radius, f, &d.raised, &d.raised_hover, &d.pressed, look)
+            }
+            (None, _) => e,
+        };
         match self.variant {
             Variant::Destructive => e = e.hover(c.destructive.alpha(0.1)),
             Variant::Link => e = e.hover(Color::TRANSPARENT).press(Color::TRANSPARENT),

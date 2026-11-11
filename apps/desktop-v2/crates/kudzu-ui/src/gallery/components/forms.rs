@@ -1,15 +1,19 @@
 //! `switch`, `checkbox`, `input` (with `input-group`), `textarea`, `label`, `select`.
 
-use rune::{col, text, El, Family, TextEdit, TextStyle};
+use rune::{col, row, text, El, Family, TextEdit, TextStyle};
 use rune_kit::{Checkbox, Field, Select, SelectAppearance, State};
 
 use super::line;
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::{
+    button::{Button, Size as ButtonSize, Variant},
+    checkbox,
     input::Input,
+    select,
     switch::{Size, Switch},
     textarea::Textarea,
 };
+use crate::widgets::shortcut::{Shortcut, Tone};
 
 pub fn switch(theme: &Theme) -> El {
     let sized = |name: &str, size: Size, on: bool, state: State| {
@@ -61,30 +65,18 @@ pub fn switch(theme: &Theme) -> El {
         .child(line(theme, "Reference landmarks", reference))
 }
 
-/// rune-kit's 16 point box (`size-4`, 4 point corners). Its checked fill is the kit's
-/// `surface_weak`, not shadcn's primary: see the matrix.
+/// rune-kit's 16 point box (`size-4`, 4 point corners), checked in shadcn's primary through
+/// `kit_ext::checkbox` (D6, after S06).
 pub fn checkbox(theme: &Theme) -> El {
-    let k = theme.kit();
+    let b = |c: Checkbox| checkbox::build(c, theme);
     col().child(line(
         theme,
         "Off, on, focus, disabled",
         [
-            Checkbox::new(false)
-                .label("Also clear pinned items")
-                .build(k)
-                .key("info:checkbox/off"),
-            Checkbox::new(true)
-                .label("Also clear pinned items")
-                .build(k)
-                .key("info:checkbox/on"),
-            Checkbox::new(true)
-                .state(State::Focus)
-                .build(k)
-                .key("info:checkbox/focus"),
-            Checkbox::new(false)
-                .state(State::Disabled)
-                .build(k)
-                .key("info:checkbox/disabled"),
+            b(Checkbox::new(false).label("Also clear pinned items")).key("info:checkbox/off"),
+            b(Checkbox::new(true).label("Also clear pinned items")).key("info:checkbox/on"),
+            b(Checkbox::new(true).state(State::Focus)).key("info:checkbox/focus"),
+            b(Checkbox::new(false).state(State::Disabled)).key("info:checkbox/disabled"),
         ],
     ))
 }
@@ -126,15 +118,6 @@ pub fn input(theme: &Theme) -> El {
                     .key("spec:input/invalid:180x32"),
                 field("disabled", "Kudzu", State::Disabled),
             ],
-        ))
-        .child(line(
-            theme,
-            "Input group: leading icon (the filter fields)",
-            [Input::new(&edit("", false))
-                .leading_icon(&icons::SEARCH)
-                .with(|t| t.placeholder("Search").width(Some(180.0)))
-                .build(theme)
-                .key("spec:input-group/leading:180x32")],
         ))
         .child(line(theme, "Reference landmarks", reference))
 }
@@ -191,25 +174,124 @@ pub fn label(theme: &Theme) -> El {
     ))
 }
 
+/// The select trigger at Kudzu's 32 points with the raised depth, and its list at 10 point
+/// corners (`kit_ext::select`, D6 after S06).
 pub fn select(theme: &Theme, layer: &mut Vec<El>) -> El {
-    let k = theme.kit();
     const KEEP: [&str; 4] = ["1 day", "1 week", "1 month", "Forever"];
-    let closed = Select::new("keep-closed", &KEEP)
-        .label("Keep history for")
-        .appearance(SelectAppearance::Field)
-        .width(128.0)
-        .current(Some("1 month"))
-        .build(k, layer);
-    let closed = col().key("info:select/trigger").child(closed);
-    let open = Select::new("keep-open", &KEEP)
-        .label("Keep history for (open)")
-        .appearance(SelectAppearance::Field)
-        .width(128.0)
-        .current(Some("1 week"))
-        .open(true)
-        .build(k, layer);
-    let open = col().key("info:select/open").child(open);
+    let closed = select::build(
+        Select::new("keep-closed", &KEEP)
+            .label("Keep history for")
+            .appearance(SelectAppearance::Field)
+            .width(128.0)
+            .current(Some("1 week")),
+        theme,
+        layer,
+        false,
+        State::Rest,
+    )
+    .key("parity:main:settings-clipboard:combobox:1:Keep history for");
+    let hover = select::build(
+        Select::new("keep-hover", &KEEP)
+            .label("Keep history for (hover)")
+            .appearance(SelectAppearance::Field)
+            .width(128.0)
+            .current(Some("1 week"))
+            .state(State::Hover),
+        theme,
+        layer,
+        false,
+        State::Hover,
+    )
+    .key("spec:select/hover:128x32");
+    let open = select::build(
+        Select::new("keep-open", &KEEP)
+            .label("Keep history for (open)")
+            .appearance(SelectAppearance::Field)
+            .width(128.0)
+            .current(Some("1 week"))
+            .open(true),
+        theme,
+        layer,
+        true,
+        State::Rest,
+    );
+    let open = col().key("spec:select/open:128x32").child(open);
+    col().gap(24.0).child(line(
+        theme,
+        "Trigger, hover; open list",
+        [closed, hover, open],
+    ))
+}
+
+/// shadcn's `InputGroup` (the filter fields): a leading search icon and a trailing keycap
+/// hint, rebuilt as the library's and clipboard's filters are (`snippet-list.tsx`: a 14 point
+/// faint icon, `bg-foreground/[0.03]` in both themes, `pl-8 pr-14`, 13 point text), plus the
+/// icon-only and button-addon variants.
+pub fn input_group(theme: &Theme) -> El {
+    let hint = |combo: &str| {
+        row()
+            .pr(8.0)
+            .child(Shortcut::combo(combo).tone(Tone::Ghost).build(theme))
+    };
+    let filter = |name: &str, width: f32, key: &str| {
+        Input::new(&edit("", false))
+            .leading_icon(&icons::SEARCH)
+            .icon_at(10.0)
+            .with(|t| {
+                t.placeholder(name.to_owned())
+                    .label(name.to_owned())
+                    .width(Some(width))
+                    .leading_icon_size(14.0)
+                    .trailing(hint("mod+f"))
+            })
+            .text_style(theme.ty.body)
+            .build(theme)
+            .fill(theme.c.foreground.alpha(0.03))
+            .key(key.to_owned())
+    };
+    let addon = Input::new(&edit("", false))
+        .with(|t| {
+            t.placeholder("https://")
+                .label("Link address")
+                .width(Some(240.0))
+                .trailing(
+                    Button::new("Apply")
+                        .variant(Variant::Ghost)
+                        .size(ButtonSize::Xs)
+                        .build(theme)
+                        .mr(4.0),
+                )
+        })
+        .build(theme)
+        .key("spec:input-group/button-addon:240x32");
     col()
         .gap(24.0)
-        .child(line(theme, "Trigger; open list", [closed, open]))
+        .child(line(
+            theme,
+            "Icon start and keycap end (reference)",
+            [
+                filter(
+                    "Filter snippets",
+                    293.594,
+                    "parity:main:library:textbox:1:Filter snippets",
+                ),
+                filter(
+                    "Search clipboard history",
+                    329.0,
+                    "parity:main:clipboard-history:textbox:1:Search clipboard history",
+                ),
+            ],
+        ))
+        .child(line(
+            theme,
+            "Icon start only; button addon",
+            [
+                Input::new(&edit("", false))
+                    .leading_icon(&icons::SEARCH)
+                    .with(|t| t.placeholder("Search").width(Some(180.0)))
+                    .build(theme)
+                    .key("spec:input-group/leading:180x32"),
+                addon,
+            ],
+        ))
 }
