@@ -152,6 +152,14 @@ impl ClipboardService {
             (entries.len(), entries)
         })
     }
+    /// Replaces the whole history in one commit. For headless scenes and tests, which have no
+    /// pasteboard to copy from; the screens never call it.
+    pub fn replace_history(&self, history: History) -> Result<(), ClipboardError> {
+        self.change(|h| {
+            *h = history;
+            Ok(())
+        })
+    }
     pub fn usage(&self) -> u64 {
         let revision = self.history.revision();
         if let Some((cached, value)) = *self

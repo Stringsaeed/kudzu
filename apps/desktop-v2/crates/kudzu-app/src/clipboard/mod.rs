@@ -11,6 +11,8 @@ mod search;
 pub use search::{AgentItem, ClipResults, MAX_ITEM_CHARS};
 #[cfg(test)]
 mod review_tests;
+#[cfg(test)]
+mod screen_hooks_tests;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -72,6 +74,7 @@ pub enum PasteOutcome {
     Pasted,
     Copied,
 }
+#[derive(Clone)]
 pub struct DeletedClips(Vec<ClipEntry>);
 impl DeletedClips {
     pub fn entries(&self) -> &[ClipEntry] {
