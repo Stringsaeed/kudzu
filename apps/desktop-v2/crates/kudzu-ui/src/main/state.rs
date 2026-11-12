@@ -31,20 +31,50 @@ pub enum LibraryFilter {
     Group(Uuid),
 }
 
-/// Filter applied to the Clipboard History view (`All` or `Pinned`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ClipFilter {
-    #[default]
-    All,
-    Pinned,
+/// The filter a Clipboard view shows. It is the core's filter, so the sidebar folders (S42),
+/// the history list (S58) and the picker (S60) agree on what each folder holds.
+pub use kudzu_core::clipboard::query::ClipFilter;
+
+/// The clipboard folders in sidebar order, as in Tauri's `FILTERS` (`lib/clipboard.ts`).
+/// `Other` has no folder of its own: Text covers it.
+pub const CLIP_FOLDERS: [ClipFilter; 8] = [
+    ClipFilter::All,
+    ClipFilter::Pinned,
+    ClipFilter::Text,
+    ClipFilter::Image,
+    ClipFilter::Link,
+    ClipFilter::File,
+    ClipFilter::Code,
+    ClipFilter::Color,
+];
+
+/// A folder's on-screen name: "History" for everything, otherwise Tauri's `FILTERS` labels.
+pub const fn clip_filter_label(filter: ClipFilter) -> &'static str {
+    match filter {
+        ClipFilter::All => "History",
+        ClipFilter::Pinned => "Pinned",
+        ClipFilter::Text => "Text",
+        ClipFilter::Image => "Images",
+        ClipFilter::Link => "Links",
+        ClipFilter::File => "Files",
+        ClipFilter::Code => "Code",
+        ClipFilter::Color => "Colors",
+        ClipFilter::Other => "Other",
+    }
 }
 
-impl ClipFilter {
-    pub const fn label(self) -> &'static str {
-        match self {
-            Self::All => "History",
-            Self::Pinned => "Pinned",
-        }
+/// A stable key for a folder, used in element keys and crumb ids (`clip:<key>`).
+pub const fn clip_filter_key(filter: ClipFilter) -> &'static str {
+    match filter {
+        ClipFilter::All => "all",
+        ClipFilter::Pinned => "pinned",
+        ClipFilter::Text => "text",
+        ClipFilter::Image => "image",
+        ClipFilter::Link => "link",
+        ClipFilter::File => "file",
+        ClipFilter::Code => "code",
+        ClipFilter::Color => "color",
+        ClipFilter::Other => "other",
     }
 }
 

@@ -5,7 +5,9 @@ use kudzu_app::library::SnippetDraft;
 use kudzu_core::KudzuLibrary;
 
 use super::{cmd, Rig};
-use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
+use crate::main::state::{
+    clip_filter_key, clip_filter_label, ClipFilter, LibraryFilter, MainPane, MainView, CLIP_FOLDERS,
+};
 use crate::main::toolbar::{collapse_crumbs, compute_crumbs, VisibleCrumb};
 use crate::shell::Route;
 
@@ -253,6 +255,32 @@ fn breadcrumbs_end_in_all_snippets_and_history() {
         labels(MainView::Clipboard(ClipFilter::Pinned)),
         [("Clipboard".into(), true), ("Pinned".into(), false)]
     );
+}
+
+/// The clipboard folders follow Tauri's `FILTERS` (`lib/clipboard.ts`): order and labels.
+#[test]
+fn clip_folders_follow_the_tauri_filters() {
+    let folders: Vec<(&str, &str)> = CLIP_FOLDERS
+        .iter()
+        .map(|f| (clip_filter_key(*f), clip_filter_label(*f)))
+        .collect();
+    assert_eq!(
+        folders,
+        [
+            ("all", "History"),
+            ("pinned", "Pinned"),
+            ("text", "Text"),
+            ("image", "Images"),
+            ("link", "Links"),
+            ("file", "Files"),
+            ("code", "Code"),
+            ("color", "Colors"),
+        ]
+    );
+    let lib = KudzuLibrary::default();
+    let crumbs = compute_crumbs(&MainView::Clipboard(ClipFilter::Link), None, &lib);
+    assert_eq!(crumbs.last().map(|c| c.id.as_str()), Some("clip:link"));
+    assert_eq!(crumbs.last().map(|c| c.label.as_str()), Some("Links"));
 }
 
 /// Minor 4 (S41 review): mount stamps the current time, so a navigation within 300 ms of mount

@@ -4,7 +4,9 @@ use kudzu_core::KudzuLibrary;
 use rune::{el, icon, row, text, Cx, El};
 use uuid::Uuid;
 
-use crate::main::state::{settings_pane_label, ClipFilter, LibraryFilter, MainView};
+use crate::main::state::{
+    clip_filter_key, clip_filter_label, settings_pane_label, ClipFilter, LibraryFilter, MainView,
+};
 use crate::shell::MainState;
 use crate::theme::{icons, radius, Theme};
 use crate::widgets::breadcrumbs::{fold, Breadcrumbs, Crumb as WidgetCrumb};
@@ -77,11 +79,8 @@ pub fn compute_crumbs(
                 target: Some(MainView::Clipboard(ClipFilter::All)),
             });
             crumbs.push(Crumb {
-                id: match filter {
-                    ClipFilter::All => "clip:all".into(),
-                    ClipFilter::Pinned => "clip:pinned".into(),
-                },
-                label: filter.label().into(),
+                id: format!("clip:{}", clip_filter_key(*filter)),
+                label: clip_filter_label(*filter).into(),
                 target: None,
             });
         }

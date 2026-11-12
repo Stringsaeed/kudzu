@@ -3,7 +3,7 @@
 use rune::{col, text, El, TextEdit, Tx};
 
 use crate::main::nav;
-use crate::main::state::{ClipFilter, MainPane};
+use crate::main::state::{clip_filter_label, ClipFilter, MainPane};
 use crate::shell::MainState;
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::input::Input;
@@ -76,7 +76,7 @@ pub fn view(s: &MainState, theme: &Theme, filter: ClipFilter, pane_focused: bool
         .padding(24.0)
         .gap(12.0)
         .child(
-            text(filter.label())
+            text(clip_filter_label(filter))
                 .role("heading")
                 .font(ty.headline)
                 .color(c.foreground),

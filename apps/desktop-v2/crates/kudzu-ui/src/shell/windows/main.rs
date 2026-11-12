@@ -7,6 +7,7 @@
 use std::sync::Arc;
 
 use kudzu_app::assembly::Kudzu;
+use kudzu_app::clipboard::ClipboardService;
 use kudzu_app::expansion::ExpansionService;
 use kudzu_app::hotkeys::{HotkeyError, HotkeySlots};
 use kudzu_app::library::{LibraryService, SnippetDraft};
@@ -33,6 +34,7 @@ pub struct MainServices {
     pub expansion: Arc<ExpansionService>,
     pub updates: Updates,
     pub hotkeys: Arc<HotkeySlots>,
+    pub clipboard: Arc<ClipboardService>,
 }
 
 impl From<&Arc<Kudzu>> for MainServices {
@@ -43,6 +45,7 @@ impl From<&Arc<Kudzu>> for MainServices {
             expansion: kudzu.expansion.clone(),
             updates: kudzu.updates.clone(),
             hotkeys: kudzu.hotkeys.clone(),
+            clipboard: kudzu.clipboard.clone(),
         }
     }
 }
