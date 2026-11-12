@@ -101,6 +101,7 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 | `empty_state` | `EditorEmpty` | `spec:empty-state/glyph:48x48`, `info:empty-state/pane` | pass / review |
 | `settings_card` | `settings.tsx` `Group`, `Row` | `parity:main:settings-general:region:1:Quick search` (616 wide, heading at 4,0, the recorder button at 456,43), `info:settings-card/switches` | pass in both themes |
 | `wordmark` | `wordmark.tsx`, `design/wordmark/` | `spec:wordmark/{full,small}` | pass |
+| `onboarding` (S65) | `main/onboarding.tsx` | Seven `main/onboarding-*` scenes, light and dark | 80 landmark rows, 0 failed. Closes ONB-1, ONB-3, ONB-4. Wordmark SVG uses Rune's image cache to preserve its aspect ratio; step presence uses the 240 ms fitted soft spring. Practice remains a local preview. |
 
 ## Decorations and wrappers
 

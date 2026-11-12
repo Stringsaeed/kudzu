@@ -52,6 +52,7 @@ impl Windows {
         let h = self.shell.handles();
         let settings = kudzu.settings.watch();
         let subs = [
+            kudzu.onboarding.watch().subscribe(waker(&h.main)),
             settings.subscribe(waker(&h.main)),
             settings.subscribe(waker(&h.palette)),
             settings.subscribe(waker(&h.picker)),

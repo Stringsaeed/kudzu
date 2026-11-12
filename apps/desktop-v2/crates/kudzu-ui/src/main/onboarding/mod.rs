@@ -1,59 +1,62 @@
-//! Onboarding screen stub. Owned and filled out by S65 (`crates/kudzu-ui/src/main/onboarding/**`).
+//! First-run setup. Domain transitions live in the application Onboarding machine.
+mod actions;
+mod brand;
+pub mod scenes;
+mod steps;
+mod view;
 
-use rune::{col, text, El};
+use kudzu_app::tasks::Task;
+use rune::TextEdit;
+pub use view::view;
 
-use crate::shell::MainState;
-use crate::theme::Theme;
-
-/// Per-screen state owned by the first-run Onboarding module (S65).
-#[derive(Clone, Debug, Default)]
-pub struct State {}
-
-impl State {
-    pub fn is_composing(&self) -> bool {
-        false
-    }
-
-    pub fn is_editing_text(&self) -> bool {
-        false
-    }
-
-    pub fn blur_inputs(&mut self) {}
+#[derive(Default)]
+pub struct State {
+    pub(super) brand: Option<brand::Brand>,
+    seen: Option<kudzu_app::watch::Revision>,
+    pub(crate) scene_finish_error: bool,
+    pub(crate) opening: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub practice: TextEdit,
+    pub(crate) task: Option<Task<()>>,
+    pub(crate) detecting: bool,
 }
 
-/// Placeholder first-run Onboarding view until S65 lands. Renders without the sidebar or main
-/// toolbar, matching `main-app.tsx` (`!settings.onboardingCompleted`).
-pub fn view(_s: &MainState, theme: &Theme) -> El {
-    let c = &theme.c;
-    let ty = &theme.ty;
-    col()
-        .key("onboarding-view-slot")
-        .w_full()
-        .h_full()
-        .center()
-        .fill(c.background)
-        .window_drag()
-        .child(
-            col()
-                .key("onboarding-card")
-                .role("region")
-                .label("Setup: Welcome")
-                .max_w(480.0)
-                .w_full()
-                .padding(24.0)
-                .gap(12.0)
-                .center()
-                .no_window_drag()
-                .child(
-                    text("For things worth repeating")
-                        .role("heading")
-                        .font(ty.headline_large)
-                        .color(c.foreground),
-                )
-                .child(
-                    text("Set up Kudzu to expand your snippets anywhere.")
-                        .font(ty.body)
-                        .color(c.muted_foreground),
-                ),
-        )
+impl State {
+    pub fn opening(&self) -> bool {
+        self.opening.load(std::sync::atomic::Ordering::Acquire)
+    }
+    pub fn is_composing(&self) -> bool {
+        self.practice.is_composing()
+    }
+    pub fn is_editing_text(&self) -> bool {
+        self.practice.focused
+    }
+    pub fn blur_inputs(&mut self) {
+        self.practice.focused = false;
+    }
+    pub fn substitute(&mut self) {
+        if !self.practice.is_composing() && self.practice.text.to_lowercase().ends_with(";kudzu") {
+            let end = self.practice.text.len() - 6;
+            let value = format!("{}Hello from Kudzu!", &self.practice.text[..end]);
+            self.practice = TextEdit::new(value);
+            self.practice.focused = true;
+        }
+    }
+    pub fn success(&self) -> bool {
+        self.practice.text.contains("Hello from Kudzu!")
+    }
+}
+
+/// Watches carry domain state; only revision stamps are cached in the screen.
+pub fn poll(s: &mut crate::shell::MainState) -> bool {
+    let mut changed = false;
+    if matches!(s.frame.view, crate::main::MainView::Onboarding) {
+        brand::ensure(s);
+        changed = s.onboarding.brand.as_mut().is_some_and(brand::Brand::poll);
+    }
+    let revision = s.svc.onboarding.watch().revision();
+    if s.onboarding.seen == Some(revision) {
+        return changed;
+    }
+    s.onboarding.seen = Some(revision);
+    true
 }

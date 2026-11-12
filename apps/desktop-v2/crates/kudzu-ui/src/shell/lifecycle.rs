@@ -171,6 +171,7 @@ impl MainState {
     /// One pull of everything `main` shows or owns. True when the view must rebuild.
     pub fn sync(&mut self) -> bool {
         let mut changed = false;
+        changed |= crate::main::onboarding::poll(self);
         if !self.model.started {
             self.start();
             changed = true;

@@ -29,6 +29,8 @@ use crate::main::{clipboard, editor, insights, library, onboarding, settings, si
 
 /// The services `main` reads. S41 onward add what their screens need, here only.
 pub struct MainServices {
+    pub onboarding: Arc<kudzu_app::onboarding::Onboarding>,
+    pub data: kudzu_app::data::DataService,
     pub settings: Arc<SettingsService>,
     pub library: Arc<LibraryService>,
     pub expansion: Arc<ExpansionService>,
@@ -40,6 +42,8 @@ pub struct MainServices {
 impl From<&Arc<Kudzu>> for MainServices {
     fn from(kudzu: &Arc<Kudzu>) -> Self {
         Self {
+            onboarding: kudzu.onboarding.clone(),
+            data: kudzu.data.clone(),
             settings: kudzu.settings.clone(),
             library: kudzu.library.clone(),
             expansion: kudzu.expansion.clone(),

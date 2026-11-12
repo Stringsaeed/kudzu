@@ -5,6 +5,7 @@
 mod frame;
 mod landmarks;
 mod library;
+mod onboarding;
 mod routes;
 mod shortcuts;
 

@@ -4,8 +4,17 @@
 //! their reference scenes without colliding and delete their corresponding `NOT_YET_BUILT` entries
 //! in `xtask/src/parity/reference.rs`.
 
+use super::onboarding::scenes as onboarding;
 use crate::shell::MainState;
 
 pub type Scene = (&'static str, fn(&mut MainState));
 
-pub const SCENES: &[Scene] = &[];
+pub const SCENES: &[Scene] = &[
+    ("onboarding-welcome", onboarding::welcome),
+    ("onboarding-access", onboarding::access),
+    ("onboarding-import", onboarding::import),
+    ("onboarding-practice", onboarding::practice),
+    ("onboarding-espanso", onboarding::espanso),
+    ("onboarding-espanso-retry", onboarding::espanso_retry),
+    ("onboarding-finish-retry", onboarding::finish_retry),
+];
