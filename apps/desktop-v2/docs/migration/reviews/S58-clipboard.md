@@ -61,6 +61,8 @@ These are missing proof, not extra product bugs (except ⌘O, which is M1).
 - **Scroll test.** It asserts 0 view runs and p95 ≤ 4 ms in release. The reviewer ran it in debug only.
   - The reported **1.12 ms isn't recorded** in any test output or doc.
   - The orchestrator ran the release test, `cargo test --release -p kudzu-ui scrolling_five_thousand_clips_runs_no_view_and_stays_inside_the_frame_budget`, on 2026-11-12 on an M2 Max, with other builds running: 240 frames, 0 view runs, 44 window remounts, median 0.19 ms, **p95 0.73 ms** against the 4 ms budget.
+  - After the review fixes (`d486b169`), the implementer's release run printed: 240 frames, 0 view runs, 44 remounts, median 0.21 ms, **p95 2.92 ms**. That is still inside the budget, but the machine was busier; S71/S72 re-measure on a quiet Mac.
+- **Fixes:** all three majors, minors 1, 2, 4, 5 (the breadcrumb gets 6 pt for two joined shaped titles) and 6 are fixed, with tests, in `d486b169`. Minor 3 stays, because S59 added the hover reveal. Minor 7 is a note.
 - **Inline search.** It is the same `ClipboardService::query` that `empty_search_5000_entries_p95_within_five_milliseconds` holds to 5 ms p95, in release.
   - The first query after a history change still builds the index on the UI thread. That is the documented choice.
 
