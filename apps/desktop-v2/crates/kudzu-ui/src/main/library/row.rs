@@ -42,13 +42,14 @@ pub(super) fn build(data: RowData, look: Look, theme: &Theme) -> El {
     let key = row_key(data.id);
     let mut version = DefaultHasher::new();
     (&data, look).hash(&mut version);
-    memo(key.clone(), version.finish(), move || {
-        item(&data, look, theme)
-    })
-    .key(key)
-    .h(ROW_H)
-    .w_full()
-    .center_y()
+    row()
+        .key(key.clone())
+        .h(ROW_H)
+        .w_full()
+        .center_y()
+        .child(memo(key, version.finish(), move || {
+            item(&data, look, theme)
+        }))
 }
 
 fn item(data: &RowData, look: Look, theme: &Theme) -> El {
@@ -163,6 +164,8 @@ fn item(data: &RowData, look: Look, theme: &Theme) -> El {
         .label(data.name.clone())
         .focus_selected(look.selected)
         .mx(8.0)
+        .grow(1.0)
+        .min_w(0.0)
         .h(ITEM_H)
         .px(13.0)
         .gap(4.0)

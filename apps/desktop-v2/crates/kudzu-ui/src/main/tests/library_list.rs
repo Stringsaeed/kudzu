@@ -328,3 +328,85 @@ fn breadcrumbs_follow_the_selected_snippet_in_every_view() {
         ["Snippets", "Work", "Today"]
     );
 }
+
+/// LIB-3: rows are 64 points from 4 points below the filter; a row shows its name, first
+/// trigger with the count of the rest, the favorite and off marks, and its use count.
+#[test]
+fn rows_are_sixty_four_points_and_show_their_marks() {
+    let rig = sample_rig();
+    let els = rig.rt.elements();
+    let rect = |name: &str| {
+        els.iter()
+            .find(|e| e.role == "option" && e.label.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("no row {name}"))
+            .rect
+    };
+    let (first, second) = (rect("Bug report"), rect("Calendar link"));
+    // The filter ends at 130, 8 below it the list starts, 4 more and the 60 pt item is centred.
+    assert_eq!(first[1], 138.0 + 4.0 + 2.0);
+    assert_eq!(first[3], 60.0);
+    assert_eq!(second[1] - first[1], 64.0);
+    assert_eq!(first[0], 232.0);
+    assert!(
+        (first[2] - 301.594).abs() < 0.01,
+        "mx-2 inside the 317.594 column"
+    );
+    let texts: Vec<String> = els.iter().filter_map(|e| e.text.clone()).collect();
+    assert!(
+        texts.iter().any(|t| t == ";fu +1"),
+        "first trigger and the count of the rest"
+    );
+    assert!(texts.iter().any(|t| t == "129×"), "Email signature's uses");
+    let labels: Vec<String> = els.iter().filter_map(|e| e.label.clone()).collect();
+    assert!(labels.iter().any(|l| l == "Favorite"));
+    assert!(
+        labels.iter().any(|l| l == "Turned off"),
+        "Lorem ipsum is off"
+    );
+}
+
+/// LIB-3: a row that rose in when it was created doesn't rise again when the virtual list
+/// remounts it after scrolling away.
+#[test]
+fn a_remounted_row_does_not_replay_its_entrance() {
+    let mut rig = Rig::new(true);
+    rig.rt.update(|st, _| scenes::library_5000(st));
+    rig.settle();
+    // The window opened on its first snippet, mid-list by name: start from the top.
+    rig.rt
+        .update(|_, tx| tx.scroll_to_instant(library::SCROLL_KEY, 0.0, 0.0));
+    rig.settle();
+    rig.kudzu
+        .library
+        .create_snippet(kudzu_app::library::SnippetDraft {
+            name: "AAA arrival".into(),
+            ..Default::default()
+        })
+        .unwrap();
+    rig.rt.frame(0.016);
+    let arrival = || {
+        |rig: &Rig| {
+            rig.rt
+                .elements()
+                .into_iter()
+                .find(|e| e.role == "option" && e.label.as_deref() == Some("AAA arrival"))
+        }
+    };
+    let entering = arrival()(&rig).expect("the new row is built");
+    assert!(entering.opacity < 1.0, "a new row rises in");
+    rig.settle();
+    for _ in 0..120 {
+        rig.rt.wheel(380.0, 420.0, -400.0);
+        rig.rt.frame(1.0 / 120.0);
+    }
+    rig.settle();
+    assert!(
+        arrival()(&rig).is_none(),
+        "scrolled out of the mounted window"
+    );
+    rig.rt
+        .update(|_, tx| tx.scroll_to_instant(library::SCROLL_KEY, 0.0, 0.0));
+    rig.rt.frame(1.0 / 120.0);
+    let back = arrival()(&rig).expect("mounted again at the top");
+    assert_eq!(back.opacity, 1.0, "no entrance replay on remount");
+}
