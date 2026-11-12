@@ -140,3 +140,20 @@ fn a_change_after_stillness_settles_and_the_cue_expires() {
         "the settle cue expires"
     );
 }
+
+/// Headless tooling renders on the UI thread: the first settled frame already shows the text.
+#[test]
+fn headless_runs_render_the_preview_without_a_worker() {
+    let mut rig = rig_with(
+        vec![
+            snippet(1, "A", &[";a"], "first"),
+            snippet(2, "B", &[";b"], "second"),
+        ],
+        vec![],
+    );
+    rig.rt.state.editor.preview.inline = true;
+    open(&mut rig, 2);
+    assert_eq!(shown(&rig).as_deref(), Some("second"));
+    assert!(!rig.rt.state.editor.preview.is_pending());
+    assert!(has_text(&rig, "second"));
+}

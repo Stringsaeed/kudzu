@@ -136,6 +136,9 @@ pub struct Preview {
     /// The settle cue, and how many have played (its element's key).
     pub cue: Timed,
     pub cues: u32,
+    /// Headless tooling runs (`--tree`, `--snap`, `--script`) render on the UI thread, so a
+    /// snapshot never races the worker (PLAN §1.3). The app and the tests use the worker.
+    pub(crate) inline: bool,
 }
 
 impl Preview {
@@ -148,6 +151,7 @@ impl Preview {
             changed_at: None,
             cue: Timed::default(),
             cues: 0,
+            inline: rune::is_headless(),
         }
     }
 
@@ -229,12 +233,18 @@ pub(crate) fn poll(s: &mut MainState) -> bool {
         if let Some(d) = s.editor.draft() {
             let (id, source, formatting) = (d.id, d.content.clone(), d.formatting.clone());
             let expansion = Arc::clone(&s.svc.expansion);
-            s.editor
-                .preview
-                .latest
-                .request((id, source, formatting), move |(id, source, formatting)| {
-                    render(&expansion, id, source, formatting)
-                });
+            if s.editor.preview.inline {
+                if let Some(answer) = render(&expansion, id, source, formatting) {
+                    changed |= s.editor.preview.land(answer.result, now);
+                }
+            } else {
+                s.editor
+                    .preview
+                    .latest
+                    .request((id, source, formatting), move |(id, source, formatting)| {
+                        render(&expansion, id, source, formatting)
+                    });
+            }
         }
     }
     if let Some(Some(answer)) = s.editor.preview.latest.take() {

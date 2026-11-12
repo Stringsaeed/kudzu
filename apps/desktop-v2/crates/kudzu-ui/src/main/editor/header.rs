@@ -70,7 +70,7 @@ impl Header {
     }
 
     /// The draft as it is now: a favorite turning on bursts, an enabled swap fades.
-    pub fn observe(&mut self, record: &SnippetRecord, now: f64) -> bool {
+    pub fn observe(&mut self, record: &SnippetRecord, now: f64, reduced: bool) -> bool {
         let next = (record.id, record.is_favorite, record.is_enabled);
         let Some((id, favorite, enabled)) = self.seen.replace(next) else {
             return false;
@@ -79,7 +79,7 @@ impl Header {
             return false;
         }
         let mut changed = false;
-        if !favorite && record.is_favorite {
+        if !favorite && record.is_favorite && !reduced {
             self.star.start(now, STAR_SECS);
             self.star_phase = 0;
             changed = true;
@@ -321,8 +321,6 @@ fn save_status(status: &SaveStatus, theme: &Theme) -> El {
     let mut out = row()
         .key(SAVE_KEY)
         .role("status")
-        .live_region(LiveRegion::Polite)
-        .label(status.label())
         .mr(8.0)
         .gap(4.0)
         .items_center()
@@ -332,6 +330,12 @@ fn save_status(status: &SaveStatus, theme: &Theme) -> El {
             1.0
         })
         .opacity_motion(Curve::tween(motion::MODERATE, Easing::Linear));
+    // Idle draws the transparent "Saved" for layout, as Tauri does; nothing announces it.
+    out = if *status == SaveStatus::Idle {
+        out.a11y_hidden()
+    } else {
+        out.live_region(LiveRegion::Polite).label(status.label())
+    };
     match status {
         SaveStatus::Saving => {
             out = out.child(
@@ -553,9 +557,9 @@ mod tests {
         let mut h = Header::default();
         h.opened(&record(true, true));
         assert!(!h.star.running(), "opening a favorite stays still");
-        h.observe(&record(false, true), 1.0);
+        h.observe(&record(false, true), 1.0, false);
         assert!(!h.star.running(), "turning off stays still");
-        assert!(h.observe(&record(true, true), 2.0));
+        assert!(h.observe(&record(true, true), 2.0, false));
         assert_eq!(h.star_pose(2.0), (0.5, -24.0, 0.0));
         assert_eq!(h.star_pose(2.1).0, 1.25);
         assert_eq!(h.star_pose(2.3).0, 1.0);
@@ -568,13 +572,21 @@ mod tests {
     }
 
     #[test]
+    fn reduce_motion_keeps_the_star_still() {
+        let mut h = Header::default();
+        h.opened(&record(false, true));
+        h.observe(&record(true, true), 1.0, true);
+        assert!(!h.star.running());
+    }
+
+    #[test]
     fn the_enabled_label_counts_real_swaps_only() {
         let mut h = Header::default();
         h.opened(&record(false, true));
         assert_eq!(h.enabled_swaps, 0);
-        h.observe(&record(false, true), 0.0);
+        h.observe(&record(false, true), 0.0, false);
         assert_eq!(h.enabled_swaps, 0);
-        h.observe(&record(false, false), 0.0);
+        h.observe(&record(false, false), 0.0, false);
         assert_eq!(h.enabled_swaps, 1);
         h.opened(&record(false, false));
         assert_eq!(h.enabled_swaps, 0, "another snippet starts still");

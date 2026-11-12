@@ -166,7 +166,8 @@ pub(crate) fn edit_draft(s: &mut MainState, edit: impl FnOnce(&mut kudzu_core::S
     if content_changed {
         s.editor.preview.edited(now);
     }
-    s.editor.header.observe(&draft, now);
+    let reduced = s.editor.reduced.get();
+    s.editor.header.observe(&draft, now, reduced);
     s.editor.rules.observe(&draft);
 }
 
@@ -238,7 +239,7 @@ pub fn sync(s: &mut MainState) -> bool {
         }
     }
     if let Some(d) = s.editor.draft().cloned() {
-        changed |= s.editor.header.observe(&d, now);
+        changed |= s.editor.header.observe(&d, now, s.editor.reduced.get());
         changed |= s.editor.rules.observe(&d);
     }
     behavior::request_icons(s);

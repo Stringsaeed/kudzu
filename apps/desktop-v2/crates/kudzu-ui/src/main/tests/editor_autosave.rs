@@ -21,14 +21,15 @@ fn status(rig: &Rig) -> SaveStatus {
         .status(open, rig.rt.state.editor.is_dirty())
 }
 
-/// The header status's accessible name (its visible copy).
-fn save_label(rig: &Rig) -> String {
+/// The header status's accessible name (its visible copy); `None` while idle, when the
+/// transparent "Saved" is hidden from accessibility.
+fn save_label(rig: &Rig) -> Option<String> {
     rig.rt
         .elements()
         .into_iter()
         .find(|e| e.key.as_deref() == Some(crate::main::editor::header::SAVE_KEY))
-        .and_then(|e| e.label)
         .expect("the save status")
+        .label
 }
 
 fn edit_name(rig: &mut Rig, suffix: &str) {
@@ -102,11 +103,11 @@ fn saved_appears_only_once_the_writer_reaches_the_drafts_revision() {
         SaveStatus::Saving,
         "accepted in memory, not on disk"
     );
-    assert_eq!(save_label(&rig), "Saving…");
+    assert_eq!(save_label(&rig).as_deref(), Some("Saving…"));
     assert!(!has_text(&rig, "Saved"));
     wait_durable(&mut rig);
     assert_eq!(status(&rig), SaveStatus::Saved);
-    assert_eq!(save_label(&rig), "Saved");
+    assert_eq!(save_label(&rig).as_deref(), Some("Saved"));
 }
 
 #[test]
@@ -121,7 +122,7 @@ fn a_failed_write_shows_couldnt_save_until_a_write_succeeds() {
         PersistError::from(std::io::Error::from(std::io::ErrorKind::PermissionDenied)).to_string();
     assert_eq!(sentence, "The file could not be saved.");
     assert_eq!(status(&rig), SaveStatus::Failed(sentence.clone()));
-    assert_eq!(save_label(&rig), "Couldn't save");
+    assert_eq!(save_label(&rig).as_deref(), Some("Couldn't save"));
     assert!(has_text(&rig, "Couldn't save"));
     assert!(
         has_text(&rig, &sentence),
@@ -131,7 +132,7 @@ fn a_failed_write_shows_couldnt_save_until_a_write_succeeds() {
     // Another snippet, then hiding and showing the window: still failed.
     open(&mut rig, 2);
     assert_eq!(status(&rig), SaveStatus::Failed(sentence.clone()));
-    assert_eq!(save_label(&rig), "Couldn't save");
+    assert_eq!(save_label(&rig).as_deref(), Some("Couldn't save"));
     rig.rt.update(|s, _| s.hide());
     rig.settle();
     rig.rt.update(|s, _| s.show());
@@ -146,11 +147,7 @@ fn a_failed_write_shows_couldnt_save_until_a_write_succeeds() {
         SaveStatus::Idle,
         "the other snippet has no write of its own"
     );
-    assert_eq!(
-        save_label(&rig),
-        "Saved",
-        "the header no longer says Couldn't save"
-    );
+    assert_eq!(save_label(&rig), None, "idle, so nothing is announced");
     open(&mut rig, 1);
     assert_eq!(stored(&rig, 1).name, "Sig!");
 }

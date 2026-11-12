@@ -60,6 +60,9 @@ pub struct Autosave {
     saved_for: Option<Uuid>,
     /// The failure shown until a write succeeds.
     failure: Option<String>,
+    /// The failure is the library refusing the open draft, not the writer failing: it goes with
+    /// that draft when another snippet opens (the toast already said why).
+    refusal: bool,
     /// The failure a toast already announced.
     announced: Option<String>,
 }
@@ -96,6 +99,7 @@ impl Autosave {
     pub fn refused(&mut self, message: String) {
         self.due = None;
         self.failure = Some(message);
+        self.refusal = true;
     }
 
     /// Reads the writer's state. True when what the header shows may have changed.
@@ -106,9 +110,11 @@ impl Autosave {
                 self.pending = None;
                 self.saved_for = Some(id);
                 self.failure = None;
+                self.refusal = false;
                 self.announced = None;
             } else if let Some(error) = saved.error {
                 self.failure = Some(error.to_string());
+                self.refusal = false;
             }
         }
         before != (self.pending, self.saved_for, self.failure.clone())
@@ -139,10 +145,16 @@ impl Autosave {
         Some(failure)
     }
 
-    /// Opening another snippet: its status starts idle; a failure and pending writes stay.
+    /// Opening another snippet: its status starts idle. A writer failure and pending writes
+    /// stay; a refusal of the draft that was open goes with it.
     pub fn opened(&mut self) {
         self.due = None;
         self.saved_for = None;
+        if self.refusal {
+            self.failure = None;
+            self.refusal = false;
+            self.announced = None;
+        }
     }
 }
 
@@ -276,6 +288,30 @@ mod tests {
         a.accepted(id(1), Revision(10));
         assert!(a.observe(&state(10, None)));
         assert_eq!(a.status(id(1), false), SaveStatus::Saved);
+    }
+
+    #[test]
+    fn a_refusal_goes_with_its_draft_and_a_writer_failure_stays() {
+        let mut a = Autosave::default();
+        a.refused("That snippet no longer exists.".into());
+        assert_eq!(
+            a.take_announcement().as_deref(),
+            Some("That snippet no longer exists.")
+        );
+        a.opened();
+        assert_eq!(
+            a.status(id(2), false),
+            SaveStatus::Idle,
+            "the next snippet starts clean"
+        );
+        a.accepted(id(2), Revision(3));
+        a.observe(&state(2, Some(PersistError::Timeout)));
+        a.opened();
+        assert_eq!(
+            a.status(id(3), false),
+            SaveStatus::Failed(PersistError::Timeout.to_string()),
+            "a writer failure is not the draft's"
+        );
     }
 
     #[test]
