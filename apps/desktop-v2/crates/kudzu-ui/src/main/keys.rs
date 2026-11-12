@@ -60,6 +60,11 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
 
+    // 3b. The clipboard screen's keys come before the frame's, so its ⌘⌫ deletes clips.
+    if matches!(s.frame.view, MainView::Clipboard(_)) && clipboard::handle_key(s, ev, tx) {
+        return true;
+    }
+
     // 4. Resolve against `MainAction` with full context guards.
     let ctx = ActionContext {
         area: s.frame.view.area(),

@@ -39,6 +39,7 @@ pub struct MainServices {
     pub hotkeys: Arc<HotkeySlots>,
     pub clipboard: Arc<ClipboardService>,
     pub clock: Arc<dyn Clock>,
+    pub files: Arc<dyn kudzu_app::ports::FileOpener>,
 }
 
 impl From<&Arc<Kudzu>> for MainServices {
@@ -53,6 +54,7 @@ impl From<&Arc<Kudzu>> for MainServices {
             hotkeys: kudzu.hotkeys.clone(),
             clipboard: kudzu.clipboard.clone(),
             clock: kudzu.clock.clone(),
+            files: kudzu.files.clone(),
         }
     }
 }
@@ -213,6 +215,7 @@ pub(crate) fn app(identity: super::super::Identity, show: bool) -> rune::App<Mai
         .on_quit(super::super::lifecycle::on_quit)
         .on_reopen(super::super::lifecycle::on_reopen)
         .on_visibility(|s: &mut MainState, visible, _| {
+            s.clipboard.set_visible(visible);
             s.frame
                 .toasts
                 .set_window_visible(visible, s.frame.clock_secs);

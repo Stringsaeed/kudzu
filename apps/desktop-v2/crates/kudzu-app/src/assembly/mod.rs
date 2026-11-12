@@ -172,6 +172,8 @@ pub struct Kudzu {
     pub clock: Arc<dyn Clock>,
     /// Which windows are Kudzu's. The shell pushes the list on every open, close or change.
     pub windows: Arc<dyn KudzuWindows>,
+    /// Opens and reveals files for the screens (a copied file in the clipboard history).
+    pub files: Arc<dyn crate::ports::FileOpener>,
     /// `Some(LOGIN_ITEM_UNAVAILABLE)` after a failed enable or disable. Cleared when a later
     /// change of `launch_at_login` succeeds. A failed value is not tried again until it changes.
     pub login_notice: Watch<Option<String>>,
@@ -382,6 +384,7 @@ impl Kudzu {
             selection,
             clock: ports.clock.clone(),
             windows: ports.windows.clone(),
+            files: ports.files.clone(),
             login_notice: login_notice.watch(),
             first_run: source == LoadSource::Missing,
             writer,

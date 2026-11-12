@@ -210,6 +210,7 @@ impl MainState {
             self.show();
             changed = true;
         }
+        changed |= crate::main::clipboard::sync(self);
         changed |= self.reconcile_route();
         changed |= crate::main::update_toast::sync_update_toast(self, self.frame.clock_secs);
         changed |= self.frame.toasts.tick(self.frame.clock_secs);

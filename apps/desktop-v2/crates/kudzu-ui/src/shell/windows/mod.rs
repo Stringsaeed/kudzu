@@ -64,6 +64,7 @@ impl Windows {
             kudzu.library.watch().subscribe(waker(&h.palette)),
             kudzu.expansion.outcomes().subscribe(waker(&h.palette)),
             kudzu.clipboard.watch().subscribe(waker(&h.picker)),
+            kudzu.clipboard.watch().subscribe(waker(&h.main)),
             kudzu.forms.pending().subscribe(waker(&h.form)),
             kudzu.forms.outcomes().subscribe(waker(&h.form)),
             kudzu.permissions.watch().subscribe(waker(&h.permissions)),

@@ -2,6 +2,7 @@
 //! `LIB-15`, `LIB-7`). This file holds the rig; each file next to it covers one area, so a
 //! screen step adds its own file rather than editing a shared one.
 
+mod clipboard;
 mod frame;
 mod insights;
 mod landmarks;
