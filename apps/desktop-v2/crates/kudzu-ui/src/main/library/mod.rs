@@ -109,7 +109,22 @@ impl State {
             &self.filter.text,
             self.sort,
             now,
+            s.frame.clock_secs,
         ))
+    }
+
+    /// Ends the rows' motion window once the UI clock reaches it (S50 review M1). True when it
+    /// ended, so the next build lands rows at once.
+    fn settle_motion(&self, clock: f64) -> bool {
+        self.cache
+            .borrow_mut()
+            .as_mut()
+            .is_some_and(|c| c.motion.expire(clock))
+    }
+
+    /// When the rows' motion window ends, if one is open.
+    fn motion_due(&self) -> Option<f64> {
+        self.cache.borrow().as_ref().and_then(|c| c.motion.due())
     }
 
     /// Ids of rows that arrived with the last library change, and whether that change was a
@@ -132,7 +147,7 @@ impl State {
 /// Keeps the open snippet inside the list (`snippet-list.tsx`), drops the multi-selection on
 /// another view and forgets deleted ids. True when the selection changed.
 pub fn sync(s: &mut MainState) -> bool {
-    let mut changed = false;
+    let mut changed = s.library.settle_motion(s.frame.clock_secs);
     if !s.library.started {
         s.library.started = true;
         if s.frame.selected_snippet.is_none() {
@@ -179,10 +194,19 @@ pub fn sync(s: &mut MainState) -> bool {
     changed
 }
 
+/// The poll's part: wakes the window when the rows' motion window ends (`sync` then lands them
+/// still), and reveals the open snippet.
+pub fn poll(s: &mut MainState, tx: &mut Tx) {
+    if let Some(due) = s.library.motion_due() {
+        tx.wake_at(due);
+    }
+    reveal(s, tx);
+}
+
 /// Scrolls the open snippet's row into view when it changed since the last time (the list's
 /// `scrollToIndex` effect): a route, a new snippet or a sort can move it off screen. The poll
 /// runs this; the list's own keys reveal as they move.
-pub fn reveal(s: &mut MainState, tx: &mut Tx) {
+fn reveal(s: &mut MainState, tx: &mut Tx) {
     let cursor = s.frame.selected_snippet;
     if cursor == s.library.revealed || !s.frame.view.in_library() {
         return;

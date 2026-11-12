@@ -196,7 +196,7 @@ Intentional differences:
 - **The bar's count does not play `tick`** when the selection grows or shrinks.
 - **`?` in the list** opens the cheat sheet and is not typed into the filter (Tauri did both).
 - **No tooltips yet** on Sort, New snippet (“New snippet ⌘N”), Favorite all (“Add to favorites”) and Turn off all (“Toggle on/off”). PLAN §1.4 rules out `El::help`, which rune-kit's `Button::help` becomes, and `rune_kit::Tooltip` needs an `open` flag driven by hover with Tauri's 500 ms delay. No main-window control has that yet (the S41 toolbar neither): a shared delayed tooltip is a follow-up.
-- **Breadcrumb x drifts** up to a point per crumb: Rune rounds each crumb's text width to whole points. Sizes stay within 2 pt (S07's gallery rows gate crumbs by size for this reason).
+- **Breadcrumb x drifts by the widths before it.** Rune rounds a crumb's text width up and snaps its box, so a crumb is up to 1.7 pt wider than WebKit's fractional width (“Work” 33 against 31.34). Each later crumb starts that much further right, 2.5 pt by the third. Sizes stay within 2 pt, and `library_landmarks.rs` checks each crumb's x against the reference plus the width differences before it, within 0.5 pt.
 
 For S73, when the scenes are enabled:
 

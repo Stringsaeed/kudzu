@@ -5,6 +5,8 @@
 //! When the selection drops to one row the bar leaves the tree and plays its exit; Rune keeps
 //! drawing the last build (its count) and makes it inert while it sinks, as the Tauri bar does.
 
+use std::collections::HashSet;
+
 use kudzu_core::library::groups::{build_tree, flatten};
 use kudzu_core::SnippetRecord;
 use rune::{el, row, text, El, Tx};
@@ -143,7 +145,7 @@ fn move_menu(s: &MainState, theme: &Theme, overlays: &mut Vec<El>, trigger: El) 
 }
 
 fn selected(s: &MainState) -> Vec<SnippetRecord> {
-    let ids = s.library.selection.bulk();
+    let ids: HashSet<Uuid> = s.library.selection.bulk().iter().copied().collect();
     s.library_snapshot()
         .snippets
         .iter()

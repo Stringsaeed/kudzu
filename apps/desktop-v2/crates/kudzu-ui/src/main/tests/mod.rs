@@ -22,6 +22,7 @@ mod library_bulk;
 mod library_landmarks;
 mod library_list;
 mod library_reveal;
+mod library_review;
 mod library_scroll;
 mod onboarding;
 mod onboarding_review;

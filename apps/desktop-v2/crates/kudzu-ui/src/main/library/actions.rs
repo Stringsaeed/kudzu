@@ -2,6 +2,7 @@
 //! delete with its Undo toast, and the list's focus moves. S50 owns this file with the list.
 
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 use kudzu_app::library::{Deleted, SnippetDraft};
@@ -153,7 +154,8 @@ pub fn delete_with_undo(s: &mut MainState, ids: &[Uuid], tx: &mut Tx) -> bool {
     if deleted.snippets.is_empty() {
         return false;
     }
-    s.library.selection.retain(|id| !ids.contains(&id));
+    let gone: HashSet<Uuid> = ids.iter().copied().collect();
+    s.library.selection.retain(|id| !gone.contains(&id));
     s.refresh_library_snapshot();
     if let Some(next) = neighbour {
         s.select_snippet(next);
@@ -192,11 +194,12 @@ fn neighbour_after_delete(s: &MainState, ids: &[Uuid]) -> Option<Option<Uuid>> {
     let open = s.frame.selected_snippet.filter(|id| ids.contains(id))?;
     let lib = s.svc.library.watch().get();
     let at = lib.snippets.iter().position(|sn| sn.id == open);
+    let gone: HashSet<Uuid> = ids.iter().copied().collect();
     let remaining: Vec<Uuid> = lib
         .snippets
         .iter()
         .map(|sn| sn.id)
-        .filter(|id| !ids.contains(id))
+        .filter(|id| !gone.contains(id))
         .collect();
     Some(at.and_then(|at| {
         remaining

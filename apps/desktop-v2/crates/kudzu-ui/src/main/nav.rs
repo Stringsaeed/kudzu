@@ -143,6 +143,7 @@ pub fn back(s: &mut MainState, tx: &mut Tx) {
     if s.frame.go_back() {
         s.observe_breadcrumbs();
     }
+    library::sync(s);
     s.blur_all_inputs();
     tx.blur();
 }
@@ -152,6 +153,7 @@ pub fn forward(s: &mut MainState, tx: &mut Tx) {
     if s.frame.go_forward() {
         s.observe_breadcrumbs();
     }
+    library::sync(s);
     s.blur_all_inputs();
     tx.blur();
 }

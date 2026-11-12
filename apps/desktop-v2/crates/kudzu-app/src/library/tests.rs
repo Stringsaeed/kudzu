@@ -420,3 +420,36 @@ fn updating_many_snippets_is_one_revision_and_skips_missing_ids() {
     }
     assert_eq!(lib.snippets.len(), 2);
 }
+
+/// S50 review minor 2: a bulk edit over the whole library finds each snippet by id once, not
+/// by scanning the library per id (⌘A then Favorite all on a large library).
+#[test]
+fn updating_every_snippet_of_a_large_library_is_linear() {
+    let snippets: Vec<SnippetRecord> = (0..20_000u128)
+        .map(|n| SnippetRecord {
+            id: Uuid::from_u128(n + 1),
+            ..SnippetRecord::new(format!("s{n}"), vec![], "body")
+        })
+        .collect();
+    let h = Harness::new(KudzuLibrary {
+        snippets: snippets.clone(),
+        ..KudzuLibrary::default()
+    });
+    let edits: Vec<SnippetRecord> = snippets
+        .into_iter()
+        .map(|mut s| {
+            s.is_favorite = true;
+            s
+        })
+        .collect();
+    let started = std::time::Instant::now();
+    let (saved, _) = h.service.update_snippets(edits).unwrap();
+    let took = started.elapsed();
+    assert_eq!(saved.len(), 20_000);
+    // A scan per id is 200 million comparisons (seconds, even in release); one lookup per id
+    // is milliseconds. The bound leaves room for a loaded machine and a debug build.
+    assert!(
+        took < std::time::Duration::from_millis(400),
+        "took {took:?}"
+    );
+}

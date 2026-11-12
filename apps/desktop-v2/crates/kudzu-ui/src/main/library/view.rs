@@ -279,9 +279,14 @@ fn list(
             },
         )
         .virtual_rows_version(listing.version);
-    if motion.still {
+    // Still: rows land at once, and so does the list itself when it comes back from an empty
+    // state (a cleared filter), as the Tauri list's rows appear without an entrance.
+    let listbox = if motion.still {
         rows = rows.instant_changes();
-    }
+        listbox.instant_changes()
+    } else {
+        listbox
+    };
     listbox.child(
         col()
             .key(SCROLL_KEY)

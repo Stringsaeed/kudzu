@@ -91,6 +91,8 @@ fn check(scene: &str, build: fn(&mut MainState), owned: &[Owned]) {
         rig.rt.update(move |st, _| build(st));
         rig.settle();
         let refs = reference(scene, theme);
+        // Owned crumbs are listed in trail order, from "Snippets".
+        let mut trail_drift = 0.0;
         for &(role, name, occurrence, key) in owned {
             let want = refs
                 .iter()
@@ -98,22 +100,25 @@ fn check(scene: &str, build: fn(&mut MainState), owned: &[Owned]) {
                 .unwrap_or_else(|| panic!("{scene}: no reference {role} “{name}” #{occurrence}"))
                 .3;
             let got = drawn(&rig, role, name, key);
-            // A crumb after the first starts where the text before it ends, and Rune rounds
-            // each crumb's text width to whole points where WebKit keeps fractions: x drifts by
-            // up to a point per crumb (the S07 gallery gates crumbs by size for this reason).
-            let drifts = key.is_none() && name != "Snippets";
-            let sides: &[usize] = if drifts { &[1, 2, 3] } else { &[0, 1, 2, 3] };
+            // A crumb starts where the one before it ends. Rune rounds a crumb's text width up
+            // and snaps its box (up to 1.7 pt wider than WebKit's fractions), so a crumb's x is
+            // the reference's plus the width differences of the crumbs before it, exactly.
+            let crumb = key.is_none();
+            let sides: &[usize] = if crumb { &[1, 2, 3] } else { &[0, 1, 2, 3] };
             let delta = sides
                 .iter()
                 .map(|&i| (want[i] - got[i]).abs())
                 .fold(0.0, f32::max);
-            if drifts {
+            if crumb {
+                let drift = got[0] - want[0];
                 assert!(
-                    (want[0] - got[0]).abs() <= 3.0,
-                    "{scene} ({theme}) crumb “{name}” x: want {}, got {}",
+                    (drift - trail_drift).abs() <= 0.5,
+                    "{scene} ({theme}) crumb “{name}” x: want {} + {trail_drift} from the \
+                     crumbs before it, got {}",
                     want[0],
                     got[0]
                 );
+                trail_drift += got[2] - want[2];
             }
             assert!(
                 delta <= 2.0,

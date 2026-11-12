@@ -4,7 +4,7 @@ use kudzu_core::{
     formatting::Formatting,
     library::model::{AppRule, CaseMode, FireMode, InsertionMethod, SnippetRecord},
 };
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Undo retains snippet records only. Form memory pruning belongs to the forms reactor.
@@ -153,12 +153,19 @@ impl LibraryService {
     ) -> Result<(Vec<SnippetRecord>, Revision), LibraryError> {
         self.transact(|library| {
             let now = self.clock.now().into();
+            // One lookup per id, not a scan of the library per id (S50 review, minor 2).
+            let at: HashMap<Uuid, usize> = library
+                .snippets
+                .iter()
+                .enumerate()
+                .map(|(i, s)| (s.id, i))
+                .collect();
             let mut saved = Vec::with_capacity(snippets.len());
             for mut snippet in snippets {
-                let Some(existing) = library.snippets.iter_mut().find(|s| s.id == snippet.id)
-                else {
+                let Some(&i) = at.get(&snippet.id) else {
                     continue;
                 };
+                let existing = &mut library.snippets[i];
                 snippet.created_at = existing.created_at;
                 snippet.updated_at = now;
                 snippet.triggers.retain(|t| !t.trim().is_empty());
