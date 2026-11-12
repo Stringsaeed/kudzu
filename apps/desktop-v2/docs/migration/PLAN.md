@@ -607,7 +607,7 @@ Waves 9 and later, step by step:
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
 | S51 editor shell | Building | Carbon → a non-Antigravity reviewer |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
-| S61 settings frame, General, Expansion, Apps | Building | Argon → a non-Antigravity reviewer |
+| S61 settings frame, General, Expansion, Apps | Building (restarted on Codex Sol after Argon stalled and then failed) | Codex Sol → a non-Codex reviewer |
 | S60 clipboard picker window | Building | Carbon → a non-Antigravity reviewer |
 
 **Orchestrator changes on the base during wave 9:**
