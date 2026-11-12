@@ -3,6 +3,7 @@
 //! the segmented controls, the steppers, the settings group), `spec:` samples give the size the
 //! Tauri classes set, `info:` samples are reported for side-by-side review.
 
+mod apps;
 mod controls;
 mod panes;
 mod text;
@@ -26,6 +27,8 @@ pub enum Widget {
     EmptyState,
     SettingsCard,
     Wordmark,
+    AppIcon,
+    AppPicker,
 }
 
 macro_rules! scenes {
@@ -56,6 +59,8 @@ scenes! {
     "empty-state" => EmptyState,
     "settings-card" => SettingsCard,
     "wordmark" => Wordmark,
+    "app-icon" => AppIcon,
+    "app-picker" => AppPicker,
 }
 
 pub fn view(w: Widget, s: &GalleryState, cx: &Cx<GalleryState>, theme: &Theme) -> El {
@@ -73,6 +78,8 @@ pub fn view(w: Widget, s: &GalleryState, cx: &Cx<GalleryState>, theme: &Theme) -
         Widget::EmptyState => panes::empty_state(theme),
         Widget::SettingsCard => panes::settings_card(theme),
         Widget::Wordmark => text::wordmark(theme),
+        Widget::AppIcon => apps::app_icon(theme),
+        Widget::AppPicker => apps::app_picker(theme, s, cx, &mut layer),
     };
     let page = col()
         .key(format!("scene-{}", w.scene()))

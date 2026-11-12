@@ -10,9 +10,7 @@ use rune::{Key, KeyEvent, Keybind, Tx};
 use crate::actions::main::{ActionContext, MainAction};
 use crate::actions::Action;
 use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
-use crate::main::{
-    cheatsheet, clipboard, command_menu, editor, group_settings, library, nav, sidebar,
-};
+use crate::main::{cheatsheet, clipboard, command_menu, editor, library, nav, sidebar};
 use crate::shell::{MainState, NewSnippet, SettingsPane};
 
 /// Window-level `on_key` handler wired into `AppSpec::on_key` for `main`.
@@ -178,14 +176,10 @@ impl MainState {
             || self.group_settings.is_editing_text()
     }
 
-    /// Dismisses the overlay painted last. The group-settings app picker, then
-    /// group settings, then the cheat sheet, then the command menu (which clears
-    /// its query), then the breadcrumb menu.
+    /// Dismisses the overlay painted last: group settings, then the cheat sheet,
+    /// then the command menu (which clears its query), then the breadcrumb menu.
+    /// The app list closes itself from its search field.
     pub fn dismiss_top_overlay(&mut self) -> bool {
-        if self.group_settings.picker_open() {
-            group_settings::close_picker(self);
-            return true;
-        }
         if self.frame.group_settings_id.is_some() {
             self.frame.group_settings_id = None;
             return true;

@@ -4,7 +4,7 @@
 //! caches them. [`IconCache`] decodes those bytes on Rune's image workers. Nothing here knows
 //! which screen asked.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 use kudzu_app::apps::Apps;
 use kudzu_app::tasks::Task;
@@ -32,6 +32,8 @@ pub struct IconCache {
     images: ImageCache,
     wake: rune::Waker,
     slots: HashMap<(String, u32), Slot>,
+    queue: VecDeque<(String, u32)>,
+    inflight: Option<(String, u32)>,
 }
 
 impl IconCache {
@@ -40,28 +42,52 @@ impl IconCache {
             images: ImageCache::new(wake.clone()),
             wake,
             slots: HashMap::new(),
+            queue: VecDeque::new(),
+            inflight: None,
         }
     }
 
-    /// Start a catalogue read when this id and size are not already cached. Returns when the
-    /// worker has been started; it does not wait for the icon.
+    /// Queue a catalogue read when this id and size are not already cached or queued.
+    /// At most one read runs. Returns without waiting for the icon. A later `request`
+    /// starts the next queued read once the current one has finished.
     pub fn request(&mut self, apps: &Apps, bundle_id: &str, size: u32) -> bool {
         let key = (bundle_id.to_owned(), size);
-        if self.slots.contains_key(&key) {
-            return false;
+        let fresh = self.inflight.as_ref() != Some(&key)
+            && !self.slots.contains_key(&key)
+            && !self.queue.iter().any(|queued| queued == &key);
+        if fresh {
+            self.queue.push_back(key);
         }
-        let Ok(task) = apps.icon(bundle_id, size) else {
-            self.slots.insert(key, Slot::Missing);
-            return true;
-        };
-        let wake = self.wake.clone();
-        let ready = task.ready();
-        let sub = ready.subscribe(move || wake());
-        if *ready.get() {
-            (self.wake)();
+        self.pump(apps);
+        fresh
+    }
+
+    fn pump(&mut self, apps: &Apps) {
+        if self.inflight.is_some() {
+            return;
         }
-        self.slots.insert(key, Slot::Loading { task, _wake: sub });
-        true
+        while let Some(key) = self.queue.pop_front() {
+            if self.slots.contains_key(&key) {
+                continue;
+            }
+            match apps.icon(&key.0, key.1) {
+                Ok(task) => {
+                    let wake = self.wake.clone();
+                    let ready = task.ready();
+                    let sub = ready.subscribe(move || wake());
+                    if *ready.get() {
+                        (self.wake)();
+                    }
+                    self.slots
+                        .insert(key.clone(), Slot::Loading { task, _wake: sub });
+                    self.inflight = Some(key);
+                    return;
+                }
+                Err(_) => {
+                    self.slots.insert(key, Slot::Missing);
+                }
+            }
+        }
     }
 
     /// Take finished reads and hand them to the image decoder. True when a slot changed.
@@ -86,6 +112,13 @@ impl IconCache {
             };
             self.slots.insert(key, slot);
         }
+        let done = self
+            .inflight
+            .as_ref()
+            .is_some_and(|key| !matches!(self.slots.get(key), Some(Slot::Loading { .. })));
+        if done {
+            self.inflight = None;
+        }
         for slot in self.slots.values_mut() {
             if let Slot::Image { image, announced } = slot {
                 if !*announced && image.is_ready() {
@@ -105,7 +138,8 @@ impl IconCache {
     }
 }
 
-/// First letter of `name`, or the bundle id when the app is not installed.
+/// First letter of `name`, uppercased, or empty. Callers pass the display name, which is
+/// the bundle id when the app is missing.
 pub fn monogram(name: &str) -> String {
     name.chars()
         .next()
@@ -241,6 +275,33 @@ mod tests {
         let mut cache = IconCache::new(Arc::new(|| {}));
         assert!(cache.request(&apps, "com.example.once", 16));
         assert!(!cache.request(&apps, "com.example.once", 16));
+        entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        release_tx.send(()).unwrap();
+    }
+
+    #[test]
+    fn one_icon_read_runs_at_a_time() {
+        let (release_tx, release_rx) = mpsc::channel();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let apps = Apps::new(Arc::new(Gate {
+            release: Mutex::new(release_rx),
+            entered: entered_tx,
+        }));
+        let mut cache = IconCache::new(Arc::new(|| {}));
+        assert!(cache.request(&apps, "com.example.one", 64));
+        entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(cache.request(&apps, "com.example.two", 64));
+        assert!(entered_rx.try_recv().is_err());
+        release_tx.send(()).unwrap();
+        for _ in 0..50 {
+            cache.poll();
+            if cache.inflight.is_none() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(cache.inflight.is_none());
+        assert!(!cache.request(&apps, "com.example.two", 64));
         entered_rx.recv_timeout(Duration::from_secs(2)).unwrap();
         release_tx.send(()).unwrap();
     }

@@ -1,5 +1,5 @@
-//! App exclusions and insertion overrides. One picker is mounted at a time because the
-//! current shared picker uses fixed keys. The uniquely keyed caller slot is the test seam.
+//! App exclusions and insertion overrides. One picker is mounted at a time. Its id
+//! keeps the keys off any other picker on the pane.
 use super::update;
 use crate::{
     shell::MainState,
@@ -144,24 +144,28 @@ pub fn view_with_cx(s: &MainState, cx: &Cx<MainState>, t: &Theme, overlays: &mut
     } else {
         Vec::new()
     };
-    let mut picker = AppPicker::new(&values, &installed, &s.settings.query, icons).open(true);
-    picker.add_label = if s.settings.picker_deny {
-        "Exclude an app"
+    let (id, label) = if s.settings.picker_deny {
+        ("settings-exclude", "Exclude an app")
     } else {
-        "Add an app"
+        ("settings-include", "Add an app")
     };
-    let picker = picker.build(
-        t,
-        cx,
-        |s: &mut MainState| &mut s.settings.query,
-        choose,
-        |s: &mut MainState, open| {
-            if !s.settings.is_composing() {
-                s.settings.picker_open = open;
-            }
-        },
-        overlays,
-    );
+    let picker = AppPicker::new(id, &values, &installed, &s.settings.query, icons)
+        .add_label(label)
+        .open(true)
+        .active(s.settings.picker_active)
+        .overlays(overlays)
+        .build(
+            t,
+            cx,
+            |s: &mut MainState| &mut s.settings.query,
+            choose,
+            |s: &mut MainState, open| {
+                if !s.settings.is_composing() {
+                    s.settings.picker_open = open;
+                }
+            },
+            |s: &mut MainState, index| s.settings.picker_active = index,
+        );
     col()
         .w_full()
         .gap(12.0)

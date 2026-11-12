@@ -5,7 +5,8 @@
 use std::time::Duration;
 
 use kudzu_app::settings::Theme as Stored;
-use kudzu_core::library::model::{AppRuleMode, GroupRecord, InsertionMethod};
+use kudzu_core::library::model::{AppRule, AppRuleMode, GroupRecord, InsertionMethod};
+use rune::{Ime, Key, KeyEvent, Mods};
 use uuid::Uuid;
 
 use super::{cmd, esc, plain, Rig};
@@ -126,6 +127,16 @@ fn has_key(rig: &Rig, key: &str) -> bool {
     rig.rect(key).is_some()
 }
 
+fn ids(rig: &Rig) -> Vec<String> {
+    rig.rt
+        .state
+        .group_settings
+        .rule
+        .as_ref()
+        .map(|rule| rule.bundle_ids.clone())
+        .unwrap_or_default()
+}
+
 fn mail_icon_calls(rig: &Rig) -> usize {
     rig.fixtures
         .apps
@@ -133,8 +144,15 @@ fn mail_icon_calls(rig: &Rig) -> usize {
         .lock()
         .unwrap()
         .iter()
-        .filter(|(id, size)| id == "com.apple.mail" && *size == 18)
+        .filter(|(id, size)| id == "com.apple.mail" && *size == 64)
         .count()
+}
+
+fn key(k: Key) -> KeyEvent {
+    KeyEvent {
+        key: k,
+        mods: Mods::default(),
+    }
 }
 
 fn click_labeled(rig: &mut Rig, role: &str, label: &str) {
@@ -258,7 +276,15 @@ fn edits_stay_in_the_draft_until_save() {
         Some(InsertionMethod::Type)
     );
     rig.click_key("group-rule:allow");
-    assert_eq!(rig.rt.state.group_settings.rule, Some(AppRuleMode::Allow));
+    assert_eq!(
+        rig.rt
+            .state
+            .group_settings
+            .rule
+            .as_ref()
+            .map(|rule| rule.mode),
+        Some(AppRuleMode::Allow)
+    );
     assert!(has_key(&rig, "app-picker-add"));
     assert_eq!(group(&rig, id), before);
 }
@@ -280,13 +306,19 @@ fn a_blank_name_keeps_the_previous_one() {
 #[test]
 fn save_waits_until_the_revision_is_durable() {
     let mut rig = Rig::new(true);
-    let id = open_started(&mut rig);
+    let id = started(&rig).id;
+    let mut seeded = started(&rig);
+    seeded.rule = Some(AppRule {
+        mode: AppRuleMode::Deny,
+        bundle_ids: vec!["com.apple.mail".into()],
+        insertion: Some(InsertionMethod::Type),
+    });
+    rig.kudzu.library.update_group(seeded).unwrap();
+    open_started(&mut rig);
     rig.rt.update(|st, _| {
         st.group_settings.name = rune::TextEdit::new("Renamed");
         st.group_settings.enabled = false;
         st.group_settings.insertion = Some(InsertionMethod::Paste);
-        st.group_settings.rule = Some(AppRuleMode::Deny);
-        st.group_settings.bundle_ids = vec!["com.apple.mail".into()];
     });
     rig.settle();
     rig.click_key("group-settings-save");
@@ -303,7 +335,7 @@ fn save_waits_until_the_revision_is_durable() {
     let rule = saved.rule.expect("rule");
     assert_eq!(rule.mode, AppRuleMode::Deny);
     assert_eq!(rule.bundle_ids, ["com.apple.mail"]);
-    assert!(rule.insertion.is_none());
+    assert_eq!(rule.insertion, Some(InsertionMethod::Type));
 }
 
 /// The directory is unwritable only for the failing attempt, and restored before `Rig` shuts down.
@@ -331,9 +363,12 @@ fn save_shows_the_error_and_stays_open_when_the_write_fails() {
     wait_for_save_error(&mut rig);
     assert_eq!(
         rig.rt.state.group_settings.error.as_deref(),
-        Some("The file could not be saved.")
+        Some("The file could not be saved. The change is kept and will be retried.")
     );
-    assert!(has_text(&rig, "The file could not be saved."));
+    assert!(has_text(
+        &rig,
+        "The file could not be saved. The change is kept and will be retried."
+    ));
     assert!(rig.rt.state.frame.group_settings_id.is_some());
     assert_eq!(group(&rig, id).name, "Renamed");
 }
@@ -408,18 +443,18 @@ fn the_picker_searches_and_keeps_checks_open() {
     rig.click_key("app-picker-search");
     type_str(&mut rig, "mail");
     assert!(
-        has_key(&rig, "app-row-com.apple.mail"),
+        has_key(&rig, "app-picker-row-com.apple.mail"),
         "query {:?}",
         rig.rt.state.group_settings.query.text
     );
-    assert!(!has_key(&rig, "app-row-com.google.Chrome"));
+    assert!(!has_key(&rig, "app-picker-row-com.google.Chrome"));
 
     rig.rt.update(|st, _| {
         st.group_settings.query = rune::TextEdit::new("com.apple.terminal");
     });
     rig.settle();
-    assert!(has_key(&rig, "app-row-com.apple.Terminal"));
-    assert!(!has_key(&rig, "app-row-com.apple.mail"));
+    assert!(has_key(&rig, "app-picker-row-com.apple.Terminal"));
+    assert!(!has_key(&rig, "app-picker-row-com.apple.mail"));
 
     rig.rt
         .update(|st, _| st.group_settings.query = rune::TextEdit::new("nope"));
@@ -432,31 +467,62 @@ fn the_picker_searches_and_keeps_checks_open() {
     });
     rig.settle();
     assert!(has_text(&rig, "Add “com.example.app”"));
+    let custom = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some("app-picker-custom"))
+        .expect("custom row");
+    assert_eq!(custom.role, "button");
+    assert_eq!(custom.label.as_deref(), Some("Add “com.example.app”"));
     rig.click_key("app-picker-custom");
     assert!(has_key(&rig, "app-picker-list"));
-    assert_eq!(
-        rig.rt.state.group_settings.bundle_ids,
-        ["com.example.app".to_string()]
-    );
-    assert!(has_key(&rig, "app-chip-com.example.app"));
+    assert_eq!(rig.rt.state.group_settings.query.text, "");
+    assert_eq!(ids(&rig), ["com.example.app".to_string()]);
+    assert!(has_key(&rig, "app-picker-chip-com.example.app"));
+    let remove = landmark(&rig, "button", "Remove com.example.app");
+    assert_eq!((remove[2], remove[3]), (20.0, 20.0));
     click_labeled(&mut rig, "button", "Remove com.example.app");
-    assert!(rig.rt.state.group_settings.bundle_ids.is_empty());
-    assert!(!has_key(&rig, "app-chip-com.example.app"));
+    assert!(ids(&rig).is_empty());
+    assert!(!has_key(&rig, "app-picker-chip-com.example.app"));
 
+    let long = "com.example.supercalifragilistic-expialidocious-app";
     rig.rt
-        .update(|st, _| st.group_settings.query = rune::TextEdit::new(""));
+        .update(|st, _| st.group_settings.query = rune::TextEdit::new(long));
     rig.settle();
-    rig.click_key("app-row-com.apple.mail");
+    rig.click_key("app-picker-custom");
+    let chip_text = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.text.as_deref() == Some(long))
+        .expect("long chip");
+    assert!(chip_text.rect[2] <= 160.0, "chip text {:?}", chip_text.rect);
+    assert!(rig
+        .rt
+        .elements()
+        .iter()
+        .all(|e| { e.key.as_deref().is_none_or(|key| !key.contains("#dup")) }));
+    click_labeled(&mut rig, "button", &format!("Remove {long}"));
+    assert!(ids(&rig).is_empty());
+
+    rig.click_key("app-picker-row-com.apple.mail");
     assert!(has_key(&rig, "app-picker-list"));
-    assert!(has_key(&rig, "app-check"));
-    assert_eq!(
-        rig.rt.state.group_settings.bundle_ids,
-        ["com.apple.mail".to_string()]
-    );
-    rig.click_key("app-row-com.apple.mail");
+    let mail = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some("app-picker-row-com.apple.mail"))
+        .expect("mail row");
+    assert_eq!(mail.role, "option");
+    assert_eq!(mail.label.as_deref(), Some("Mail"));
+    assert!(is_checked(&rig, "app-picker-row-com.apple.mail"));
+    assert!(has_key(&rig, "app-picker-check-com.apple.mail"));
+    assert_eq!(ids(&rig), ["com.apple.mail".to_string()]);
+    rig.click_key("app-picker-row-com.apple.mail");
     assert!(has_key(&rig, "app-picker-list"));
-    assert!(!has_key(&rig, "app-check"));
-    assert!(rig.rt.state.group_settings.bundle_ids.is_empty());
+    assert!(!has_key(&rig, "app-picker-check-com.apple.mail"));
+    assert!(ids(&rig).is_empty());
 }
 
 #[test]
@@ -510,4 +576,257 @@ fn typing_a_group_name_does_not_create_a_snippet() {
     rig.press(cmd('n'));
     assert_eq!(rig.library().snippets.len(), before);
     assert!(rig.rt.state.frame.group_settings_id.is_some());
+}
+
+#[test]
+fn a_writer_that_is_already_failing_shows_the_error_on_save() {
+    use std::os::unix::fs::PermissionsExt;
+    let mut rig = Rig::new(true);
+    let mut record = started(&rig);
+    let id = record.id;
+    record.name = "First".into();
+    let permit = Permit(rig.data_dir().to_path_buf());
+    std::fs::set_permissions(&permit.0, std::fs::Permissions::from_mode(0o500)).unwrap();
+    rig.kudzu.library.update_group(record).unwrap();
+    for _ in 0..40 {
+        if rig.kudzu.library.saved().get().error.is_some() {
+            break;
+        }
+        rig.fixtures.clock.advance(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(30));
+    }
+    assert!(
+        rig.kudzu.library.saved().get().error.is_some(),
+        "the writer is failing before the dialog opens"
+    );
+    rig.rt
+        .update(move |st, _| st.frame.group_settings_id = Some(id));
+    rig.settle();
+    rig.rt
+        .update(|st, _| st.group_settings.name = rune::TextEdit::new("Second"));
+    rig.settle();
+    rig.click_key("group-settings-save");
+    assert_eq!(
+        rig.rt.state.group_settings.error.as_deref(),
+        Some("The file could not be saved. The change is kept and will be retried.")
+    );
+    assert!(has_text(
+        &rig,
+        "The file could not be saved. The change is kept and will be retried."
+    ));
+    let alert = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some("group-settings-error"))
+        .expect("error");
+    assert_eq!(alert.role, "alert");
+    assert!(rig.rt.state.frame.group_settings_id.is_some());
+    assert_eq!(group(&rig, id).name, "Second");
+}
+
+#[test]
+fn a_pending_save_keeps_later_edits_and_shows_saving() {
+    let mut rig = Rig::new(true);
+    let id = open_started(&mut rig);
+    rig.rt
+        .update(|st, _| st.group_settings.name = rune::TextEdit::new("Renamed"));
+    rig.settle();
+    rig.click_key("group-settings-save");
+    assert!(has_text(&rig, "Saving…"));
+    assert!(rig.rt.state.frame.group_settings_id.is_some());
+    let name = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some("group-name"))
+        .expect("name");
+    assert!(name.inert, "the form is disabled while the save is pending");
+    rig.rt
+        .update(|st, _| st.group_settings.name = rune::TextEdit::new("Later"));
+    wait_until_closed_or_durable(&mut rig);
+    assert!(rig.rt.state.frame.group_settings_id.is_some());
+    assert_eq!(rig.rt.state.group_settings.name.text, "Later");
+    assert_eq!(group(&rig, id).name, "Renamed");
+}
+
+#[test]
+fn return_in_the_name_field_saves() {
+    let mut rig = Rig::new(true);
+    let id = open_started(&mut rig);
+    assert!(rig.rt.state.group_settings.name.focused);
+    rig.rt.update(|st, _| {
+        st.group_settings.name = rune::TextEdit::new("Renamed");
+        st.group_settings.name.focused = true;
+    });
+    rig.settle();
+    rig.press(key(Key::Enter));
+    assert_eq!(group(&rig, id).name, "Renamed");
+    wait_until_closed(&mut rig);
+    assert_eq!(group(&rig, id).name, "Renamed");
+}
+
+#[test]
+fn the_app_list_scrolls_inside_a_short_window() {
+    let mut rig = Rig::new(true);
+    rig.rt.set_viewport((900.0, 560.0), 1.0);
+    rig.settle();
+    open_picker(&mut rig);
+    for _ in 0..50 {
+        if rig.kudzu.apps.installed().get().len() == 12 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        rig.settle();
+    }
+    assert_eq!(rig.kudzu.apps.installed().get().len(), 12);
+    rig.settle();
+    let rows = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.key.as_deref().is_some_and(|k| k.ends_with("-rows")))
+        .expect("row viewport");
+    assert!(rows.rect[3] <= 288.0, "rows are {rows:?}");
+    let list = rig.rect("app-picker-list").expect("list");
+    assert!(
+        list[0] >= -0.5
+            && list[1] >= -0.5
+            && list[0] + list[2] <= 900.5
+            && list[1] + list[3] <= 560.5,
+        "list {list:?} leaves the 900×560 window"
+    );
+}
+
+#[test]
+fn the_search_field_moves_the_active_row() {
+    let mut rig = Rig::new(true);
+    open_picker(&mut rig);
+    for _ in 0..50 {
+        if rig.kudzu.apps.installed().get().len() == 12 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+        rig.settle();
+    }
+    assert!(
+        rig.rt.state.group_settings.query.focused,
+        "the search field is focused when the list opens"
+    );
+    let focused = rig
+        .rt
+        .elements()
+        .into_iter()
+        .find(|e| e.focused)
+        .expect("focused element");
+    assert!(
+        focused.path.contains("app-picker-search"),
+        "focused path {}",
+        focused.path
+    );
+    rig.rt.ime(Ime::Preedit("か".into(), None));
+    rig.rt.frame(0.016);
+    rig.press(key(Key::Down));
+    assert!(ids(&rig).is_empty());
+    rig.rt.ime(Ime::Commit(String::new()));
+    rig.rt.frame(0.016);
+    rig.press(key(Key::Down));
+    assert_eq!(rig.rt.state.group_settings.picker_active, 1);
+    rig.press(key(Key::End));
+    assert_eq!(rig.rt.state.group_settings.picker_active, 11);
+    rig.press(key(Key::Home));
+    assert_eq!(rig.rt.state.group_settings.picker_active, 0);
+    rig.press(key(Key::Down));
+    rig.press(key(Key::Enter));
+    assert!(!ids(&rig).is_empty(), "Enter toggles the active row");
+    assert!(has_key(&rig, "app-picker-list"));
+}
+
+#[test]
+fn adding_a_bundle_id_does_not_toggle_it_off() {
+    let mut rig = Rig::new(true);
+    open_picker(&mut rig);
+    rig.rt.update(|st, _| {
+        st.group_settings.rule.as_mut().unwrap().bundle_ids = vec!["com.example.app".into()];
+        st.group_settings.query = rune::TextEdit::new("com.example.app");
+    });
+    rig.settle();
+    rig.click_key("app-picker-custom");
+    assert_eq!(ids(&rig), ["com.example.app".to_string()]);
+    assert_eq!(rig.rt.state.group_settings.query.text, "");
+}
+
+#[test]
+fn a_press_outside_the_list_does_not_drop_the_draft() {
+    let mut rig = Rig::new(true);
+    open_picker(&mut rig);
+    rig.rt
+        .update(|st, _| st.group_settings.name = rune::TextEdit::new("Kept"));
+    rig.settle();
+    rig.rt.pointer_move(8.0, 8.0);
+    rig.rt.pointer_down(8.0, 8.0);
+    rig.rt.pointer_up(8.0, 8.0);
+    rig.settle();
+    assert!(rig.rt.state.frame.group_settings_id.is_some());
+    assert_eq!(rig.rt.state.group_settings.name.text, "Kept");
+    assert!(!has_key(&rig, "app-picker-list"));
+}
+
+#[test]
+fn changing_the_rule_mode_clears_only_the_rules_insertion() {
+    let mut rig = Rig::new(true);
+    let id = started(&rig).id;
+    let mut seeded = started(&rig);
+    seeded.rule = Some(AppRule {
+        mode: AppRuleMode::Allow,
+        bundle_ids: vec!["com.apple.mail".into()],
+        insertion: Some(InsertionMethod::Type),
+    });
+    rig.kudzu.library.update_group(seeded).unwrap();
+    open_started(&mut rig);
+    rig.click_key("group-rule:deny");
+    let draft = rig.rt.state.group_settings.rule.clone().expect("rule");
+    assert_eq!(draft.mode, AppRuleMode::Deny);
+    assert_eq!(draft.bundle_ids, ["com.apple.mail"]);
+    assert_eq!(draft.insertion, None);
+    rig.click_key("group-settings-save");
+    wait_until_closed(&mut rig);
+    let rule = group(&rig, id).rule.expect("saved rule");
+    assert_eq!(rule.mode, AppRuleMode::Deny);
+    assert_eq!(rule.bundle_ids, ["com.apple.mail"]);
+    assert_eq!(rule.insertion, None);
+}
+
+#[test]
+fn open_loads_the_named_group_before_the_next_frame() {
+    let mut rig = Rig::new(true);
+    let first = started(&rig).id;
+    let (other, _) = rig
+        .kudzu
+        .library
+        .create_group("Other".into(), None)
+        .unwrap();
+    rig.rt.update(move |st, _| {
+        crate::main::group_settings::open(st, first);
+        crate::main::group_settings::open(st, other.id);
+    });
+    assert_eq!(rig.rt.state.group_settings.name.text, "Other");
+    assert!(rig.rt.state.group_settings.name.focused);
+}
+
+fn wait_until_closed_or_durable(rig: &mut Rig) {
+    for _ in 0..40 {
+        let saved = rig.kudzu.library.saved().get();
+        if saved.durable.0 >= 2 {
+            rig.settle();
+            return;
+        }
+        rig.fixtures.clock.advance(Duration::from_millis(100));
+        std::thread::sleep(Duration::from_millis(30));
+        rig.settle();
+    }
+    panic!(
+        "writer never became durable: {:?}",
+        rig.kudzu.library.saved().get()
+    );
 }

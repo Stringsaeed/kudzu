@@ -26,6 +26,7 @@ pub struct State {
     pub prefix: rune::TextEdit,
     pub query: rune::TextEdit,
     pub picker_open: bool,
+    pub picker_active: usize,
     pub picker_deny: bool,
     pub icons: Option<crate::widgets::app_icon::IconCache>,
     pub recording: bool,

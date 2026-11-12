@@ -102,6 +102,8 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 | `empty_state` | `EditorEmpty` | `spec:empty-state/glyph:48x48`, `info:empty-state/pane` | pass / review |
 | `settings_card` | `settings.tsx` `Group`, `Row` | `parity:main:settings-general:region:1:Quick search` (616 wide, heading at 4,0, the recorder button at 456,43), `info:settings-card/switches` | pass in both themes |
 | `wordmark` | `wordmark.tsx`, `design/wordmark/` | `spec:wordmark/{full,small}` | pass |
+| `app_icon` | catalogue icon or a monogram | `spec:app-icon/monogram:16x16` | pass, both themes (size). The tile is the first letter of the display name, uppercased; a missing app passes its bundle id |
+| `app_picker` | `app-picker.tsx` | `info:app-picker/open`, `spec:app-picker/add:_x28` | add pass, both themes (size). Open list is info, 1096×72. The list itself is the group-dialog tree test; the add sample is the ghost sm dashed face |
 | `onboarding` (S65) | `main/onboarding.tsx` | Seven `main/onboarding-*` scenes, light and dark | 80 landmark rows, 0 failed. Closes ONB-1, ONB-3, ONB-4. Wordmark SVG uses Rune's image cache to preserve its aspect ratio; step presence uses the 240 ms fitted soft spring. Practice remains a local preview. |
 
 ## Decorations and wrappers
@@ -208,7 +210,7 @@ For S73, when the scenes are enabled:
 
 The 520 pt dialog (name, On/Off, Default/Type/Paste, All apps / Only in… / Except…, Save and Cancel) is covered by tree tests in both themes, within 2 pt of the dialog's own `group-dialog` landmarks. The scene stays in the not-yet-built list until S73, because the reference also includes the sidebar, list and editor.
 
-Save waits until the library writer reports the revision durable, and leaves the dialog open with the error when the write fails. The Tauri dialog closes without waiting (FEATURES §7). Closes RUL-7 (UI) and RUL-8.
+While a save is pending the form is disabled and Save reads “Saving…”. A failed write stays open and says the domain error followed by “The change is kept and will be retried.” A later edit made while that save is in flight is kept; the dialog closes only when the submitted snapshot still matches the draft. Save writes `is_enabled`, `insertion` and `rule` from the draft even when the user has not touched them, so a sync edit made while the dialog is open is reverted. `parent_id` and `sort_index` are read from the live library at save time. Tauri's dialog does the same for those three fields, and it closes without waiting (FEATURES §7). Closes RUL-7 (UI) and RUL-8.
 
 ## Clipboard previews (S59)
 

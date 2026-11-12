@@ -9,7 +9,7 @@
 //! - `command_menu/` and `cheatsheet.rs` (S43).
 //! - `library/**` (S50): the list, `State`, and `library/actions.rs` (snippet actions, delete
 //!   with Undo, list focus).
-//! - `editor/**` (S51–S54), `group_settings.rs` (S55), `clipboard/**` (S58), `settings/**`
+//! - `editor/**` (S51–S54), `group_settings/**` (S55), `clipboard/**` (S58), `settings/**`
 //!   (S61–S63), `insights/**` (S64), `onboarding/**` (S65), `update_toast.rs` (S63).
 //!
 //! Each screen's `State` is built with `Default` and answers `is_composing`, `is_editing_text`
