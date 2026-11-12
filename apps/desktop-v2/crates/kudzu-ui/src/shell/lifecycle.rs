@@ -224,6 +224,10 @@ impl MainState {
 pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
     s.frame.clock_secs = tx.clock();
     let mut changed = s.sync();
+    // Rows that changed without motion (a load, a bulk change) show at once.
+    if s.clipboard.clips.census.take_instant() {
+        tx.instant();
+    }
     changed |= crate::main::insights::poll(s, tx);
     crate::main::library::reveal(s, tx);
     if let Some(due) = s.frame.toasts.next_due() {

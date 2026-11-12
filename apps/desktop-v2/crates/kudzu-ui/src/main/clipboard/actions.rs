@@ -201,9 +201,16 @@ pub fn open_active(s: &mut MainState, tx: &mut Tx) {
     };
     match e.kind {
         ClipKind::Link => {
-            let url = e.text.clone().unwrap_or_default();
-            if tx.open_url(url.trim()).is_err() {
-                toast(s, "clip-failed", ToastSpec::new("Couldn't open it"));
+            let target = crate::clip::content::link::open_target(e.text.as_deref().unwrap_or(""));
+            match tx.open_url(&target) {
+                Ok(()) => {}
+                Err(rune::OpenUrlError::UnsupportedScheme(scheme)) => toast(
+                    s,
+                    "clip-failed",
+                    ToastSpec::new("Couldn't open that link")
+                        .description(format!("Kudzu can't open {scheme}: links.")),
+                ),
+                Err(_) => toast(s, "clip-failed", ToastSpec::new("Couldn't open it")),
             }
         }
         ClipKind::File => file_job(s, 0, false),

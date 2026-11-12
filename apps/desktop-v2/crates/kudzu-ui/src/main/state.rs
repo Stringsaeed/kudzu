@@ -35,48 +35,7 @@ pub enum LibraryFilter {
 /// the history list (S58) and the picker (S60) agree on what each folder holds.
 pub use kudzu_core::clipboard::query::ClipFilter;
 
-/// The clipboard folders in sidebar order, as in Tauri's `FILTERS` (`lib/clipboard.ts`).
-/// `Other` has no folder of its own: Text covers it.
-pub const CLIP_FOLDERS: [ClipFilter; 8] = [
-    ClipFilter::All,
-    ClipFilter::Pinned,
-    ClipFilter::Text,
-    ClipFilter::Image,
-    ClipFilter::Link,
-    ClipFilter::File,
-    ClipFilter::Code,
-    ClipFilter::Color,
-];
-
-/// A folder's on-screen name: "History" for everything, otherwise Tauri's `FILTERS` labels.
-pub const fn clip_filter_label(filter: ClipFilter) -> &'static str {
-    match filter {
-        ClipFilter::All => "History",
-        ClipFilter::Pinned => "Pinned",
-        ClipFilter::Text => "Text",
-        ClipFilter::Image => "Images",
-        ClipFilter::Link => "Links",
-        ClipFilter::File => "Files",
-        ClipFilter::Code => "Code",
-        ClipFilter::Color => "Colors",
-        ClipFilter::Other => "Other",
-    }
-}
-
-/// A stable key for a folder, used in element keys and crumb ids (`clip:<key>`).
-pub const fn clip_filter_key(filter: ClipFilter) -> &'static str {
-    match filter {
-        ClipFilter::All => "all",
-        ClipFilter::Pinned => "pinned",
-        ClipFilter::Text => "text",
-        ClipFilter::Image => "image",
-        ClipFilter::Link => "link",
-        ClipFilter::File => "file",
-        ClipFilter::Code => "code",
-        ClipFilter::Color => "color",
-        ClipFilter::Other => "other",
-    }
-}
+pub use kudzu_core::clipboard::query::{clip_filter_key, clip_filter_label, CLIP_FOLDERS};
 
 /// Top-level main window route (`PLAN.md` S41 + first-run `Onboarding`).
 #[derive(Clone, Debug, PartialEq, Eq)]

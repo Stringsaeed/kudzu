@@ -7,6 +7,7 @@ use rune::{Key, KeyEvent, Tx};
 use uuid::Uuid;
 
 use super::{actions, focus_list, focus_search};
+use crate::actions::main::is_bare_shortcuts_question;
 use crate::clip::model::PAGE;
 use crate::shell::MainState;
 
@@ -14,14 +15,23 @@ use crate::shell::MainState;
 pub fn handle(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     let m = ev.mods;
     let editing = s.clipboard.is_editing_text();
-    let took = if s.clipboard.large_preview {
-        large_preview_key(s, ev, tx)
-    } else if m.cmd && !m.ctrl && !m.alt {
-        chord(s, ev, editing, tx)
+    // The large preview is only in the tree while a clip is active: without one it goes, and
+    // the list takes keys again.
+    if s.clipboard.large_preview && s.clipboard.clips.list.active().is_none() {
+        s.clipboard.large_preview = false;
+    }
+    // Chords come first, so ⌘P, ⌘C, ⌘O, ⌘S, ⌘R and ⌘⌫ still work behind the large preview.
+    let took = if m.cmd && !m.ctrl && !m.alt && chord(s, ev, editing, tx) {
+        true
     } else if m.cmd || m.ctrl || m.alt {
         false
+    } else if s.clipboard.large_preview {
+        large_preview_key(s, ev, tx)
     } else if editing {
         search_key(s, ev, tx)
+    } else if is_bare_shortcuts_question(ev) {
+        // `?` opens the cheat sheet; it is not a character to search for.
+        return false;
     } else {
         list_key(s, ev, tx)
     };

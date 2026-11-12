@@ -36,6 +36,49 @@ impl ClipFilter {
         }
     }
 }
+/// The clipboard folders in sidebar order, as in Tauri's `FILTERS` (`lib/clipboard.ts`).
+/// `Other` has no folder of its own: Text covers it.
+pub const CLIP_FOLDERS: [ClipFilter; 8] = [
+    ClipFilter::All,
+    ClipFilter::Pinned,
+    ClipFilter::Text,
+    ClipFilter::Image,
+    ClipFilter::Link,
+    ClipFilter::File,
+    ClipFilter::Code,
+    ClipFilter::Color,
+];
+
+/// A folder's on-screen name: "History" for everything, otherwise Tauri's `FILTERS` labels.
+pub const fn clip_filter_label(filter: ClipFilter) -> &'static str {
+    match filter {
+        ClipFilter::All => "History",
+        ClipFilter::Pinned => "Pinned",
+        ClipFilter::Text => "Text",
+        ClipFilter::Image => "Images",
+        ClipFilter::Link => "Links",
+        ClipFilter::File => "Files",
+        ClipFilter::Code => "Code",
+        ClipFilter::Color => "Colors",
+        ClipFilter::Other => "Other",
+    }
+}
+
+/// A stable key for a folder, used in element keys and crumb ids (`clip:<key>`).
+pub const fn clip_filter_key(filter: ClipFilter) -> &'static str {
+    match filter {
+        ClipFilter::All => "all",
+        ClipFilter::Pinned => "pinned",
+        ClipFilter::Text => "text",
+        ClipFilter::Image => "image",
+        ClipFilter::Link => "link",
+        ClipFilter::File => "file",
+        ClipFilter::Code => "code",
+        ClipFilter::Color => "color",
+        ClipFilter::Other => "other",
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ClipQuery {
     pub terms: Vec<String>,
@@ -264,4 +307,24 @@ pub fn match_ranges(text: &str, terms: &[String]) -> Vec<(usize, usize)> {
         }
     }
     merged
+}
+
+#[cfg(test)]
+mod folder_tests {
+    use super::*;
+
+    #[test]
+    fn folders_keep_tauris_order_names_and_keys() {
+        let labels: Vec<_> = CLIP_FOLDERS.iter().map(|f| clip_filter_label(*f)).collect();
+        assert_eq!(
+            labels,
+            ["History", "Pinned", "Text", "Images", "Links", "Files", "Code", "Colors"]
+        );
+        let keys: Vec<_> = CLIP_FOLDERS.iter().map(|f| clip_filter_key(*f)).collect();
+        assert_eq!(
+            keys,
+            ["all", "pinned", "text", "image", "link", "file", "code", "color"]
+        );
+        assert_eq!(clip_filter_label(ClipFilter::Other), "Other");
+    }
 }

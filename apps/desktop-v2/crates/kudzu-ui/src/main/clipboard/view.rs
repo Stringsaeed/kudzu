@@ -8,10 +8,10 @@ use rune::{col, icon, row, text, El, ScrollSpec, Tx};
 
 use super::{actions, bulk, list_hooks, toolbar, LIST_KEY};
 use crate::clip::content::Body;
-use crate::clip::filters::nothing_yet;
+use crate::clip::filters::{glyph, nothing_yet};
 use crate::clip::preview::{self, Preview};
 use crate::clip::{large, list};
-use crate::main::state::{clip_filter_label, MainPane};
+use crate::main::state::{clip_filter_key, clip_filter_label, MainPane};
 use crate::shell::MainState;
 use crate::theme::{icons, Theme};
 use crate::widgets::breadcrumbs::{Breadcrumbs, Crumb};
@@ -25,7 +25,12 @@ fn column_width(s: &MainState) -> f32 {
     } else {
         16.0
     };
-    (0.30 * (s.clipboard.card_w + chrome)).clamp(300.0, 372.0)
+    list_width(s.clipboard.card_w + chrome)
+}
+
+/// 30% of the window between 300 and 372 pt.
+pub(super) fn list_width(window_w: f32) -> f32 {
+    (0.30 * window_w).clamp(300.0, 372.0)
 }
 
 #[cfg(test)]
@@ -89,12 +94,26 @@ pub fn view(
             if (st.clipboard.card_w - r[2]).abs() > 0.5 || (st.clipboard.card_h - r[3]).abs() > 0.5
             {
                 st.clipboard.card_w = r[2];
+                st.clipboard.card_h = r[3];
             } else {
                 tx.live_only();
             }
         })
         .child(left)
         .child(preview_column(s, theme, filter, layer))
+        .child(status(s))
+}
+
+/// What the last pin, copy, delete or clear did, for assistive technology to speak. Present
+/// but never drawn.
+fn status(s: &MainState) -> El {
+    row()
+        .key("clip-announcement")
+        .role("status")
+        .label(s.clipboard.announcement.clone())
+        .absolute(0.0, 0.0)
+        .size(1.0, 1.0)
+        .opacity(0.0)
 }
 
 /// The list, or what stands in for it.
@@ -204,11 +223,7 @@ fn nothing(s: &MainState, theme: &Theme, filter: ClipFilter) -> El {
     let c = &theme.c;
     let query = s.clipboard.query().trim();
     let (glyph, message) = if query.is_empty() {
-        let glyph = if filter == ClipFilter::Pinned {
-            &icons::PIN
-        } else {
-            &icons::CLIPBOARD_LIST
-        };
+        let glyph = glyph(filter);
         (
             glyph,
             text(nothing_yet(filter))
@@ -230,7 +245,9 @@ fn nothing(s: &MainState, theme: &Theme, filter: ClipFilter) -> El {
         .px(24.0)
         .pt(64.0)
         .gap(12.0)
-        .child(glyph_tile(theme, glyph, 36.0))
+        .child(
+            glyph_tile(theme, glyph, 36.0).key(format!("clip-nothing-{}", clip_filter_key(filter))),
+        )
         .child(message)
         .child(
             Button::new("Show everything")
@@ -390,4 +407,26 @@ fn large_preview(s: &MainState, theme: &Theme, layer: &mut Vec<El>) {
         |st: &mut MainState| st.clipboard.large_preview = false,
         layer,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::list_width;
+
+    #[test]
+    fn the_list_column_is_thirty_percent_of_the_window_between_300_and_372() {
+        assert_eq!(
+            list_width(900.0),
+            300.0,
+            "the minimum window gives the floor"
+        );
+        assert_eq!(list_width(1000.0), 300.0);
+        assert!((list_width(1180.0) - 354.0).abs() < 0.001);
+        assert_eq!(list_width(1240.0), 372.0);
+        assert_eq!(
+            list_width(2400.0),
+            372.0,
+            "wide windows stop at the ceiling"
+        );
+    }
 }

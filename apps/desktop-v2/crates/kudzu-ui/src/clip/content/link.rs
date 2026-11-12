@@ -8,6 +8,17 @@ use super::{well, Body, Hooks};
 use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::button::{Button, Size, Variant};
 
+/// What to hand the system opener: `www.` addresses get `https://`, as Tauri's
+/// `clipboard_open` does; anything else is opened as copied.
+pub fn open_target(text: &str) -> String {
+    let url = text.trim();
+    if url.to_ascii_lowercase().starts_with("www.") {
+        format!("https://{url}")
+    } else {
+        url.to_owned()
+    }
+}
+
 pub fn is_email(url: &str) -> bool {
     url.trim().to_lowercase().starts_with("mailto:")
 }
@@ -81,7 +92,17 @@ pub fn view<S: 'static>(theme: &Theme, b: &Body, hooks: Hooks<S>) -> El {
 
 #[cfg(test)]
 mod tests {
-    use super::is_email;
+    use super::{is_email, open_target};
+
+    #[test]
+    fn www_addresses_open_over_https_and_other_links_as_copied() {
+        assert_eq!(
+            open_target(" WWW.example.com/a "),
+            "https://WWW.example.com/a"
+        );
+        assert_eq!(open_target("https://a.b/c"), "https://a.b/c");
+        assert_eq!(open_target("mailto:a@b.c"), "mailto:a@b.c");
+    }
 
     #[test]
     fn mailto_links_are_emails() {

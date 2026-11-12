@@ -287,6 +287,8 @@ pub(crate) fn track_active(s: &mut MainState) -> bool {
     let Some(e) = s.clipboard.clips.list.active_entry().cloned() else {
         let had = s.clipboard.seen.active.take().is_some();
         s.clipboard.full = FullText::default();
+        // The large preview is only in the tree while a clip is active.
+        s.clipboard.large_preview = false;
         return had;
     };
     let key = (e.id, e.hash.clone());
@@ -431,7 +433,7 @@ fn pull(s: &mut MainState) -> bool {
             .census
             .observe(&before, &results.history, c.visible, s.frame.clock_secs);
     } else {
-        c.clips.census = Default::default();
+        c.clips.census.load();
     }
     c.seen.history = Some(revision);
     c.seen.filter = Some(filter);

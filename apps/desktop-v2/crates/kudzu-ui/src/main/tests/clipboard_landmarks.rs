@@ -9,6 +9,21 @@ use super::Rig;
 use crate::main::clipboard::scenes;
 use crate::shell::MainState;
 
+/// Landmarks whose width is their label's text.
+const TEXT_WIDTH: &[&str] = &[
+    "Clipboard",
+    "Recording copies. Press to pause.",
+    "Change",
+    "Copy",
+    "As plain text",
+    "Show everything",
+    "Open in browser",
+];
+
+/// The breadcrumb joins two shaped titles and a chevron, so the shaping difference doubles:
+/// 5.4 pt on the longest file name in the reference scenes.
+const BREADCRUMB: &str = "Clipboard item breadcrumb";
+
 pub(super) type Landmark = (&'static str, &'static str, usize, [f32; 4]);
 
 /// Common to `clipboard-history`, `clips-5000`, `clipboard-empty` and `clipboard-no-match`.
@@ -86,13 +101,13 @@ fn check(rig: &Rig, scene: &str, theme: &str, want: &[Landmark]) {
             panic!("{scene}/{theme}: no {role} “{name}” #{occurrence}");
         };
         for (i, side) in ["x", "y", "width", "height"].iter().enumerate() {
-            // Positions and heights hold to 2 pt. A width that comes from a label's text also
-            // depends on the font (the reference was measured in SF Pro, tests run bundled
-            // Figtree), so widths get 4 pt or 3%, whichever is more.
-            let tolerance = if i == 2 {
-                (rect[2] * 0.03).max(4.0)
-            } else {
-                2.0
+            // Positions, heights and structural widths hold to 2 pt. A width that comes from a
+            // label's text also depends on the font (the reference was measured in SF Pro, the
+            // tests shape with Rune's text), so those get 4 pt.
+            let tolerance = match (i, name) {
+                (2, BREADCRUMB) => 6.0,
+                (2, n) if TEXT_WIDTH.contains(&n) => 4.0,
+                _ => 2.0,
             };
             assert!(
                 (e.rect[i] - rect[i]).abs() <= tolerance,

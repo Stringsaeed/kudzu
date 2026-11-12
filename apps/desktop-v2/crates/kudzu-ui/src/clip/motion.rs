@@ -16,6 +16,9 @@ pub const SETTLE_SECS: f64 = 0.4;
 pub struct Census {
     fresh: HashSet<Uuid>,
     settle_until: Option<f64>,
+    /// Rows changed without motion (a load, a bulk change, a hidden window): the commit that
+    /// shows them must be instant.
+    instant: bool,
 }
 
 impl Census {
@@ -51,9 +54,24 @@ impl Census {
             if (1..=BULK).contains(&total) {
                 self.fresh = fresh;
                 self.settle_until = Some(now + SETTLE_SECS);
+            } else if total > BULK {
+                self.instant = true;
             }
         }
         had || self.settle_until.is_some()
+    }
+
+    /// The rows just changed without motion; true once per such change.
+    pub fn take_instant(&mut self) -> bool {
+        std::mem::take(&mut self.instant)
+    }
+
+    /// A load or a new query: show the rows at once.
+    pub fn load(&mut self) {
+        *self = Self {
+            instant: true,
+            ..Self::default()
+        };
     }
 
     /// Row `id` just arrived: it drops in once.
@@ -127,6 +145,18 @@ mod tests {
         let ten = history((0..10).map(|i| clip(&format!("c{i}"), i, false)).collect());
         census.observe(&before, &ten, true, 0.0);
         assert!(census.settling(0.1), "ten is the most that still animates");
+    }
+
+    #[test]
+    fn a_bulk_change_or_a_load_asks_for_an_instant_commit_once() {
+        let before = history(vec![]);
+        let after = history((0..11).map(|i| clip(&format!("c{i}"), i, false)).collect());
+        let mut census = Census::default();
+        census.observe(&before, &after, true, 0.0);
+        assert!(census.take_instant());
+        assert!(!census.take_instant(), "once");
+        census.load();
+        assert!(census.take_instant());
     }
 
     #[test]
