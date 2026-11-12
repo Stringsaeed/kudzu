@@ -599,7 +599,7 @@ Waves 9 and later, step by step:
 
 | Step | State | Built by → reviewed by |
 |---|---|---|
-| S42 sidebar | Merged (`fc064426`, report `S42_REPORT.md`); awaiting review | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
+| S42 sidebar | Merged (`fc064426`, report `S42_REPORT.md`); reviewed, fixes pending (`reviews/S42-sidebar.md`) | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
 | S43 command menu and cheat sheet | Done (`reviews/S43-command-menu.md`); the title-width gap is recorded for S73 | Grok 4.7 → Codex Sol |
 | S50 library list | Done (`reviews/S50-library.md`); the 13 pt row inset was kept, measured against the reference | Opus → Grok 4.7 |
 | S55 group settings and app picker | Merged; fixing 1 blocker, 8 majors (`reviews/S55-group-settings.md`) | Grok 4.7 → Opus |
@@ -640,7 +640,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 
 | Step | State | Notes |
 |---|---|---|
-| S42 sidebar | Merged as `fc064426`; awaiting review by a non-Codex provider | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
+| S42 sidebar | Merged as `fc064426`; reviewed. Fixes pending: 2 majors and 9 minors (`reviews/S42-sidebar.md`), for the Codex Terra thread | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
 | S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
 | S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
 | S60 clipboard picker window | Building (Sonnet) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/clipboard-picker-window` (`b68b385b`), for reference only. Its three `picker` scenes compare in full. |
@@ -1484,6 +1484,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Live checks from the S50 review:** the nine checks in `docs/migration/reviews/S50-library.md` § "S71 live checks": snap after a star and a sort, no second rise after Clear filter, new-snippet routes with the name focused, a far snippet revealed, ⌘⌫ and Undo selection, drag without changing the selection, the release `library-5000` scroll trace on a quiet Mac, `?` opening the cheat sheet, and logs free of snippet text.
 - **Live checks from the S55 review:** the eleven checks in `docs/migration/reviews/S55-group-settings.md` § "Live checks for S71" (blocked until S42 or the S43 follow-up opens the dialog): first-frame values, Return saves, a read-only library folder before and during Save, picker keyboard beside Tauri, 100+ apps in a 900 × 560 window, Retina icons, presses while the list is open, search ranking, the per-app insertion override surviving a rename, a remote rename or delete, and VoiceOver.
 - **Live checks from the S59 review:** the list in `docs/migration/reviews/S59-clipboard-previews.md` § "S71 live checks": VoiceOver on a concealed preview before and after hover and Tab, the row title on hover, secret toggles and deletes, copying a value beside Tauri, a single large image and a 200-file folder, the large preview at 1180×760 and 900×560, the badge, timeline tooltip and shimmer, and logs free of clip text under load.
+- **Live checks from the S42 review:** the twelve checks in `docs/migration/reviews/S42-sidebar.md` § "S71 live checks": group drags keeping the view and refusing self or descendants silently, End and Pause, the Dev ribbon, the Off mark, chevron folding, the open-folder glyph, folds surviving a restart, a stable drop highlight, collapse motion, rename under IME, and the status chip.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
