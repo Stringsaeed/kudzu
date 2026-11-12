@@ -27,6 +27,7 @@ mod library_scroll;
 mod onboarding;
 mod onboarding_review;
 mod routes;
+mod settings;
 mod shortcuts;
 mod sidebar;
 

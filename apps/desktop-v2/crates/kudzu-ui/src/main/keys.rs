@@ -73,6 +73,12 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         return true;
     }
 
+    if matches!(s.frame.view, MainView::Settings(_))
+        && crate::main::settings::nav::handle_key(s, ev, tx)
+    {
+        return true;
+    }
+
     // 4. Resolve against `MainAction` with full context guards.
     let ctx = ActionContext {
         area: s.frame.view.area(),
