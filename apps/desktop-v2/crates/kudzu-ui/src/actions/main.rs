@@ -171,6 +171,33 @@ impl MainAction {
         }
     }
 
+    /// Extra words the command menu matches besides [`Action::label`].
+    pub fn keywords(self) -> &'static str {
+        match self {
+            MainAction::NewSnippet => "create add",
+            MainAction::NewGroup => "folder create",
+            MainAction::TogglePause => "stop disable expansion",
+            MainAction::OpenShortcuts => "help keys cheat sheet",
+            MainAction::ViewInsights => "stats statistics usage",
+            MainAction::ViewClipboard => "copy paste history copied",
+            MainAction::OpenSettings => "preferences",
+            MainAction::DeleteSnippet => "remove trash",
+            MainAction::CommandMenu
+            | MainAction::FocusFilter
+            | MainAction::FocusList
+            | MainAction::EditContent
+            | MainAction::DuplicateSnippet
+            | MainAction::ToggleFavorite
+            | MainAction::ToggleEnabled
+            | MainAction::ViewAll
+            | MainAction::ViewFavorites
+            | MainAction::ViewRecent
+            | MainAction::Back
+            | MainAction::Forward
+            | MainAction::ToggleSidebar => "",
+        }
+    }
+
     /// Whether this action can run now: no composition or modal, enabled on this screen, and
     /// allowed in the focused text field if one is. `resolve_in_context` and `Action::enabled`
     /// both use it, so a menu or cheat sheet built from `enabled` matches the keys.

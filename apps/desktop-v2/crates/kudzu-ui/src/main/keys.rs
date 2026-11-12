@@ -24,16 +24,19 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
 
     // 2. Modal guard: open dialogs/menus own Escape and suppress underlying window shortcuts.
     if s.frame.any_modal_open() {
-        if ev.key == Key::Escape && !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt {
-            return s.frame.close_top_modal();
-        }
-        if s.frame.command_open
+        let command_top = s.frame.command_open
             && !s.frame.shortcuts_open
             && s.frame.group_settings_id.is_none()
-            && !s.frame.breadcrumb_overflow_open
-            && Keybind::new("mod+k").matches(ev)
-        {
-            s.frame.command_open = false;
+            && !s.frame.breadcrumb_overflow_open;
+        if ev.key == Key::Escape && !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt {
+            if command_top {
+                command_menu::close(s);
+                return true;
+            }
+            return s.frame.close_top_modal();
+        }
+        if command_top && Keybind::new("mod+k").matches(ev) {
+            command_menu::close(s);
             return true;
         }
         if s.frame.shortcuts_open
@@ -43,6 +46,9 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         {
             s.frame.shortcuts_open = false;
             return true;
+        }
+        if command_top {
+            return command_menu::on_key(s, ev, tx);
         }
         return false;
     }
@@ -89,7 +95,7 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
 pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
     s.frame.clock_secs = tx.clock();
     match action {
-        MainAction::CommandMenu => command_menu::open(s),
+        MainAction::CommandMenu => command_menu::open(s, tx),
         MainAction::NewSnippet => {
             let _ = library::actions::new_snippet(s, NewSnippet::default());
         }
@@ -136,6 +142,7 @@ impl MainState {
             || self.settings.is_composing()
             || self.insights.is_composing()
             || self.onboarding.is_composing()
+            || self.command_menu.query.is_composing()
     }
 
     /// True while any screen's editable text field holds keyboard focus.
@@ -158,5 +165,6 @@ impl MainState {
         self.settings.blur_inputs();
         self.insights.blur_inputs();
         self.onboarding.blur_inputs();
+        self.command_menu.query.focused = false;
     }
 }

@@ -146,6 +146,19 @@ Intentional differences, not closed:
 - **Bars.** No chart widget (`RUNE_FIT` gap 14). Relative bars are `el()` width springs on `soft_spring(0.480)` with a 60 + i×40 ms stagger; `Beat` cannot `scale_x`. The scene calls `finish_arrival` so the PNG is the final numbers and full bars.
 - **Count-up.** 560 ms quartic `LiveText` (Rune `Tween` is linear only). Reduce Motion and the scene skip it.
 
+## Command menu and cheat sheet (S43)
+
+`main` / `command-menu` and `main` / `cheat-sheet` stay in `NOT_YET_BUILT` until S73. Both reference frames also show the sidebar, list and editor, which later steps own. Tree tests cover the dialogs in both themes: the menu is 600 × 489 at 18% from the top, the sheet is 720 × 624.422 centred in the padded window, and the section landmarks match within 2 pt. Closes the command-menu slice of LIB-13 and the menu and sheet slice of WIN-2. FEATURES.md boxes that also cover unbuilt dialogs stay unchecked.
+
+Intentional differences, not closed:
+
+- **Title width.** Rune measures "Keyboard shortcuts" at 15/600 as 143 pt. The reference shrink-wrap is 140.922 (delta 2.078). Position and line height match. The tree test allows 2.1 pt on that axis only.
+- **No `h_frac`.** The menu's 18% top gap is a `grow(0.18)` spacer. The sheet height is the captured 624.422, which is the same 570 pt body `min(640, 75vh)` gives at 760.
+- **Columns.** Rune gap is one value, so the sheet uses a 40 pt column gap and an 8 pt spacer under each heading instead of `gap-x` / `gap-y`.
+- **One Actions section.** The menu does not split Selected / Actions / Go to.
+- **Footer.** Back, Forward and Toggle sidebar sit under the columns. Clipboard keeps Tauri's static rows, including "Delete (undoable)".
+- **Toolbar.** The search button still sets `command_open` itself, so it does not snapshot the text field under the menu. `⌘K` does.
+
 ## Quick Search (S56)
 
 `cargo xtask parity --window palette` passes both themes of `search` and `no-match` (28 landmark rows). These stay:

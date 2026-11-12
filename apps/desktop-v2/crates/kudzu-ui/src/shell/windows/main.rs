@@ -26,7 +26,9 @@ use rune::raw_window_handle::RawWindowHandle;
 
 use super::super::{routes::Route, theme_sync::ThemeSync, tray::Tray, Shell};
 use crate::main::nav::{selected_for_route, view_for_route};
-use crate::main::{clipboard, editor, insights, library, onboarding, settings, sidebar, MainFrame};
+use crate::main::{
+    clipboard, command_menu, editor, insights, library, onboarding, settings, sidebar, MainFrame,
+};
 
 /// The services `main` reads. S41 onward add what their screens need, here only.
 pub struct MainServices {
@@ -104,6 +106,7 @@ pub struct MainState {
     pub settings: settings::State,
     pub insights: insights::State,
     pub onboarding: onboarding::State,
+    pub command_menu: command_menu::State,
 }
 
 impl MainState {
@@ -135,6 +138,7 @@ impl MainState {
             settings: settings::State::default(),
             insights: insights::State::default(),
             onboarding: onboarding::State::default(),
+            command_menu: command_menu::State::default(),
         };
         state.frame.selected_snippet = initial_selected;
         state.observe_breadcrumbs();
