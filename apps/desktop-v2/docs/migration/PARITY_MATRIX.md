@@ -183,3 +183,23 @@ Intentional differences, not closed:
 - **The kind folders in the sidebar are S42's.** This screen shows whichever filter the view carries.
 - **⌘P, ⌘S, ⌘O, ⌘R and the list keys are handled by the screen, not `MainAction`**, so the ⌘? cheat sheet does not list them yet.
 - **The trailing Clear search button is nudged 3 pt** (`offset`) because rune-kit's field puts its trailing slot 11 pt in; the reference's `right-2` is 8.
+
+## Library list (S50)
+
+Closes **LIB-1** (scopes), **LIB-2** (sorts, the empty-query rules, the 10,000 cap), **LIB-3** (64 pt memoised virtual rows, padding 4 and 8, the row's marks; no entrance replay on remount), **LIB-4** (list and filter keys, anchored ⇧, ⌘-click, ⇧-click, ⌘A, Escape, `/` and typing), **LIB-5** (the bulk bar) and **LIB-12** (every empty state). Rows are LIB-11's drag sources: S42 owns the targets.
+
+**Parity.** `library`, `library-empty`, `snippet-bulk` and `snippet-deleted-toast` stay marked not yet built (orchestrator rule): their references also show the S42 sidebar and the S51 editor, so S73 enables them. `main/tests/library_landmarks.rs` checks the landmarks the list owns against `metrics.json`, within 2 pt, in both themes: region “Snippets” #2, heading “All snippets”, Sort, New snippet, the filter, the four bulk-bar buttons, the empty state's New snippet #2, and the breadcrumb trail. `library-5000` (no reference) is registered for the §1.7 scroll trace.
+
+Intentional differences:
+
+- **A row selects on release** (Rune's `on_press`), not on mouse-down. Dragging a row that is in the multi-selection carries the whole selection: Tauri's mouse-down reset the multi-selection before `dragstart`, so it dragged one row, against LIB-11's “drag selected snippets”. A drag ends without a click (#551, worked around in `library/drag.rs`).
+- **Deleted ids leave the multi-selection.** After ⌘⌫ on several rows, Tauri kept the stale ids, so the bar stayed up over rows that were gone.
+- **Removed rows play Rune's exit** instead of Tauri's 320 ms ghost rows. A change of more than 12 snippets lands at once (`instant_changes`), as Tauri's `MAX_MOVING` does.
+- **The bar's count does not play `tick`** when the selection grows or shrinks.
+- **`?` in the list** opens the cheat sheet and is not typed into the filter (Tauri did both).
+- **Breadcrumb x drifts** up to a point per crumb: Rune rounds each crumb's text width to whole points. Sizes stay within 2 pt (S07's gallery rows gate crumbs by size for this reason).
+
+For S73, when the scenes are enabled:
+
+- **Toolbar inset.** S02 captured the browser preview (`platform: "web"`, `pl-3`, 12 pt), while Rune's headless window has traffic lights and pads 88 pt, as the Tauri app does on macOS. Every toolbar landmark before the search button is 76 pt off until a scene drops the inset.
+- **Toast Undo.** The reference's Undo is inline at the toast's end (704, 695, 46.8×24); rune-kit's toast puts actions under the text (S07, above).

@@ -66,6 +66,8 @@ pub struct State {
     seen_view: Option<MainView>,
     /// The open snippet the list last scrolled to.
     revealed: Option<Uuid>,
+    /// The listing version the multi-selection was last pruned against.
+    pruned: Option<u64>,
 }
 
 impl State {
@@ -155,7 +157,11 @@ pub fn sync(s: &mut MainState) -> bool {
         return changed;
     };
     let exists = |id: Uuid| listing.indexed.position(id).is_some();
-    s.library.selection.retain(exists);
+    // Deleted ids leave the multi-selection; only a new listing can have deleted any.
+    if s.library.pruned != Some(listing.version) {
+        s.library.pruned = Some(listing.version);
+        s.library.selection.retain(exists);
+    }
     let cursor = s.frame.selected_snippet;
     let next = keep_valid(cursor, &listing.ids, &s.library.filter.text, scope, exists);
     if next != cursor {
