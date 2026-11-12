@@ -29,7 +29,8 @@ fn open(s: &mut MainState, history: History) {
     sync(s);
 }
 
-fn sample() -> History {
+/// The Tauri preview's sample history (`mock-state.json`), shared with the picker's scenes.
+pub(crate) fn sample() -> History {
     SampleState::load()
         .map(|sample| sample.clipboard)
         .unwrap_or_default()
@@ -72,6 +73,11 @@ pub fn bulk(s: &mut MainState) {
 }
 
 pub fn clips_5000(s: &mut MainState) {
+    open(s, history_5000());
+}
+
+/// The sample plus the preview's 5,000 generated copies (`?clips=5000`), newest first.
+pub(crate) fn history_5000() -> History {
     let mut history = sample();
     let now = history
         .entries
@@ -82,7 +88,7 @@ pub fn clips_5000(s: &mut MainState) {
     history
         .entries
         .sort_by_key(|e| std::cmp::Reverse(e.copied_at));
-    open(s, history);
+    history
 }
 
 /// `mock.ts`: text built from the word list, every ninth a code clip, spread over 160 hours.

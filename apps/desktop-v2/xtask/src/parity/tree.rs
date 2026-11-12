@@ -34,6 +34,10 @@ pub(super) struct Measured {
     pub content: Option<[f32; 4]>,
     /// The first text's colour, else the first icon's.
     pub ink: Option<Rgba>,
+    /// The colour of every text drawn inside, in tree order. A container (a preview pane)
+    /// has no colour of its own to draw; the web reports the colour its unstyled text
+    /// inherits, and `style_checks` looks for that among these.
+    pub inks: Vec<Rgba>,
 }
 
 /// The roles `metrics.json` records.
@@ -131,6 +135,15 @@ pub(super) fn content(els: &[Element], el: &Element) -> (Option<[f32; 4]>, Optio
     (rect, text_ink.or(icon_ink))
 }
 
+/// The colour of every drawn text inside `el`, in tree order.
+pub(super) fn text_inks(els: &[Element], el: &Element) -> Vec<Rgba> {
+    els.iter()
+        .filter(|e| e.path == el.path || inside(&e.path, &el.path))
+        .filter(|e| e.text.is_some() && e.rect[2] > 0.0 && e.rect[3] > 0.0)
+        .filter_map(|e| e.color)
+        .collect()
+}
+
 /// The named controls in tree order, numbered per role and name. A named textbox inside an
 /// unnamed one is the editor inside a field's box: it measures as the box (rect and fill), and
 /// the editor is its content, as the web's `<input>` is one element.
@@ -168,6 +181,7 @@ pub(super) fn landmarks(els: &[Element]) -> Vec<Measured> {
             fill,
             content,
             ink,
+            inks: text_inks(els, e),
         });
     }
     out

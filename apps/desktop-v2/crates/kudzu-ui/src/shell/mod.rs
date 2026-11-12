@@ -3,7 +3,6 @@
 //! coordination needs. Nothing here is global: `compose` builds one `Shell` per process.
 mod hotkeys;
 pub(crate) mod lifecycle;
-mod placeholder;
 pub mod routes;
 mod settle;
 pub mod theme_sync;

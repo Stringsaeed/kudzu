@@ -351,6 +351,43 @@ fn status(checks: &[compare::Check], prop: &str) -> Status {
         .status
 }
 
+/// A pane with a muted badge first and body text after it.
+fn pane(body_ink: [f32; 4]) -> Vec<Element> {
+    let mut p = el("p", "complementary", [0.0, 0.0, 300.0, 200.0]);
+    p.label = Some("Preview".into());
+    let mut badge = el("p/#0", "text", [10.0, 10.0, 40.0, 18.0]);
+    badge.text = Some("Text".into());
+    badge.color = Some([120.0, 113.0, 107.0, 1.0]);
+    let mut body = el("p/#1", "text", [10.0, 40.0, 200.0, 18.0]);
+    body.text = Some("hello".into());
+    // Body text is the pane's colour at 90%.
+    body.color = Some([body_ink[0], body_ink[1], body_ink[2], 0.9]);
+    vec![p, badge, body]
+}
+
+#[test]
+fn a_preview_pane_takes_the_colour_its_unstyled_text_inherits() {
+    let want = landmark(
+        "complementary",
+        "Preview",
+        [0.0, 0.0, 300.0, 200.0],
+        style([0.0; 4], Some(INK), None),
+    );
+    let ok = checks_of(&pane(INK), &want);
+    assert_eq!(status(&ok, "text colour"), Status::Pass);
+    let wrong = checks_of(&pane([1.0, 2.0, 3.0, 1.0]), &want);
+    assert_eq!(status(&wrong, "text colour"), Status::Fail);
+    // Any other role still measures its first text.
+    let mut other = want.clone();
+    other.role = "region".into();
+    let mut els = pane(INK);
+    els[0].role = "region".into();
+    assert_eq!(
+        status(&checks_of(&els, &other), "text colour"),
+        Status::Fail
+    );
+}
+
 #[test]
 fn style_checks_gate_ink_and_padding_and_leave_the_rest_to_review() {
     let want = landmark(

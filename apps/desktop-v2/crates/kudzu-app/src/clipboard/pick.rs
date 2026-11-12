@@ -54,9 +54,37 @@ pub struct PickSession {
     pub can_paste: bool,
 }
 impl PickSession {
+    /// The app the user came from, which a paste goes to and a close gives focus back to.
+    pub fn target(&self) -> Option<&AppInfo> {
+        self.target.as_ref()
+    }
+
+    /// Gives focus back to the app the user came from, on a worker (the activation can
+    /// block). An app that has quit is not an error: there is nothing to give focus to.
+    pub fn restore_target(
+        self,
+    ) -> Result<crate::tasks::Task<Result<(), ClipboardError>>, crate::tasks::TaskError> {
+        crate::tasks::Task::spawn("kudzu-picker-restore", move || {
+            let Some(target) = self.target else {
+                return Ok(());
+            };
+            match self.service.target.activate(&target) {
+                Ok(()) | Err(PortError::TargetGone) => Ok(()),
+                Err(error) => Err(error.into()),
+            }
+        })
+    }
+
     /// Blocks for up to about 850 ms. Hide the panel first and call on a worker, never the UI.
     pub fn paste(&self, id: Uuid, flavor: Flavor) -> Result<PasteOutcome, ClipboardError> {
         self.service.copy(id, flavor)?;
+        self.paste_copied()
+    }
+
+    /// Pastes what [`ClipboardService::copy`] just put on the pasteboard. A picker copies
+    /// first, so a copy that fails (a missing item) can still be shown in its footer, then
+    /// hides, then calls this. Blocks for up to about 850 ms: call it on a worker.
+    pub fn paste_copied(&self) -> Result<PasteOutcome, ClipboardError> {
         if !self.service.board.can_paste() {
             return Ok(PasteOutcome::Copied);
         }

@@ -2,11 +2,11 @@
 //! and their names are `kudzu_core`'s (`CLIP_FOLDERS`, `clip_filter_label`); this adds what the
 //! list and the picker's pills say about them.
 
-use kudzu_core::clipboard::query::{clip_filter_label, ClipFilter, CLIP_FOLDERS};
+use kudzu_core::clipboard::query::{clip_filter_key, clip_filter_label, ClipFilter, CLIP_FOLDERS};
 use kudzu_core::clipboard::History;
-use rune::Icon;
+use rune::{row, text, El, Icon, Tx};
 
-use crate::theme::icons;
+use crate::theme::{icons, radius, Theme};
 
 /// The picker's pill text: "All" where the sidebar says "History".
 pub fn pill_label(filter: ClipFilter) -> &'static str {
@@ -46,6 +46,84 @@ pub fn glyph(filter: ClipFilter) -> &'static Icon {
     }
 }
 
+/// The kinds the picker has pills for (`PICKER_FILTERS`); Code and Colors are found by query.
+pub const PICKER_FILTERS: [ClipFilter; 6] = [
+    ClipFilter::All,
+    ClipFilter::Pinned,
+    ClipFilter::Text,
+    ClipFilter::Image,
+    ClipFilter::Link,
+    ClipFilter::File,
+];
+
+/// The next (or previous) pill, wrapping: Tab and Shift-Tab in the picker. A filter that has
+/// no pill starts from the first.
+pub fn cycle(current: ClipFilter, backwards: bool) -> ClipFilter {
+    let n = PICKER_FILTERS.len();
+    let at = PICKER_FILTERS
+        .iter()
+        .position(|f| *f == current)
+        .unwrap_or(0);
+    PICKER_FILTERS[(at + if backwards { n - 1 } else { 1 }) % n]
+}
+
+/// Kind filters as one single-select row of pills (a radio group), on a well. The pills never
+/// take keyboard focus: Tab cycles them from the search field. Element keys are
+/// `<key>-<filter key>`.
+pub fn pills<S: 'static>(
+    theme: &Theme,
+    key: &str,
+    value: ClipFilter,
+    on_select: fn(&mut S, ClipFilter, &mut Tx),
+) -> El {
+    let c = &theme.c;
+    let track = theme.depth.well.iter().fold(
+        row()
+            .key(key.to_owned())
+            .role("radiogroup")
+            .label("Show")
+            .shrink()
+            .padding(2.0)
+            .center_y()
+            .gap(4.0)
+            .radius(radius::XL4)
+            .fill(c.foreground.alpha(0.035)),
+        |track, shadow| track.box_shadow(*shadow),
+    );
+    track.children(PICKER_FILTERS.into_iter().map(|filter| {
+        let on = filter == value;
+        let label = pill_label(filter);
+        // The radio itself stays unfilled (a radio's computed background is transparent); the
+        // selected pill is the layer behind it, as the sliding indicator is in the source.
+        let radio = row()
+            .key(format!("{key}-{}", clip_filter_key(filter)))
+            .role("radio")
+            .label(label)
+            .checked(on)
+            .h(24.0)
+            .px(10.0)
+            .center()
+            .preserve_focus_on_press(true)
+            .child(
+                text(label)
+                    .font(rune::TextStyle::new(11.5, 500.0))
+                    .color(if on { c.foreground } else { c.muted_foreground }),
+            )
+            .on_press_tx(move |s: &mut S, tx: &mut Tx| on_select(s, filter, tx));
+        let mut pill = row().h(24.0).radius(12.0).child(radio);
+        if on {
+            pill = theme
+                .depth
+                .soft
+                .iter()
+                .fold(pill.fill(c.surface_raised), |r, shadow| {
+                    r.box_shadow(*shadow)
+                });
+        }
+        pill
+    }))
+}
+
 /// "No images yet": what an empty folder says.
 pub fn nothing_yet(filter: ClipFilter) -> String {
     format!("No {} yet", pill_label(filter).to_lowercase())
@@ -63,6 +141,23 @@ mod tests {
         assert_eq!(pill_label(ClipFilter::All), "All");
         assert_eq!(nothing_yet(ClipFilter::Pinned), "No pinned yet");
         assert_eq!(nothing_yet(ClipFilter::Color), "No colors yet");
+    }
+
+    #[test]
+    fn tab_cycles_the_six_pills_both_ways_and_wraps() {
+        assert_eq!(cycle(ClipFilter::All, false), ClipFilter::Pinned);
+        assert_eq!(cycle(ClipFilter::File, false), ClipFilter::All);
+        assert_eq!(cycle(ClipFilter::All, true), ClipFilter::File);
+        assert_eq!(cycle(ClipFilter::Link, true), ClipFilter::Image);
+        assert_eq!(
+            cycle(ClipFilter::Code, false),
+            ClipFilter::Pinned,
+            "no pill: from the first"
+        );
+        assert_eq!(
+            PICKER_FILTERS.map(pill_label),
+            ["All", "Pinned", "Text", "Images", "Links", "Files"]
+        );
     }
 
     #[test]

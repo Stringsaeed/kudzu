@@ -270,6 +270,38 @@ impl Media {
     }
 }
 
+/// The picture a row shows in place of a glyph: an image's thumbnail, a file's image thumbnail
+/// or its Finder icon.
+pub fn row_want(e: &kudzu_core::clipboard::ClipEntry) -> Option<Want> {
+    use kudzu_core::clipboard::ClipKind;
+    match e.kind {
+        ClipKind::Image => Some(Want::Thumbnail),
+        ClipKind::File if e.image.is_some() => Some(Want::Thumbnail),
+        ClipKind::File => Some(Want::Icon(0)),
+        _ => None,
+    }
+}
+
+/// The pictures a preview of `e` shows: the image and its thumbnail, a file list's icons (at
+/// most [`FILE_LIMIT`](super::FILE_LIMIT)) and a single image file's picture.
+pub fn open_wants(e: &kudzu_core::clipboard::ClipEntry) -> Vec<(Uuid, Want)> {
+    use kudzu_core::clipboard::ClipKind;
+    match e.kind {
+        ClipKind::Image => vec![(e.id, Want::Image), (e.id, Want::Thumbnail)],
+        ClipKind::File => {
+            let mut wants: Vec<(Uuid, Want)> = (0..e.files.len().min(super::FILE_LIMIT))
+                .map(|i| (e.id, Want::Icon(i)))
+                .collect();
+            if e.image.is_some() && e.files.len() == 1 {
+                wants.push((e.id, Want::File(0)));
+                wants.push((e.id, Want::Thumbnail));
+            }
+            wants
+        }
+        _ => Vec::new(),
+    }
+}
+
 type TextLoad = (Task<Result<Option<String>, ClipboardError>>, Subscription);
 
 /// The complete text of one clip, loaded once per `(id, hash)`.

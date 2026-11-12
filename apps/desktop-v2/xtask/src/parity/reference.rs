@@ -267,9 +267,6 @@ pub(super) const NOT_YET_BUILT: &[Pending] = &[
     ("main", "activity-empty", "S63"),
     ("main", "update", "S63"),
     ("main", "insights", "S64"),
-    ("picker", "history", "S60"),
-    ("picker", "clips-5000", "S60"),
-    ("picker", "empty", "S60"),
 ];
 
 /// Gallery scenes measured by their goldens only (no `parity:`, `spec:` or `info:` samples).

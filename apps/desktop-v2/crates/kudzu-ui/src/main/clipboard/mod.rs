@@ -24,7 +24,7 @@ use kudzu_core::clipboard::sections::RowOptions;
 use rune::{TextEdit, Tx};
 use uuid::Uuid;
 
-use crate::clip::content::loader::{FullText, Media, Want};
+use crate::clip::content::loader::{open_wants, row_want, FullText, Media, Want};
 use crate::clip::list::{Hooks, ListState};
 use crate::clip::model::Click;
 use crate::main::nav;
@@ -255,7 +255,6 @@ fn media_mut(s: &mut MainState) -> &mut Media {
 /// it never changes what a scroll draws; a picture that arrives redraws once.
 fn want_rows(s: &mut MainState, range: std::ops::Range<usize>) {
     use crate::clip::model::RowKind;
-    use kudzu_core::clipboard::ClipKind;
     let wanted: Vec<(Uuid, Option<Want>)> = s
         .clipboard
         .clips
@@ -272,15 +271,7 @@ fn want_rows(s: &mut MainState, range: std::ops::Range<usize>) {
                 .history()
                 .entries
                 .get(*index)
-                .map(|e| {
-                    let want = match e.kind {
-                        ClipKind::Image => Some(Want::Thumbnail),
-                        ClipKind::File if e.image.is_some() => Some(Want::Thumbnail),
-                        ClipKind::File => Some(Want::Icon(0)),
-                        _ => None,
-                    };
-                    (*id, want)
-                }),
+                .map(|e| (*id, row_want(e))),
             RowKind::Header { .. } => None,
         })
         .collect();
@@ -294,26 +285,6 @@ fn want_rows(s: &mut MainState, range: std::ops::Range<usize>) {
     media.need_rows(wanted.iter().copied());
     for (id, want) in wanted {
         media.want(&clipboard, id, want);
-    }
-}
-
-/// The pictures the open clip shows.
-fn open_wants(e: &kudzu_core::clipboard::ClipEntry) -> Vec<(Uuid, Want)> {
-    use kudzu_core::clipboard::ClipKind;
-    match e.kind {
-        ClipKind::Image => vec![(e.id, Want::Image), (e.id, Want::Thumbnail)],
-        ClipKind::File => {
-            let mut wants: Vec<(Uuid, Want)> =
-                (0..e.files.len().min(crate::clip::content::FILE_LIMIT))
-                    .map(|i| (e.id, Want::Icon(i)))
-                    .collect();
-            if e.image.is_some() && e.files.len() == 1 {
-                wants.push((e.id, Want::File(0)));
-                wants.push((e.id, Want::Thumbnail));
-            }
-            wants
-        }
-        _ => Vec::new(),
     }
 }
 

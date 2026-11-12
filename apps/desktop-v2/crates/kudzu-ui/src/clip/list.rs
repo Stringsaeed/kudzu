@@ -63,6 +63,8 @@ pub struct Look {
     pub show_numbers: bool,
     /// Whether the list has keyboard focus (the active row's ring).
     pub focused: bool,
+    /// A press on a row leaves focus where it is (the picker's search field keeps it).
+    pub keep_focus: bool,
 }
 
 impl Look {
@@ -76,6 +78,7 @@ impl Look {
             numbered: false,
             show_numbers: false,
             focused: true,
+            keep_focus: false,
         }
     }
 }
@@ -325,6 +328,7 @@ fn clip_row<S: 'static>(
         .key(format!("clip-{id}"))
         .role("option")
         .label(spoken_label(e, look.show_secrets, look.now))
+        .preserve_focus_on_press(look.keep_focus)
         .on_press_tx(move |s: &mut S, tx: &mut Tx| {
             let mods = tx.mods();
             (hooks.press)(

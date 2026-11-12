@@ -190,6 +190,24 @@ pub(super) fn style_checks(want: &Landmark, got: &Measured, position: bool) -> V
             fmt_rgba(s.color),
             "Rune draws no text or icon inside",
         )),
+        // A preview pane is a container: its colour is what its unstyled text inherits, and
+        // the first text in it (a muted kind badge) is not that text. Its children set that
+        // colour at their own opacity (body text at 90%), so the channels are compared, not
+        // the alpha.
+        (Some(want_ink), Some(ink)) if want.role == "complementary" => {
+            let ink = got
+                .inks
+                .iter()
+                .map(|i| [i[0], i[1], i[2], want_ink[3]])
+                .find(|i| colour_eq(s.color, Some(*i)))
+                .unwrap_or(ink);
+            out.push(check(
+                "text colour",
+                fmt_rgba(s.color),
+                fmt_rgba(Some(ink)),
+                colour_eq(s.color, Some(ink)),
+            ));
+        }
         (Some(_), Some(ink)) => out.push(check(
             "text colour",
             fmt_rgba(s.color),
@@ -558,6 +576,7 @@ fn measure(els: &[Element], el: &Element, want: &Landmark) -> Measured {
         fill: el.fill,
         content,
         ink,
+        inks: tree::text_inks(els, el),
     }
 }
 

@@ -225,3 +225,20 @@ Intentional differences, not closed:
 - **The copy timeline's dots sit at their fractions by flex growth, not percentages**, so a dot is up to 4 pt off its exact place on a very wide track. Their tooltip is the styled `Tooltip`, opened by a hover the window keeps.
 - **The large preview's panel has no padding and no visible title**; its close button is reached by pointer only, because it would take Space for itself.
 - **Icons and thumbnails load four at a time** (`MAX_WORKERS`), and the open clip's and the visible rows' pictures are never evicted.
+
+## Clipboard picker window (S60)
+
+**Closes:** PKR-1, PKR-2, PKR-3, PKR-4, PKR-6.
+
+**Scenes.** `history`, `clips-5000` and `empty` are registered in `picker/scenes.rs` and compared whole in both themes (the picker is its own window, so every region is built): 0 failed. They came off the not-yet-built list.
+
+**Two comparator facts.** The selected filter pill is a layer behind the radio, so the radio's own background is none, as the reference's is. A preview pane (`complementary`) reports the colour its unstyled text inherits, which Rune cannot draw as a first text (the kind badge is muted); `style_checks` therefore accepts the pane's colour among the colours of its texts, comparing the channels and not the alpha (body text is that colour at 90%). That is one rule in `xtask/src/parity/compare.rs` with a test, and applies to `complementary` only.
+
+**Paste is two steps.** The copy runs on a worker with the panel still showing, so a clip that cannot be copied says so in the footer; the panel then hides and `PickSession::paste_copied` (up to about 850 ms) runs on a worker. A paste that fails re-shows the panel with the error for 3 s. Without Accessibility permission the footer says "Copy", the fallback sentence shows and the panel hides after 1.8 s. ⌘↩ copies only and hides after 420 ms. A paste asked for before the session lands waits for it.
+
+Intentional differences and checks that headless cannot make (S71):
+
+- **Hotkey-to-frame latency, a stale first frame, hide on blur, the first mouse event on a prewarmed panel and the ~511 ms key stalls of the Tauri panel are live checks.** The headless runtime shows that `open` queues one show for the next turn after the hidden panel drew the reset state, that a new opening cancels a pending close, and that a blur restores nothing; it cannot show what the compositor displays or how long the panel takes to become key.
+- **The card is inset 12 pt** so the captured landmarks line up; the live vibrancy material is full-bleed (the palette's reason).
+- **Keyboard reveal of a concealed row** is read from the focused element in `poll`, as in S59 (`RUNE-GAP`: no per-element focus hook).
+- **Filters Tab and Shift-Tab** are handled by the window (the search field keeps focus), not by focus traversal; pills and rows keep the search field focused on press.
