@@ -75,14 +75,25 @@ pub fn view(s: &MainState, t: &Theme) -> El {
         .gap(32.0)
         .no_window_drag()
         .child(
-            content.key(format!("onboarding-step-{label}")).transition(
-                rune::Transition::offset(f32::from(m.direction) * 12.0, 0.0)
-                    .combined(rune::Transition::opacity())
-                    .springs(rune::SpringPair::new(
-                        crate::theme::motion::soft_spring(0.24),
-                        crate::theme::motion::soft_spring(0.24),
-                    )),
-            ),
+            content
+                .key(format!("onboarding-step-{label}"))
+                .offset(
+                    0.0,
+                    if m.direction == 0 {
+                        s.onboarding.arrival_y()
+                    } else {
+                        0.0
+                    },
+                )
+                .offset_motion(rune::Curve::linear(0.0))
+                .transition(
+                    rune::Transition::offset(f32::from(m.direction) * 12.0, 0.0)
+                        .combined(rune::Transition::opacity())
+                        .springs(rune::SpringPair::new(
+                            crate::theme::motion::soft_spring(0.24),
+                            crate::theme::motion::soft_spring(0.24),
+                        )),
+                ),
         );
     let error = m.error.as_deref().or(if s.onboarding.scene_finish_error {
         Some(kudzu_app::onboarding::FINISH_ERROR)
@@ -94,10 +105,11 @@ pub fn view(s: &MainState, t: &Theme) -> El {
             text(e)
                 .wrap()
                 .role("alert")
-                .font(t.ty.body)
+                .font(rune::TextStyle::new(12.0, 400.0).lh(16.0))
                 .color(t.c.destructive)
-                .padding(12.0)
-                .h(40.0),
+                .fill(t.c.destructive.alpha(0.1))
+                .radius(8.0)
+                .padding(12.0),
         );
     }
     let mut progress = row()
@@ -132,7 +144,7 @@ pub fn view(s: &MainState, t: &Theme) -> El {
                 .items_center()
                 .child(col().size(12.0, 12.0).center().child(mark))
                 .child(text(title).font(t.ty.meta_10).color(if step == m.step {
-                    t.c.foreground
+                    t.c.iris_foreground
                 } else {
                     t.c.faint
                 })),
@@ -297,34 +309,40 @@ pub(super) fn source(s: &MainState, t: &Theme, source: ImportSource, name: &str)
     } else {
         format!("{label} for {name}")
     };
-    let action = Button::new(if m.working == Some(source) {
-        "Importing…"
-    } else {
-        label
-    })
-    .size(Size::Sm)
-    .variant(if detected {
-        Variant::Default
-    } else {
-        Variant::Secondary
-    })
-    .disabled(
-        m.busy()
-            || imported
-            || (source == ImportSource::Espanso && m.detection == Detection::Looking),
-    )
-    .on_press_tx(move |s: &mut MainState, tx| {
-        if detected {
-            actions::detected(s)
+    let mut action = Button::new(label)
+        .size(Size::Sm)
+        .variant(if detected {
+            Variant::Default
         } else {
-            actions::pick(s, tx, source)
-        }
-    })
-    .build(t)
-    .key(actions::source_key(source))
-    .label(accessible)
-    .h(28.0)
-    .min_w(112.0);
+            Variant::Secondary
+        })
+        .disabled(
+            m.busy()
+                || imported
+                || (source == ImportSource::Espanso && m.detection == Detection::Looking),
+        )
+        .on_press_tx(move |s: &mut MainState, tx| {
+            if detected {
+                actions::detected(s)
+            } else {
+                actions::pick(s, tx, source)
+            }
+        })
+        .build(t)
+        .key(actions::source_key(source))
+        .label(accessible)
+        .h(28.0)
+        .min_w(112.0);
+    if m.working == Some(source) {
+        action = action.pl(29.0).child(
+            rune::icon(&icons::LOADER_2, 14.0)
+                .absolute(11.0, 7.0)
+                .color(t.c.muted_foreground)
+                .role("status")
+                .label(format!("Importing {name} snippets"))
+                .looping(rune::LoopSpec::rotation(1.0)),
+        );
+    }
     let mut content = col().gap(8.0).child(
         row()
             .w_full()
@@ -344,15 +362,31 @@ pub(super) fn source(s: &MainState, t: &Theme, source: ImportSource, name: &str)
     );
     if let Some(o) = m.outcomes.get(&source) {
         content = content.child(
-            copy(format!("Imported {} snippets", o.count), t)
-                .font(rune::TextStyle::new(12.0, 400.0).lh(16.0)),
+            copy(
+                if o.count == 0 {
+                    "No new snippets to add".into()
+                } else {
+                    format!(
+                        "Imported {} snippet{}",
+                        o.count,
+                        if o.count == 1 { "" } else { "s" }
+                    )
+                },
+                t,
+            )
+            .font(rune::TextStyle::new(12.0, 400.0).lh(16.0)),
         );
         if o.changed > 0 {
             content = content.child(
                 copy(
                     format!(
-                        "{} items need a look — e.g. {}",
+                        "{} {} a look — e.g. {}",
                         o.changed,
+                        if o.changed == 1 {
+                            "item needs"
+                        } else {
+                            "items need"
+                        },
                         o.first_change
                             .as_deref()
                             .unwrap_or("Review the imported snippets.")

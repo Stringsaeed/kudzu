@@ -74,16 +74,7 @@ pub fn welcome(s: &MainState, t: &Theme) -> El {
         )
         .child(intro)
         .child(example)
-        .child(
-            button(
-                "Get started",
-                "onboarding-start",
-                s.svc.onboarding.snapshot().busy(),
-                t,
-                actions::next,
-            )
-            .h(40.0),
-        )
+        .child(button("Get started", "onboarding-start", false, t, actions::next).h(40.0))
         .child(
             copy("A few small steps, then back to your words.", t)
                 .font(rune::TextStyle::new(11.0, 400.0).lh(20.0))
@@ -100,43 +91,14 @@ pub fn access(s: &MainState, t: &Theme) -> El {
             t,
         ));
     let ready = s.svc.onboarding.can_continue();
-    let busy = s.svc.onboarding.snapshot().busy();
-    let card = col()
-        .w_full()
-        .px(16.0)
-        .py(14.0)
-        .gap(16.0)
-        .radius(12.0)
-        .fill(t.c.surface)
-        .child(copy(
-            if ready {
-                "Ready to expand"
-            } else {
-                "Accessibility · Required"
-            },
-            t,
-        ))
-        .child(copy(
-            "Kudzu needs access to type your snippets in other apps. Input Monitoring is optional.",
-            t,
-        ))
-        .child(
-            button(
-                "Review permissions",
-                "onboarding-permissions",
-                busy,
-                t,
-                |s| s.shell.open_permissions(),
-            )
-            .w_full(),
-        );
+    let card = super::access::card(s, t);
     let nav = row()
         .w_full()
         .justify_between()
         .child(button(
             "Skip for now",
             "onboarding-skip",
-            busy,
+            false,
             t,
             actions::skip,
         ))

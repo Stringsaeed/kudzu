@@ -22,6 +22,7 @@ mod library_list;
 mod library_reveal;
 mod library_scroll;
 mod onboarding;
+mod onboarding_review;
 mod routes;
 mod shortcuts;
 

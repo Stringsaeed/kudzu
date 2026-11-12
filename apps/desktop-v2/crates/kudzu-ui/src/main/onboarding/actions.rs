@@ -13,7 +13,10 @@ pub fn skip(s: &mut MainState) {
     focus_practice(s);
 }
 pub fn back(s: &mut MainState) {
-    let _ = s.svc.onboarding.back();
+    let was_practice = s.svc.onboarding.step() == Step::TryIt;
+    if s.svc.onboarding.back().is_ok() && was_practice {
+        s.onboarding.practice = rune::TextEdit::default();
+    }
     s.onboarding.blur_inputs();
 }
 fn focus_practice(s: &mut MainState) {
@@ -36,6 +39,7 @@ pub fn finish(s: &mut MainState) {
         handle.wake();
     })
     .ok();
+    super::track_task(s);
     if s.onboarding.task.is_none() {
         s.onboarding.scene_finish_error = true;
         s.onboarding
@@ -52,30 +56,25 @@ pub fn detect(s: &mut MainState) {
     let handle = s.shell.handles().main.clone();
     s.onboarding.task = Task::spawn("onboarding detection", move || {
         match data.detect_espanso() {
-            Ok(task) => loop {
-                if let Some(result) = task.take() {
-                    m.record_detection(
-                        result
-                            .map(|folders| {
-                                folders
-                                    .into_iter()
-                                    .map(|f| DetectedFolder {
-                                        path: f.path,
-                                        snippet_count: f.snippet_count,
-                                    })
-                                    .collect()
+            Ok(task) => m.record_detection(
+                task.wait()
+                    .map(|folders| {
+                        folders
+                            .into_iter()
+                            .map(|f| DetectedFolder {
+                                path: f.path,
+                                snippet_count: f.snippet_count,
                             })
-                            .map_err(|_| ()),
-                    );
-                    break;
-                }
-                std::thread::sleep(std::time::Duration::from_millis(5));
-            },
+                            .collect()
+                    })
+                    .map_err(|_| ()),
+            ),
             Err(_) => m.record_detection(Err(())),
         }
         handle.wake();
     })
     .ok();
+    super::track_task(s);
     if s.onboarding.task.is_none() {
         s.svc.onboarding.record_detection(Err(()));
     }
@@ -87,16 +86,16 @@ pub fn pick(s: &mut MainState, tx: &mut Tx, source: ImportSource) {
     }
     let options = match source {
         ImportSource::Espanso => FileDialogOptions {
-            title: "Choose Espanso folder".into(),
+            title: "Choose your Espanso config folder".into(),
             ..Default::default()
         },
         ImportSource::Raycast => FileDialogOptions {
-            title: "Import Raycast snippets".into(),
+            title: "Choose your Raycast snippets export".into(),
             ..Default::default()
         }
         .filter("Raycast", &["json"]),
         ImportSource::TextExpander => FileDialogOptions {
-            title: "Import TextExpander snippets".into(),
+            title: "Choose your TextExpander export".into(),
             ..Default::default()
         }
         .filter("TextExpander", &["textexpander", "csv"]),
@@ -106,10 +105,7 @@ pub fn pick(s: &mut MainState, tx: &mut Tx, source: ImportSource) {
         match result {
             Ok(Some(path)) => import(s, source, vec![path], false),
             Ok(None) => {}
-            Err(_) => s.svc.onboarding.fail_import(
-                source,
-                "Couldn’t open the chooser. Please try again.".into(),
-            ),
+            Err(error) => s.svc.onboarding.fail_import(source, error.to_string()),
         }
         tx.focus(source_key(source), true);
     };
@@ -146,33 +142,83 @@ fn import(
         return;
     }
     let handle = s.shell.handles().main.clone();
-    s.onboarding.task = Task::spawn("onboarding import", move || {
-        let total = paths.len();
-        for (index,path) in paths.into_iter().enumerate() {
-            let result = data.import(path.clone());
+    let task = Task::spawn("onboarding import", move || {
+        for path in paths {
+            let result = data
+                .import(path.clone())
+                .and_then(|task| task.wait().map_err(kudzu_app::data::DataError::from)?);
             let summary = match result {
-                Ok(task) => loop {
-                    if let Some(result) = task.take() { break result.ok().and_then(Result::ok); }
-                    std::thread::sleep(std::time::Duration::from_millis(5));
+                Ok(summary) => summary,
+                Err(error) => {
+                    let mut message = error.to_string();
+                    if accumulate {
+                        if let kudzu_app::onboarding::Detection::Found { folders } =
+                            &m.snapshot().detection
+                        {
+                            let total = folders.len();
+                            let completed = total - m.pending_espanso_folders().len();
+                            if completed > 0 {
+                                message = format!(
+                                    concat!(
+                                        "Imported {} of {} folders; ",
+                                        "retry brings in the rest. {}"
+                                    ),
+                                    completed, total, message
+                                );
+                            }
+                        }
+                    }
+                    m.fail_import(source, message);
+                    handle.update(move |_, tx| tx.focus(source_key(source), true));
+                    handle.wake();
+                    return;
+                }
+            };
+            m.record_import(
+                source,
+                ImportTally {
+                    imported_snippets: summary.imported_snippets,
+                    merged_snippets: summary
+                        .imported_snippets
+                        .saturating_sub(summary.added_snippets),
+                    warnings: summary.warnings.len(),
+                    first_warning: summary.warnings.first().map(|w| w.message.clone()),
+                    path: Some(path),
                 },
-                Err(_) => None,
-            };
-            let Some(summary) = summary else {
-                let message = if index>0 {format!("Imported {index} of {total} folders; retry brings in the rest. Couldn’t read this source.")} else {"Couldn’t import this source. Your library is safe; please try again.".into()};
-                m.fail_import(source, message);
-                handle.update(move |_,tx| tx.focus(source_key(source),true));
-                handle.wake(); return;
-            };
-            m.record_import(source, ImportTally { imported_snippets: summary.imported_snippets, merged_snippets: summary.imported_snippets.saturating_sub(summary.added_snippets), warnings: summary.warnings.len(), first_warning: summary.warnings.first().map(|w| w.message.clone()), path: Some(path) }, accumulate);
+                accumulate,
+            );
         }
         m.end_import(source);
-        handle.update(move |s, tx| { s.refresh_library_snapshot(); tx.focus(if source == ImportSource::Espanso {"onboarding-continue"} else {source_key(source)}, true); });
+        handle.update(move |s, tx| {
+            s.refresh_library_snapshot();
+            tx.focus(
+                if source == ImportSource::Espanso {
+                    "onboarding-continue"
+                } else {
+                    source_key(source)
+                },
+                true,
+            );
+        });
         handle.wake();
-    }).ok();
-    if s.onboarding.task.is_none() {
-        s.svc.onboarding.fail_import(
-            source,
-            "Couldn’t start the import. Please try again.".into(),
-        );
+    });
+    match task {
+        Ok(task) => s.onboarding.task = Some(task),
+        Err(error) => s.svc.onboarding.fail_import(source, error.to_string()),
     }
+    super::track_task(s);
+}
+
+pub fn open_permissions(s: &mut MainState) {
+    use std::sync::atomic::Ordering;
+    s.onboarding.permission_opening = true;
+    s.onboarding.permission_error = None;
+    s.onboarding.permission_ack.store(false, Ordering::Release);
+    let ack = s.onboarding.permission_ack.clone();
+    let main = s.shell.handles().main.clone();
+    s.shell.open_permissions();
+    s.shell.handles().permissions.update(move |_, _| {
+        ack.store(true, Ordering::Release);
+        main.wake();
+    });
 }

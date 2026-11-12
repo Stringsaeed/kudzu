@@ -273,3 +273,51 @@ fn finish_does_not_reenter_while_finishing() {
     assert!(h.onboarding.snapshot().finishing);
     assert!(!h.settings.watch().get().onboarding_completed);
 }
+
+#[test]
+fn navigation_keeps_a_finish_failure_until_a_new_finish_attempt() {
+    let h = Harness::new();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.writer.shutdown().unwrap();
+    h.onboarding.finish().unwrap_err();
+    h.onboarding.back().unwrap();
+    assert_eq!(h.onboarding.snapshot().error.as_deref(), Some(FINISH_ERROR));
+    h.onboarding.skip().unwrap();
+    assert_eq!(h.onboarding.snapshot().error.as_deref(), Some(FINISH_ERROR));
+}
+
+#[test]
+fn restarting_setup_clears_the_previous_session() {
+    let h = Harness::new();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding
+        .record_import(ImportSource::Espanso, tally(3, 0, Some("completed")), true);
+    h.onboarding
+        .fail_import(ImportSource::Espanso, "Fixture failure".into());
+    h.onboarding.skip().unwrap();
+    h.onboarding.restart().unwrap();
+    let state = h.onboarding.snapshot();
+    assert_eq!(state.step, Step::Welcome);
+    assert_eq!(state.direction, 0);
+    assert_eq!(state.detection, Detection::Looking);
+    assert_eq!(state.imported, 0);
+    assert!(state.outcomes.is_empty() && state.failures.is_empty() && state.error.is_none());
+    h.onboarding.begin_pick().unwrap();
+    assert_eq!(h.onboarding.restart(), Err(OnboardingError::Busy));
+}
+
+#[test]
+fn a_failed_finish_worker_leaves_a_retryable_setup() {
+    let h = Harness::new();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding.skip().unwrap();
+    h.onboarding.fail_finish();
+    assert_eq!(h.onboarding.snapshot().error.as_deref(), Some(FINISH_ERROR));
+    assert!(!h.onboarding.snapshot().busy());
+    h.onboarding.finish().unwrap();
+    assert!(h.settings.watch().get().onboarding_completed);
+}

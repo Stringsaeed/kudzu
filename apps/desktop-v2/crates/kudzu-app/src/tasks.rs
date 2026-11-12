@@ -4,7 +4,7 @@
 
 use crate::error::IoFailure;
 use crate::watch::{Publisher, Watch};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum TaskError {
@@ -17,6 +17,7 @@ pub enum TaskError {
 struct Slot<T> {
     result: Mutex<Option<Result<T, TaskError>>>,
     ready: Publisher<bool>,
+    completed: Condvar,
 }
 
 /// A nonblocking result slot. Service work must commit before returning its result.
@@ -30,6 +31,7 @@ impl<T: Send + 'static> Task<T> {
         let slot = Arc::new(Slot {
             result: Mutex::new(None),
             ready: Publisher::new(false),
+            completed: Condvar::new(),
         });
         let owner = Arc::downgrade(&slot);
         std::thread::Builder::new()
@@ -39,6 +41,7 @@ impl<T: Send + 'static> Task<T> {
                     .map_err(|_| TaskError::Panicked);
                 if let Some(slot) = owner.upgrade() {
                     *slot.result.lock().unwrap_or_else(PoisonError::into_inner) = Some(result);
+                    slot.completed.notify_all();
                     slot.ready.replace(Arc::new(true)).notification.notify();
                 }
             })
@@ -50,10 +53,25 @@ impl<T: Send + 'static> Task<T> {
         Self(Arc::new(Slot {
             result: Mutex::new(Some(Ok(value))),
             ready: Publisher::new(true),
+            completed: Condvar::new(),
         }))
     }
     pub fn ready(&self) -> Watch<bool> {
         self.0.ready.watch()
+    }
+    /// Wait on a worker thread for completion. Never call from a UI handler or poll.
+    pub fn wait(self) -> Result<T, TaskError> {
+        let mut result = self.0.result.lock().unwrap_or_else(PoisonError::into_inner);
+        loop {
+            if let Some(value) = result.take() {
+                return value;
+            }
+            result = self
+                .0
+                .completed
+                .wait(result)
+                .unwrap_or_else(PoisonError::into_inner);
+        }
     }
     pub fn take(&self) -> Option<Result<T, TaskError>> {
         self.0
@@ -69,6 +87,17 @@ mod tests {
     use super::*;
     use std::sync::mpsc;
     use std::time::Duration;
+
+    #[test]
+    fn wait_delivers_completion_without_polling_and_wakes_after_panic() {
+        let (send, receive) = mpsc::channel();
+        let task = Task::spawn("wait-fixture", move || receive.recv().unwrap()).unwrap();
+        send.send(42).unwrap();
+        assert_eq!(task.wait(), Ok(42));
+        let task = Task::spawn("wait-panic", || panic!("fixture worker failed")).unwrap();
+        assert_eq!(task.wait(), Err(TaskError::Panicked));
+        assert_eq!(Task::done(7).wait(), Ok(7));
+    }
 
     #[test]
     fn operation_panic_is_delivered_as_a_safe_error() {

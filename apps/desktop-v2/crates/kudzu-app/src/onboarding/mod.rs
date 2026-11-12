@@ -125,6 +125,24 @@ impl Onboarding {
             .watch()
     }
 
+    /// Start a fresh setup session without interrupting an active operation.
+    pub fn restart(&self) -> Result<(), OnboardingError> {
+        self.edit(|live| {
+            if live.snapshot.busy() {
+                return Err(OnboardingError::Busy);
+            }
+            live.snapshot.step = Step::Welcome;
+            live.snapshot.direction = 0;
+            live.snapshot.detection = Detection::Looking;
+            live.snapshot.outcomes.clear();
+            live.snapshot.failures.clear();
+            live.snapshot.imported = 0;
+            live.snapshot.error = None;
+            live.completed.clear();
+            Ok(())
+        })
+    }
+
     pub fn step(&self) -> Step {
         self.watch().get().step
     }
@@ -291,6 +309,14 @@ impl Onboarding {
         }
     }
 
+    /// Recover after a finish worker fails before returning its result.
+    pub fn fail_finish(&self) {
+        self.edit(|live| {
+            live.snapshot.finishing = false;
+            live.snapshot.error = Some(FINISH_ERROR.into());
+        });
+    }
+
     pub fn finish(&self) -> Result<(), OnboardingError> {
         self.edit(|live| {
             if live.snapshot.finishing || live.snapshot.picking || live.snapshot.working.is_some() {
@@ -309,10 +335,7 @@ impl Onboarding {
                 Ok(())
             }
             Err(_) => {
-                self.edit(|live| {
-                    live.snapshot.finishing = false;
-                    live.snapshot.error = Some(FINISH_ERROR.into());
-                });
+                self.fail_finish();
                 Err(OnboardingError::Finish)
             }
         }
@@ -322,7 +345,6 @@ impl Onboarding {
         self.edit(|live| {
             live.snapshot.step = step;
             live.snapshot.direction = direction;
-            live.snapshot.error = None;
         });
         Ok(())
     }

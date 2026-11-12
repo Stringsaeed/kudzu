@@ -19,6 +19,7 @@ pub const CONTENT_GUTTER: f32 = 8.0;
 /// Builds the full `main` window element tree (`AppSpec::view`).
 pub fn view(s: &MainState, cx: &mut Cx<MainState>) -> El {
     let theme = s.model.theme.theme(cx.system_dark());
+    s.onboarding.set_reduced_motion(cx.is_reduced_motion());
     let c = &theme.c;
     let mut overlays: Vec<El> = Vec::new();
 

@@ -1,4 +1,4 @@
-//! RUNE-GAP: square Icon bounds include the wordmark's transparent letterbox in --tree.
+//! PLAN §3, draft S65-wordmark: square Icon bounds include transparent letterboxing.
 //! Decode the original SVG through Rune's image cache so its drawn bounds keep its aspect.
 use crate::{shell::MainState, theme::Theme};
 use rune::{el, El, Image, ImageCache};

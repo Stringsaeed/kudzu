@@ -2,11 +2,14 @@
 use crate::shell::{MainState, Route};
 use kudzu_app::onboarding::{DetectedFolder, ImportSource, ImportTally};
 pub fn welcome(s: &mut MainState) {
+    s.svc.onboarding.restart().unwrap();
+    s.onboarding = super::State::default();
     s.svc
         .settings
         .update(|v| v.onboarding_completed = false)
         .unwrap();
     s.open_route(Route::Onboarding);
+    s.onboarding.scene_static = true;
     super::brand::ensure(s);
     s.onboarding.brand.as_ref().unwrap().wait();
     s.onboarding.detecting = true;

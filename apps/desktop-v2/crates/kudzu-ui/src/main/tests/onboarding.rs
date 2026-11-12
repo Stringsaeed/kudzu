@@ -17,6 +17,7 @@ fn walks_setup_with_back_skip_and_persistent_completion() {
     wait(&mut r, |r| {
         r.kudzu.settings.watch().get().onboarding_completed
     });
+    assert!(r.rt.state.frame.view.in_library());
 }
 
 #[test]
@@ -43,7 +44,7 @@ fn busy_import_blocks_navigation_and_cancel_restores_focus() {
     assert!(r.kudzu.onboarding.snapshot().picking);
     assert_eq!(
         r.rt.file_dialog().unwrap().1.title,
-        "Import Raycast snippets"
+        "Choose your Raycast snippets export"
     );
     r.click_key("onboarding-back");
     assert_eq!(r.kudzu.onboarding.step(), Step::Import);
@@ -60,8 +61,13 @@ fn failed_finish_keeps_practice_and_library_recoverable() {
     r.click_key("onboarding-start");
     r.click_key("onboarding-skip");
     r.click_key("onboarding-skip");
+    r.click_key("onboarding-practice");
+    for ch in ";kudzu".chars() {
+        r.press(plain(ch, false));
+    }
+    assert!(r.rt.state.onboarding.success());
     r.kudzu.shutdown().durable.unwrap();
-    r.click_key("onboarding-finish");
+    r.click_key("onboarding-open-library");
     wait(&mut r, |r| r.kudzu.onboarding.snapshot().error.is_some());
     assert_eq!(r.kudzu.onboarding.step(), Step::TryIt);
     assert!(!r.kudzu.settings.watch().get().onboarding_completed);
@@ -69,7 +75,12 @@ fn failed_finish_keeps_practice_and_library_recoverable() {
         r.kudzu.onboarding.snapshot().error.as_deref(),
         Some(kudzu_app::onboarding::FINISH_ERROR)
     );
-    assert!(r.rect("onboarding-finish").is_some());
+    assert!(r.rect("onboarding-open-library").is_some());
+    assert!(r.rt.state.onboarding.success());
+    assert!(matches!(
+        r.rt.state.frame.view,
+        crate::main::MainView::Onboarding
+    ));
 }
 
 #[track_caller]
@@ -104,7 +115,7 @@ fn imports_through_the_real_data_service_and_continues_on_net_additions() {
     r.click_key("onboarding-raycast");
     r.rt.resolve_file_dialog(Some(path)).unwrap();
     r.settle();
-    wait(&mut r, |r| !r.kudzu.onboarding.snapshot().busy());
+    wait_for_import(&mut r, kudzu_app::onboarding::ImportSource::Raycast);
     assert_eq!(r.kudzu.onboarding.snapshot().imported, 1);
     r.click_key("onboarding-continue");
     assert_eq!(r.kudzu.onboarding.step(), Step::TryIt);
@@ -181,7 +192,7 @@ fn espanso_retry_keeps_partial_count_and_skips_completed_folders() {
     )
     .unwrap();
     r.click_key("onboarding-espanso");
-    wait(&mut r, |r| !r.kudzu.onboarding.snapshot().busy());
+    wait_for_import(&mut r, kudzu_app::onboarding::ImportSource::Espanso);
     assert_eq!(r.kudzu.onboarding.snapshot().imported, 2);
     assert!(r.kudzu.onboarding.pending_espanso_folders().is_empty());
 }
@@ -214,4 +225,19 @@ fn reference_setup_regions_hold_in_both_themes() {
         }
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+fn wait_for_import(r: &mut Rig, source: kudzu_app::onboarding::ImportSource) {
+    let completion =
+        r.rt.state
+            .onboarding
+            .task
+            .as_ref()
+            .map(kudzu_app::tasks::Task::ready);
+    wait(r, |r| {
+        let state = r.kudzu.onboarding.snapshot();
+        state.outcomes.contains_key(&source)
+            && !state.busy()
+            && completion.as_ref().is_none_or(|ready| *ready.get())
+    });
 }
