@@ -144,7 +144,7 @@ impl MainState {
             frame: MainFrame::new(initial_view),
             sidebar: sidebar::State::default(),
             library: library::State::default(),
-            editor: editor::State::default(),
+            editor: editor::State::new(icon_wake.clone()),
             clipboard: clipboard::State::default(),
             settings: settings::State::default(),
             insights: insights::State::default(),
@@ -226,7 +226,10 @@ pub(crate) fn app(identity: super::super::Identity, show: bool) -> rune::App<Mai
             traffic_lights: Some((18.0, 22.0)),
             drag_regions: true,
         })
-        .on_focus(|s: &mut MainState, focused, _| s.shell.set_main_focused(focused))
+        .on_focus(|s: &mut MainState, focused, _| {
+            editor::window_focus(s, focused);
+            s.shell.set_main_focused(focused)
+        })
         .on_close(super::super::lifecycle::on_close)
         .on_quit(super::super::lifecycle::on_quit)
         .on_reopen(super::super::lifecycle::on_reopen)

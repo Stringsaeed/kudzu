@@ -72,11 +72,18 @@ fn open_picker(rig: &mut Rig) -> Uuid {
     id
 }
 
+/// The dialog's element named `role` and `label`. Only the dialog's layer is searched: the
+/// editor behind it (S51) has controls with the same names.
 fn landmark(rig: &Rig, role: &str, label: &str) -> [f32; 4] {
-    let hits: Vec<_> = rig
-        .rt
-        .elements()
+    let elements = rig.rt.elements();
+    let layer = elements
+        .iter()
+        .find(|e| e.key.as_deref() == Some("group-settings-layer"))
+        .map(|e| format!("{}/", e.path))
+        .expect("the dialog's layer");
+    let hits: Vec<_> = elements
         .into_iter()
+        .filter(|e| e.path.starts_with(&layer))
         .filter(|e| e.role == role && e.label.as_deref() == Some(label))
         .map(|e| e.rect)
         .collect();

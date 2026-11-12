@@ -135,7 +135,7 @@ fn build_main_card(
             .min_w(0.0)
             .min_h(0.0)
             .child(library::view(s, cx, theme, filter, list_focused, overlays))
-            .child(editor::view(s, theme, editor_focused)),
+            .child(editor::view(s, cx, theme, editor_focused, overlays)),
         MainView::Clipboard(filter) => clipboard::view(s, theme, *filter, list_focused, overlays),
         MainView::Settings(pane) => settings::view(s, theme, *pane),
         MainView::Insights => insights::view(s, theme, reduced_motion),

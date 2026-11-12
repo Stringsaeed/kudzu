@@ -63,11 +63,7 @@ impl MainState {
             return;
         }
         self.frame.selected_snippet = snippet_id;
-        if let Some(id) = snippet_id {
-            if let Some(sn) = self.model.library.snippets.iter().find(|s| s.id == id) {
-                self.editor.show(sn);
-            }
-        }
+        crate::main::editor::open_selected(self);
         self.observe_breadcrumbs();
     }
 

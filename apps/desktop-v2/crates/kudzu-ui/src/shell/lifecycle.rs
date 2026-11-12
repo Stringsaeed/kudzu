@@ -38,6 +38,7 @@ impl MainState {
     /// Commit the open draft through the library. Accepted at once; the writer persists it,
     /// and shutdown drains the writer.
     pub fn commit_drafts(&mut self) {
+        crate::main::editor::flush(self);
         if let Some(draft) = self.model.draft.take() {
             if let Err(error) = self.svc.library.create_snippet(draft) {
                 log::warn!("the open draft could not be saved: {error}");
@@ -204,6 +205,7 @@ impl MainState {
         changed |= crate::main::library::sync(self);
         changed |= crate::main::group_settings::sync(self);
         changed |= crate::main::settings::sync(self);
+        changed |= crate::main::editor::sync(self);
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();
@@ -234,6 +236,7 @@ pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
         tx.instant();
     }
     changed |= crate::main::insights::poll(s, tx);
+    changed |= crate::main::editor::poll(s, tx);
     changed |= crate::main::onboarding::poll_frame(s, tx);
     crate::main::library::poll(s, tx);
     changed |= crate::main::command_menu::note_text_field(s);

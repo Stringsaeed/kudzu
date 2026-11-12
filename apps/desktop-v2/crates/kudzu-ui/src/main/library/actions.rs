@@ -100,6 +100,8 @@ pub fn duplicate_selected(s: &mut MainState) {
     if let Ok((copy, _)) = s.svc.library.duplicate_snippet(id) {
         s.refresh_library_snapshot();
         s.select_snippet(Some(copy.id));
+        s.frame.focus.move_to(MainPane::Editor);
+        s.editor.request_name_focus(copy.id);
     }
 }
 
@@ -117,6 +119,7 @@ fn update_selected(s: &mut MainState, edit: impl FnOnce(&mut kudzu_core::Snippet
     let Some(id) = s.frame.selected_snippet else {
         return;
     };
+    crate::main::editor::flush(s);
     let Some(mut sn) = s
         .model
         .library
