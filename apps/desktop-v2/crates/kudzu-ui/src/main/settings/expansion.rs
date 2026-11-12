@@ -4,7 +4,7 @@ use crate::{
     shell::MainState,
     theme::Theme,
     widgets::kit_ext::{
-        button::{Button, Size},
+        button::{Button, Size, Variant},
         input::Input,
         switch::Switch,
     },
@@ -34,7 +34,7 @@ pub fn view(s: &MainState, t: &Theme) -> El {
 }
 fn info(t: &Theme, value: &str) -> El {
     text(value.to_owned())
-        .font(rune::TextStyle::new(12.0, 400.0).lh(16.0))
+        .font(rune::TextStyle::new(12.0, 400.0).lh(19.5))
         .color(t.c.muted_foreground)
         .wrap()
 }
@@ -52,6 +52,11 @@ pub fn methods(t: &Theme, id: &str, current: InsertionMethod, app: Option<String
         let app = app.clone();
         options = options.child(
             Button::new(label)
+                .variant(if value == current {
+                    Variant::Secondary
+                } else {
+                    Variant::Ghost
+                })
                 .size(Size::Sm)
                 .on_press(move |s: &mut MainState| {
                     update(s, |p| {
@@ -65,7 +70,7 @@ pub fn methods(t: &Theme, id: &str, current: InsertionMethod, app: Option<String
                 .build(t)
                 .key(format!("{id}-{key}"))
                 .role("radio")
-                .selected(current == value),
+                .checked(current == value),
         );
     }
     options

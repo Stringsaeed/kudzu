@@ -226,6 +226,7 @@ impl MainState {
 pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
     s.frame.clock_secs = tx.clock();
     let mut changed = s.sync();
+    changed |= crate::main::settings::poll_frame(s, tx);
     // Keyboard focus on a concealed clip's preview uncovers it (Rune has no focus hook).
     changed |= s.clipboard.note_focus(tx.focused(), tx.focus_visible());
     // Rows that changed without motion (a load, a bulk change) show at once.

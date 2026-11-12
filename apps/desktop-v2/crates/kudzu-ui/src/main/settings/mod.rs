@@ -9,6 +9,7 @@ pub mod expansion;
 pub mod general;
 pub mod nav;
 pub mod scenes;
+pub mod sync_status;
 use crate::{
     shell::{MainState, SettingsPane},
     theme::Theme,
@@ -16,20 +17,31 @@ use crate::{
 use rune::{col, row, text, El, ScrollSpec};
 #[derive(Default)]
 pub struct State {
+    pub apps_sub: Option<kudzu_app::watch::Subscription>,
+    pub seen_apps: Option<kudzu_app::watch::Revision>,
+    pub seen_settings: Option<kudzu_app::watch::Revision>,
+    pub login_sub: Option<kudzu_app::watch::Subscription>,
+    pub seen_login: Option<kudzu_app::watch::Revision>,
     pub error: Option<String>,
     pub prefix: rune::TextEdit,
+    pub query: rune::TextEdit,
+    pub picker_open: bool,
+    pub picker_deny: bool,
+    pub icons: Option<crate::widgets::app_icon::IconCache>,
     pub recording: bool,
     pub captured_until: Option<std::time::Duration>,
 }
 impl State {
     pub fn is_composing(&self) -> bool {
-        self.prefix.is_composing()
+        self.prefix.is_composing() || self.query.is_composing()
     }
     pub fn is_editing_text(&self) -> bool {
-        self.prefix.focused || self.recording
+        self.prefix.focused || self.query.focused || self.recording
     }
     pub fn blur_inputs(&mut self) {
         self.prefix.focused = false;
+        self.query.focused = false;
+        self.picker_open = false;
         self.recording = false;
     }
 }
@@ -44,6 +56,22 @@ pub fn view(s: &MainState, t: &Theme, pane: SettingsPane) -> El {
         SettingsPane::Data => data::view(s, t),
         SettingsPane::About => about::view(s, t),
     };
+    frame(t, pane, body)
+}
+pub fn view_with_cx(
+    s: &MainState,
+    cx: &rune::Cx<MainState>,
+    t: &Theme,
+    pane: SettingsPane,
+    overlays: &mut Vec<El>,
+) -> El {
+    if pane == SettingsPane::Apps {
+        frame(t, pane, apps::view_with_cx(s, cx, t, overlays))
+    } else {
+        view(s, t, pane)
+    }
+}
+fn frame(t: &Theme, pane: SettingsPane, body: El) -> El {
     row()
         .key("settings-view-slot")
         .w_full()
@@ -65,6 +93,7 @@ pub fn view(s: &MainState, t: &Theme, pane: SettingsPane) -> El {
                         .items_center()
                         .child(
                             text(crate::main::settings_pane_label(pane))
+                                .role("heading")
                                 .font(t.ty.body_strong)
                                 .color(t.c.foreground),
                         ),
@@ -72,6 +101,7 @@ pub fn view(s: &MainState, t: &Theme, pane: SettingsPane) -> El {
                 .child(
                     col()
                         .key("settings-scroll")
+                        .items_center()
                         .grow(1.0)
                         .w_full()
                         .min_h(0.0)
@@ -92,15 +122,22 @@ pub fn view(s: &MainState, t: &Theme, pane: SettingsPane) -> El {
 }
 pub(super) fn group(t: &Theme, title: &str, rows: Vec<El>) -> El {
     let mut card = col().w_full().px(16.0).radius(12.0).fill(t.c.surface);
-    for r in rows {
+    for (i, r) in rows.into_iter().enumerate() {
+        if i > 0 {
+            card = card.child(col().w_full().h(1.0).fill(t.c.hairline));
+        }
         card = card.child(r);
     }
     col()
+        .key(format!("settings-group-{title}"))
+        .role("region")
+        .label(title.to_owned())
         .w_full()
         .gap(8.0)
         .child(
             text(title.to_owned())
-                .font(t.ty.body_strong)
+                .role("heading")
+                .font(rune::TextStyle::new(13.0, 600.0).lh(20.0))
                 .color(t.c.foreground),
         )
         .child(card)
@@ -118,7 +155,8 @@ pub(super) fn setting(t: &Theme, title: &str, hint: &str, control: El) -> El {
                 .min_w(0.0)
                 .child(
                     text(title.to_owned())
-                        .font(rune::TextStyle::new(13.0, 500.0).lh(18.5625))
+                        .role("heading")
+                        .font(rune::TextStyle::new(13.0, 500.0).lh(20.0))
                         .color(t.c.foreground),
                 )
                 .child(
@@ -137,7 +175,32 @@ pub(super) fn update(s: &mut MainState, edit: impl FnOnce(&mut kudzu_app::settin
 }
 
 pub fn sync(s: &mut MainState) -> bool {
-    let mut changed = false;
+    let mut changed = apps::sync(s);
+    if s.settings.apps_sub.is_none() {
+        let main = s.shell.handles().main.clone();
+        s.settings.apps_sub = Some(s.svc.apps.installed().subscribe(move || main.wake()));
+    }
+    let rev = s.svc.apps.installed().revision();
+    if s.settings.seen_apps != Some(rev) {
+        s.settings.seen_apps = Some(rev);
+        changed = true;
+    }
+    let rev = s.svc.settings.watch().revision();
+    if s.settings.seen_settings != Some(rev) {
+        s.settings.seen_settings = Some(rev);
+        changed = true;
+    }
+
+    if s.settings.login_sub.is_none() {
+        let main = s.shell.handles().main.clone();
+        s.settings.login_sub = Some(s.svc.login_notice.subscribe(move || main.wake()));
+    }
+    let rev = s.svc.login_notice.revision();
+    if s.settings.seen_login != Some(rev) {
+        s.settings.seen_login = Some(rev);
+        changed = true;
+    }
+
     if s.settings
         .captured_until
         .is_some_and(|end| s.svc.clock.monotonic() >= end)
@@ -149,7 +212,7 @@ pub fn sync(s: &mut MainState) -> bool {
         if s.settings.prefix.focused {
             let prefix = expansion::limited_prefix(&s.settings.prefix.text);
             if prefix != s.settings.prefix.text {
-                s.settings.prefix.text = prefix.clone();
+                s.settings.prefix.replace_text(prefix.clone());
                 changed = true;
             }
             if s.svc.settings.watch().get().default_trigger_prefix != prefix {
@@ -165,4 +228,52 @@ pub fn sync(s: &mut MainState) -> bool {
         }
     }
     changed
+}
+
+pub(super) fn described(t: &Theme, title: &str, hint: &str, rows: Vec<El>) -> El {
+    let mut card = col().w_full().px(16.0).radius(12.0).fill(t.c.surface);
+    for (i, r) in rows.into_iter().enumerate() {
+        if i > 0 {
+            card = card.child(col().w_full().h(1.0).fill(t.c.hairline));
+        }
+        card = card.child(r);
+    }
+    col()
+        .key(format!("settings-group-{title}"))
+        .role("region")
+        .label(title.to_owned())
+        .w_full()
+        .gap(8.0)
+        .child(
+            col()
+                .w_full()
+                .child(
+                    text(title.to_owned())
+                        .role("heading")
+                        .font(rune::TextStyle::new(13.0, 600.0).lh(20.0))
+                        .color(t.c.foreground),
+                )
+                .child(
+                    text(hint.to_owned())
+                        .font(rune::TextStyle::new(12.0, 400.0).lh(16.0))
+                        .color(t.c.muted_foreground)
+                        .wrap(),
+                ),
+        )
+        .child(card)
+}
+
+pub fn poll_frame(s: &mut MainState, tx: &mut rune::Tx) -> bool {
+    if let Some(end) = s.settings.captured_until {
+        tx.wake_after(end.saturating_sub(s.svc.clock.monotonic()));
+    }
+    if s.settings.recording
+        && tx
+            .focused()
+            .is_none_or(|key| !key.ends_with("settings-shortcut"))
+    {
+        s.settings.recording = false;
+        return true;
+    }
+    false
 }

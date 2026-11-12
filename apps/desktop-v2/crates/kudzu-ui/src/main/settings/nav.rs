@@ -20,6 +20,7 @@ pub fn view(t: &Theme, current: SettingsPane) -> El {
         .key("settings-nav")
         .role("navigation")
         .label("Settings sections")
+        .on_key(handle_key)
         .w(192.0)
         .h_full()
         .px(10.0)
@@ -27,6 +28,7 @@ pub fn view(t: &Theme, current: SettingsPane) -> El {
         .child(
             col().h(48.0).px(10.0).justify_center().child(
                 text("Settings")
+                    .role("heading")
                     .font(t.ty.body_strong)
                     .color(t.c.foreground),
             ),
@@ -59,7 +61,7 @@ pub fn view(t: &Theme, current: SettingsPane) -> El {
     }
     nav
 }
-pub fn handle_key(s: &mut MainState, e: &KeyEvent, _tx: &mut Tx) -> bool {
+pub fn handle_key(s: &mut MainState, e: &KeyEvent, tx: &mut Tx) -> bool {
     if s.settings.is_composing() {
         return false;
     }
@@ -78,6 +80,8 @@ pub fn handle_key(s: &mut MainState, e: &KeyEvent, _tx: &mut Tx) -> bool {
         _ => return false,
     };
     let i = PANES.iter().position(|p| *p == pane).unwrap_or(0);
-    s.navigate_to(MainView::Settings(PANES[(i + delta) % 8]));
+    let next = PANES[(i + delta) % 8];
+    s.navigate_to(MainView::Settings(next));
+    tx.focus(format!("settings-nav-{next:?}"), true);
     true
 }

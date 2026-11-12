@@ -89,6 +89,7 @@ fn build_kudzu(dir: &Path, fixtures: &Fixtures) -> Arc<Kudzu> {
 pub(super) struct Rig {
     _scratch: Scratch,
     pub(super) fixtures: Fixtures,
+    pub(super) fake_hotkeys: Arc<FakeHotkeys>,
     pub(super) kudzu: Arc<Kudzu>,
     pub(super) rt: Runtime<MainState>,
 }
@@ -110,7 +111,8 @@ impl Rig {
                 s.theme = theme;
             })
             .unwrap();
-        let hotkeys: Arc<dyn HotkeyRegistrar> = Arc::new(FakeHotkeys::default());
+        let fake_hotkeys = Arc::new(FakeHotkeys::default());
+        let hotkeys: Arc<dyn HotkeyRegistrar> = fake_hotkeys.clone();
         let p = parts(
             &kudzu,
             Launch {
@@ -137,6 +139,7 @@ impl Rig {
         Self {
             _scratch: scratch,
             fixtures,
+            fake_hotkeys,
             kudzu,
             rt,
         }

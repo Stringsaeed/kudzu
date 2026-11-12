@@ -142,6 +142,12 @@ fn build_main_card(
         MainView::Onboarding => onboarding::view(s, theme),
     };
 
+    let screen = if let MainView::Settings(pane) = s.frame.view {
+        settings::view_with_cx(s, cx, theme, pane, overlays)
+    } else {
+        screen
+    };
+
     let card = theme.depth.card.iter().fold(
         col()
             .key("main-content")
