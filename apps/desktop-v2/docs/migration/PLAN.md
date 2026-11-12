@@ -584,14 +584,14 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
 - A second review is required only after a blocker or a safety major.
 
-**Totals:** 45 done, 2 merged and in review or fixing, 3 building, 11 waiting (61 steps).
+**Totals:** 45 done, 3 merged and in review or fixing, 2 building, 11 waiting (61 steps).
 
 | Wave | Status |
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
 | 9 | S43, S50, S58, S64 and S65 done. S42 is merged and awaiting review, and S55 is fixing review findings. |
-| 10 | S59 done; S51 and S61 building. |
+| 10 | S59 done; S61 merged and awaiting review; S51 building. |
 | 11 | S60 building (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
 
@@ -608,7 +608,7 @@ Waves 9 and later, step by step:
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
 | S51 editor shell | Building (restarted on Opus after Carbon failed; its untested draft is kept on local branch `t3/editor-shell`, `b981342d`) | Opus → a non-Claude reviewer |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
-| S61 settings frame, General, Expansion, Apps | Building (restarted on Codex Sol after Argon stalled and then failed) | Codex Sol → a non-Codex reviewer |
+| S61 settings frame, General, Expansion, Apps | Merged (`38466e64`, handoff `S61_HANDOFF.md`); awaiting review | Codex Sol (after Argon stalled and failed) → a non-Codex reviewer |
 | S60 clipboard picker window | Building (restarted on Sonnet after Carbon failed; its untested draft is kept on local branch `t3/clipboard-picker-window`, `b68b385b`) | Sonnet → a non-Claude reviewer |
 
 **Orchestrator changes on the base during wave 9:**
@@ -644,7 +644,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 | S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
 | S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
 | S60 clipboard picker window | Building (Sonnet) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/clipboard-picker-window` (`b68b385b`), for reference only. Its three `picker` scenes compare in full. |
-| S61 settings frame, General, Expansion, Apps | Building (Codex Sol) | Restarted after Argon failed. It creates the five pane stubs that S62 and S63 fill. |
+| S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; awaiting review by a non-Codex provider | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
 
 Each needs a review from a provider other than its builder, then fixes, then a progress-table update.
 
