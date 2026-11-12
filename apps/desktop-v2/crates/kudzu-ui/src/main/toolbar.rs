@@ -94,44 +94,37 @@ pub fn compute_crumbs(
                 target: Some(MainView::Library(LibraryFilter::All)),
             });
 
-            match filter {
-                LibraryFilter::All => match selected {
-                    Some(sn) => {
-                        if let Some(gid) = sn.group_id {
-                            push_group_chain(&mut crumbs, gid, lib, true);
-                        }
-                    }
-                    // `toolbar.tsx:54`: a plain leaf, not a link.
-                    None => crumbs.push(Crumb {
-                        id: "filter:all".into(),
-                        label: "All snippets".into(),
-                        target: None,
-                    }),
-                },
-                LibraryFilter::Favorites => crumbs.push(Crumb {
-                    id: "filter:favorites".into(),
-                    label: "Favorites".into(),
-                    target: selected
-                        .is_some()
-                        .then_some(MainView::Library(LibraryFilter::Favorites)),
-                }),
-                LibraryFilter::Recent => crumbs.push(Crumb {
-                    id: "filter:recent".into(),
-                    label: "Recently used".into(),
-                    target: selected
-                        .is_some()
-                        .then_some(MainView::Library(LibraryFilter::Recent)),
-                }),
-                LibraryFilter::Disabled => crumbs.push(Crumb {
-                    id: "filter:disabled".into(),
-                    label: "Turned off".into(),
-                    target: selected
-                        .is_some()
-                        .then_some(MainView::Library(LibraryFilter::Disabled)),
-                }),
-                LibraryFilter::Group(gid) => {
-                    push_group_chain(&mut crumbs, *gid, lib, selected.is_some());
-                }
+            // `toolbar.tsx`: the filter crumb is always a link (the widget draws the last crumb
+            // as the page whatever its target).
+            let filter_crumb = match filter {
+                LibraryFilter::Favorites => Some(("filter:favorites", "Favorites")),
+                LibraryFilter::Recent => Some(("filter:recent", "Recently used")),
+                LibraryFilter::Disabled => Some(("filter:disabled", "Turned off")),
+                LibraryFilter::All | LibraryFilter::Group(_) => None,
+            };
+            if let Some((id, label)) = filter_crumb {
+                crumbs.push(Crumb {
+                    id: id.into(),
+                    label: label.into(),
+                    target: Some(view.clone()),
+                });
+            }
+            // The group trail comes from the selected snippet's group in every view, else
+            // from the group the view shows.
+            let group = selected.and_then(|sn| sn.group_id).or(match filter {
+                LibraryFilter::Group(gid) => Some(*gid),
+                _ => None,
+            });
+            if let Some(gid) = group {
+                push_group_chain(&mut crumbs, gid, lib);
+            }
+            if selected.is_none() && *filter == LibraryFilter::All {
+                // `toolbar.tsx:54`: a plain leaf, not a link.
+                crumbs.push(Crumb {
+                    id: "filter:all".into(),
+                    label: "All snippets".into(),
+                    target: None,
+                });
             }
 
             if let Some(sn) = selected {
@@ -151,12 +144,8 @@ pub fn compute_crumbs(
     crumbs
 }
 
-fn push_group_chain(
-    crumbs: &mut Vec<Crumb>,
-    leaf_group_id: Uuid,
-    lib: &KudzuLibrary,
-    leaf_clickable: bool,
-) {
+/// The group and its ancestors, top first, each a link to its group.
+fn push_group_chain(crumbs: &mut Vec<Crumb>, leaf_group_id: Uuid, lib: &KudzuLibrary) {
     let mut chain = Vec::new();
     let mut cur = Some(leaf_group_id);
     let mut guard = 0usize;
@@ -172,13 +161,11 @@ fn push_group_chain(
         cur = group.parent_id;
     }
     chain.reverse();
-    let last_idx = chain.len().saturating_sub(1);
-    for (idx, (gid, name)) in chain.into_iter().enumerate() {
-        let clickable = idx < last_idx || leaf_clickable;
+    for (gid, name) in chain {
         crumbs.push(Crumb {
             id: format!("group:{gid}"),
             label: name,
-            target: clickable.then_some(MainView::Library(LibraryFilter::Group(gid))),
+            target: Some(MainView::Library(LibraryFilter::Group(gid))),
         });
     }
 }

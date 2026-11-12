@@ -27,6 +27,7 @@ impl MainState {
                 self.frame.selected_snippet = None;
             }
         }
+        library::sync(self);
     }
 
     /// Feeds the leaf breadcrumb's stable id into [`crate::motion::Arrivals`], so mount,
@@ -53,6 +54,7 @@ impl MainState {
             self.clear_sidebar_material();
         }
         self.observe_breadcrumbs();
+        library::sync(self);
     }
 
     /// Selects (or clears) a snippet and observes breadcrumb arrivals.

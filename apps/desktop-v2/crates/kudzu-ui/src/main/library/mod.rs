@@ -1,24 +1,71 @@
-//! Library list screen stub. Owned and filled out by S50 (`crates/kudzu-ui/src/main/library/**`).
+//! The library list (S50, `snippet-list.tsx`): the header with sort and new, the filter, the
+//! virtual rows, the bulk bar and the empty states. LIB-1 to LIB-5 and LIB-12.
+//!
+//! - `model`: scope, sort, cap, rows and the selection, with no `El`.
+//! - `listing`: the derived list, cached per (snapshot, view, filter, sort), and the change
+//!   census that decides which rows rise in.
+//! - `view`, `row`, `bulk`, `empty`: what is drawn. `keys`: the list's and the filter's keys.
+//! - `drag`: rows as drag sources for the sidebar (S42). `actions`: what the list does to the
+//!   library. `scenes`: the reference states.
+//!
+//! [`sync`] keeps the open snippet inside the list. The poll runs it, navigation and library
+//! refreshes run it, and every handler here that changes what is listed runs it, so a frame
+//! never shows a selection the list has lost.
 
 pub mod actions;
+pub mod bulk;
+pub mod drag;
+pub mod empty;
+mod keys;
+mod listing;
 pub mod model;
 #[cfg(test)]
 mod model_tests;
+mod row;
+pub mod scenes;
+mod view;
 
-use rune::{col, text, El, TextEdit, Tx};
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use crate::main::state::LibraryFilter;
+use rune::{TextEdit, Tx};
+use uuid::Uuid;
+
+use crate::main::state::MainView;
 use crate::shell::MainState;
-use crate::theme::{icons, Theme};
-use crate::widgets::kit_ext::input::Input;
+
+pub use listing::Listing;
+use model::{keep_valid, Selection, Sort};
+pub use view::view;
 
 pub const FILTER_KEY: &str = "library-filter";
 pub const LIST_KEY: &str = "library-list-slot";
+/// The scroll viewport around the rows: reveals are scoped to it (#547).
+pub const SCROLL_KEY: &str = "library-scroll";
+pub const SORT_KEY: &str = "library-sort";
+pub const NEW_KEY: &str = "library-new";
 
-/// Per-screen state owned by the library list module (S50).
-#[derive(Clone, Debug, Default)]
+/// The key of a snippet's row.
+pub fn row_key(id: Uuid) -> String {
+    format!("snippet-{id}")
+}
+
+/// The library list's own state. The open snippet is the frame's `selected_snippet`.
+#[derive(Default)]
 pub struct State {
     pub filter: TextEdit,
+    pub sort: Sort,
+    pub sort_open: bool,
+    pub move_open: bool,
+    pub selection: Selection,
+    pub(crate) drag: drag::Source,
+    cache: RefCell<Option<listing::Cache>>,
+    /// Tauri's `init` opened the first snippet in library order once; so do we.
+    started: bool,
+    /// The view the multi-selection belongs to; another view drops it.
+    seen_view: Option<MainView>,
+    /// The open snippet the list last scrolled to.
+    revealed: Option<Uuid>,
 }
 
 impl State {
@@ -38,67 +85,106 @@ impl State {
     pub fn blur_inputs(&mut self) {
         self.filter.focused = false;
     }
+
+    /// True while a menu of the list is open.
+    pub fn menu_open(&self) -> bool {
+        self.sort_open || self.move_open
+    }
+
+    /// The list for this window's library snapshot and the library view on screen. Built
+    /// again only when one of its inputs changed.
+    pub fn listing(&self, s: &MainState) -> Option<Rc<Listing>> {
+        let MainView::Library(scope) = &s.frame.view else {
+            return None;
+        };
+        let now = crate::palette::model::utc_from(s.svc.clock.as_ref());
+        let mut cache = self.cache.borrow_mut();
+        Some(listing::refresh(
+            &mut cache,
+            &s.model.library,
+            scope,
+            &self.filter.text,
+            self.sort,
+            now,
+        ))
+    }
+
+    /// Ids of rows that arrived with the last library change, and whether that change was a
+    /// bulk one that lands without motion.
+    pub(crate) fn motion(&self) -> listing::Motion {
+        self.cache
+            .borrow()
+            .as_ref()
+            .map(|c| c.motion.clone())
+            .unwrap_or_default()
+    }
+
+    /// What ⌘⌫ deletes: the multi-selection when it holds more than one row, else the open
+    /// snippet (`selection()`).
+    pub fn targets(&self, cursor: Option<Uuid>) -> Vec<Uuid> {
+        self.selection.targets(cursor)
+    }
 }
 
-/// Placeholder library list pane until S50 lands. Provides the `"Snippets"` region, heading, and
-/// `"Filter snippets"` input so frame shortcuts (`⌘F`, `⌘L`, `⌘⌫`, IME guards) operate against a
-/// real `TextEdit`.
-pub fn view(s: &MainState, theme: &Theme, filter: &LibraryFilter, pane_focused: bool) -> El {
-    let c = &theme.c;
-    let ty = &theme.ty;
-    let lib = s.library_snapshot();
-    let heading = match filter {
-        LibraryFilter::All => "All snippets".to_owned(),
-        LibraryFilter::Favorites => "Favorites".to_owned(),
-        LibraryFilter::Recent => "Recently used".to_owned(),
-        LibraryFilter::Disabled => "Turned off".to_owned(),
-        LibraryFilter::Group(gid) => lib
-            .groups
-            .iter()
-            .find(|g| g.id == *gid)
-            .map(|g| g.name.clone())
-            .unwrap_or_else(|| "Group".to_owned()),
-    };
-
-    let filter_box = Input::new(&s.library.filter)
-        .leading_icon(&icons::SEARCH)
-        .icon_at(10.0)
-        .text_style(ty.body)
-        .with(|t| {
-            t.placeholder("Filter snippets")
-                .on_edit(|st: &mut MainState| &mut st.library.filter)
-        })
-        .build(theme)
-        .key(FILTER_KEY);
-
-    let mut pane = col()
-        .key(LIST_KEY)
-        .role("region")
-        .label("Snippets")
-        .focusable(true)
-        .w(300.0)
-        .min_w(260.0)
-        .max_w(320.0)
-        .h_full()
-        .min_h(0.0)
-        .border_sides([0.0, 1.0, 0.0, 0.0], c.hairline)
-        .padding(12.0)
-        .gap(10.0)
-        .child(
-            text(heading)
-                .role("heading")
-                .font(ty.headline)
-                .color(c.foreground),
-        )
-        .child(filter_box)
-        .child(
-            text(format!("{} snippets", lib.snippets.len()))
-                .font(ty.meta_11)
-                .color(c.muted_foreground),
-        );
-
-    if pane_focused {
-        pane = pane.focus_selected(true);
+/// Keeps the open snippet inside the list (`snippet-list.tsx`), drops the multi-selection on
+/// another view and forgets deleted ids. True when the selection changed.
+pub fn sync(s: &mut MainState) -> bool {
+    let mut changed = false;
+    if !s.library.started {
+        s.library.started = true;
+        if s.frame.selected_snippet.is_none() {
+            if let Some(first) = s.model.library.snippets.first().map(|sn| sn.id) {
+                s.select_snippet(Some(first));
+                changed = true;
+            }
+        }
     }
-    pane
+    let view = s.frame.view.clone();
+    let MainView::Library(scope) = &view else {
+        return changed;
+    };
+    if s.library.seen_view.as_ref() != Some(&view) {
+        if s.library.seen_view.is_some() {
+            changed |= s.library.selection.clear();
+            s.library.sort_open = false;
+            s.library.move_open = false;
+        }
+        s.library.seen_view = Some(view.clone());
+    }
+    let Some(listing) = s.library.listing(s) else {
+        return changed;
+    };
+    let exists = |id: Uuid| listing.indexed.position(id).is_some();
+    s.library.selection.retain(exists);
+    let cursor = s.frame.selected_snippet;
+    let next = keep_valid(cursor, &listing.ids, &s.library.filter.text, scope, exists);
+    if next != cursor {
+        s.select_snippet(next);
+        changed = true;
+    }
+    changed
+}
+
+/// Scrolls the open snippet's row into view when it changed since the last time (the list's
+/// `scrollToIndex` effect): a route, a new snippet or a sort can move it off screen. The poll
+/// runs this; the list's own keys reveal as they move.
+pub fn reveal(s: &mut MainState, tx: &mut Tx) {
+    let cursor = s.frame.selected_snippet;
+    if cursor == s.library.revealed || !s.frame.view.in_library() {
+        return;
+    }
+    s.library.revealed = cursor;
+    if let Some(id) = cursor {
+        if s.library.listing(s).is_some_and(|l| l.ids.contains(&id)) {
+            tx.scroll_into_view_in(SCROLL_KEY, row_key(id));
+        }
+    }
+}
+
+/// Starts the list over: the next [`sync`] opens the first snippet in library order again,
+/// as a fresh window does. Scenes call it after they replace the library.
+pub fn restart(s: &mut MainState) {
+    s.library = State::default();
+    s.select_snippet(None);
+    s.refresh_library_snapshot();
 }

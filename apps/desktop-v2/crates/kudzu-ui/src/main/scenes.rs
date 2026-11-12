@@ -17,4 +17,12 @@ pub const SCENES: &[Scene] = &[
     ("onboarding-espanso", onboarding::espanso),
     ("onboarding-espanso-retry", onboarding::espanso_retry),
     ("onboarding-finish-retry", onboarding::finish_retry),
+    ("library", crate::main::library::scenes::library),
+    ("library-empty", crate::main::library::scenes::library_empty),
+    ("snippet-bulk", crate::main::library::scenes::snippet_bulk),
+    (
+        "snippet-deleted-toast",
+        crate::main::library::scenes::snippet_deleted_toast,
+    ),
+    ("library-5000", crate::main::library::scenes::library_5000),
 ];

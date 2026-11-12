@@ -26,10 +26,6 @@ fn names(ix: &Indexed, scope: &LibraryFilter, query: &str, sort: Sort) -> Vec<St
         .collect()
 }
 
-fn id_of(lib: &KudzuLibrary, name: &str) -> Uuid {
-    lib.snippets.iter().find(|s| s.name == name).unwrap().id
-}
-
 fn group_id(lib: &KudzuLibrary, name: &str) -> Uuid {
     lib.groups.iter().find(|g| g.name == name).unwrap().id
 }

@@ -145,6 +145,8 @@ pub struct Button {
     size: Size,
     icon: Option<&'static Icon>,
     icon_end: Option<&'static Icon>,
+    /// The label and icon colour, instead of the variant's (`text-muted-foreground`).
+    ink: Option<Color>,
     state: State,
     attach: Vec<Attach>,
     keys: Option<Keys>,
@@ -159,10 +161,16 @@ impl Button {
             size: Size::Default,
             icon: None,
             icon_end: None,
+            ink: None,
             state: State::Rest,
             attach: Vec::new(),
             keys: None,
         }
+    }
+    /// Draws the label and icon in `c` (a ghost button with `text-muted-foreground`).
+    pub fn ink(mut self, c: Color) -> Self {
+        self.ink = Some(c);
+        self
     }
     pub fn variant(mut self, v: Variant) -> Self {
         self.variant = v;
@@ -245,6 +253,7 @@ impl Button {
             ),
             Variant::Link => (ButtonVariant::Ghost, None, c.primary),
         };
+        let ink = self.ink.unwrap_or(ink);
         let (label, glyph, end) = (self.label.clone(), self.icon, self.icon_end);
         let face = move |_: TextStyle, _: Color| {
             let mut face = row().gap(m.gap).center_y();

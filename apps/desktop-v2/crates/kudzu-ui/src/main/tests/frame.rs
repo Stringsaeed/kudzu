@@ -141,6 +141,18 @@ fn breadcrumbs_collapse_past_four_and_navigate_via_overflow_menu() {
 #[test]
 fn breadcrumb_arrivals_ignore_mount_renames_and_bursts() {
     let mut rig = Rig::new(true);
+    // S50: the window opens on the first snippet (`store.ts` `init`), whose crumb would stay the
+    // leaf in every view. With no snippets there is no selection and each view is the leaf.
+    rig.kudzu
+        .library
+        .transact(|lib| {
+            lib.snippets.clear();
+            Ok(())
+        })
+        .unwrap();
+    rig.settle();
+    rig.rt.update(|st, _| st.select_snippet(None));
+    rig.settle();
 
     // Initial mount never counts as an arrival, even across idle frames on the same crumb.
     assert_eq!(rig.rt.state.frame.breadcrumb_arrivals.count(), 0);

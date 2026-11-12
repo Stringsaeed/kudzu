@@ -200,6 +200,7 @@ impl MainState {
             self.observe_breadcrumbs();
             changed = true;
         }
+        changed |= crate::main::library::sync(self);
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();
@@ -223,6 +224,7 @@ pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
     s.frame.clock_secs = tx.clock();
     let mut changed = s.sync();
     changed |= crate::main::insights::poll(s, tx);
+    crate::main::library::reveal(s, tx);
     if let Some(due) = s.frame.toasts.next_due() {
         tx.wake_at(due);
     }

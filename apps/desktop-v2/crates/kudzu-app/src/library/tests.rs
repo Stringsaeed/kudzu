@@ -385,3 +385,38 @@ fn missing_duplicate_and_update_keep_their_distinct_reference_errors() {
     );
     assert_eq!(h.service.snapshot(), before);
 }
+
+/// The library list's bulk bar edits many snippets at once: one revision, the rules of
+/// `update_snippet` for each, and an id another device deleted meanwhile is skipped.
+#[test]
+fn updating_many_snippets_is_one_revision_and_skips_missing_ids() {
+    let h = Harness::new(KudzuLibrary::default());
+    let (a, _) = h.service.create_snippet(SnippetDraft::default()).unwrap();
+    let (b, start) = h.service.create_snippet(SnippetDraft::default()).unwrap();
+    h.clock.advance(Duration::from_secs(60));
+    let mut edits: Vec<SnippetRecord> = [a.clone(), b.clone()]
+        .into_iter()
+        .map(|mut s| {
+            s.is_favorite = true;
+            s.created_at = h.clock.now().into();
+            s.triggers = vec![" ".into(), ";x".into()];
+            s
+        })
+        .collect();
+    edits.push(SnippetRecord {
+        id: Uuid::nil(),
+        ..a.clone()
+    });
+    let (saved, revision) = h.service.update_snippets(edits).unwrap();
+    assert_eq!(revision.0, start.0 + 1);
+    assert_eq!(saved.iter().map(|s| s.id).collect::<Vec<_>>(), [a.id, b.id]);
+    let lib = h.service.watch().get();
+    for (id, created) in [(a.id, a.created_at), (b.id, b.created_at)] {
+        let s = lib.snippets.iter().find(|s| s.id == id).unwrap();
+        assert!(s.is_favorite);
+        assert_eq!(s.created_at, created);
+        assert_eq!(s.updated_at.timestamp(), 1_794_398_460);
+        assert_eq!(s.triggers, [";x"]);
+    }
+    assert_eq!(lib.snippets.len(), 2);
+}

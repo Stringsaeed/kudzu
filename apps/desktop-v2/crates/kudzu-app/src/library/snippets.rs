@@ -145,6 +145,30 @@ impl LibraryService {
         })
     }
 
+    /// [`Self::update_snippet`] for many snippets in one revision (the library list's bulk bar).
+    /// An id no longer in the library is skipped; the saved records come back in input order.
+    pub fn update_snippets(
+        &self,
+        snippets: Vec<SnippetRecord>,
+    ) -> Result<(Vec<SnippetRecord>, Revision), LibraryError> {
+        self.transact(|library| {
+            let now = self.clock.now().into();
+            let mut saved = Vec::with_capacity(snippets.len());
+            for mut snippet in snippets {
+                let Some(existing) = library.snippets.iter_mut().find(|s| s.id == snippet.id)
+                else {
+                    continue;
+                };
+                snippet.created_at = existing.created_at;
+                snippet.updated_at = now;
+                snippet.triggers.retain(|t| !t.trim().is_empty());
+                *existing = snippet.clone();
+                saved.push(snippet);
+            }
+            Ok(saved)
+        })
+    }
+
     pub fn create_snippet(
         &self,
         draft: SnippetDraft,

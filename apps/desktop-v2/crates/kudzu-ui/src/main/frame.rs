@@ -28,7 +28,7 @@ pub fn view(s: &MainState, cx: &mut Cx<MainState>) -> El {
     } else {
         let header = toolbar::view(s, cx, theme, &mut overlays);
         let sidebar_slot = build_sidebar_slot(s, theme);
-        let main_card = build_main_card(s, theme, cx.is_reduced_motion(), &mut overlays);
+        let main_card = build_main_card(s, cx, theme, &mut overlays);
 
         let body = row()
             .key("main-body")
@@ -97,10 +97,11 @@ fn build_sidebar_slot(s: &MainState, theme: &Theme) -> El {
 
 fn build_main_card(
     s: &MainState,
+    cx: &Cx<MainState>,
     theme: &'static Theme,
-    reduced_motion: bool,
     overlays: &mut Vec<El>,
 ) -> El {
+    let reduced_motion = cx.is_reduced_motion();
     let c = &theme.c;
     let pad_left = if s.frame.sidebar_open {
         0.0
@@ -118,7 +119,7 @@ fn build_main_card(
             .h_full()
             .min_w(0.0)
             .min_h(0.0)
-            .child(library::view(s, theme, filter, list_focused))
+            .child(library::view(s, cx, theme, filter, list_focused, overlays))
             .child(editor::view(s, theme, editor_focused)),
         MainView::Clipboard(filter) => clipboard::view(s, theme, *filter, list_focused, overlays),
         MainView::Settings(pane) => settings::view(s, theme, *pane),

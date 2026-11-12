@@ -19,16 +19,38 @@ use crate::shell::{MainState, NewSnippet};
 /// clears the filter, leaves Recent, Off, Insights, Settings and Clipboard for All, selects the
 /// snippet and focuses its name. `None` when the library refused it.
 pub fn new_snippet(s: &mut MainState, seed: NewSnippet) -> Option<Uuid> {
-    let view = s.frame.view.clone();
     let prefix = s.svc.settings.watch().get().default_trigger_prefix.clone();
     let triggers = match seed.trigger {
         t if t.is_empty() => Vec::new(),
         t if t.starts_with(&prefix) => vec![t],
         t => vec![format!("{prefix}{t}")],
     };
+    open_new(s, seed.name, seed.content, triggers)
+}
+
+/// "Create it" under a filter that matches nothing: the trimmed filter becomes the trigger when
+/// it starts with `;`, else the name (`snippet-list.tsx`, which tests `;` itself, not the
+/// default prefix).
+pub fn create_from_filter(s: &mut MainState) -> Option<Uuid> {
+    let typed = s.library.filter.text.trim().to_owned();
+    if typed.starts_with(';') {
+        open_new(s, String::new(), String::new(), vec![typed])
+    } else {
+        open_new(s, typed, String::new(), Vec::new())
+    }
+}
+
+/// `store.ts` `newSnippet` once the triggers are decided.
+fn open_new(
+    s: &mut MainState,
+    name: String,
+    content: String,
+    triggers: Vec<String>,
+) -> Option<Uuid> {
+    let view = s.frame.view.clone();
     let draft = SnippetDraft {
-        name: seed.name,
-        content: seed.content,
+        name,
+        content,
         triggers,
         group_id: match view {
             MainView::Library(LibraryFilter::Group(gid)) => Some(gid),
@@ -61,6 +83,12 @@ pub fn new_snippet(s: &mut MainState, seed: NewSnippet) -> Option<Uuid> {
     s.frame.focus.move_to(MainPane::Editor);
     s.editor.request_name_focus(created.id);
     Some(created.id)
+}
+
+/// The filter's clear button and its first Escape.
+pub fn clear_filter(s: &mut MainState) {
+    s.library.filter.replace_text("");
+    library::sync(s);
 }
 
 /// `⌘D`.
@@ -104,11 +132,11 @@ fn update_selected(s: &mut MainState, edit: impl FnOnce(&mut kudzu_core::Snippet
     }
 }
 
-/// `⌘⌫`.
+/// `⌘⌫`: the list's selection, the multi-selection when it holds more than one row
+/// (`listRef.current.selection()`), else the open snippet.
 pub fn delete_selected(s: &mut MainState, tx: &mut Tx) {
-    if let Some(id) = s.frame.selected_snippet {
-        delete_with_undo(s, &[id], tx);
-    }
+    let targets = s.library.targets(s.frame.selected_snippet);
+    delete_with_undo(s, &targets, tx);
 }
 
 /// `main-app.tsx` `requestDelete`: deletes `ids`, selects the open snippet's neighbour when it
@@ -125,6 +153,7 @@ pub fn delete_with_undo(s: &mut MainState, ids: &[Uuid], tx: &mut Tx) -> bool {
     if deleted.snippets.is_empty() {
         return false;
     }
+    s.library.selection.retain(|id| !ids.contains(&id));
     s.refresh_library_snapshot();
     if let Some(next) = neighbour {
         s.select_snippet(next);
