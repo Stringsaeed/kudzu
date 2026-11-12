@@ -367,3 +367,21 @@ fn nested_clipboard_templates_use_only_text_reads_and_escaped_tags_do_not_read()
 
 mod admission;
 mod quick_search;
+
+/// Two quick toggles flip the setting twice, even before the feed has echoed the first one
+/// into the engine status (the shell and the sidebar's ⌘⇧P both toggle through this).
+#[test]
+fn toggle_paused_flips_the_setting_without_waiting_for_the_engine() {
+    let h = Harness::new(KudzuLibrary::default());
+    let service = h.expansion();
+    let before = h.settings.watch().get().paused;
+    service.toggle_paused().unwrap();
+    assert_eq!(h.settings.watch().get().paused, !before);
+    service.toggle_paused().unwrap();
+    assert_eq!(h.settings.watch().get().paused, before);
+    service.toggle_paused().unwrap();
+    until(&service.feed(), |f| {
+        f.settings == h.settings.watch().revision()
+    });
+    assert_eq!(service.status().get().paused, !before);
+}

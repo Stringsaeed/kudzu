@@ -108,6 +108,11 @@ impl ExpansionService {
     pub fn set_paused(&self, paused: bool) -> Result<Revision, ExpansionError> {
         Ok(self.settings.update(|s| s.paused = paused)?)
     }
+    /// Flips the `paused` setting in one update. Callers must not read `status().paused` and
+    /// write its opposite: the status echoes the setting only after the feed applies it.
+    pub fn toggle_paused(&self) -> Result<Revision, ExpansionError> {
+        Ok(self.settings.update(|s| s.paused = !s.paused)?)
+    }
     /// How long a Quick Search pick may keep triggers suppressed while no outcome arrives.
     pub fn with_outcome_deadline(mut self, deadline: std::time::Duration) -> Self {
         self.outcome_deadline = deadline;

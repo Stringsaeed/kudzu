@@ -155,8 +155,7 @@ impl Shell {
     }
 
     pub fn toggle_pause(&self) {
-        let paused = self.0.expansion.status().get().paused;
-        if let Err(error) = self.0.expansion.set_paused(!paused) {
+        if let Err(error) = self.0.expansion.toggle_paused() {
             log::warn!("pausing failed: {error}");
         }
     }

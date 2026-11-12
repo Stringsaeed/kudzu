@@ -18,6 +18,5 @@ pub fn new_group(s: &mut MainState) {
 
 /// `⌘⇧P`, and the footer's pause button.
 pub fn toggle_pause(s: &mut MainState) {
-    let paused = !s.svc.expansion.status().get().paused;
-    let _ = s.svc.expansion.set_paused(paused);
+    let _ = s.svc.expansion.toggle_paused();
 }

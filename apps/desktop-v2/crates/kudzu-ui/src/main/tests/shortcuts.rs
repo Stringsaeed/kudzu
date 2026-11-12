@@ -90,12 +90,13 @@ fn all_lib_14_shortcuts_and_history_cap_execute_through_runtime() {
         MainView::Library(LibraryFilter::Group(group.id))
     );
 
-    // ⌘⇧P toggles expansion pause and resume (`Variant::Dev` starts paused).
-    let initially_paused = rig.kudzu.expansion.status().get().paused;
+    // ⌘⇧P toggles the `paused` setting, which the engine status then follows on its feed
+    // thread. Two quick presses must flip it twice, so read the setting, not the status.
+    let initially_paused = rig.kudzu.settings.watch().get().paused;
     rig.press(cmd_shift('p'));
-    assert_eq!(rig.kudzu.expansion.status().get().paused, !initially_paused);
+    assert_eq!(rig.kudzu.settings.watch().get().paused, !initially_paused);
     rig.press(cmd_shift('p'));
-    assert_eq!(rig.kudzu.expansion.status().get().paused, initially_paused);
+    assert_eq!(rig.kudzu.settings.watch().get().paused, initially_paused);
 
     // ⌘1–5, ⌘, ⌘[ / ⌘] back/forward + forward truncation on push.
     rig.press(cmd('1'));
