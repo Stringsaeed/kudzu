@@ -16,7 +16,7 @@ use crate::theme::{icons, Theme};
 use crate::widgets::kit_ext::button::{Button, Size, Variant};
 use crate::widgets::kit_ext::input::Input;
 use crate::widgets::kit_ext::menu;
-use crate::widgets::shortcut::Shortcut;
+use crate::widgets::shortcut::{Shortcut, Tone};
 
 /// Retention choices of the options menu (`RETENTION_OPTIONS`).
 pub const RETENTION: [(u32, &str); 6] = [
@@ -162,12 +162,17 @@ fn options_menu(s: &MainState, theme: &Theme, layer: &mut Vec<El>) -> El {
 /// The search field: ⌘F hint at rest, a clear button with text.
 pub fn search(s: &MainState, theme: &Theme) -> El {
     let trailing = if s.clipboard.has_query() {
-        Button::new("Clear search")
-            .variant(Variant::Ghost)
-            .size(Size::IconXs)
-            .icon(&icons::X)
+        row()
+            .role("button")
+            .label("Clear search")
+            .focusable(true)
+            .size(20.0, 20.0)
+            .center()
+            .radius(4.0)
+            .child(icon(&icons::X, 14.0).color(theme.c.faint))
             .on_press(|st: &mut MainState| st.clipboard.search.replace_text(""))
-            .build(theme)
+            // The field's trailing slot ends 11 pt in; the reference's `right-2` is 8.
+            .offset(3.0, 0.0)
     } else {
         Shortcut::combo("mod+f").build(theme)
     };
@@ -235,11 +240,17 @@ pub fn footer(s: &MainState, theme: &Theme) -> El {
         .center_y()
         .child(text(kept.clone()).font(theme.ty.meta_11).color(c.faint).single_line().grow(1.0))
         .child(
-            Button::new("Change")
-                .variant(Variant::Link)
-                .size(Size::Xs)
-                .on_press(|st: &mut MainState| st.navigate_to(MainView::Settings(SettingsPane::Clipboard)))
-                .build(theme),
+            row()
+                .role("button")
+                .label("Change")
+                .focusable(true)
+                .px(4.0)
+                .h(20.0)
+                .center_y()
+                .radius(4.0)
+                .hover(c.foreground.alpha(0.05))
+                .child(text("Change").font(theme.ty.meta_11).color(c.muted_foreground))
+                .on_press(|st: &mut MainState| st.navigate_to(MainView::Settings(SettingsPane::Clipboard))),
         );
     col()
         .key("clip-footer")
@@ -277,9 +288,9 @@ pub fn item_actions(s: &MainState, theme: &Theme, e: &ClipEntry) -> El {
         Button::new("Copy")
             .size(Size::Sm)
             .icon(if copied { &icons::CHECK } else { &icons::COPY })
-            .shortcut("↩")
             .on_press_tx(|st: &mut MainState, tx| actions::copy_active(st, false, tx))
-            .build(theme),
+            .build(theme)
+            .child(Shortcut::combo("enter").tone(Tone::OnAccent).build(theme)),
     );
     if e.rich {
         let label = if s.clipboard.prefs.paste_plain { "With formatting" } else { "As plain text" };
@@ -288,9 +299,9 @@ pub fn item_actions(s: &MainState, theme: &Theme, e: &ClipEntry) -> El {
                 .variant(Variant::Ghost)
                 .size(Size::Sm)
                 .icon(&icons::TYPE)
-                .shortcut("⇧↩")
                 .on_press_tx(|st: &mut MainState, tx| actions::copy_active(st, true, tx))
-                .build(theme),
+                .build(theme)
+                .child(Shortcut::combo("shift+enter").tone(Tone::Ghost).build(theme).ml(-3.0)),
         );
     }
     bar = bar.child(row().grow(1.0));

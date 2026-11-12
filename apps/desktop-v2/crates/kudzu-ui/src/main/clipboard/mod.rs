@@ -13,7 +13,7 @@
 pub(crate) mod actions;
 mod bulk;
 mod keys;
-mod scenes;
+pub mod scenes;
 mod toolbar;
 mod view;
 
@@ -31,7 +31,6 @@ use crate::main::state::{MainPane, MainView};
 use crate::shell::MainState;
 
 pub use keys::handle as handle_key;
-pub use scenes::SCENES;
 pub use view::view;
 
 pub const SEARCH_KEY: &str = "clipboard-search";
@@ -107,7 +106,7 @@ impl Default for State {
             clear: None,
             large_preview: false,
             announcement: String::new(),
-            card_w: 940.0,
+            card_w: 948.0,
             copied_until: None,
             jobs: Vec::new(),
             seen: Seen::default(),

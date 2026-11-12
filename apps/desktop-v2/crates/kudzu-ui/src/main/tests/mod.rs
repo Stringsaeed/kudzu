@@ -3,6 +3,7 @@
 //! screen step adds its own file rather than editing a shared one.
 
 mod clipboard;
+mod clipboard_landmarks;
 mod frame;
 mod insights;
 mod landmarks;

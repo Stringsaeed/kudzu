@@ -70,8 +70,12 @@ pub fn view(
         .min_w(0.0)
         .min_h(0.0)
         .on_drawn_layout_tx(|st: &mut MainState, r, tx: &mut Tx| {
-            st.clipboard.card_w = r[2];
-            tx.live_only();
+            // A new width rebuilds the view (the column is a clamp of it); the same one doesn't.
+            if (st.clipboard.card_w - r[2]).abs() > 0.5 {
+                st.clipboard.card_w = r[2];
+            } else {
+                tx.live_only();
+            }
         })
         .child(left)
         .child(preview_column(s, theme, filter, layer))
