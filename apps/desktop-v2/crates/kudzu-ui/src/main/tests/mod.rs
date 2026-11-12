@@ -10,12 +10,12 @@ mod frame;
 mod insights;
 mod landmarks;
 mod library;
-mod onboarding;
 mod library_bulk;
 mod library_landmarks;
 mod library_list;
 mod library_reveal;
 mod library_scroll;
+mod onboarding;
 mod routes;
 mod shortcuts;
 
