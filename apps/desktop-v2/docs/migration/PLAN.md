@@ -45,6 +45,7 @@ Build Kudzu again as a pure Rust app on [Rune](https://github.com/anomalyco/rune
     - Quote only numbers a command printed, with the command, the build profile and the machine's load.
     - Reports go in `docs/migration/`, never `src/`.
     - Nothing is written outside the worktree. Test folders come from `std::env::temp_dir()`.
+    - The one exception is `kudzu-app`'s assembly tests. They keep their scratch folder under `/tmp`, so the agent's Unix socket path fits `sun_path`.
     - Commit bodies name the tests.
 13. **Tests.**
     - Assertions are unconditional: no `if` that skips them when a fixture doesn't match.
@@ -583,13 +584,13 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
 - A second review is required only after a blocker or a safety major.
 
-**Totals:** 45 done, 1 merged and fixing review findings, 4 building, 11 waiting (61 steps).
+**Totals:** 45 done, 2 merged and in review or fixing, 3 building, 11 waiting (61 steps).
 
 | Wave | Status |
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
-| 9 | S43, S50, S58, S64 and S65 done. S55 is fixing review findings, and S42 is building. |
+| 9 | S43, S50, S58, S64 and S65 done. S42 is merged and awaiting review, and S55 is fixing review findings. |
 | 10 | S59 done; S51 and S61 building. |
 | 11 | S60 building (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
@@ -598,7 +599,7 @@ Waves 9 and later, step by step:
 
 | Step | State | Built by → reviewed by |
 |---|---|---|
-| S42 sidebar | Building. Its navigation is committed in its worktree. | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
+| S42 sidebar | Merged (`fc064426`, report `S42_REPORT.md`); awaiting review | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
 | S43 command menu and cheat sheet | Done (`reviews/S43-command-menu.md`); the title-width gap is recorded for S73 | Grok 4.7 → Codex Sol |
 | S50 library list | Done (`reviews/S50-library.md`); the 13 pt row inset was kept, measured against the reference | Opus → Grok 4.7 |
 | S55 group settings and app picker | Merged; fixing 1 blocker, 8 majors (`reviews/S55-group-settings.md`) | Grok 4.7 → Opus |
@@ -639,7 +640,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 
 | Step | State | Notes |
 |---|---|---|
-| S42 sidebar | Building (Codex Terra) | Its navigation is committed in its worktree. Drop targets read `crate::main::library::drag::payload` and accept `crate::dnd::DragPayload`. The footer pause calls `ExpansionService::toggle_paused`. Its `group-context-menu` scene is deferred. |
+| S42 sidebar | Merged as `fc064426`; awaiting review by a non-Codex provider | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
 | S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
 | S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
 | S60 clipboard picker window | Building (Sonnet) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/clipboard-picker-window` (`b68b385b`), for reference only. Its three `picker` scenes compare in full. |
@@ -674,6 +675,7 @@ Each needs a review from a provider other than its builder, then fixes, then a p
 
   Collect them into §3 and file them as §3 describes.
 - **Width tolerances.** S73 decides the font-driven width tolerances recorded per step (2.1 pt in S43, 4 pt and 6 pt in S58 and S59) with the owner.
+- **Flaky test.** `assembly::tests::a_failed_login_item_is_reported_once_until_the_setting_changes` fails now and then under parallel load. It sleeps 80 ms after an unrelated settings change and expects no retry. A plausible cause is that the reaction thread records the failed value as already tried only after it publishes the notice. Check that order in `assembly` reactions and fix it, then make the test wait on that record instead of sleeping.
 - **Antigravity.** It failed every long wave-10 run. Before giving it work, check it with a small job. Then give it M-sized steps only, with a commit after each part.
 
 **How to resume:**
