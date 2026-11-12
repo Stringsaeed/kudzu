@@ -3,6 +3,7 @@
 //! screen step adds its own file rather than editing a shared one.
 
 mod frame;
+mod insights;
 mod landmarks;
 mod library;
 mod onboarding;

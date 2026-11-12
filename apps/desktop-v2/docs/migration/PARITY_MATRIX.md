@@ -136,6 +136,16 @@ Intentional differences, not closed:
 
 - **First-load preview shimmer.** Tauri animates a `background-position` sweep. Rune `Beat` has no background-position, so the first-load well is a static 14×180 bar (`RUNE-GAP` Beat). The demo scene warms the 50 ms preview so the captured state shows the Name field and the meeting follow-up text.
 
+## Insights (S64)
+
+`main` / `insights` (`/?view=insights`, 1180 × 760). The scene stays in `NOT_YET_BUILT` until S73: the reference includes the S42 sidebar. Content-area tree tests cover the tiles, 1.4:1 columns, and 880 pt cap in both themes. Closes INS-2, INS-3, INS-4.
+
+Intentional differences, not closed:
+
+- **Tile hover.** Tauri's `hover:-translate-y-px` is a RUNE-GAP (no `hover_offset`). Tiles sit still.
+- **Bars.** No chart widget (`RUNE_FIT` gap 14). Relative bars are `el()` width springs on `soft_spring(0.480)` with a 60 + i×40 ms stagger; `Beat` cannot `scale_x`. The scene calls `finish_arrival` so the PNG is the final numbers and full bars.
+- **Count-up.** 560 ms quartic `LiveText` (Rune `Tween` is linear only). Reduce Motion and the scene skip it.
+
 ## Quick Search (S56)
 
 `cargo xtask parity --window palette` passes both themes of `search` and `no-match` (28 landmark rows). These stay:

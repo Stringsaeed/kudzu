@@ -201,9 +201,9 @@ Checklist counts (each checkbox is a bundled acceptance item):
 ### Insights
 
 - [ ] [core] [shell] Usage per (snippet, device): expansions count, nonnegative grapheme chars saved, last used; typed expansion subtracts trigger, explicit inserts count full text. Never store typed body. `src-tauri/src/store.rs:169`, `src-tauri/crates/kudzu-engine/src/plan.rs`.
-- [ ] [ts] Aggregate all device rows; sum count/clamped saved chars and latest timestamp; time = chars/5/max(1,WPM). Four tiles Expansions/Characters saved/Time saved/Active snippets; active counts snippet flags, not inherited enablement. `lib/stats.ts`, `components/app/main/insights.tsx:99`.
-- [ ] [ts] Most used top 10 with relative bars; recent6; Never used enabled+triggered snippets up to18; click navigates All+selection; empty sketches/copy; totals include retained orphan usage rows. `components/app/main/insights.tsx:77`.
-- [ ] [ts] WPM slider 10..150 step 5, default 40, persists immediately; formatted k/M/time units and relative dates. Arrival count-up560 ms quartic easing, bars480 ms stagger60+i×40, later WPM changes instant; Reduce Motion skips count-up. `components/app/main/insights.tsx:16`, `lib/stats.ts`.
+- [x] [ts] Aggregate all device rows; sum count/clamped saved chars and latest timestamp; time = chars/5/max(1,WPM). Four tiles Expansions/Characters saved/Time saved/Active snippets; active counts snippet flags, not inherited enablement. `lib/stats.ts`, `components/app/main/insights.tsx:99`.
+- [x] [ts] Most used top 10 with relative bars; recent6; Never used enabled+triggered snippets up to18; click navigates All+selection; empty sketches/copy; totals include retained orphan usage rows. `components/app/main/insights.tsx:77`.
+- [x] [ts] WPM slider 10..150 step 5, default 40, persists immediately; formatted k/M/time units and relative dates. Arrival count-up560 ms quartic easing, bars480 ms stagger60+i×40, later WPM changes instant; Reduce Motion skips count-up. `components/app/main/insights.tsx:16`, `lib/stats.ts`.
 
 ### Data: import, export, backups, restore
 
