@@ -589,7 +589,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
-| 9 | S58, S64 and S65 done. S43 and S50 are fixing review findings, S55 is in review, and S42 is building. |
+| 9 | S58, S64 and S65 done. S43, S50 and S55 are fixing review findings, and S42 is building. |
 | 10 | S59 merged and in review; S51 and S61 building. |
 | 11 | S60 building (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
@@ -601,7 +601,7 @@ Waves 9 and later, step by step:
 | S42 sidebar | Building. Its navigation is committed in its worktree. | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
 | S43 command menu and cheat sheet | Merged; fixing 3 majors (`reviews/S43-command-menu.md`) | Grok 4.7 → Codex Sol |
 | S50 library list | Merged; fixing 1 major (`reviews/S50-library.md`) | Opus → Grok 4.7 |
-| S55 group settings and app picker | Merged; in review | Grok 4.7 → Opus |
+| S55 group settings and app picker | Merged; fixing 1 blocker, 8 majors (`reviews/S55-group-settings.md`) | Grok 4.7 → Opus |
 | S58 clipboard history list | Done (`reviews/S58-clipboard.md`) | Sonnet → Grok 4.7 |
 | S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
@@ -1422,6 +1422,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Live checks from the S43 review:** the list in `docs/migration/reviews/S43-command-menu.md` § "S71 live checks": IME composition in the menu field, focus and selection restoration after every dismissal and activation, no shortcut leakage behind either dialog, keyboard wrap with the selected row visible, both dialogs at 900 × 560, and accessibility and title metrics.
 - **Live checks from the S58 review:** the list in `docs/migration/reviews/S58-clipboard.md` § "S71 live checks": ⌘O and ⌘R on every link and file form, Space before and after S59, VoiceOver on concealed rows and announcements, pasteboard flavours from Shift-Enter, double-click and Clear with pinned items, `?` beside Tauri, and the release scroll and keystroke timings over 5,000 varied clips.
 - **Live checks from the S50 review:** the nine checks in `docs/migration/reviews/S50-library.md` § "S71 live checks": snap after a star and a sort, no second rise after Clear filter, new-snippet routes with the name focused, a far snippet revealed, ⌘⌫ and Undo selection, drag without changing the selection, the release `library-5000` scroll trace on a quiet Mac, `?` opening the cheat sheet, and logs free of snippet text.
+- **Live checks from the S55 review:** the eleven checks in `docs/migration/reviews/S55-group-settings.md` § "Live checks for S71" (blocked until S42 or the S43 follow-up opens the dialog): first-frame values, Return saves, a read-only library folder before and during Save, picker keyboard beside Tauri, 100+ apps in a 900 × 560 window, Retina icons, presses while the list is open, search ranking, the per-app insertion override surviving a rename, a remote rename or delete, and VoiceOver.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
