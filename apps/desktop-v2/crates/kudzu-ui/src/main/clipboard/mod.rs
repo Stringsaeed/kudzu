@@ -166,10 +166,11 @@ impl State {
 pub(crate) fn list_hooks() -> Hooks<MainState> {
     Hooks {
         state: |s: &MainState| &s.clipboard.clips,
-        press: |s: &mut MainState, id: Uuid, click: Click, _tx: &mut Tx| {
+        press: |s: &mut MainState, id: Uuid, click: Click, tx: &mut Tx| {
             s.clipboard.clips.list.click(id, click);
             s.clipboard.large_preview = false;
-            s.frame.focus.move_to(MainPane::List);
+            // A row press takes keyboard focus from the search field, as clicking a list does.
+            nav::focus_list_pane(s, LIST_KEY, tx);
         },
         pick: |s: &mut MainState, id: Uuid, tx: &mut Tx| {
             s.clipboard.clips.list.activate(id);
@@ -227,9 +228,17 @@ fn pull(s: &mut MainState) -> bool {
     };
     let mut changed = false;
     let c = &mut s.clipboard;
-    if (c.prefs.recording, c.prefs.retention_days, c.prefs.show_secrets, c.prefs.paste_plain)
-        != (prefs.recording, prefs.retention_days, prefs.show_secrets, prefs.paste_plain)
-    {
+    if (
+        c.prefs.recording,
+        c.prefs.retention_days,
+        c.prefs.show_secrets,
+        c.prefs.paste_plain,
+    ) != (
+        prefs.recording,
+        prefs.retention_days,
+        prefs.show_secrets,
+        prefs.paste_plain,
+    ) {
         c.prefs = prefs;
         changed = true;
     }
@@ -258,9 +267,12 @@ fn pull(s: &mut MainState) -> bool {
     let results = service.query(filter, &query);
     c.clips.look.terms = query.terms.clone();
     c.clips.look.now = local;
-    c.clips
-        .list
-        .set(results.history.clone(), &results.indices, RowOptions::history(&query_text, filter), local);
+    c.clips.list.set(
+        results.history.clone(),
+        &results.indices,
+        RowOptions::history(&query_text, filter),
+        local,
+    );
     let query_unchanged = c.seen.query == query_text && c.seen.filter == Some(filter);
     if !first && query_unchanged {
         c.clips
@@ -276,4 +288,3 @@ fn pull(s: &mut MainState) -> bool {
     actions::refresh_usage(s, revision);
     true
 }
-

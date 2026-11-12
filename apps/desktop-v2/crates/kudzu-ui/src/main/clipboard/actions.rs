@@ -24,11 +24,24 @@ const COPY_TOAST_SECS: f64 = 1.6;
 const UNDO_TOAST_SECS: f64 = 6.0;
 
 pub(crate) enum JobKind {
-    Copy { id: Uuid, plain: bool, task: Task<Result<(), Failure>> },
-    Restore { deleted: Batch, task: Task<Result<(), Failure>> },
-    Text { task: Task<Result<Option<String>, Failure>> },
-    Open { task: Task<Result<(), Failure>> },
-    Usage { task: Task<u64> },
+    Copy {
+        id: Uuid,
+        plain: bool,
+        task: Task<Result<(), Failure>>,
+    },
+    Restore {
+        deleted: Batch,
+        task: Task<Result<(), Failure>>,
+    },
+    Text {
+        task: Task<Result<Option<String>, Failure>>,
+    },
+    Open {
+        task: Task<Result<(), Failure>>,
+    },
+    Usage {
+        task: Task<u64>,
+    },
 }
 
 /// A worker's task plus the subscription that wakes `main` when it finishes.
@@ -78,7 +91,11 @@ pub fn copy_active(s: &mut MainState, flip: bool, _tx: &mut Tx) {
     let id = e.id;
     let plain = e.rich && (s.clipboard.prefs.paste_plain != flip);
     let service = s.svc.clipboard.clone();
-    let flavor = if plain { Flavor::Plain } else { Flavor::Original };
+    let flavor = if plain {
+        Flavor::Plain
+    } else {
+        Flavor::Original
+    };
     match start(s, "kudzu-clip-copy", move || service.copy(id, flavor)) {
         Some((task, wake)) => push(s, JobKind::Copy { id, plain, task }, wake),
         None => failure_toast(s, "Couldn't copy", &ClipboardError::WorkerStopped),
@@ -123,7 +140,10 @@ pub fn delete_selection(s: &mut MainState, tx: &mut Tx) {
     let entries = deleted.entries();
     let title = match entries {
         [one] if concealed(one, show) => "Deleted a secret".to_owned(),
-        [one] => format!("Deleted “{}”", describe(one).title.chars().take(40).collect::<String>()),
+        [one] => format!(
+            "Deleted “{}”",
+            describe(one).title.chars().take(40).collect::<String>()
+        ),
         many => format!("Deleted {} items", many.len()),
     };
     say(s, title.clone());
@@ -144,14 +164,27 @@ fn restore(s: &mut MainState, deleted: Batch) {
     let service = s.svc.clipboard.clone();
     let again = deleted.clone();
     match start(s, "kudzu-clip-restore", move || service.restore(deleted)) {
-        Some((task, wake)) => push(s, JobKind::Restore { deleted: again, task }, wake),
+        Some((task, wake)) => push(
+            s,
+            JobKind::Restore {
+                deleted: again,
+                task,
+            },
+            wake,
+        ),
         None => failure_toast(s, "Couldn't restore", &ClipboardError::WorkerStopped),
     }
 }
 
 /// `⌘S`: the full plain text becomes a new snippet in the library.
 pub fn save_as_snippet(s: &mut MainState) {
-    let Some(e) = s.clipboard.clips.list.active_entry().filter(|e| has_text(e)) else {
+    let Some(e) = s
+        .clipboard
+        .clips
+        .list
+        .active_entry()
+        .filter(|e| has_text(e))
+    else {
         return;
     };
     let id = e.id;
@@ -180,7 +213,12 @@ pub fn open_active(s: &mut MainState, tx: &mut Tx) {
 
 /// `⌘R`: shows the first copied file in Finder.
 pub fn reveal_active(s: &mut MainState) {
-    if s.clipboard.clips.list.active_entry().is_some_and(|e| e.kind == ClipKind::File) {
+    if s.clipboard
+        .clips
+        .list
+        .active_entry()
+        .is_some_and(|e| e.kind == ClipKind::File)
+    {
         file_job(s, true);
     }
 }
@@ -198,7 +236,11 @@ fn file_job(s: &mut MainState, reveal: bool) {
     let files = s.svc.files.clone();
     let work = move || {
         let path = std::path::Path::new(&path);
-        let result = if reveal { files.reveal(path) } else { files.open(path) };
+        let result = if reveal {
+            files.reveal(path)
+        } else {
+            files.open(path)
+        };
         result.map_err(ClipboardError::from)
     };
     if let Some((task, wake)) = start(s, "kudzu-clip-open", work) {
@@ -208,7 +250,13 @@ fn file_job(s: &mut MainState, reveal: bool) {
 
 /// The footer's "Hide as a secret" and "Not a secret — show it".
 pub fn toggle_secret(s: &mut MainState) {
-    let Some(e) = s.clipboard.clips.list.active_entry().filter(|e| has_text(e)) else {
+    let Some(e) = s
+        .clipboard
+        .clips
+        .list
+        .active_entry()
+        .filter(|e| has_text(e))
+    else {
         return;
     };
     let (id, hide) = (e.id, !e.is_secret());
@@ -242,9 +290,17 @@ pub fn confirm_clear(s: &mut MainState) {
     };
     match s.svc.clipboard.clear(dialog.include_pinned) {
         Ok(n) => {
-            let title = if n == 1 { "Deleted 1 item".to_owned() } else { format!("Deleted {n} items") };
+            let title = if n == 1 {
+                "Deleted 1 item".to_owned()
+            } else {
+                format!("Deleted {n} items")
+            };
             say(s, format!("Cleared {n} items"));
-            toast(s, "clip-cleared", ToastSpec::new(title).duration_secs(COPY_TOAST_SECS));
+            toast(
+                s,
+                "clip-cleared",
+                ToastSpec::new(title).duration_secs(COPY_TOAST_SECS),
+            );
         }
         Err(error) => failure_toast(s, "Couldn't clear history", &error),
     }
@@ -267,7 +323,11 @@ pub fn refresh_usage(s: &mut MainState, revision: Revision) {
     if s.clipboard.usage_fixed || s.clipboard.seen.usage_for == Some(revision) {
         return;
     }
-    if s.clipboard.jobs.iter().any(|j| matches!(j.kind, JobKind::Usage { .. })) {
+    if s.clipboard
+        .jobs
+        .iter()
+        .any(|j| matches!(j.kind, JobKind::Usage { .. }))
+    {
         return;
     }
     s.clipboard.seen.usage_for = Some(revision);
@@ -290,8 +350,16 @@ pub fn finish_jobs(s: &mut MainState) -> bool {
                 Some(result) => {
                     match result.unwrap_or(Err(ClipboardError::WorkerStopped)) {
                         Ok(()) => {
-                            let title = if plain { "Copied as plain text" } else { "Copied" };
-                            toast(s, "clip-copied", ToastSpec::new(title).duration_secs(COPY_TOAST_SECS));
+                            let title = if plain {
+                                "Copied as plain text"
+                            } else {
+                                "Copied"
+                            };
+                            toast(
+                                s,
+                                "clip-copied",
+                                ToastSpec::new(title).duration_secs(COPY_TOAST_SECS),
+                            );
                             say(s, "Copied to clipboard");
                             s.clipboard.clips.look.copied = Some(id);
                             s.clipboard.copied_until = Some(now + COPIED_SECS);

@@ -59,7 +59,11 @@ pub fn bar(s: &MainState, theme: &Theme) -> El {
                 .on_press_tx(actions::delete_selection)
                 .build(theme),
         );
-    theme.depth.float.iter().fold(bar, |el, shadow| el.box_shadow(*shadow))
+    theme
+        .depth
+        .float
+        .iter()
+        .fold(bar, |el, shadow| el.box_shadow(*shadow))
 }
 
 /// "Clear clipboard history?" with the pinned choice.

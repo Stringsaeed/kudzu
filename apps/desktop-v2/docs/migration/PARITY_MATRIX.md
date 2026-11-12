@@ -153,3 +153,20 @@ Intentional differences, not closed:
 - The return glyph in the footer cap is 16 pt, not the reference `size-3` (12). The landmark unions icon bounds, and a 12 pt glyph centred in the 18 pt cap starts 3 pt inside the 16 pt padding, which fails. 16 pt sits on that padding.
 - The empty search field's placeholder is not a text node in `--tree`, so the `search` combobox ink stays a review row. It is painted the capture's computed foreground. The stylesheet says `placeholder:text-faint`.
 - The card is the captured 12 pt inset with an opaque popover fill. The running window's full-bleed vibrancy (`vibrant:p-0`, `bg-popover/55`) is not drawn: the tree has no material, and that frame is an S71 check.
+
+## Clipboard history list (S58)
+
+**Closes:** CLP-8, CLP-9 (UI), CLP-10, CLP-11, CLP-12, CLP-19, CLP-20 (list states).
+
+**Scenes.** `clipboard-history`, `clips-5000`, `clipboard-empty`, `clipboard-options-menu`, `clipboard-bulk` and `clipboard-no-match` are built (`main/clipboard/scenes.rs`) but stay in the comparator's not-yet-built list: each reference shows the whole window, including S42's sidebar and S59's preview body, and the comparator fails any missing landmark. They are not registered in `main/scenes.rs` for the same reason (a registered scene with a not-yet-built mark is a stale mark). S73 registers them once every region exists. Until then `main/tests/clipboard_landmarks.rs` checks the landmarks this step owns against `metrics.json`, in both themes, each side within 2 pt (widths that come from label text within 4 pt, because the reference was measured in SF Pro and the tests run bundled Figtree): the list column, heading, recording badge, options button, search field, Clear search, Show everything, footer and Change, the bulk bar, the Preview region, and the item action bar with its breadcrumb.
+
+**Scroll trace.** `main/tests/clipboard_scroll.rs`: 5,000 generated clips plus the sample, 240 wheel frames. The screen's view runs 0 times; Rune's own window remounts (about 44) do not run `view`. Frame cost is in the step report.
+
+Intentional differences, not closed:
+
+- **Tiles draw a kind glyph for images and files, and no source-app badge.** Thumbnails, file icons and app icons are loaded off the UI thread by S59's media work.
+- **A concealed row stays concealed under the pointer.** Tauri reveals it on hover; reveal on hover or keyboard focus is S59's secret handling.
+- **Search runs inline on the main thread**, not through `rune::Latest`. It is a pure query on an immutable snapshot with a cached index (the 5 ms budget is tested in core); `Latest` can wrap it if S72 measures otherwise.
+- **The kind folders in the sidebar are S42's.** This screen shows whichever filter the view carries.
+- **⌘P, ⌘S, ⌘O, ⌘R and the list keys are handled by the screen, not `MainAction`**, so the ⌘? cheat sheet does not list them yet.
+- **The trailing Clear search button is nudged 3 pt** (`offset`) because rune-kit's field puts its trailing slot 11 pt in; the reference's `right-2` is 8.

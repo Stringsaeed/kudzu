@@ -47,12 +47,24 @@ fn list(entries: Vec<ClipEntry>) -> ClipList {
     let h = history(entries);
     let all: Vec<usize> = (0..h.entries.len()).collect();
     let mut l = ClipList::default();
-    l.set(h, &all, RowOptions { pinned_first: false, sections: true }, now());
+    l.set(
+        h,
+        &all,
+        RowOptions {
+            pinned_first: false,
+            sections: true,
+        },
+        now(),
+    );
     l
 }
 
 fn ten() -> ClipList {
-    list((0..10).map(|i| clip(&format!("clip {i}"), i * 2, false)).collect())
+    list(
+        (0..10)
+            .map(|i| clip(&format!("clip {i}"), i * 2, false))
+            .collect(),
+    )
 }
 
 #[test]
@@ -107,9 +119,21 @@ fn shift_extends_a_range_from_the_anchor_and_shrinks_it_back() {
 fn command_click_toggles_and_includes_the_active_row() {
     let mut l = ten();
     let ids = l.order().to_vec();
-    l.click(ids[3], Click { command: true, shift: false });
+    l.click(
+        ids[3],
+        Click {
+            command: true,
+            shift: false,
+        },
+    );
     assert_eq!(l.selection(), vec![ids[0], ids[3]]);
-    l.click(ids[0], Click { command: true, shift: false });
+    l.click(
+        ids[0],
+        Click {
+            command: true,
+            shift: false,
+        },
+    );
     // One id left is not a multi-selection: the active row (the one just clicked) is the target.
     assert!(!l.is_multi());
     assert_eq!(l.selection(), vec![ids[0]]);
@@ -120,7 +144,13 @@ fn shift_click_selects_from_the_anchor() {
     let mut l = ten();
     let ids = l.order().to_vec();
     l.click(ids[2], Click::default());
-    l.click(ids[5], Click { command: false, shift: true });
+    l.click(
+        ids[5],
+        Click {
+            command: false,
+            shift: true,
+        },
+    );
     assert_eq!(l.selection(), ids[2..=5].to_vec());
     assert_eq!(l.active(), Some(ids[5]));
 }
@@ -144,8 +174,20 @@ fn a_vanished_active_row_hands_over_to_its_neighbour() {
     let rest: Vec<ClipEntry> = entries.into_iter().filter(|e| e.id != ids[2]).collect();
     let h = history(rest);
     let all: Vec<usize> = (0..h.entries.len()).collect();
-    l.set(h, &all, RowOptions { pinned_first: false, sections: true }, now());
-    assert_eq!(l.active(), Some(ids[3]), "the row that moved into its place");
+    l.set(
+        h,
+        &all,
+        RowOptions {
+            pinned_first: false,
+            sections: true,
+        },
+        now(),
+    );
+    assert_eq!(
+        l.active(),
+        Some(ids[3]),
+        "the row that moved into its place"
+    );
 }
 
 #[test]
@@ -155,7 +197,15 @@ fn the_last_row_going_away_selects_the_new_last_row() {
     let ids = l.order().to_vec();
     l.move_by(2, false);
     let h = history(entries[..2].to_vec());
-    l.set(h, &[0, 1], RowOptions { pinned_first: false, sections: true }, now());
+    l.set(
+        h,
+        &[0, 1],
+        RowOptions {
+            pinned_first: false,
+            sections: true,
+        },
+        now(),
+    );
     assert_eq!(l.active(), Some(ids[1]));
 }
 
@@ -166,7 +216,15 @@ fn multi_selected_ids_that_vanish_drop_out() {
     let ids = l.order().to_vec();
     l.select_all();
     let h = history(entries[..3].to_vec());
-    l.set(h, &[0, 1, 2], RowOptions { pinned_first: false, sections: true }, now());
+    l.set(
+        h,
+        &[0, 1, 2],
+        RowOptions {
+            pinned_first: false,
+            sections: true,
+        },
+        now(),
+    );
     assert_eq!(l.selection().len(), 3);
     assert!(!l.in_multi(ids[3]));
 }
@@ -175,7 +233,15 @@ fn multi_selected_ids_that_vanish_drop_out() {
 fn pinned_first_puts_a_pinned_section_on_top_without_a_search() {
     let h = history(vec![clip("a", 1, false), clip("b", 100, true)]);
     let mut l = ClipList::default();
-    l.set(h, &[0, 1], RowOptions { pinned_first: true, sections: true }, now());
+    l.set(
+        h,
+        &[0, 1],
+        RowOptions {
+            pinned_first: true,
+            sections: true,
+        },
+        now(),
+    );
     assert!(matches!(&l.rows()[0].kind, RowKind::Header { label, .. } if label == "Pinned"));
     assert_eq!(l.entry(l.order()[0]).unwrap().text.as_deref(), Some("b"));
 }
@@ -194,6 +260,14 @@ fn the_version_changes_on_every_rebuild() {
     let mut l = ten();
     let before = l.version();
     let h = l.history().clone();
-    l.set(h, &[0], RowOptions { pinned_first: false, sections: false }, now());
+    l.set(
+        h,
+        &[0],
+        RowOptions {
+            pinned_first: false,
+            sections: false,
+        },
+        now(),
+    );
     assert_ne!(l.version(), before);
 }

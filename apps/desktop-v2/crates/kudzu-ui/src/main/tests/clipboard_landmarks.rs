@@ -13,12 +13,32 @@ type Landmark = (&'static str, &'static str, usize, [f32; 4]);
 
 /// Common to `clipboard-history`, `clips-5000`, `clipboard-empty` and `clipboard-no-match`.
 const LIST_SIDE: &[Landmark] = &[
-    ("region", "Clipboard history", 1, [224.0, 50.0, 354.0, 702.0]),
+    (
+        "region",
+        "Clipboard history",
+        1,
+        [224.0, 50.0, 354.0, 702.0],
+    ),
     ("heading", "Clipboard", 1, [244.0, 64.0, 198.578, 20.0]),
-    ("button", "Recording copies. Press to pause.", 1, [450.578, 62.0, 82.422, 24.0]),
+    (
+        "button",
+        "Recording copies. Press to pause.",
+        1,
+        [450.578, 62.0, 82.422, 24.0],
+    ),
     ("button", "Clipboard options", 1, [541.0, 60.0, 28.0, 28.0]),
-    ("textbox", "Search clipboard history", 1, [236.0, 98.0, 329.0, 32.0]),
-    ("contentinfo", "Kept for 1 week · 37 MB", 1, [224.0, 716.0, 353.0, 36.0]),
+    (
+        "textbox",
+        "Search clipboard history",
+        1,
+        [236.0, 98.0, 329.0, 32.0],
+    ),
+    (
+        "contentinfo",
+        "Kept for 1 week · 37 MB",
+        1,
+        [224.0, 716.0, 353.0, 36.0],
+    ),
     ("button", "Change", 1, [512.781, 724.5, 48.219, 20.0]),
     ("region", "Preview", 1, [578.0, 50.0, 594.0, 702.0]),
 ];
@@ -30,12 +50,22 @@ const ITEM_ACTIONS: &[Landmark] = &[
     ("button", "Hide as a secret", 1, [1064.0, 710.5, 28.0, 28.0]),
     ("button", "Unpin", 1, [1096.0, 710.5, 28.0, 28.0]),
     ("button", "Delete", 1, [1128.0, 710.5, 28.0, 28.0]),
-    ("navigation", "Clipboard item breadcrumb", 1, [602.0, 63.5, 126.688, 20.0]),
+    (
+        "navigation",
+        "Clipboard item breadcrumb",
+        1,
+        [602.0, 63.5, 126.688, 20.0],
+    ),
 ];
 
 const NO_MATCH: &[Landmark] = &[
     ("button", "Clear search", 1, [537.0, 104.0, 20.0, 20.0]),
-    ("button", "Show everything", 1, [338.609, 282.0, 123.781, 28.0]),
+    (
+        "button",
+        "Show everything",
+        1,
+        [338.609, 282.0, 123.781, 28.0],
+    ),
 ];
 
 const BULK: &[Landmark] = &[
@@ -88,7 +118,11 @@ fn both(name: &str, run: fn(&mut MainState), groups: &[&[Landmark]]) {
 
 #[test]
 fn clipboard_history_list_side_and_item_actions_match_the_reference() {
-    both("clipboard-history", scenes::history, &[LIST_SIDE, ITEM_ACTIONS]);
+    both(
+        "clipboard-history",
+        scenes::history,
+        &[LIST_SIDE, ITEM_ACTIONS],
+    );
 }
 
 #[test]
@@ -108,7 +142,11 @@ fn clipboard_empty_keeps_the_header_search_and_footer() {
 
 #[test]
 fn clipboard_no_match_adds_clear_search_and_show_everything() {
-    both("clipboard-no-match", scenes::no_match, &[&LIST_SIDE[..5], NO_MATCH]);
+    both(
+        "clipboard-no-match",
+        scenes::no_match,
+        &[&LIST_SIDE[..5], NO_MATCH],
+    );
 }
 
 #[test]

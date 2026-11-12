@@ -8,13 +8,9 @@
 use std::borrow::Cow;
 
 use chrono::{DateTime, FixedOffset};
-use kudzu_core::clipboard::facts::{
-    clip_time, concealed, describe, secret_reason, spoken_label,
-};
+use kudzu_core::clipboard::facts::{clip_time, concealed, describe, secret_reason, spoken_label};
 use kudzu_core::clipboard::{ClipEntry, ClipKind};
-use rune::{
-    col, icon, row, text, El, GrowthSpec, ScrollSpec, Span, TextStyle, Transition, Tx,
-};
+use rune::{col, icon, row, text, El, GrowthSpec, ScrollSpec, Span, TextStyle, Transition, Tx};
 use uuid::Uuid;
 
 use super::model::{Click, ClipList, RowKind};
@@ -144,7 +140,13 @@ pub fn highlight(text: &str, terms: &[String]) -> Vec<(usize, usize)> {
         .collect()
 }
 
-fn marked(theme: &Theme, shown: String, terms: &[String], style: TextStyle, ink: rune::Color) -> El {
+fn marked(
+    theme: &Theme,
+    shown: String,
+    terms: &[String],
+    style: TextStyle,
+    ink: rune::Color,
+) -> El {
     let spans: Vec<Span> = highlight(&shown, terms)
         .into_iter()
         .map(|(s, e)| Span::new(s, e).color(theme.c.iris_foreground))
@@ -174,7 +176,13 @@ struct Place {
 }
 
 /// The element for clip `e`.
-fn clip_row<S: 'static>(theme: &Theme, hooks: Hooks<S>, e: &ClipEntry, look: &Look, at: Place) -> El {
+fn clip_row<S: 'static>(
+    theme: &Theme,
+    hooks: Hooks<S>,
+    e: &ClipEntry,
+    look: &Look,
+    at: Place,
+) -> El {
     let Place {
         position,
         dated,
@@ -230,14 +238,26 @@ fn clip_row<S: 'static>(theme: &Theme, hooks: Hooks<S>, e: &ClipEntry, look: &Lo
         .center_y()
         .radius(10.0)
         .hover(c.foreground.alpha(0.035))
-        .child(tile(theme, e, hidden, active && look.focused, look.density.tile()))
+        .child(tile(
+            theme,
+            e,
+            hidden,
+            active && look.focused,
+            look.density.tile(),
+        ))
         .child(
             col()
                 .grow(1.0)
                 .min_w(0.0)
                 .gap(2.0)
                 .child(marked(theme, title, terms, title_style, c.foreground))
-                .child(marked(theme, subtitle, terms, sub_style, c.muted_foreground)),
+                .child(marked(
+                    theme,
+                    subtitle,
+                    terms,
+                    sub_style,
+                    c.muted_foreground,
+                )),
         )
         .child(
             col()
@@ -248,7 +268,11 @@ fn clip_row<S: 'static>(theme: &Theme, hooks: Hooks<S>, e: &ClipEntry, look: &Lo
                 .child(marks),
         );
     if look.numbered && position < 9 {
-        let tone = if look.show_numbers { Tone::Accent } else { Tone::Ghost };
+        let tone = if look.show_numbers {
+            Tone::Accent
+        } else {
+            Tone::Ghost
+        };
         line = line.child(
             Shortcut::combo(&format!("mod+{}", position + 1))
                 .tone(tone)
@@ -292,7 +316,12 @@ fn clip_row<S: 'static>(theme: &Theme, hooks: Hooks<S>, e: &ClipEntry, look: &Lo
     } else {
         line
     };
-    col().w_full().h(look.density.row()).px(6.0).py(1.0).child(line)
+    col()
+        .w_full()
+        .h(look.density.row())
+        .px(6.0)
+        .py(1.0)
+        .child(line)
 }
 
 fn header_row(theme: &Theme, density: Density, label: &str, count: usize) -> El {
@@ -304,7 +333,11 @@ fn header_row(theme: &Theme, density: Density, label: &str, count: usize) -> El 
         .items_end()
         .gap(6.0)
         .role("presentation")
-        .child(text(label.to_owned()).font(theme.ty.meta_11).color(theme.c.faint))
+        .child(
+            text(label.to_owned())
+                .font(theme.ty.meta_11)
+                .color(theme.c.faint),
+        )
         .child(
             text(count.to_string())
                 .font(theme.ty.meta_11)
@@ -342,7 +375,12 @@ fn build_row<S: 'static>(theme: &'static Theme, hooks: Hooks<S>, s: &S, i: usize
 
 /// The scrolling list over `st`. `key` names the scroll viewport (one key per viewport); rows
 /// are keyed by clip id, so handlers find their clip by id, never by index.
-pub fn view<S: 'static>(theme: &'static Theme, hooks: Hooks<S>, key: &'static str, st: &ListState) -> El {
+pub fn view<S: 'static>(
+    theme: &'static Theme,
+    hooks: Hooks<S>,
+    key: &'static str,
+    st: &ListState,
+) -> El {
     let rows = col()
         .key(format!("{key}-rows"))
         .growth(GrowthSpec::default())
@@ -370,6 +408,49 @@ pub fn view<S: 'static>(theme: &'static Theme, hooks: Hooks<S>, key: &'static st
         .w_full()
         .grow(1.0)
         .min_h(0.0)
-        .scroll(ScrollSpec { stick_bottom: false })
+        .scroll(ScrollSpec {
+            stick_bottom: false,
+        })
         .child(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::highlight;
+
+    fn terms(t: &[&str]) -> Vec<String> {
+        t.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    #[test]
+    fn a_match_maps_to_byte_offsets_in_the_shown_text() {
+        assert_eq!(
+            highlight("Invoice meeting", &terms(&["meeting"])),
+            vec![(8, 15)]
+        );
+        assert_eq!(
+            highlight("Invoice", &terms(&["inv", "ice"])),
+            vec![(0, 3), (4, 7)]
+        );
+    }
+
+    #[test]
+    fn offsets_count_utf16_units_not_bytes() {
+        // "é" is 2 bytes and 1 unit; the emoji is 4 bytes and 2 units.
+        assert_eq!(highlight("é😀 note", &terms(&["note"])), vec![(7, 11)]);
+    }
+
+    #[test]
+    fn lowercasing_that_changes_length_never_slices_inside_a_character() {
+        // "İ" lowercases to two characters, so core's offsets drift; they are clamped.
+        for (s, e) in highlight("İstanbul İzmir", &terms(&["zmir", "stanbul"])) {
+            let text = "İstanbul İzmir";
+            assert!(text.is_char_boundary(s) && text.is_char_boundary(e) && e <= text.len());
+        }
+    }
+
+    #[test]
+    fn no_terms_mark_nothing() {
+        assert!(highlight("anything", &[]).is_empty());
+    }
 }

@@ -52,5 +52,8 @@ fn scrolling_five_thousand_clips_runs_no_view_and_stays_inside_the_frame_budget(
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(if cfg!(debug_assertions) { 60.0 } else { 4.0 });
-    assert!(p95 <= bound, "p95 frame cost {p95:.2} ms is over {bound} ms");
+    assert!(
+        p95 <= bound,
+        "p95 frame cost {p95:.2} ms is over {bound} ms"
+    );
 }

@@ -46,14 +46,22 @@ pub fn header(s: &MainState, theme: &Theme, filter: ClipFilter, layer: &mut Vec<
         .grow(1.0)
         .min_w(0.0)
         .gap(4.0)
-        .child(text(heading(filter)).font(ty.body_strong).color(c.foreground).single_line())
+        .child(
+            text(heading(filter))
+                .font(ty.body_strong)
+                .color(c.foreground)
+                .single_line(),
+        )
         .child(
             text(s.clipboard.clips.list.len().to_string())
                 .font(ty.meta_11_5)
                 .color(c.faint),
         );
     let badge_ink = if on { c.muted_foreground } else { c.warning };
-    let dot = row().size(6.0, 6.0).radius(3.0).fill(if on { c.success } else { c.warning });
+    let dot = row()
+        .size(6.0, 6.0)
+        .radius(3.0)
+        .fill(if on { c.success } else { c.warning });
     let mut badge = row()
         .key("clip-recording")
         .role("button")
@@ -69,12 +77,18 @@ pub fn header(s: &MainState, theme: &Theme, filter: ClipFilter, layer: &mut Vec<
         .center_y()
         .radius(12.0)
         .child(dot)
-        .child(text(if on { "Recording" } else { "Paused" }).font(ty.meta_11).color(badge_ink))
+        .child(
+            text(if on { "Recording" } else { "Paused" })
+                .font(ty.meta_11)
+                .color(badge_ink),
+        )
         .on_press(|st: &mut MainState| actions::toggle_recording(st));
     badge = if on {
         badge.hover(c.foreground.alpha(0.05))
     } else {
-        badge.fill(c.warning.alpha(0.12)).hover(c.warning.alpha(0.18))
+        badge
+            .fill(c.warning.alpha(0.12))
+            .hover(c.warning.alpha(0.18))
     };
     let options = options_menu(s, theme, layer);
     row()
@@ -117,12 +131,16 @@ fn options_menu(s: &MainState, theme: &Theme, layer: &mut Vec<El>) -> El {
     let m = Menu::new("clip-options")
         .trigger(trigger)
         .item(
-            MenuItem::new(if on { "Pause recording" } else { "Resume recording" })
-                .icon(if on { &icons::PAUSE } else { &icons::PLAY })
-                .on_select(|st: &mut MainState| {
-                    actions::toggle_recording(st);
-                    st.clipboard.options_open = false;
-                }),
+            MenuItem::new(if on {
+                "Pause recording"
+            } else {
+                "Resume recording"
+            })
+            .icon(if on { &icons::PAUSE } else { &icons::PLAY })
+            .on_select(|st: &mut MainState| {
+                actions::toggle_recording(st);
+                st.clipboard.options_open = false;
+            }),
         )
         .item(
             MenuItem::new("Keep history")
@@ -238,7 +256,13 @@ pub fn footer(s: &MainState, theme: &Theme) -> El {
         .px(16.0)
         .gap(4.0)
         .center_y()
-        .child(text(kept.clone()).font(theme.ty.meta_11).color(c.faint).single_line().grow(1.0))
+        .child(
+            text(kept.clone())
+                .font(theme.ty.meta_11)
+                .color(c.faint)
+                .single_line()
+                .grow(1.0),
+        )
         .child(
             row()
                 .role("button")
@@ -249,8 +273,14 @@ pub fn footer(s: &MainState, theme: &Theme) -> El {
                 .center_y()
                 .radius(4.0)
                 .hover(c.foreground.alpha(0.05))
-                .child(text("Change").font(theme.ty.meta_11).color(c.muted_foreground))
-                .on_press(|st: &mut MainState| st.navigate_to(MainView::Settings(SettingsPane::Clipboard))),
+                .child(
+                    text("Change")
+                        .font(theme.ty.meta_11)
+                        .color(c.muted_foreground),
+                )
+                .on_press(|st: &mut MainState| {
+                    st.navigate_to(MainView::Settings(SettingsPane::Clipboard))
+                }),
         );
     col()
         .key("clip-footer")
@@ -293,7 +323,11 @@ pub fn item_actions(s: &MainState, theme: &Theme, e: &ClipEntry) -> El {
             .child(Shortcut::combo("enter").tone(Tone::OnAccent).build(theme)),
     );
     if e.rich {
-        let label = if s.clipboard.prefs.paste_plain { "With formatting" } else { "As plain text" };
+        let label = if s.clipboard.prefs.paste_plain {
+            "With formatting"
+        } else {
+            "As plain text"
+        };
         bar = bar.child(
             Button::new(label)
                 .variant(Variant::Ghost)
@@ -301,32 +335,50 @@ pub fn item_actions(s: &MainState, theme: &Theme, e: &ClipEntry) -> El {
                 .icon(&icons::TYPE)
                 .on_press_tx(|st: &mut MainState, tx| actions::copy_active(st, true, tx))
                 .build(theme)
-                .child(Shortcut::combo("shift+enter").tone(Tone::Ghost).build(theme).ml(-3.0)),
+                .child(
+                    Shortcut::combo("shift+enter")
+                        .tone(Tone::Ghost)
+                        .build(theme)
+                        .ml(-3.0),
+                ),
         );
     }
     bar = bar.child(row().grow(1.0));
-    let icon_button = |label: &str, glyph: &'static rune::Icon, f: fn(&mut MainState, &mut rune::Tx)| {
-        Button::new(label)
-            .variant(Variant::Ghost)
-            .size(Size::IconSm)
-            .icon(glyph)
-            .help(label)
-            .on_press_tx(f)
-            .build(theme)
-    };
+    let icon_button =
+        |label: &str, glyph: &'static rune::Icon, f: fn(&mut MainState, &mut rune::Tx)| {
+            Button::new(label)
+                .variant(Variant::Ghost)
+                .size(Size::IconSm)
+                .icon(glyph)
+                .help(label)
+                .on_press_tx(f)
+                .build(theme)
+        };
     if has_text(e) {
-        bar = bar.child(icon_button("Save as snippet", &icons::TEXT_CURSOR_INPUT, |st, _| {
-            actions::save_as_snippet(st)
-        }));
+        bar = bar.child(icon_button(
+            "Save as snippet",
+            &icons::TEXT_CURSOR_INPUT,
+            |st, _| actions::save_as_snippet(st),
+        ));
     }
     if matches!(e.kind, ClipKind::Link | ClipKind::File) {
-        let label = if e.kind == ClipKind::Link { "Open link" } else { "Open" };
-        bar = bar.child(icon_button(label, &icons::EXTERNAL_LINK, actions::open_active));
+        let label = if e.kind == ClipKind::Link {
+            "Open link"
+        } else {
+            "Open"
+        };
+        bar = bar.child(icon_button(
+            label,
+            &icons::EXTERNAL_LINK,
+            actions::open_active,
+        ));
     }
     if e.kind == ClipKind::File {
-        bar = bar.child(icon_button("Show in Finder", &icons::FOLDER_OPEN, |st, _| {
-            actions::reveal_active(st)
-        }));
+        bar = bar.child(icon_button(
+            "Show in Finder",
+            &icons::FOLDER_OPEN,
+            |st, _| actions::reveal_active(st),
+        ));
     }
     if has_text(e) {
         let (label, glyph) = if e.is_secret() {
@@ -334,14 +386,22 @@ pub fn item_actions(s: &MainState, theme: &Theme, e: &ClipEntry) -> El {
         } else {
             ("Hide as a secret", &icons::KEY_ROUND)
         };
-        bar = bar.child(icon_button(label, glyph, |st, _| actions::toggle_secret(st)));
+        bar = bar.child(icon_button(label, glyph, |st, _| {
+            actions::toggle_secret(st)
+        }));
     }
     let (pin_label, pin_glyph) = if e.pinned {
         ("Unpin", &icons::PIN_OFF)
     } else {
         ("Pin — keep forever", &icons::PIN)
     };
-    bar = bar.child(icon_button(pin_label, pin_glyph, |st, _| actions::toggle_pin(st)));
-    let bar = bar.child(icon_button("Delete", &icons::TRASH_2, actions::delete_selection));
+    bar = bar.child(icon_button(pin_label, pin_glyph, |st, _| {
+        actions::toggle_pin(st)
+    }));
+    let bar = bar.child(icon_button(
+        "Delete",
+        &icons::TRASH_2,
+        actions::delete_selection,
+    ));
     col().w_full().h(56.0).child(rule_h(theme)).child(bar)
 }

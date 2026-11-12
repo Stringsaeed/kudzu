@@ -18,7 +18,11 @@ use crate::widgets::shortcut::{Shortcut, Tone};
 
 /// `w-[clamp(300px,30vw,372px)]` of the window, hairline on its right.
 fn column_width(s: &MainState) -> f32 {
-    let chrome = if s.frame.sidebar_open { crate::main::SIDEBAR_W + 8.0 } else { 16.0 };
+    let chrome = if s.frame.sidebar_open {
+        crate::main::SIDEBAR_W + 8.0
+    } else {
+        16.0
+    };
     (0.30 * (s.clipboard.card_w + chrome)).clamp(300.0, 372.0)
 }
 
@@ -92,7 +96,14 @@ pub fn view(
 /// The list, or what stands in for it.
 fn body(s: &MainState, theme: &'static Theme, filter: ClipFilter) -> El {
     let st = &s.clipboard;
-    let wrap = |inner: El| col().key(LIST_KEY).grow(1.0).w_full().min_h(0.0).child(inner);
+    let wrap = |inner: El| {
+        col()
+            .key(LIST_KEY)
+            .grow(1.0)
+            .w_full()
+            .min_h(0.0)
+            .child(inner)
+    };
     if st.seen_nothing() {
         return wrap(col()); // loading: the first sync has not landed
     }
@@ -163,7 +174,11 @@ fn welcome(s: &MainState, theme: &Theme) -> El {
                 col()
                     .items_center()
                     .gap(6.0)
-                    .child(text("Clipboard history is off").font(ty.body_medium).color(c.foreground))
+                    .child(
+                        text("Clipboard history is off")
+                            .font(ty.body_medium)
+                            .color(c.foreground),
+                    )
                     .child(
                         text("Turn it on to find anything you copied, from any app.")
                             .font(ty.control_xs)
@@ -185,12 +200,23 @@ fn nothing(s: &MainState, theme: &Theme, filter: ClipFilter) -> El {
     let c = &theme.c;
     let query = s.clipboard.query().trim();
     let (glyph, message) = if query.is_empty() {
-        let glyph = if filter == ClipFilter::Pinned { &icons::PIN } else { &icons::CLIPBOARD_LIST };
-        (glyph, text(nothing_yet(filter)).font(theme.ty.body).color(c.muted_foreground))
+        let glyph = if filter == ClipFilter::Pinned {
+            &icons::PIN
+        } else {
+            &icons::CLIPBOARD_LIST
+        };
+        (
+            glyph,
+            text(nothing_yet(filter))
+                .font(theme.ty.body)
+                .color(c.muted_foreground),
+        )
     } else {
         (
             &icons::SEARCH_X,
-            text(format!("Nothing matches “{query}”")).font(theme.ty.body).color(c.muted_foreground),
+            text(format!("Nothing matches “{query}”"))
+                .font(theme.ty.body)
+                .color(c.muted_foreground),
         )
     };
     col()
@@ -211,13 +237,22 @@ fn nothing(s: &MainState, theme: &Theme, filter: ClipFilter) -> El {
         )
 }
 
-fn preview_column(s: &MainState, theme: &'static Theme, filter: ClipFilter, layer: &mut Vec<El>) -> El {
+fn preview_column(
+    s: &MainState,
+    theme: &'static Theme,
+    filter: ClipFilter,
+    layer: &mut Vec<El>,
+) -> El {
     let c = &theme.c;
     let active = s.clipboard.clips.list.active_entry();
     let mut head = row().w_full().h(47.0).px(24.0).gap(8.0).center_y();
     if let Some(e) = active {
         let secret = e.is_secret() && !s.clipboard.prefs.show_secrets;
-        let leaf = if secret { "Secret".to_owned() } else { describe(e).title };
+        let leaf = if secret {
+            "Secret".to_owned()
+        } else {
+            describe(e).title
+        };
         head = head.child(
             Breadcrumbs::new(vec![
                 Crumb::new(clip_filter_label(filter)).id("root"),
@@ -246,17 +281,19 @@ fn preview_column(s: &MainState, theme: &'static Theme, filter: ClipFilter, laye
         .child(head)
         .child(toolbar::rule_h(theme));
     column = match active {
-        Some(e) => column.child(preview_body(s, theme, e)).child(toolbar::item_actions(s, theme, e)),
+        Some(e) => column
+            .child(preview_body(s, theme, e))
+            .child(toolbar::item_actions(s, theme, e)),
         None => column.child(
-            col()
-                .grow(1.0)
-                .w_full()
-                .center()
-                .child(
-                    text(if s.clipboard.clips.list.history().entries.is_empty() { "" } else { "Select an item to preview it" })
-                        .font(theme.ty.control_xs)
-                        .color(c.faint),
-                ),
+            col().grow(1.0).w_full().center().child(
+                text(if s.clipboard.clips.list.history().entries.is_empty() {
+                    ""
+                } else {
+                    "Select an item to preview it"
+                })
+                .font(theme.ty.control_xs)
+                .color(c.faint),
+            ),
         ),
     };
     column

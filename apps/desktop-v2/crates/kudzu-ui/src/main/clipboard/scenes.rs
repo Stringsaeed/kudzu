@@ -30,7 +30,9 @@ fn open(s: &mut MainState, history: History) {
 }
 
 fn sample() -> History {
-    SampleState::load().map(|sample| sample.clipboard).unwrap_or_default()
+    SampleState::load()
+        .map(|sample| sample.clipboard)
+        .unwrap_or_default()
 }
 
 pub fn history(s: &mut MainState) {
@@ -59,16 +61,27 @@ pub fn bulk(s: &mut MainState) {
     let ids = s.clipboard.clips.list.order().to_vec();
     if let [first, second, ..] = ids[..] {
         s.clipboard.clips.list.click(first, Click::default());
-        s.clipboard.clips.list.click(second, Click { command: true, shift: false });
+        s.clipboard.clips.list.click(
+            second,
+            Click {
+                command: true,
+                shift: false,
+            },
+        );
     }
 }
 
 pub fn clips_5000(s: &mut MainState) {
     let mut history = sample();
-    let now = history.entries.first().map_or_else(chrono::Utc::now, |e| e.copied_at);
+    let now = history
+        .entries
+        .first()
+        .map_or_else(chrono::Utc::now, |e| e.copied_at);
     let now = now.max(chrono::DateTime::UNIX_EPOCH) + Duration::minutes(1);
     history.entries.extend(generated(5000, now));
-    history.entries.sort_by(|a, b| b.copied_at.cmp(&a.copied_at));
+    history
+        .entries
+        .sort_by_key(|e| std::cmp::Reverse(e.copied_at));
     open(s, history);
 }
 
@@ -93,7 +106,11 @@ fn generated(count: usize, now: chrono::DateTime<chrono::Utc>) -> Vec<ClipEntry>
             let (bundle, name) = sources[i % sources.len()];
             ClipEntry {
                 id: Uuid::from_u128(0x5000_0000 + i as u128),
-                kind: if i % 9 == 0 { ClipKind::Code } else { ClipKind::Text },
+                kind: if i % 9 == 0 {
+                    ClipKind::Code
+                } else {
+                    ClipKind::Text
+                },
                 text_len: text.chars().count(),
                 line_count: 1,
                 files: vec![],

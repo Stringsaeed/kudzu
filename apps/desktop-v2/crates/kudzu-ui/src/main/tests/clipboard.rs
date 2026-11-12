@@ -15,7 +15,13 @@ use crate::main::state::{ClipFilter, MainView};
 use crate::shell::{MainState, Route};
 
 fn key(k: Key, shift: bool) -> KeyEvent {
-    KeyEvent { key: k, mods: Mods { shift, ..Mods::default() } }
+    KeyEvent {
+        key: k,
+        mods: Mods {
+            shift,
+            ..Mods::default()
+        },
+    }
 }
 
 fn open(rig: &mut Rig) {
@@ -25,14 +31,18 @@ fn open(rig: &mut Rig) {
 
 fn seed_sample(rig: &mut Rig) {
     let sample = SampleState::load().unwrap();
-    rig.kudzu.clipboard.replace_history(sample.clipboard).unwrap();
+    rig.kudzu
+        .clipboard
+        .replace_history(sample.clipboard)
+        .unwrap();
     open(rig);
 }
 
 fn copy_text(rig: &Rig, text: &str) {
-    rig.fixtures
-        .pasteboard
-        .external_copy(vec![vec![(uti::PLAIN_TEXT.into(), text.as_bytes().to_vec())]]);
+    rig.fixtures.pasteboard.external_copy(vec![vec![(
+        uti::PLAIN_TEXT.into(),
+        text.as_bytes().to_vec(),
+    )]]);
     rig.kudzu.clipboard.poll().unwrap();
 }
 
@@ -71,11 +81,21 @@ fn texts(rig: &Rig) -> Vec<String> {
 }
 
 fn toast_titles(rig: &Rig) -> Vec<String> {
-    rig.rt.state.frame.toasts.entries().iter().map(|e| e.options.title.clone()).collect()
+    rig.rt
+        .state
+        .frame
+        .toasts
+        .entries()
+        .iter()
+        .map(|e| e.options.title.clone())
+        .collect()
 }
 
 fn active_text(rig: &Rig) -> String {
-    clips(rig).active_entry().and_then(|e| e.text.clone()).unwrap_or_default()
+    clips(rig)
+        .active_entry()
+        .and_then(|e| e.text.clone())
+        .unwrap_or_default()
 }
 
 #[test]
@@ -83,7 +103,10 @@ fn the_list_column_clamps_to_thirty_percent_between_300_and_372() {
     let mut rig = Rig::new(true);
     seed_sample(&mut rig);
     let w = rig.rect("clip-list-section").unwrap()[2];
-    assert!((w - 354.0).abs() < 1.0, "1180 wide gives 30% = 354, got {w}");
+    assert!(
+        (w - 354.0).abs() < 1.0,
+        "1180 wide gives 30% = 354, got {w}"
+    );
     assert!((rig.rect("clip-header").unwrap()[3] - 48.0).abs() < 0.5);
     assert!((rig.rect("clip-footer").unwrap()[3] - 36.0).abs() < 0.5);
 }
@@ -111,10 +134,11 @@ fn pinned_clips_come_first_then_day_sections() {
 fn a_search_narrows_the_list_and_drops_the_pinned_section() {
     let mut rig = Rig::new(true);
     seed_sample(&mut rig);
-    rig.rt.update(|st, _| st.clipboard.search.replace_text("meeting"));
+    rig.rt
+        .update(|st, _| st.clipboard.search.replace_text("meeting"));
     rig.settle();
     let list = clips(&rig);
-    assert!(list.len() > 0 && list.len() < 85);
+    assert!(!list.is_empty() && list.len() < 85);
     assert!(list.rows().iter().all(|r| !matches!(&r.kind,
         crate::clip::model::RowKind::Header { label, .. } if label == "Pinned")));
 }
@@ -123,7 +147,8 @@ fn a_search_narrows_the_list_and_drops_the_pinned_section() {
 fn a_search_with_no_match_says_so_and_show_everything_clears_it() {
     let mut rig = Rig::new(true);
     seed_sample(&mut rig);
-    rig.rt.update(|st, _| st.clipboard.search.replace_text("zzzzqq"));
+    rig.rt
+        .update(|st, _| st.clipboard.search.replace_text("zzzzqq"));
     rig.settle();
     assert!(rig.rect("clip-nothing").is_some());
     rig.click_text("Show everything");
@@ -136,21 +161,31 @@ fn an_empty_history_welcomes_and_recording_off_offers_to_turn_on() {
     let mut rig = Rig::new(true);
     open(&mut rig);
     assert!(rig.rect("clip-welcome").is_some());
-    rig.kudzu.settings.update(|s| s.clipboard_enabled = false).unwrap();
+    rig.kudzu
+        .settings
+        .update(|s| s.clipboard_enabled = false)
+        .unwrap();
     rig.settle();
     rig.click_text("Turn on");
-    until(&mut rig, "recording on", |r| r.kudzu.settings.watch().get().clipboard_enabled);
+    until(&mut rig, "recording on", |r| {
+        r.kudzu.settings.watch().get().clipboard_enabled
+    });
 }
 
 #[test]
 fn a_paused_history_with_clips_shows_the_banner_and_resume_turns_recording_on() {
     let mut rig = Rig::new(true);
     seed_sample(&mut rig);
-    rig.kudzu.settings.update(|s| s.clipboard_enabled = false).unwrap();
+    rig.kudzu
+        .settings
+        .update(|s| s.clipboard_enabled = false)
+        .unwrap();
     rig.settle();
     assert!(rig.rect("clip-paused").is_some());
     rig.click_text("Resume");
-    until(&mut rig, "recording on", |r| r.kudzu.settings.watch().get().clipboard_enabled);
+    until(&mut rig, "recording on", |r| {
+        r.kudzu.settings.watch().get().clipboard_enabled
+    });
     assert!(rig.rect("clip-paused").is_none());
 }
 
@@ -199,12 +234,20 @@ fn enter_copies_the_active_clip_and_our_own_write_is_not_captured_again() {
     assert_eq!(active_text(&rig), "first");
     let before = rig.kudzu.clipboard.watch().get().entries.len();
     rig.press(key(Key::Enter, false));
-    until(&mut rig, "the copy toast", |r| toast_titles(r).contains(&"Copied".to_owned()));
+    until(&mut rig, "the copy toast", |r| {
+        toast_titles(r).contains(&"Copied".to_owned())
+    });
     rig.kudzu.clipboard.poll().unwrap();
     let h = rig.kudzu.clipboard.watch().get();
     assert_eq!(h.entries.len(), before, "copying back adds no entry");
-    assert!(h.entries.iter().all(|e| e.copy_count == 1), "and no phantom copy");
-    assert_eq!(rig.rt.state.clipboard.clips.look.copied, clips(&rig).active());
+    assert!(
+        h.entries.iter().all(|e| e.copy_count == 1),
+        "and no phantom copy"
+    );
+    assert_eq!(
+        rig.rt.state.clipboard.clips.look.copied,
+        clips(&rig).active()
+    );
 }
 
 #[test]
@@ -243,7 +286,11 @@ fn deleting_posts_an_undo_toast_that_restores_and_moves_to_the_neighbour() {
     assert_eq!(active_text(&rig), "two");
     rig.press(key(Key::Backspace, false));
     assert_eq!(texts(&rig), vec!["three", "one"]);
-    assert_eq!(active_text(&rig), "one", "the neighbour that took its place");
+    assert_eq!(
+        active_text(&rig),
+        "one",
+        "the neighbour that took its place"
+    );
     assert!(toast_titles(&rig).contains(&"Deleted “two”".to_owned()));
     rig.click_text("Undo");
     until(&mut rig, "the restore", |r| texts(r).len() == 3);
@@ -280,7 +327,10 @@ fn a_deleted_secret_is_never_named_in_the_toast() {
     rig.settle();
     rig.press(key(Key::Backspace, false));
     let titles = toast_titles(&rig);
-    assert!(titles.contains(&"Deleted a secret".to_owned()), "{titles:?}");
+    assert!(
+        titles.contains(&"Deleted a secret".to_owned()),
+        "{titles:?}"
+    );
     assert!(titles.iter().all(|t| !t.contains("hunter2")));
 }
 
@@ -347,7 +397,10 @@ fn save_as_snippet_asks_for_a_new_snippet_with_the_full_text() {
     capture(&mut rig, &[long.as_str()]);
     rig.press(cmd('s'));
     until(&mut rig, "the snippet to exist", |r| {
-        r.library().snippets.iter().any(|s| s.content.len() >= long.len())
+        r.library()
+            .snippets
+            .iter()
+            .any(|s| s.content.len() >= long.len())
     });
 }
 
@@ -355,9 +408,19 @@ fn save_as_snippet_asks_for_a_new_snippet_with_the_full_text() {
 fn clear_history_can_also_delete_pinned_items() {
     let mut rig = Rig::new(true);
     capture(&mut rig, &["keep", "drop"]);
-    let keep = rig.kudzu.clipboard.watch().get().entries.iter().find(|e| e.text.as_deref() == Some("keep")).map(|e| e.id).unwrap();
+    let keep = rig
+        .kudzu
+        .clipboard
+        .watch()
+        .get()
+        .entries
+        .iter()
+        .find(|e| e.text.as_deref() == Some("keep"))
+        .map(|e| e.id)
+        .unwrap();
     rig.kudzu.clipboard.pin(keep, true).unwrap();
-    rig.rt.update(|st, _| crate::main::clipboard::actions::open_clear(st));
+    rig.rt
+        .update(|st, _| crate::main::clipboard::actions::open_clear(st));
     rig.settle();
     rig.click_text("Clear history");
     assert_eq!(texts(&rig), vec!["keep"], "pinned items survive by default");
@@ -370,7 +433,10 @@ fn the_options_menu_changes_retention() {
     rig.rt.update(|st, _| {
         crate::main::clipboard::actions::set_retention(st, 30);
     });
-    assert_eq!(rig.kudzu.settings.watch().get().clipboard_retention_days, 30);
+    assert_eq!(
+        rig.kudzu.settings.watch().get().clipboard_retention_days,
+        30
+    );
 }
 
 #[test]
@@ -381,7 +447,30 @@ fn the_view_keeps_the_filter_it_was_given() {
         crate::main::nav::view(st, MainView::Clipboard(ClipFilter::Pinned), tx);
     });
     rig.settle();
-    let pinned = SampleState::load().unwrap().clipboard.entries.iter().filter(|e| e.pinned).count();
+    let pinned = SampleState::load()
+        .unwrap()
+        .clipboard
+        .entries
+        .iter()
+        .filter(|e| e.pinned)
+        .count();
     assert_eq!(clips(&rig).len(), pinned);
     let _: Uuid = clips(&rig).active().unwrap();
+}
+
+#[test]
+fn pressing_a_row_takes_keyboard_focus_from_the_search_field() {
+    let mut rig = Rig::new(true);
+    capture(&mut rig, &["one", "two"]);
+    rig.press(plain('/', false));
+    assert!(rig.rt.state.clipboard.is_editing_text());
+    let target = clips(&rig).order()[1];
+    rig.rt.update(move |st, tx| {
+        let press = crate::main::clipboard::list_hooks().press;
+        press(st, target, crate::clip::model::Click::default(), tx);
+    });
+    assert!(!rig.rt.state.clipboard.is_editing_text());
+    assert_eq!(clips(&rig).active(), Some(target));
+    rig.press(key(Key::Up, false));
+    assert_eq!(active_text(&rig), "two", "arrows now move the list");
 }
