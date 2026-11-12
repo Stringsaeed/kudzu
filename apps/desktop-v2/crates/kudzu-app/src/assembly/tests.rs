@@ -1,4 +1,4 @@
-//! Reactions and shutdown, on fixtures.
+//! Reactions and shutdown, on fixtures, outside the Cargo workspace.
 
 use super::*;
 use crate::expansion::InsertionOutcome;
@@ -19,20 +19,9 @@ use std::time::{Duration, SystemTime};
 pub(super) struct Scratch(pub(super) PathBuf);
 impl Scratch {
     pub(super) fn new() -> Self {
-        // Use the configured temp directory through a short relative path so Unix socket
-        // names fit sun_path even when the worktree has a long absolute path.
-        let cwd = std::env::current_dir().unwrap();
-        let temp = std::env::temp_dir().canonicalize().unwrap();
-        let common = cwd
-            .ancestors()
-            .find(|ancestor| temp.starts_with(ancestor))
-            .unwrap();
-        let mut base = PathBuf::new();
-        for _ in cwd.strip_prefix(common).unwrap().components() {
-            base.push("..");
-        }
-        base.push(temp.strip_prefix(common).unwrap());
-        let path = base.join(format!("kudzu-s40-{}", uuid::Uuid::new_v4()));
+        // /tmp keeps the agent socket inside sun_path, and stays outside the Cargo workspace
+        // even when TMPDIR points at the worktree.
+        let path = PathBuf::from("/tmp").join(format!("kudzu-s40-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }
