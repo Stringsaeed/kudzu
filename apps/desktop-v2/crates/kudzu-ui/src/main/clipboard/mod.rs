@@ -32,6 +32,8 @@ use crate::shell::MainState;
 
 pub use keys::handle as handle_key;
 pub use view::view;
+#[cfg(test)]
+pub(crate) use view::VIEWS;
 
 pub const SEARCH_KEY: &str = "clipboard-search";
 pub const LIST_KEY: &str = "clip-list";

@@ -22,6 +22,12 @@ fn column_width(s: &MainState) -> f32 {
     (0.30 * (s.clipboard.card_w + chrome)).clamp(300.0, 372.0)
 }
 
+#[cfg(test)]
+thread_local! {
+    /// How many times the screen's view has run, for the scroll trace.
+    pub(crate) static VIEWS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// The screen. Menus and the dialog go on `layer`.
 pub fn view(
     s: &MainState,
@@ -30,6 +36,8 @@ pub fn view(
     pane_focused: bool,
     layer: &mut Vec<El>,
 ) -> El {
+    #[cfg(test)]
+    VIEWS.set(VIEWS.get() + 1);
     let c_state = &s.clipboard;
     let header = toolbar::header(s, theme, filter, layer);
     let mut left = col()

@@ -4,6 +4,7 @@
 
 mod clipboard;
 mod clipboard_landmarks;
+mod clipboard_scroll;
 mod frame;
 mod insights;
 mod landmarks;
