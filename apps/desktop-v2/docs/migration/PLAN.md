@@ -587,13 +587,13 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
 - A second review is required only after a blocker or a safety major.
 
-**Totals:** 45 done, 5 merged and in review or with fixes pending, 0 building, 11 waiting (61 steps).
+**Totals:** 46 done, 4 merged and in review or with fixes pending, 0 building, 11 waiting (61 steps).
 
 | Wave | Status |
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
-| 9 | S43, S50, S58, S64 and S65 done. S42 is reviewed and its fixes are pending; S55 is fixed and being re-checked. |
+| 9 | S43, S50, S55, S58, S64 and S65 done. S42 is reviewed and its fixes are pending. |
 | 10 | S59 done; S61 merged with review fixes pending; S51 merged and in review. |
 | 11 | S60 merged; its paste-safety blockers are pending (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
@@ -605,7 +605,7 @@ Waves 9 and later, step by step:
 | S42 sidebar | Merged (`fc064426`, report `S42_REPORT.md`); reviewed, fixes pending (`reviews/S42-sidebar.md`) | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
 | S43 command menu and cheat sheet | Done (`reviews/S43-command-menu.md`); the title-width gap is recorded for S73 | Grok 4.7 → Codex Sol |
 | S50 library list | Done (`reviews/S50-library.md`); the 13 pt row inset was kept, measured against the reference | Opus → Grok 4.7 |
-| S55 group settings and app picker | Fixes merged (`f809dd4f`); a re-check is running, because the review had a blocker | Grok 4.7 → Opus; re-check by Sonnet |
+| S55 group settings and app picker | Done (`reviews/S55-group-settings.md`). Fixes `f809dd4f`; re-check fixes by the orchestrator | Grok 4.7 → Opus; re-check by Sonnet |
 | S58 clipboard history list | Done (`reviews/S58-clipboard.md`) | Sonnet → Grok 4.7 |
 | S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
@@ -644,7 +644,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 | Step | State | Notes |
 |---|---|---|
 | S42 sidebar | Merged as `fc064426`; reviewed. Fixes pending: 2 majors and 9 minors (`reviews/S42-sidebar.md`), for the Codex Terra thread | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
-| S55 group settings and app picker | Fixes merged as `f809dd4f`; a re-check of B1, M1, M2 and M8 by Sonnet is running | The new `AppPicker` API is `new(id, value, apps, query, icons)`, then `.add_label()`, `.open()`, `.active()` and `.overlays()`, with `build(theme, cx, edit, toggle, set_open, set_active)`. S61's call site is already updated, and S51 has none yet. |
+| S55 group settings and app picker | Done. The re-check confirmed B1, M1, M2 and M8 fixed; the orchestrator fixed its icon-queue major and two minors (`refactor(desktop-v2): apply the S55 re-check fixes`) | Two minors remain for later: `AppPicker::new` takes `&'static str` (switch to `impl Into<String>` if per-row pickers are needed), and closing the list leaves the query focused with its text. The API is `new(id, value, apps, query, icons)`, then `.add_label()`, `.open()`, `.active()` and `.overlays()`, with `build(theme, cx, edit, toggle, set_open, set_active)`. |
 | S51 editor shell | Merged; in review by Grok 4.7 | `docs/migration/S51_REPORT.md` holds the item-by-item evidence and the content-field interface S52 replaces (`editor/content.rs`). The orchestrator moved its app picker to the S55 API (`refactor(desktop-v2): move the editor's app picker to the S55 API`). **Owner decisions it raises:** (1) a whitespace-only trigger paste shows "A trigger can't be only spaces.", where Tauri ignores it silently; (2) Tab during IME composition is swallowed in the trigger field; (3) deleting the open snippet, ⌘⇧F and ⌘⇧E write the draft first, while the bulk bar doesn't, as in Tauri; (4) its dates are UTC, but Insights now uses the host offset, so this is probably wrong; (5) S40's `MainModel.draft` stand-in remains. Carbon's draft branch can be deleted after review. |
 | S60 clipboard picker window | Merged as `418278dc` (three commits squashed so every commit builds); reviewed. **Fix first:** 2 blockers (a second pick changes a pending paste; it can paste into Kudzu itself), 4 majors and 2 minors (`reviews/S60-picker.md`), for the Sonnet thread | Its `picker` scenes pass in both themes (662 rows, 0 failed). The release scroll printed a p95 of 0.42 ms. S73 should look at the comparator rule it added: a `complementary` landmark accepts any inner text's RGB. The hotkey-to-frame latency, hide on blur and first mouse are S71 live checks. Carbon's draft branch can be deleted after review. |
 | S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; reviewed. Fixes pending: 5 majors and 10 minors (`reviews/S61-settings.md`), for the Codex Sol thread | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
