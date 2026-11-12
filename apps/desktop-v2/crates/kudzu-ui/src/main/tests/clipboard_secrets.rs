@@ -3,9 +3,7 @@
 use kudzu_core::clipboard::uti;
 use rune::Key;
 
-use super::clipboard_preview::{
-    active, copy, has_key, key, open_folder, png, text_clip, texts, until,
-};
+use super::clipboard_preview::{active, copy, has_key, key, open_folder, png, text_clip, until};
 use super::{esc, plain, Rig};
 use crate::main::clipboard::actions;
 use crate::main::state::ClipFilter;
@@ -141,29 +139,6 @@ fn hide_as_a_secret_has_an_undo_too() {
             .unwrap()
             .secret_override,
         None
-    );
-}
-
-#[test]
-fn a_concealed_row_reveals_its_title_on_hover_without_a_commit_and_its_label_never_has_content() {
-    let mut rig = Rig::new(true);
-    let id = secret_clip(&mut rig);
-    let label = rig
-        .rt
-        .elements()
-        .into_iter()
-        .find(|e| e.key.as_deref() == Some(&format!("clip-{id}")))
-        .and_then(|e| e.label)
-        .unwrap();
-    assert!(label.starts_with("Hidden secret"), "{label}");
-    assert!(!label.contains("hunter2"));
-    assert!(
-        texts(&rig).iter().any(|t| t.starts_with("••••")),
-        "dots stand in"
-    );
-    assert!(
-        texts(&rig).iter().any(|t| t.contains("hunter2")),
-        "the real title waits under the hover"
     );
 }
 

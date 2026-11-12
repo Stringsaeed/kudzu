@@ -2,7 +2,7 @@
 //! blocks the UI: each request is a worker `Task`, its answer is taken in `poll`, and images
 //! decode on Rune's image worker, which wakes the window when one is ready.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 
 use kudzu_app::apps::Apps;
@@ -12,8 +12,11 @@ use kudzu_app::watch::Subscription;
 use rune::{Image, ImageCache, Pixels};
 use uuid::Uuid;
 
-/// Decoded images kept at once.
-const KEEP: usize = 96;
+/// Decoded images kept at once. Pictures the open clip or the rows in view need are never
+/// evicted, whatever this is.
+const KEEP: usize = 512;
+/// Reads running at once. A folder of 200 files queues 200 icons; they load four at a time.
+pub const MAX_WORKERS: usize = 4;
 
 /// Which picture of a clip.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -43,7 +46,11 @@ enum Key {
     App(String),
 }
 
+type Read = Box<dyn FnOnce() -> Option<Vec<u8>> + Send>;
+
 enum Slot {
+    /// Waiting for one of [`MAX_WORKERS`] workers.
+    Queued(Read),
     Loading {
         task: Task<Option<Vec<u8>>>,
         _wake: Subscription,
@@ -60,6 +67,10 @@ pub struct Media {
     wake: Arc<dyn Fn() + Send + Sync>,
     slots: HashMap<Key, Slot>,
     order: VecDeque<Key>,
+    queue: VecDeque<Key>,
+    /// What the open clip shows, and what the rows in view show: neither is evicted.
+    open: HashSet<Key>,
+    rows: HashSet<Key>,
 }
 
 impl Media {
@@ -70,15 +81,33 @@ impl Media {
             wake,
             slots: HashMap::new(),
             order: VecDeque::new(),
+            queue: VecDeque::new(),
+            open: HashSet::new(),
+            rows: HashSet::new(),
         }
     }
 
-    /// Starts loading a picture unless it is loaded or on its way.
+    /// Asks for a picture unless it is loaded or on its way. It starts when a worker is free.
     pub fn want(&mut self, service: &Arc<ClipboardService>, id: Uuid, want: Want) {
+        let key = Key::Clip(id, want);
+        if self.slots.contains_key(&key) {
+            return;
+        }
         let service = service.clone();
-        self.start(Key::Clip(id, want), move || {
-            service.media(id, want.kind()).map(|m| m.bytes)
-        });
+        let read: Read = Box::new(move || service.media(id, want.kind()).map(|m| m.bytes));
+        self.insert(key.clone(), Slot::Queued(read));
+        self.queue.push_back(key);
+        self.pump();
+    }
+
+    /// The pictures the open clip shows: kept until the clip changes.
+    pub fn need_open(&mut self, wants: impl IntoIterator<Item = (Uuid, Want)>) {
+        self.open = wants.into_iter().map(|(id, w)| Key::Clip(id, w)).collect();
+    }
+
+    /// The pictures the rows in view show: kept until the view moves.
+    pub fn need_rows(&mut self, wants: impl IntoIterator<Item = (Uuid, Want)>) {
+        self.rows = wants.into_iter().map(|(id, w)| Key::Clip(id, w)).collect();
     }
 
     /// Starts loading an app's icon (the "From" row and the row badge).
@@ -98,32 +127,69 @@ impl Media {
         self.insert(key, slot);
     }
 
-    fn start(&mut self, key: Key, work: impl FnOnce() -> Option<Vec<u8>> + Send + 'static) {
-        if self.slots.contains_key(&key) {
-            return;
-        }
-        let slot = match Task::spawn("kudzu-clip-media", work) {
-            Ok(task) => {
-                let wake = self.wake.clone();
-                let sub = task.ready().subscribe(move || wake());
-                Slot::Loading { task, _wake: sub }
-            }
-            Err(_) => Slot::Missing,
-        };
-        self.insert(key, slot);
-    }
-
     fn insert(&mut self, key: Key, slot: Slot) {
         self.slots.insert(key.clone(), slot);
         self.order.push_back(key);
-        while self.order.len() > KEEP {
-            if let Some(old) = self.order.pop_front() {
+        // Make room by dropping the oldest finished pictures nobody shows. A queued or
+        // loading one is never dropped: its answer would be lost and asked for again.
+        let mut at = 0;
+        while self.slots.len() > KEEP && at < self.order.len() {
+            let old = &self.order[at];
+            let keep = self.open.contains(old)
+                || self.rows.contains(old)
+                || matches!(
+                    self.slots.get(old),
+                    Some(Slot::Queued(_) | Slot::Loading { .. }) | None
+                );
+            if keep {
+                at += 1;
+            } else if let Some(old) = self.order.remove(at) {
                 self.slots.remove(&old);
             }
         }
     }
 
-    /// Takes finished reads and hands their bytes to the image worker. True when any finished.
+    /// Reads running now.
+    pub fn in_flight(&self) -> usize {
+        self.slots
+            .values()
+            .filter(|s| matches!(s, Slot::Loading { .. }))
+            .count()
+    }
+
+    /// Reads waiting for a worker.
+    pub fn queued(&self) -> usize {
+        self.slots
+            .values()
+            .filter(|s| matches!(s, Slot::Queued(_)))
+            .count()
+    }
+
+    /// Starts queued reads while fewer than [`MAX_WORKERS`] run.
+    fn pump(&mut self) {
+        let mut running = self.in_flight();
+        while running < MAX_WORKERS {
+            let Some(key) = self.queue.pop_front() else {
+                break;
+            };
+            let Some(Slot::Queued(read)) = self.slots.remove(&key) else {
+                continue; // evicted or answered meanwhile
+            };
+            let slot = match Task::spawn("kudzu-clip-media", read) {
+                Ok(task) => {
+                    let wake = self.wake.clone();
+                    let sub = task.ready().subscribe(move || wake());
+                    running += 1;
+                    Slot::Loading { task, _wake: sub }
+                }
+                Err(_) => Slot::Missing,
+            };
+            self.slots.insert(key, slot);
+        }
+    }
+
+    /// Takes finished reads and hands their bytes to the image worker, then starts the next
+    /// queued reads. True when anything finished.
     pub fn poll(&mut self) -> bool {
         let mut changed = false;
         for slot in self.slots.values_mut() {
@@ -148,12 +214,18 @@ impl Media {
             };
             changed = true;
         }
+        self.pump();
         changed
     }
 
     /// The decoded picture, once it is ready.
     pub fn pixels(&self, id: Uuid, want: Want) -> Option<Pixels> {
         self.ready(&Key::Clip(id, want))
+    }
+
+    /// The first of `wants` that is ready: the original, then its thumbnail, then nothing.
+    pub fn first_ready(&self, id: Uuid, wants: &[Want]) -> Option<Pixels> {
+        wants.iter().find_map(|w| self.pixels(id, *w))
     }
 
     /// An app's icon, once it is ready.
@@ -170,19 +242,19 @@ impl Media {
         }
     }
 
-    /// Nothing is reading or decoding: every requested picture has settled.
+    /// Nothing is queued, reading or decoding: every requested picture has settled.
     pub fn idle(&self) -> bool {
         self.slots.values().all(|slot| match slot {
-            Slot::Loading { .. } => false,
+            Slot::Queued(_) | Slot::Loading { .. } => false,
             Slot::Ready { image, .. } => image.is_ready() || image.error().is_some(),
             Slot::Missing => true,
         })
     }
 
-    /// The picture is loaded or loading (so a fallback should wait rather than flash).
+    /// The picture is queued, loading or decoding (so a fallback should wait, not flash).
     pub fn pending(&self, id: Uuid, want: Want) -> bool {
         match self.slots.get(&Key::Clip(id, want)) {
-            Some(Slot::Loading { .. }) => true,
+            Some(Slot::Queued(_) | Slot::Loading { .. }) => true,
             Some(Slot::Ready { image, .. }) => !image.is_ready(),
             _ => false,
         }
@@ -271,5 +343,21 @@ impl std::fmt::Debug for Media {
         f.debug_struct("Media")
             .field("pictures", &self.slots.len())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_nothing_loaded_there_is_no_picture_to_fall_back_to() {
+        let media = Media::new(Arc::new(|| {}));
+        let id = Uuid::new_v4();
+        assert!(media
+            .first_ready(id, &[Want::File(0), Want::Thumbnail])
+            .is_none());
+        assert!(media.idle());
+        assert_eq!((media.in_flight(), media.queued()), (0, 0));
     }
 }

@@ -79,6 +79,11 @@ pub struct State {
     pub copied_value: Option<(String, f64)>,
     /// The raw-formats list under the details is open.
     pub formats_open: bool,
+    /// The pointer is on a concealed preview, or keyboard focus is: it shows its content.
+    cover_hover: bool,
+    cover_focus: bool,
+    /// The timeline dot whose tooltip shows.
+    pub hover_dot: Option<usize>,
     /// The complete text of the active clip, loaded off the UI thread.
     pub full: FullText,
     /// Height of the content card, for the large preview.
@@ -122,6 +127,9 @@ impl Default for State {
             card_h: 702.0,
             copied_value: None,
             formats_open: false,
+            cover_hover: false,
+            cover_focus: false,
+            hover_dot: None,
             full: FullText::default(),
             copied_until: None,
             jobs: Vec::new(),
@@ -172,6 +180,23 @@ impl State {
         self.seen.history.is_none()
     }
 
+    /// A concealed preview is uncovered: the pointer is on it, or keyboard focus is.
+    pub fn cover_revealed(&self) -> bool {
+        self.cover_hover || self.cover_focus
+    }
+
+    pub(crate) fn set_cover_hover(&mut self, on: bool) {
+        self.cover_hover = on;
+    }
+
+    /// Keyboard focus reaches or leaves the concealed preview (`Tx::focused`, read in `poll`;
+    /// Rune has no per-element focus hook). Only keyboard focus reveals, as `focus-visible`
+    /// does. True when that changed what shows.
+    pub fn note_focus(&mut self, focused: Option<&str>, keyboard: bool) -> bool {
+        let on = keyboard && focused == Some(crate::clip::secret::COVER_KEY);
+        std::mem::replace(&mut self.cover_focus, on) != on
+    }
+
     /// `full` belongs to this clip, not the one shown before it.
     pub(crate) fn seen_active_is(&self, id: Uuid) -> bool {
         self.seen.active.as_ref().is_some_and(|(a, _)| *a == id)
@@ -186,6 +211,14 @@ pub(crate) fn list_hooks() -> Hooks<MainState> {
     Hooks {
         state: |s: &MainState| &s.clipboard.clips,
         visible: want_rows,
+        reveal: |s: &mut MainState, id: Uuid, on: bool| {
+            let clips = &mut s.clipboard.clips;
+            if on {
+                clips.revealed = Some(id);
+            } else if clips.revealed == Some(id) {
+                clips.revealed = None;
+            }
+        },
         press: |s: &mut MainState, id: Uuid, click: Click, tx: &mut Tx| {
             s.clipboard.clips.list.click(id, click);
             s.clipboard.large_preview = false;
@@ -252,10 +285,34 @@ fn want_rows(s: &mut MainState, range: std::ops::Range<usize>) {
         .collect();
     let clipboard = s.svc.clipboard.clone();
     let media = media_mut(s);
+    let wanted: Vec<(Uuid, Want)> = wanted
+        .into_iter()
+        .filter_map(|(id, want)| want.map(|w| (id, w)))
+        .collect();
+    // The rows in view keep their pictures; any the cache lost is asked for again.
+    media.need_rows(wanted.iter().copied());
     for (id, want) in wanted {
-        if let Some(want) = want {
-            media.want(&clipboard, id, want);
+        media.want(&clipboard, id, want);
+    }
+}
+
+/// The pictures the open clip shows.
+fn open_wants(e: &kudzu_core::clipboard::ClipEntry) -> Vec<(Uuid, Want)> {
+    use kudzu_core::clipboard::ClipKind;
+    match e.kind {
+        ClipKind::Image => vec![(e.id, Want::Image), (e.id, Want::Thumbnail)],
+        ClipKind::File => {
+            let mut wants: Vec<(Uuid, Want)> =
+                (0..e.files.len().min(crate::clip::content::FILE_LIMIT))
+                    .map(|i| (e.id, Want::Icon(i)))
+                    .collect();
+            if e.image.is_some() && e.files.len() == 1 {
+                wants.push((e.id, Want::File(0)));
+                wants.push((e.id, Want::Thumbnail));
+            }
+            wants
         }
+        _ => Vec::new(),
     }
 }
 
@@ -283,7 +340,6 @@ fn want_app_icons(s: &mut MainState) {
 /// Points the preview at the active clip: loads its full text and the pictures it shows.
 /// Cheap when the active clip did not change.
 pub(crate) fn track_active(s: &mut MainState) -> bool {
-    use kudzu_core::clipboard::ClipKind;
     let Some(e) = s.clipboard.clips.list.active_entry().cloned() else {
         let had = s.clipboard.seen.active.take().is_some();
         s.clipboard.full = FullText::default();
@@ -292,32 +348,26 @@ pub(crate) fn track_active(s: &mut MainState) -> bool {
         return had;
     };
     let key = (e.id, e.hash.clone());
+    let (clipboard, apps, wake) = (s.svc.clipboard.clone(), s.svc.apps.clone(), waker(s));
+    // Every call asks again for any picture the open clip shows that the cache no longer has;
+    // pictures it has are kept, and reads run a few at a time.
+    let wants = open_wants(&e);
+    let media = media_mut(s);
+    media.need_open(wants.iter().copied());
+    for (id, want) in &wants {
+        media.want(&clipboard, *id, *want);
+    }
     if s.clipboard.seen.active.as_ref() == Some(&key) {
         return false;
     }
     s.clipboard.seen.active = Some(key);
     s.clipboard.formats_open = false;
-    let (clipboard, apps, wake) = (s.svc.clipboard.clone(), s.svc.apps.clone(), waker(s));
+    s.clipboard.cover_hover = false;
+    s.clipboard.cover_focus = false;
+    s.clipboard.hover_dot = None;
     s.clipboard.full.show(&clipboard, &wake, &e);
-    let media = media_mut(s);
-    match e.kind {
-        ClipKind::Image => {
-            media.want(&clipboard, e.id, Want::Image);
-            media.want(&clipboard, e.id, Want::Thumbnail);
-        }
-        ClipKind::File => {
-            for i in 0..e.files.len().min(crate::clip::content::FILE_LIMIT) {
-                media.want(&clipboard, e.id, Want::Icon(i));
-            }
-            if e.image.is_some() && e.files.len() == 1 {
-                media.want(&clipboard, e.id, Want::File(0));
-                media.want(&clipboard, e.id, Want::Thumbnail);
-            }
-        }
-        _ => {}
-    }
     if let Some(src) = &e.source {
-        media.want_app(&apps, &src.bundle_id);
+        media_mut(s).want_app(&apps, &src.bundle_id);
     }
     true
 }

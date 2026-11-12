@@ -5,6 +5,7 @@
 use chrono::{DateTime, FixedOffset};
 use kudzu_core::clipboard::facts::{clip_time, kind_label};
 use rune::{col, icon, row, text, El, Tx};
+use rune_kit::{Placement, Tooltip, TooltipAppearance};
 
 use super::content::{self, loader::Media, Body};
 use super::facts::{details, formats_label};
@@ -22,6 +23,10 @@ pub struct Preview<'a> {
     pub formats_open: bool,
     /// The picker's short form: no timeline, no formats.
     pub compact: bool,
+    /// A concealed body is uncovered: the pointer is on it or keyboard focus is.
+    pub revealed: bool,
+    /// The timeline dot whose tooltip shows.
+    pub hover_dot: Option<usize>,
 }
 
 /// How the preview reaches its window.
@@ -31,6 +36,10 @@ pub struct Hooks<S: 'static> {
     pub not_a_secret: fn(&mut S, &mut Tx),
     /// The "N formats" summary.
     pub toggle_formats: fn(&mut S, &mut Tx),
+    /// The pointer enters or leaves a concealed body.
+    pub reveal: fn(&mut S, bool, &mut Tx),
+    /// The pointer enters (`Some`) or leaves (`None`) a timeline dot.
+    pub hover_dot: fn(&mut S, Option<usize>, &mut Tx),
 }
 
 impl<S: 'static> Clone for Hooks<S> {
@@ -102,13 +111,18 @@ pub fn heading<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) -> El {
 pub fn content<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) -> El {
     let body = content::body(theme, &p.body, hooks.content);
     if secret::is_hidden(p.body.entry, p.show_secrets) {
-        secret::cover(theme, p.body.entry, body)
+        secret::cover(theme, p.body.entry, body, p.revealed, hooks.reveal)
     } else {
         body
     }
 }
 
-fn copy_timeline(theme: &Theme, p: &Preview) -> El {
+fn copy_timeline<S: 'static>(
+    theme: &Theme,
+    p: &Preview,
+    hooks: Hooks<S>,
+    layer: &mut Vec<El>,
+) -> El {
     let c = &theme.c;
     let e = p.body.entry;
     let line = timeline(e, p.retention_days, p.now.with_timezone(&chrono::Utc));
@@ -147,7 +161,20 @@ fn copy_timeline(theme: &Theme, p: &Preview) -> El {
                 .radius(4.0)
                 .fill(ink)
                 .border(2.0, c.background)
-                .help(kudzu_core::clipboard::facts::exact_time(*when, p.now));
+                .on_hover_change(move |s: &mut S, on, tx| {
+                    (hooks.hover_dot)(s, on.then_some(i), tx)
+                });
+            // The styled tooltip names the exact time; the window keeps which dot is hovered.
+            let dot = Tooltip::new(format!("clip-dot-{i}"))
+                .trigger(dot)
+                .appearance(TooltipAppearance::Standard)
+                .text(
+                    theme.kit(),
+                    kudzu_core::clipboard::facts::exact_time(*when, p.now),
+                )
+                .placement(Placement::Top)
+                .open(p.hover_dot == Some(i))
+                .build(theme.kit(), layer);
             (dot_position(*at), dot)
         })
         .collect();
@@ -232,7 +259,9 @@ pub fn app_badge(theme: &Theme, p: &Preview, size: f32) -> El {
             .and_then(|m: &Media| m.app_pixels(&s.bundle_id))
     });
     match pixels {
-        Some(px) => slot.pixels_fit(&px, rune::SurfaceFit::Fit),
+        Some(px) => slot
+            .key("clip-app-badge")
+            .pixels_fit(&px, rune::SurfaceFit::Fit),
         None => slot.fill(theme.c.foreground.alpha(0.06)),
     }
 }
@@ -287,7 +316,12 @@ fn formats<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) -> El {
 }
 
 /// The copy timeline, the metadata rows and the raw formats.
-pub fn details_section<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) -> El {
+pub fn details_section<S: 'static>(
+    theme: &Theme,
+    p: &Preview,
+    hooks: Hooks<S>,
+    layer: &mut Vec<El>,
+) -> El {
     let e = p.body.entry;
     let mut block = col().key("clip-details").w_full().gap(16.0);
     if !p.compact && e.copy_count > 1 {
@@ -306,7 +340,7 @@ pub fn details_section<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) 
                         .color(theme.c.faint)
                         .w_full(),
                 )
-                .child(copy_timeline(theme, p)),
+                .child(copy_timeline(theme, p, hooks, layer)),
         );
     }
     block = block.child(fact_rows(theme, p, p.body.full));
@@ -317,12 +351,12 @@ pub fn details_section<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) 
 }
 
 /// Heading, body and details, one under another.
-pub fn column<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>) -> El {
+pub fn column<S: 'static>(theme: &Theme, p: &Preview, hooks: Hooks<S>, layer: &mut Vec<El>) -> El {
     col()
         .key("clip-preview-content")
         .w_full()
         .gap(24.0)
         .child(heading(theme, p, hooks))
         .child(content(theme, p, hooks))
-        .child(details_section(theme, p, hooks))
+        .child(details_section(theme, p, hooks, layer))
 }

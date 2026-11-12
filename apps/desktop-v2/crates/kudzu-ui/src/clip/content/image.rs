@@ -28,10 +28,9 @@ pub fn box_ratio(b: &Body) -> f32 {
 
 pub fn view(theme: &Theme, b: &Body) -> El {
     let c = &theme.c;
-    let pixels = b.media.and_then(|m| {
-        m.pixels(b.entry.id, Want::Image)
-            .or_else(|| m.pixels(b.entry.id, Want::Thumbnail))
-    });
+    let pixels = b
+        .media
+        .and_then(|m| m.first_ready(b.entry.id, &[Want::Image, Want::Thumbnail]));
     let mut frame = well(theme)
         .key("clip-image-body")
         .role("img")
@@ -45,9 +44,13 @@ pub fn view(theme: &Theme, b: &Body) -> El {
         frame.aspect_ratio(box_ratio(b)).min_h(160.0).max_h(420.0)
     };
     match pixels {
-        Some(px) => frame
-            .child(checkerboard(theme, 920.0, 640.0))
-            .child(col().w_full().h_full().pixels_fit(&px, SurfaceFit::Fit)),
+        Some(px) => frame.child(checkerboard(theme, 920.0, 640.0)).child(
+            col()
+                .key("clip-image-pixels")
+                .w_full()
+                .h_full()
+                .pixels_fit(&px, SurfaceFit::Fit),
+        ),
         None => frame.child(icon(&icons::IMAGE, 28.0).color(c.faint)),
     }
 }

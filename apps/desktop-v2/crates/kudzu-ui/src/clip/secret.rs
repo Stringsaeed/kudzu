@@ -8,9 +8,9 @@
 
 use kudzu_core::clipboard::facts::{concealed, secret_reason};
 use kudzu_core::clipboard::ClipEntry;
-use rune::{col, icon, row, text, El, Tx};
+use rune::{col, icon, row, text, Curve, El, Tx};
 
-use crate::theme::{icons, Theme};
+use crate::theme::{icons, motion, Theme};
 
 /// Dots standing in for hidden text, about as long as the text (8 to 18).
 pub fn dots(length: usize) -> String {
@@ -62,11 +62,24 @@ pub fn cover_label(e: &ClipEntry) -> String {
     )
 }
 
-/// Covers `content` (a preview body) while it is a secret: the content is laid out and
-/// invisible, the cover shows the reason, and a hover or focus swaps them.
-pub fn cover(theme: &Theme, e: &ClipEntry, content: El) -> El {
+/// Key of the cover: the element the pointer and keyboard focus reveal.
+pub const COVER_KEY: &str = "clip-concealed";
+
+/// Covers `content` (a preview body) while it is a secret. The content is always laid out, so
+/// nothing jumps on reveal. While covered it is invisible, inert (not selectable) and hidden
+/// from assistive technology; a hover or keyboard focus (`revealed`, kept by the window)
+/// rebuilds it visible, selectable and readable, as Tauri's `group-hover` and
+/// `group-focus-visible` do.
+pub fn cover<S: 'static>(
+    theme: &Theme,
+    e: &ClipEntry,
+    content: El,
+    revealed: bool,
+    on_hover: fn(&mut S, bool, &mut Tx),
+) -> El {
     let c = &theme.c;
     let ty = &theme.ty;
+    let fade = Curve::ease_in_out(motion::MODERATE);
     let overlay = col()
         .key("clip-concealed-cover")
         .absolute(0.0, 0.0)
@@ -76,7 +89,8 @@ pub fn cover(theme: &Theme, e: &ClipEntry, content: El) -> El {
         .gap(6.0)
         .radius(14.0)
         .fill(c.foreground.alpha(0.025))
-        .group_opacity(1.0, 0.0)
+        .opacity(if revealed { 0.0 } else { 1.0 })
+        .opacity_motion(fade)
         .a11y_hidden()
         .child(
             row()
@@ -92,24 +106,32 @@ pub fn cover(theme: &Theme, e: &ClipEntry, content: El) -> El {
                 .color(c.foreground),
         )
         .child(text("Hover to show").font(ty.control_xs).color(c.faint));
-    col()
-        .key("clip-concealed")
+    let body = col()
+        .key("clip-concealed-content")
+        .w_full()
+        .opacity(if revealed { 1.0 } else { 0.0 })
+        .opacity_motion(fade)
+        .child(content);
+    let body = if revealed {
+        body
+    } else {
+        body.a11y_hidden().inert()
+    };
+    let wrapper = col()
+        .key(COVER_KEY)
         .role("group")
-        .label(cover_label(e))
         .focusable(true)
-        .hover_group_focus()
+        .on_hover_change(on_hover)
         .w_full()
         .min_h(112.0)
         .radius(14.0)
-        .child(
-            col()
-                .w_full()
-                .group_opacity(0.0, 1.0)
-                .a11y_hidden()
-                .inert()
-                .child(content),
-        )
-        .child(overlay)
+        .child(body)
+        .child(overlay);
+    if revealed {
+        wrapper
+    } else {
+        wrapper.label(cover_label(e))
+    }
 }
 
 /// The heading's "Secret" pill with its one-click "Not a secret?" correction.

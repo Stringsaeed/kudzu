@@ -305,7 +305,7 @@ fn preview_column(
         .child(toolbar::rule_h(theme));
     column = match active {
         Some(e) => column
-            .child(preview_body(s, theme, e))
+            .child(preview_body(s, theme, e, layer))
             .child(toolbar::item_actions(s, theme, e)),
         None => column.child(
             col().grow(1.0).w_full().center().child(
@@ -333,6 +333,8 @@ fn preview_hooks() -> crate::clip::preview::Hooks<MainState> {
         },
         not_a_secret: |s, _| actions::not_a_secret(s),
         toggle_formats: |s, _| s.clipboard.formats_open = !s.clipboard.formats_open,
+        reveal: |s, on, _| s.clipboard.set_cover_hover(on),
+        hover_dot: |s, dot, _| s.clipboard.hover_dot = dot,
     }
 }
 
@@ -353,11 +355,13 @@ pub(super) fn preview_of<'a>(s: &'a MainState, entry: &'a ClipEntry, large: bool
         now: st.clips.look.now,
         formats_open: st.formats_open,
         compact: false,
+        revealed: st.cover_revealed(),
+        hover_dot: st.hover_dot,
     }
 }
 
 /// The scrolling body of the preview column: heading, content and details of the clip.
-fn preview_body(s: &MainState, theme: &Theme, entry: &ClipEntry) -> El {
+fn preview_body(s: &MainState, theme: &Theme, entry: &ClipEntry, layer: &mut Vec<El>) -> El {
     let p = preview_of(s, entry, false);
     col()
         .key("clip-preview-body")
@@ -367,13 +371,12 @@ fn preview_body(s: &MainState, theme: &Theme, entry: &ClipEntry) -> El {
         .scroll(ScrollSpec {
             stick_bottom: false,
         })
-        .child(
-            col()
-                .w_full()
-                .px(24.0)
-                .py(20.0)
-                .child(preview::column(theme, &p, preview_hooks())),
-        )
+        .child(col().w_full().px(24.0).py(20.0).child(preview::column(
+            theme,
+            &p,
+            preview_hooks(),
+            layer,
+        )))
 }
 
 /// The large preview, when Space opened it.

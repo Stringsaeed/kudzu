@@ -2,7 +2,7 @@
 //! `min(920, 90% of the window)` by 86% of its height. Space and Escape close it and the
 //! arrows move to the neighbouring clip (the screen's key handler does that).
 
-use rune::{col, El};
+use rune::{col, row, El};
 
 use super::preview::{self, Hooks, Preview};
 use crate::theme::Theme;
@@ -22,7 +22,9 @@ pub fn height(window_h: f32) -> f32 {
     window_h * HEIGHT_FRACTION
 }
 
-/// Pushes the dialog onto `layer`. `title` is the clip's title, or "Secret".
+/// Pushes the dialog onto `layer`. `title` is the clip's title, or "Secret"; it and the
+/// description are spoken, not drawn (`sr-only`, as Tauri's are). `window` is the window's
+/// size in points: the panel is at most `min(920, 90%)` wide and 86% high.
 pub fn build<S: 'static>(
     theme: &Theme,
     p: &Preview,
@@ -32,25 +34,37 @@ pub fn build<S: 'static>(
     on_close: impl Fn(&mut S) + Clone + 'static,
     layer: &mut Vec<El>,
 ) {
-    let body = preview::heading(theme, p, hooks);
-    let content = preview::content(theme, p, hooks);
+    let head = row()
+        .key("clip-large-heading")
+        .w_full()
+        .pl(24.0)
+        .pr(48.0)
+        .py(14.0)
+        .child(preview::heading(theme, p, hooks));
+    let body = col()
+        .key("clip-large-body")
+        .w_full()
+        .shrink()
+        .min_h(0.0)
+        .scroll(rune::ScrollSpec {
+            stick_bottom: false,
+        })
+        .child(
+            col()
+                .w_full()
+                .padding(24.0)
+                .child(preview::content(theme, p, hooks)),
+        );
     Dialog::new("clip-large", title)
         .description("Large preview. Press Space or Escape to close.")
         .open(true)
         .kudzu()
+        .bare()
         .width(width(window.0))
-        .child(
-            col()
-                .key("clip-large-body")
-                .w_full()
-                .max_h(height(window.1) - 120.0)
-                .gap(16.0)
-                .scroll(rune::ScrollSpec {
-                    stick_bottom: false,
-                })
-                .child(body)
-                .child(content),
-        )
+        .max_height(height(window.1))
+        .child(head)
+        .child(row().w_full().h(1.0).fill(theme.c.hairline))
+        .child(body)
         .on_close(on_close)
         .build(theme, layer);
 }

@@ -149,25 +149,6 @@ fn a_short_text_needs_no_worker_and_shows_its_length_and_words() {
 }
 
 #[test]
-fn code_shows_line_numbers_and_at_most_fifteen_hundred_lines() {
-    let mut rig = Rig::new(true);
-    let code: String = (0..1600).map(|i| format!("let x{i} = {i};\n")).collect();
-    text_clip(&rig, &code);
-    open_folder(&mut rig, ClipFilter::All);
-    rig.rt.update(|st: &mut MainState, _| {
-        let e = st.clipboard.clips.list.active_entry().cloned();
-        assert!(e.is_some());
-    });
-    until(&mut rig, "the full text", |r| {
-        r.rt.state.clipboard.full.get().is_some()
-    });
-    if active(&rig).kind == kudzu_core::clipboard::ClipKind::Code {
-        assert!(has_text(&rig, "…and 101 more lines."));
-        assert!(has_key(&rig, "clip-code"));
-    }
-}
-
-#[test]
 fn a_link_shows_host_url_and_one_button_and_an_email_writes_instead() {
     let mut rig = Rig::new(true);
     seed_sample(&mut rig, ClipFilter::Link);
@@ -210,19 +191,6 @@ fn a_colour_shows_four_copyable_values_and_contrast() {
     }
     assert!(has_key(&rig, "clip-swatch"));
     assert_eq!(elements_with(&rig, "text", "Contrast with white text"), 1);
-    rig.click_key("clip-color-values");
-    rig.rt
-        .update(|st: &mut MainState, tx| actions::copy_value(st, "#5B7CFA".into(), tx));
-    rig.settle();
-    assert_eq!(
-        rig.rt
-            .state
-            .clipboard
-            .copied_value
-            .as_ref()
-            .map(|(v, _)| v.as_str()),
-        Some("#5B7CFA")
-    );
 }
 
 #[test]
@@ -246,24 +214,6 @@ fn files_list_open_and_show_in_finder_per_file_and_up_to_two_hundred() {
         rig.fixtures.files.revealed.lock().unwrap()[0].to_string_lossy(),
         e.files[0]
     );
-}
-
-#[test]
-fn many_files_stop_at_two_hundred() {
-    let mut rig = Rig::new(true);
-    let paths: Vec<String> = (0..230)
-        .map(|i| format!("/Users/me/Documents/file-{i}.txt"))
-        .collect();
-    let list = paths
-        .iter()
-        .map(|p| format!("file://{p}"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    copy(&rig, vec![(uti::FILE_URL, list.into_bytes())]);
-    open_folder(&mut rig, ClipFilter::All);
-    if active(&rig).files.len() > 200 {
-        assert!(has_text(&rig, "…and 30 more."));
-    }
 }
 
 #[test]

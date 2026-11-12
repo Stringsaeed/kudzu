@@ -15,7 +15,12 @@ fn icon_tile(theme: &Theme, b: &Body, index: usize) -> El {
         .media
         .and_then(|m| m.pixels(b.entry.id, Want::Icon(index)))
     {
-        Some(px) => slot.child(col().size(32.0, 32.0).pixels_fit(&px, SurfaceFit::Fit)),
+        Some(px) => slot.child(
+            col()
+                .key(format!("clip-file-icon-{index}"))
+                .size(32.0, 32.0)
+                .pixels_fit(&px, SurfaceFit::Fit),
+        ),
         None => slot.child(
             row()
                 .size(32.0, 32.0)
@@ -91,10 +96,10 @@ pub fn view<S: 'static>(theme: &Theme, b: &Body, hooks: Hooks<S>) -> El {
     let mut column = col().key("clip-files-body").w_full().gap(12.0);
     if let (1, Some(_)) = (files.len(), b.entry.image) {
         let height = if b.large { 560.0 } else { 224.0 };
-        let px = b.media.and_then(|m| {
-            m.pixels(b.entry.id, Want::File(0))
-                .or_else(|| m.pixels(b.entry.id, Want::Thumbnail))
-        });
+        // The file itself, else its thumbnail, else nothing (`clip-content.tsx:243`).
+        let px = b
+            .media
+            .and_then(|m| m.first_ready(b.entry.id, &[Want::File(0), Want::Thumbnail]));
         let mut preview = well(theme)
             .role("img")
             .label(format!("Preview of {}", basename(&files[0])))
@@ -103,9 +108,13 @@ pub fn view<S: 'static>(theme: &Theme, b: &Body, hooks: Hooks<S>) -> El {
             .center()
             .clip_rounded(14.0);
         if let Some(px) = px {
-            preview = preview
-                .child(checkerboard(theme, 920.0, height))
-                .child(col().w_full().h_full().pixels_fit(&px, SurfaceFit::Fit));
+            preview = preview.child(checkerboard(theme, 920.0, height)).child(
+                col()
+                    .key("clip-file-preview-image")
+                    .w_full()
+                    .h_full()
+                    .pixels_fit(&px, SurfaceFit::Fit),
+            );
         }
         column = column.child(preview);
     }

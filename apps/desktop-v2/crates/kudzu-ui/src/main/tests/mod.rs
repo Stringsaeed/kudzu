@@ -7,6 +7,7 @@ mod clipboard_landmarks;
 mod clipboard_preview;
 mod clipboard_preview_landmarks;
 mod clipboard_review;
+mod clipboard_review59;
 mod clipboard_scroll;
 mod clipboard_secrets;
 mod command_menu;

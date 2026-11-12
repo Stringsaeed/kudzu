@@ -127,6 +127,7 @@ fn badge(theme: &Theme, e: &ClipEntry, size: f32, media: Option<&Media>, square:
     let _ = size;
     col().child(square).child(
         row()
+            .key("clip-tile-badge")
             .absolute(size - 10.0, size - 10.0)
             .size(14.0, 14.0)
             .radius(5.0)

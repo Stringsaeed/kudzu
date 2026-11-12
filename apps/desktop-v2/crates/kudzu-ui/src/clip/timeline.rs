@@ -23,12 +23,9 @@ fn ms(t: DateTime<Utc>) -> f64 {
 }
 
 pub fn timeline(e: &ClipEntry, retention_days: u32, now: DateTime<Utc>) -> Timeline {
-    let times: Vec<DateTime<Utc>> = if e.timings.is_empty() {
-        vec![e.copied_at]
-    } else {
-        e.timings.clone()
-    };
-    let first = ms(times[0]);
+    // Dots are the recorded copy times only; none recorded, none drawn.
+    let times: Vec<DateTime<Utc>> = e.timings.clone();
+    let first = times.first().map_or_else(|| ms(e.copied_at), |t| ms(*t));
     let now_ms = ms(now);
     let span = if retention_days > 0 {
         (f64::from(retention_days) * DAY_MS).max(now_ms - first)
@@ -103,6 +100,15 @@ mod tests {
         let t = timeline(&e, 0, utc_now());
         assert!(t.ticks.is_empty());
         assert_eq!(t.start_label, "Aug 13");
+    }
+
+    #[test]
+    fn a_clip_with_no_recorded_copies_draws_no_dots() {
+        let mut e = clip("x", 60, false);
+        e.timings.clear();
+        let t = timeline(&e, 7, utc_now());
+        assert!(t.copies.is_empty());
+        assert_eq!(t.start_label, "7 days ago");
     }
 
     #[test]

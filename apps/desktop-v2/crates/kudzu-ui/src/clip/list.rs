@@ -86,6 +86,8 @@ pub struct ListState {
     pub list: ClipList,
     pub look: Look,
     pub census: Census,
+    /// The concealed row under the pointer, whose title shows.
+    pub revealed: Option<Uuid>,
     /// Thumbnails, file icons and app icons, loaded off the UI thread. Created with the
     /// window's waker on first use.
     pub media: Option<Media>,
@@ -97,6 +99,7 @@ impl ListState {
             list: ClipList::default(),
             look: Look::new(now),
             census: Census::default(),
+            revealed: None,
             media: None,
         }
     }
@@ -109,6 +112,8 @@ pub struct Hooks<S: 'static> {
     pub press: fn(&mut S, Uuid, Click, &mut Tx),
     /// A double press: copy it.
     pub pick: fn(&mut S, Uuid, &mut Tx),
+    /// The pointer enters (`true`) or leaves a concealed row.
+    pub reveal: fn(&mut S, Uuid, bool),
     /// The rows now in view (indices into `ListState::list.rows()`). Bookkeeping only: it
     /// must not change what the view draws, so scrolling commits nothing.
     pub visible: fn(&mut S, std::ops::Range<usize>),
@@ -166,24 +171,16 @@ fn marked(
     el
 }
 
-/// A concealed row shows `stand` (dots, the reason) until the pointer is on the row, then
-/// `real`. Paint only: nothing is rebuilt on hover, so scrolling a list commits nothing, and
-/// the real text is hidden from assistive technology (the row's label already says "Hidden").
-fn reveal(hidden: bool, stand: El, real: impl FnOnce() -> El) -> El {
-    if !hidden {
-        return stand;
+/// A concealed row shows `stand` (dots, the reason) until the pointer is on it, then `real`.
+/// The window keeps which row (`ListState::revealed`); the real text is built only for that
+/// row, so a covered title is neither in the tree nor selectable, and a revealed one is read
+/// by assistive technology, as Tauri's hover span is.
+fn reveal(hidden: bool, revealed: bool, stand: El, real: impl FnOnce() -> El) -> El {
+    match (hidden, revealed) {
+        (false, _) => stand,
+        (true, true) => real(),
+        (true, false) => stand.a11y_hidden(),
     }
-    col()
-        .w_full()
-        .min_w(0.0)
-        .child(stand.group_opacity(1.0, 0.0).a11y_hidden())
-        .child(
-            real()
-                .absolute(0.0, 0.0)
-                .w_full()
-                .group_opacity(0.0, 1.0)
-                .a11y_hidden(),
-        )
 }
 
 fn truncate(s: &str, chars: usize) -> String {
@@ -197,6 +194,8 @@ struct Place {
     active: bool,
     selected: bool,
     arriving: bool,
+    /// The pointer is on this concealed row.
+    revealed: bool,
 }
 
 /// The element for clip `e`.
@@ -214,6 +213,7 @@ fn clip_row<S: 'static>(
         active,
         selected,
         arriving,
+        revealed,
     } = at;
     let c = &theme.c;
     let ty = &theme.ty;
@@ -280,11 +280,13 @@ fn clip_row<S: 'static>(
                 .gap(2.0)
                 .child(reveal(
                     hidden,
+                    revealed,
                     marked(theme, title, terms, title_style, c.foreground),
                     || marked(theme, real_title, &[], title_style, c.foreground),
                 ))
                 .child(reveal(
                     hidden,
+                    revealed,
                     marked(theme, subtitle, terms, sub_style, c.muted_foreground),
                     || marked(theme, real_subtitle, &[], sub_style, c.muted_foreground),
                 )),
@@ -338,6 +340,13 @@ fn clip_row<S: 'static>(
         .on_double_press_tx(move |s: &mut S, tx: &mut Tx| (hooks.pick)(s, id, tx));
     let line = if active || selected {
         line.a11y_value("selected")
+    } else {
+        line
+    };
+    // Only a concealed row keeps hover in state: crossing it rebuilds its title once, and an
+    // ordinary row under the pointer costs a scroll nothing.
+    let line = if hidden {
+        line.on_hover_change(move |s: &mut S, on, _| (hooks.reveal)(s, id, on))
     } else {
         line
     };
@@ -397,6 +406,7 @@ fn build_row<S: 'static>(theme: &'static Theme, hooks: Hooks<S>, s: &S, i: usize
                 active: st.list.active() == Some(*id),
                 selected: st.list.in_multi(*id),
                 arriving: st.census.is_fresh(*id),
+                revealed: st.revealed == Some(*id),
             };
             clip_row(theme, hooks, e, &st.look, st.media.as_ref(), place)
         }

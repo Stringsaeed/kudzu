@@ -109,7 +109,15 @@ fn list_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
 fn large_preview_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     match &ev.key {
         Key::Escape => s.clipboard.large_preview = false,
-        Key::Text(t) if t == " " => s.clipboard.large_preview = false,
+        // Space inside selected text is not "close" (Tauri ignores it in `.selectable`).
+        Key::Text(t) if t == " " => {
+            if !tx
+                .text_selection()
+                .is_some_and(|sel| !sel.text().is_empty())
+            {
+                s.clipboard.large_preview = false;
+            }
+        }
         Key::Down => step(s, 1, false, tx),
         Key::Up => step(s, -1, false, tx),
         _ => return false,

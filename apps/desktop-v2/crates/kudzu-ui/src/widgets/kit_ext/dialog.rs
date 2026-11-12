@@ -26,6 +26,8 @@ pub struct Dialog {
     width: f32,
     kudzu: bool,
     sample: Option<String>,
+    bare: bool,
+    max_height: Option<f32>,
     close: Option<Close>,
     button: Option<Close>,
 }
@@ -42,6 +44,8 @@ impl Dialog {
             width: 384.0,
             kudzu: false,
             sample: None,
+            bare: false,
+            max_height: None,
             close: None,
             button: None,
         }
@@ -70,6 +74,18 @@ impl Dialog {
     }
     pub fn click_outside(mut self, close: bool) -> Self {
         self.outside = close;
+        self
+    }
+    /// A panel the caller lays out itself, as the large clip preview is (`p-0`): the title and
+    /// description are for assistive technology only (`sr-only`), the close button floats at
+    /// the top right, and there is no padding.
+    pub fn bare(mut self) -> Self {
+        self.bare = true;
+        self
+    }
+    /// `max-h-[86vh]`: the panel never grows past this.
+    pub fn max_height(mut self, h: f32) -> Self {
+        self.max_height = Some(h);
         self
     }
     /// Keys the panel for `cargo xtask parity` (galleries).
@@ -110,6 +126,11 @@ impl Dialog {
         if let Some(b) = self.button {
             dismiss = b(dismiss);
         }
+        if self.bare {
+            // A bare dialog's keys (Space, Escape, arrows) are the caller's: the close button
+            // would take Space for itself, so it is reached by pointer only.
+            dismiss = dismiss.focusable(false);
+        }
         let mut title = col().grow(1.0).gap(4.0).child(
             text(self.title.clone())
                 .role("heading")
@@ -125,6 +146,10 @@ impl Dialog {
                     .wrap(),
             );
         }
+        if self.bare {
+            // `sr-only`: present for assistive technology, never drawn.
+            title = title.absolute(0.0, 0.0).size(1.0, 1.0).opacity(0.0);
+        }
         let mut panel = col()
             .key(
                 self.sample
@@ -135,21 +160,34 @@ impl Dialog {
             .description(self.description.unwrap_or_default())
             .w_full()
             .max_w(self.width)
-            .padding(16.0)
-            .gap(16.0)
+            .padding(if self.bare { 0.0 } else { 16.0 })
+            .gap(if self.bare { 0.0 } else { 16.0 })
             .radius(r)
             .fill(c.popover)
-            .child(
+            .child(if self.bare {
+                row()
+                    .key("header")
+                    .absolute(0.0, 0.0)
+                    .w_full()
+                    .justify_end()
+                    .pt(12.0)
+                    .pr(12.0)
+                    .child(title)
+                    .child(dismiss.size(24.0, 24.0))
+            } else {
                 row()
                     .key("header")
                     .w_full()
                     .gap(8.0)
                     .items_start()
                     .child(title)
-                    .child(dismiss.size(24.0, 24.0)),
-            )
+                    .child(dismiss.size(24.0, 24.0))
+            })
             .children(self.body)
             .token_motion(k.motion.overlay);
+        if let Some(h) = self.max_height {
+            panel = panel.max_h(h).clip_rounded(r);
+        }
         let depth: &[Shadow] = if self.kudzu {
             &theme.depth.float
         } else {

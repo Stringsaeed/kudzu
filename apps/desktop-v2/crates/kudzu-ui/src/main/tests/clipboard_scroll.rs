@@ -20,6 +20,13 @@ fn scrolling_five_thousand_clips_runs_no_view_and_stays_inside_the_frame_budget(
     let mut rig = Rig::themed(true, Theme::Light);
     rig.rt.update(|st, _| scenes::clips_5000(st));
     rig.settle();
+    // A concealed row keeps hover in state (its title shows under the pointer), so crossing
+    // one rebuilds the view; `crossing_a_concealed_row_rebuilds_its_title_once` covers that.
+    // This trace is of ordinary rows.
+    let mut history = rig.kudzu.clipboard.watch().get().as_ref().clone();
+    history.entries.retain(|e| !e.is_secret());
+    rig.kudzu.clipboard.replace_history(history).unwrap();
+    rig.settle();
     assert!(rig.rt.state.clipboard.clips.list.len() >= 5000);
     // The sample's few image and file rows load a thumbnail the first time they scroll into
     // view, which redraws once. Pass over the whole list first so the trace below measures
