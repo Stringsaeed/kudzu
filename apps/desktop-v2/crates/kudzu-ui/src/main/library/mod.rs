@@ -1,6 +1,9 @@
 //! Library list screen stub. Owned and filled out by S50 (`crates/kudzu-ui/src/main/library/**`).
 
 pub mod actions;
+pub mod model;
+#[cfg(test)]
+mod model_tests;
 
 use rune::{col, text, El, TextEdit, Tx};
 

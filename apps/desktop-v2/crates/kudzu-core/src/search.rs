@@ -51,6 +51,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 pub(crate) use collate::locale_compare;
+pub use collate::BaseKey;
 use collate::CollationKey;
 
 use crate::library::usage::SnippetUsage;

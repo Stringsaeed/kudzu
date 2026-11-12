@@ -43,3 +43,25 @@ impl CollationKey {
 pub(crate) fn locale_compare(a: &str, b: &str) -> Ordering {
     COLLATOR.compare(a, b)
 }
+
+/// Primary strength: `localeCompare(a, b, undefined, { sensitivity: "base" })`.
+static BASE: LazyLock<CollatorBorrowed<'static>> = LazyLock::new(|| {
+    let mut options = CollatorOptions::default();
+    options.strength = Some(Strength::Primary);
+    Collator::try_new(CollatorPreferences::default(), options)
+        .expect("ICU collation data is compiled in")
+});
+
+/// A sort key at base sensitivity, as the library list's Name sort compares names: case and
+/// accents tie (`"Email"` equals `"email"`, `"Résumé"` equals `"resume"`), letters, digits and
+/// punctuation still order. Compute one per name, then compare keys.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default, Hash)]
+pub struct BaseKey(Vec<u8>);
+
+impl BaseKey {
+    pub fn new(text: &str) -> Self {
+        let mut key = Vec::with_capacity(text.len() + 4);
+        let Ok(()) = BASE.write_sort_key_to(text, &mut key);
+        BaseKey(key)
+    }
+}

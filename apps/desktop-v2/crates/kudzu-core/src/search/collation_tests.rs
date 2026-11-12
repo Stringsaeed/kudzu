@@ -111,3 +111,18 @@ fn equal_and_empty_strings() {
     assert_eq!(locale_compare("e\u{301}", "é"), Ordering::Equal);
     assert_eq!(CollationKey::new("e\u{301}"), CollationKey::new("é"));
 }
+
+/// The library list's Name sort (`snippet-list.tsx`): `localeCompare(…, { sensitivity: "base" })`.
+/// Case and accents tie, letters and punctuation still order.
+#[test]
+fn base_keys_tie_case_and_accents_and_order_letters() {
+    use super::BaseKey;
+    assert_eq!(BaseKey::new("email"), BaseKey::new("Email"));
+    assert_eq!(BaseKey::new("Résumé"), BaseKey::new("resume"));
+    assert!(BaseKey::new("apple") < BaseKey::new("Banana"));
+    assert!(BaseKey::new("Banana") < BaseKey::new("cherry"));
+    assert!(BaseKey::new("Bug report") < BaseKey::new("Calendar link"));
+    assert_ne!(BaseKey::new("a-b"), BaseKey::new("ab"));
+    // An empty name is not special here: the list sorts unnamed snippets last itself.
+    assert!(BaseKey::new("") < BaseKey::new("a"));
+}
