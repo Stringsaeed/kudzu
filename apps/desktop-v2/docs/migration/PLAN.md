@@ -591,7 +591,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
 | 9 | S43, S50, S58, S64 and S65 done. S42 is merged and awaiting review, and S55 is fixing review findings. |
-| 10 | S59 done; S61 merged and awaiting review; S51 building. |
+| 10 | S59 done; S61 merged with review fixes pending; S51 building. |
 | 11 | S60 merged and in review (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
 
@@ -608,7 +608,7 @@ Waves 9 and later, step by step:
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
 | S51 editor shell | Building (restarted on Opus after Carbon failed; its untested draft is kept on local branch `t3/editor-shell`, `b981342d`) | Opus → a non-Claude reviewer |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
-| S61 settings frame, General, Expansion, Apps | Merged (`38466e64`, handoff `S61_HANDOFF.md`); awaiting review | Codex Sol (after Argon stalled and failed) → a non-Codex reviewer |
+| S61 settings frame, General, Expansion, Apps | Merged (`38466e64`, handoff `S61_HANDOFF.md`); reviewed, fixes pending (`reviews/S61-settings.md`) | Codex Sol (after Argon stalled and failed) → Grok 4.6 |
 | S60 clipboard picker window | Merged (`418278dc`); in review. Its `picker` scenes are at 0 failed. | Sonnet (after Carbon failed) → Codex Sol |
 
 **Orchestrator changes on the base during wave 9:**
@@ -644,7 +644,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 | S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
 | S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
 | S60 clipboard picker window | Merged as `418278dc` (three commits squashed so every commit builds); in review by Codex Sol | Its `picker` scenes pass in both themes (662 rows, 0 failed). The release scroll printed a p95 of 0.42 ms. S73 should look at the comparator rule it added: a `complementary` landmark accepts any inner text's RGB. The hotkey-to-frame latency, hide on blur and first mouse are S71 live checks. Carbon's draft branch can be deleted after review. |
-| S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; awaiting review by a non-Codex provider | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
+| S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; reviewed. Fixes pending: 5 majors and 10 minors (`reviews/S61-settings.md`), for the Codex Sol thread | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
 
 Each needs a review from a provider other than its builder, then fixes, then a progress-table update.
 
@@ -1485,6 +1485,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 - **Live checks from the S55 review:** the eleven checks in `docs/migration/reviews/S55-group-settings.md` § "Live checks for S71" (blocked until S42 or the S43 follow-up opens the dialog): first-frame values, Return saves, a read-only library folder before and during Save, picker keyboard beside Tauri, 100+ apps in a 900 × 560 window, Retina icons, presses while the list is open, search ranking, the per-app insertion override surviving a rename, a remote rename or delete, and VoiceOver.
 - **Live checks from the S59 review:** the list in `docs/migration/reviews/S59-clipboard-previews.md` § "S71 live checks": VoiceOver on a concealed preview before and after hover and Tab, the row title on hover, secret toggles and deletes, copying a value beside Tauri, a single large image and a 200-file folder, the large preview at 1180×760 and 900×560, the badge, timeline tooltip and shimmer, and logs free of clip text under load.
 - **Live checks from the S42 review:** the twelve checks in `docs/migration/reviews/S42-sidebar.md` § "S71 live checks": group drags keeping the view and refusing self or descendants silently, End and Pause, the Dev ribbon, the Off mark, chevron folding, the open-folder glyph, folds surviving a restart, a stable drop highlight, collapse motion, rename under IME, and the status chip.
+- **Live checks from the S61 review:** the nine checks in `docs/migration/reviews/S61-settings.md` § "S71 live checks": the Dock and appearance, punctuation and F-key chords in the recorder, IME in the prefix field and recorder, picker placement and typed ids, arrows on segmented controls, spoken shortcuts, permissions opening and failure, Pause from Dev, and login-item failure copy.
 - **Accept:** `NATIVE_INPUT.md` complete. Every failure fixed, or carried to S74 for the owner.
 - **Closes:** EXP-6–19, TPL-9, TPL-10, PKR-5, WIN-3 (live confirmation).
 - **Depends:** S39, S40–S66 · **Parallel with:** S72, S73
