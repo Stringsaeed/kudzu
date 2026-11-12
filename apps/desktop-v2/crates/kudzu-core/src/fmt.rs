@@ -170,14 +170,45 @@ fn js_round(value: f64) -> i64 {
     (value + 0.5).floor() as i64
 }
 
-/// JavaScript `Number#toFixed`: nearest, exact ties toward +∞.
+/// JavaScript `Number#toFixed`: rounds the double's exact decimal value to `digits` places,
+/// exact ties to the larger magnitude, and keeps the sign (`-0.04` → `"-0.0"`).
+///
+/// Multiplying by `10^digits` first is not enough: `1.15 * 10.0` is exactly `11.5` in binary
+/// although `1.15` is `1.149…`, so it would round to `1.2` where JavaScript prints `1.1`. The
+/// exact digits come from Rust's correctly rounded formatting at 25 extra places, which is far
+/// below any double's spacing at the magnitudes formatted here.
 pub fn to_fixed(value: f64, digits: usize) -> String {
-    let factor = 10f64.powi(digits as i32);
-    let scaled = (value * factor + 0.5).floor();
-    if digits == 0 {
-        return format!("{}", scaled as i64);
+    let sign = if value.is_sign_negative() && value != 0.0 {
+        "-"
+    } else {
+        ""
+    };
+    let exact = format!("{:.*}", digits + 25, value.abs());
+    let (int_part, frac) = exact.split_once('.').unwrap_or((exact.as_str(), ""));
+    let mut kept: Vec<u8> = int_part.bytes().chain(frac.bytes().take(digits)).collect();
+    if frac.as_bytes().get(digits).is_some_and(|d| *d >= b'5') {
+        let mut i = kept.len();
+        loop {
+            if i == 0 {
+                kept.insert(0, b'1');
+                break;
+            }
+            i -= 1;
+            if kept[i] == b'9' {
+                kept[i] = b'0';
+            } else {
+                kept[i] += 1;
+                break;
+            }
+        }
     }
-    let int_part = (scaled / factor).floor() as i64;
-    let frac = (scaled - int_part as f64 * factor).round() as u64;
-    format!("{int_part}.{frac:0digits$}")
+    let split = kept.len() - digits;
+    let (whole, fraction) = kept.split_at(split);
+    let whole = std::str::from_utf8(whole).unwrap_or("0");
+    let fraction = std::str::from_utf8(fraction).unwrap_or("");
+    if digits == 0 {
+        format!("{sign}{whole}")
+    } else {
+        format!("{sign}{whole}.{fraction}")
+    }
 }
