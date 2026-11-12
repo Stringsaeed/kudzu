@@ -573,7 +573,7 @@ The test for adopting a crate is the owner's: it gives **the same result** and l
 
 Wave 7 is one step on purpose: S40 is the first point where every service and adapter exists, and it composes them.
 
-### Progress (updated 2026-11-12, 03:40 UTC)
+### Progress (updated 2026-11-12, 05:20 UTC)
 
 **This table is the record of what actually happened.** The `Implementer` and `Reviewer` fields in the step sections were the plan; about a third of them changed.
 
@@ -630,6 +630,64 @@ Waves 9 and later, step by step:
 **Open items:**
 - `shell/windows/permissions.rs` is 615 lines, of which about 450 are code and the rest inline tests. That is within rule 7.
 - `docs/migration/RETRO.md` holds the lessons behind rules 12–15.
+
+### TODO: remaining work (paused 2026-11-12, to resume)
+
+Pick these up in this order. The step sections in §4 stay the spec; this list says what state each one is in and what to watch for.
+
+**1. In flight when work paused.** Finish, review and merge these first. Each runs in its own worktree on its own branch.
+
+| Step | State | Notes |
+|---|---|---|
+| S42 sidebar | Building (Codex Terra) | Its navigation is committed in its worktree. Drop targets read `crate::main::library::drag::payload` and accept `crate::dnd::DragPayload`. The footer pause calls `ExpansionService::toggle_paused`. Its `group-context-menu` scene is deferred. |
+| S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
+| S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
+| S60 clipboard picker window | Building (Sonnet) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/clipboard-picker-window` (`b68b385b`), for reference only. Its three `picker` scenes compare in full. |
+| S61 settings frame, General, Expansion, Apps | Building (Codex Sol) | Restarted after Argon failed. It creates the five pane stubs that S62 and S63 fill. |
+
+Each needs a review from a provider other than its builder, then fixes, then a progress-table update.
+
+**2. Not started.**
+- **Editor chain (critical path):**
+  - **S52**, the template editor core, after S51. Land the editor document seam on the base first, so S52, S53 and S54 don't each define it.
+  - **S53** chip forms and **S54** formatting and images, after S52.
+- **Settings:** **S62** (Clipboard, AI agents, Backups and data) and **S63** (Activity, About, sync status, update toast), after S61. They run in parallel on the S61 pane stubs.
+- **S73 visual parity.** Turn scenes on as their regions exist, not all at the end:
+  - When S42 merges: `insights`, plus the eleven clipboard scenes (S58's six and S59's five).
+  - When the editor lands (S51–S54): the `library*`, `snippet-*`, `group-*`, `command-menu`, `cheat-sheet` and settings scenes.
+  - About 24 scenes are deferred, each in both themes.
+- **S71 and S72, native verification.** These need the owner (D7):
+  - Accessibility and Input Monitoring granted to a Kudzu Next bundle signed with the owner's Developer ID.
+  - One production-identity build run against the owner's iCloud account, with the installed Kudzu quit and its data backed up first.
+  - Every review's live checks are already listed under S71 and S72.
+- **S74 parity audit.** The owner signs `AUDIT.md`.
+- **S75 cut-over.** Delete `apps/desktop` and rename `apps/desktop-v2` in one commit. Needs the owner's sign-off and no open release-please PR.
+- **S76 inline images.** Optional.
+
+**3. Carried follow-ups.**
+- **Rune gaps.** Some found in waves 8–10 are written into reports and `PARITY_MATRIX.md`, but not yet into §3 or filed upstream. Examples:
+  - no per-element focus hook (S59);
+  - no `h_frac` (S43);
+  - a commit-budget log that hides the reasons for commits (S50);
+  - no hover-delay tooltip (S50);
+  - `RUNE_GAP`s in `brand.rs` (S65).
+
+  Collect them into §3 and file them as §3 describes.
+- **Width tolerances.** S73 decides the font-driven width tolerances recorded per step (2.1 pt in S43, 4 pt and 6 pt in S58 and S59) with the owner.
+- **Antigravity.** It failed every long wave-10 run. Before giving it work, check it with a small job. Then give it M-sized steps only, with a commit after each part.
+
+**How to resume:**
+- Read rules 1–15, `RETRO.md`, and this Progress section.
+- Every brief carries:
+  - rules 12–15;
+  - the additive-shared-edit rule (merge rules);
+  - `-j 2`;
+  - "finish every item in this turn".
+- Merge by cherry-picking onto `t3/rune-migration-plan`. Then:
+  - run the gate (rule 8, with `-j 2`, under `caffeinate -i`);
+  - push;
+  - update this section;
+  - delete the worktree's `target/`.
 
 **Merge rules for the orchestrator.**
 
