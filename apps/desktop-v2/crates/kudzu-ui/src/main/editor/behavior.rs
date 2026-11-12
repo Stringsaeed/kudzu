@@ -221,9 +221,7 @@ pub(crate) fn request_icons(s: &mut MainState) {
         s.editor.rules.picker_open,
     );
     let apps = Arc::clone(&s.svc.apps);
-    for (id, size) in needed {
-        s.editor.rules.icons.request(&apps, &id, size);
-    }
+    s.editor.rules.icons.request_all(&apps, &needed);
 }
 
 fn row_el(theme: &Theme, key: &str, title: &str, description: El, bump: u32, control: El) -> El {

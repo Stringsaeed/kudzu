@@ -187,9 +187,7 @@ pub(super) fn request_icons(s: &mut MainState) {
         s.group_settings.picker_open,
     );
     let apps = Arc::clone(&s.svc.apps);
-    for (id, size) in needed {
-        s.group_settings.icons.request(&apps, &id, size);
-    }
+    s.group_settings.icons.request_all(&apps, &needed);
 }
 
 pub(super) fn chosen_ids(s: &MainState) -> &[String] {

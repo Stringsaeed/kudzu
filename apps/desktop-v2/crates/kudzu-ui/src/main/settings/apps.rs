@@ -57,6 +57,7 @@ pub fn view(s: &MainState, t: &Theme) -> El {
             .on_press(|s: &mut MainState| {
                 s.settings.picker_deny = true;
                 s.settings.picker_open = true;
+                s.settings.picker_active = 0;
             })
             .build(t)
             .key("settings-exclude-app"),
@@ -118,6 +119,7 @@ pub fn view(s: &MainState, t: &Theme) -> El {
                 .on_press(|s: &mut MainState| {
                     s.settings.picker_deny = false;
                     s.settings.picker_open = true;
+                    s.settings.picker_active = 0;
                     s.settings.query = rune::TextEdit::new("");
                 })
                 .build(t)
@@ -179,19 +181,22 @@ pub fn sync(s: &mut MainState) -> bool {
     }
     let icons = s.settings.icons.as_mut().unwrap();
     let changed = icons.poll();
+    let mut needed = Vec::new();
     if s.frame.view == crate::main::MainView::Settings(crate::shell::SettingsPane::Apps) {
         for id in s.svc.settings.watch().get().app_insertions.keys() {
-            icons.request(&s.svc.apps, id, 22);
+            needed.push((id.clone(), 22));
         }
     }
     if s.settings.picker_open {
         let values = s.svc.settings.watch().get().denied_bundle_ids.clone();
         let installed = s.svc.apps.installed().get();
-        for (id, size) in
-            app_picker::icons_needed(&values, &installed, &s.settings.query.text, true)
-        {
-            icons.request(&s.svc.apps, &id, size);
-        }
+        needed.extend(app_picker::icons_needed(
+            &values,
+            &installed,
+            &s.settings.query.text,
+            true,
+        ));
     }
+    icons.request_all(&s.svc.apps, &needed);
     changed
 }

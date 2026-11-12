@@ -62,6 +62,18 @@ impl IconCache {
         fresh
     }
 
+    /// Requests every icon in `needed`, in that order. Queued reads that are no longer needed
+    /// are dropped and the rest follow `needed`, so a narrowed search reaches the rows it
+    /// shows first. The read in flight finishes. At most one read runs.
+    pub fn request_all(&mut self, apps: &Apps, needed: &[(String, u32)]) {
+        self.queue = needed
+            .iter()
+            .filter(|key| self.inflight.as_ref() != Some(*key) && !self.slots.contains_key(*key))
+            .cloned()
+            .collect();
+        self.pump(apps);
+    }
+
     fn pump(&mut self, apps: &Apps) {
         if self.inflight.is_some() {
             return;
@@ -234,6 +246,66 @@ mod tests {
             self.release.lock().unwrap().recv().unwrap();
             Ok(Some(PNG_1X1.to_vec()))
         }
+    }
+
+    /// Records which icon each read asks for, and holds every read until released.
+    struct Ordered {
+        release: Mutex<mpsc::Receiver<()>>,
+        entered: mpsc::Sender<String>,
+    }
+
+    impl AppCatalog for Ordered {
+        fn installed(&self) -> Result<Vec<AppInfo>, kudzu_app::error::PortError> {
+            Ok(Vec::new())
+        }
+
+        fn icon(
+            &self,
+            bundle_id: &str,
+            _size: u32,
+        ) -> Result<Option<Vec<u8>>, kudzu_app::error::PortError> {
+            self.entered.send(bundle_id.to_owned()).unwrap();
+            self.release.lock().unwrap().recv().unwrap();
+            Ok(Some(PNG_1X1.to_vec()))
+        }
+    }
+
+    /// A narrowed search reaches its own rows first: queued reads it no longer needs are
+    /// dropped, and the rest follow its order (S55 re-check).
+    #[test]
+    fn a_narrowed_search_reorders_and_trims_the_icon_queue() {
+        let (release_tx, release_rx) = mpsc::channel();
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let apps = Apps::new(Arc::new(Ordered {
+            release: Mutex::new(release_rx),
+            entered: entered_tx,
+        }));
+        let mut cache = IconCache::new(Arc::new(|| {}));
+        let key = |id: &str| (id.to_owned(), 64);
+        cache.request_all(&apps, &[key("a.first"), key("b.second"), key("c.third")]);
+        assert_eq!(
+            entered_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            "a.first"
+        );
+        // The search narrows to the third app only.
+        cache.request_all(&apps, &[key("c.third")]);
+        release_tx.send(()).unwrap();
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while cache.inflight.as_ref() == Some(&key("a.first")) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "first read never finished"
+            );
+            cache.poll();
+            std::thread::yield_now();
+        }
+        cache.request_all(&apps, &[key("c.third")]);
+        assert_eq!(
+            entered_rx.recv_timeout(Duration::from_secs(2)).unwrap(),
+            "c.third"
+        );
+        assert!(cache.queue.is_empty(), "b.second was dropped");
+        release_tx.send(()).unwrap();
     }
 
     #[test]

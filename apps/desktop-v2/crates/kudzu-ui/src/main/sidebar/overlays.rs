@@ -140,7 +140,7 @@ pub(super) fn attach(mut content: El, s: &MainState, theme: &Theme) -> El {
                             1 => actions::subgroup(st, id),
                             2 => {
                                 st.sidebar.menu = None;
-                                st.frame.group_settings_id = Some(id);
+                                crate::main::group_settings::open(st, id);
                             }
                             3 => actions::toggle_group(st, id),
                             4 => actions::unparent(st, id),

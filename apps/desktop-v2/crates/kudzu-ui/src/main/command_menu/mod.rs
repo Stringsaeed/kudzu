@@ -171,7 +171,7 @@ pub(super) fn activate(s: &mut MainState, tx: &mut Tx) {
         }
         catalog::Flat::Command(catalog::Kind::GroupSettings(id)) => {
             close(s);
-            s.frame.group_settings_id = Some(id);
+            crate::main::group_settings::open(s, id);
         }
     }
 }
