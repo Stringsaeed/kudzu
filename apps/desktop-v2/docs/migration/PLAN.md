@@ -605,7 +605,7 @@ Waves 9 and later, step by step:
 | S58 clipboard history list | Done (`reviews/S58-clipboard.md`) | Sonnet → Grok 4.7 |
 | S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
-| S51 editor shell | Building | Carbon → a non-Antigravity reviewer |
+| S51 editor shell | Building (restarted on Opus after Carbon failed; its untested draft is kept on local branch `t3/editor-shell`, `b981342d`) | Opus → a non-Claude reviewer |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
 | S61 settings frame, General, Expansion, Apps | Building (restarted on Codex Sol after Argon stalled and then failed) | Codex Sol → a non-Codex reviewer |
 | S60 clipboard picker window | Building | Carbon → a non-Antigravity reviewer |
