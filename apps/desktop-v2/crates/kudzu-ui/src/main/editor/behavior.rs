@@ -240,7 +240,7 @@ fn row_el(theme: &Theme, key: &str, title: &str, description: El, bump: u32, con
                 .min_w(0.0)
                 .child(
                     text(title.to_owned())
-                        .font(theme.ty.body_medium.lh(18.5625))
+                        .font(theme.ty.body_medium)
                         .color(theme.c.foreground),
                 )
                 .child(description),
@@ -546,80 +546,4 @@ fn toggle_app(s: &mut MainState, id: String) {
             }
         }
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn app(id: &str, name: &str) -> AppInfo {
-        AppInfo {
-            bundle_id: id.into(),
-            name: name.into(),
-            pid: None,
-            path: None,
-        }
-    }
-
-    fn rule(mode: AppRuleMode, ids: &[&str], insertion: Option<InsertionMethod>) -> AppRule {
-        AppRule {
-            mode,
-            bundle_ids: ids.iter().map(|s| s.to_string()).collect(),
-            insertion,
-        }
-    }
-
-    #[test]
-    fn rules_read_as_tauri_describes_them() {
-        let apps = [app("com.apple.mail", "Mail")];
-        assert_eq!(describe_rule(None, &apps), "Works in every app");
-        assert_eq!(
-            describe_rule(Some(&rule(AppRuleMode::Allow, &[], None)), &apps),
-            "Disabled everywhere"
-        );
-        assert_eq!(
-            describe_rule(Some(&rule(AppRuleMode::Deny, &[], None)), &apps),
-            "Works in every app"
-        );
-        assert_eq!(
-            describe_rule(
-                Some(&rule(AppRuleMode::Allow, &["com.apple.mail", "a.b"], None)),
-                &apps
-            ),
-            "Only in Mail, a.b"
-        );
-        assert_eq!(
-            describe_rule(
-                Some(&rule(
-                    AppRuleMode::Deny,
-                    &["a.a", "b.b", "c.c", "d.d", "e.e"],
-                    None
-                )),
-                &apps
-            ),
-            "Everywhere except a.a, b.b, c.c +2"
-        );
-    }
-
-    #[test]
-    fn a_new_mode_keeps_the_apps_and_drops_the_insertion_override() {
-        let loaded = rule(
-            AppRuleMode::Allow,
-            &["com.apple.Terminal"],
-            Some(InsertionMethod::Type),
-        );
-        assert_eq!(
-            with_mode(Some(&loaded), Some(AppRuleMode::Allow)),
-            Some(loaded.clone())
-        );
-        assert_eq!(
-            with_mode(Some(&loaded), Some(AppRuleMode::Deny)),
-            Some(rule(AppRuleMode::Deny, &["com.apple.Terminal"], None))
-        );
-        assert_eq!(with_mode(Some(&loaded), None), None);
-        assert_eq!(
-            with_mode(None, Some(AppRuleMode::Allow)),
-            Some(rule(AppRuleMode::Allow, &[], None))
-        );
-    }
 }

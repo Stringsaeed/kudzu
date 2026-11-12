@@ -420,6 +420,17 @@ pub fn view(s: &MainState, cx: &Cx<MainState>, theme: &Theme) -> El {
         },
     );
     well = well.child(input);
+    if field.edit.text.is_empty() && !draft.triggers.is_empty() {
+        // `group-hover:opacity-100`: the plus shows while the pointer is over the field.
+        well = well.hover_group().child(
+            icon(&icons::PLUS, 14.0)
+                .key("editor-trigger-plus")
+                .mr(4.0)
+                .color(c.faint)
+                .group_opacity(0.0, 1.0)
+                .a11y_hidden(),
+        );
+    }
     let well = if reduced {
         well
     } else {
