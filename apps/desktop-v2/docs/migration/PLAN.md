@@ -1597,6 +1597,7 @@ Recorded 2026-11-11, when the owner approved the plan. A step that needs to depa
 | D23 | **Old Tauri login agent at cut-over:** S75 removes `~/Library/LaunchAgents/Kudzu.plist` (Label `Kudzu`, written by tauri-plugin-autostart), but only when its program path is this bundle's executable, so one agent starts Kudzu at login (S36 review). | S75 |
 | D24 | **A sequence that starts with `{{delay}}` keeps its trigger visible during that delay** and deletes it just before the first delivery, so a refused first paste can't lose it (follows from D14; S34 safety fixes, 2026-11-11). This is a visible difference from the Tauri engine. | S34, S71 |
 | D25 | **The synthetic-event marker is trusted.** An event that carries Kudzu's marker in its source user data is treated as Kudzu's own. Another app could forge it, but an app that can post events already holds Accessibility and could post the Backspaces itself, so the forgery gains it nothing. The Tauri engine had the same exposure (S34 re-review, 2026-11-11). | S34 |
+| D26 | **Stay on Rune; no GPUI** (owner, 2026-11-12). GPUI was raised as an alternative. Rune and GPUI can't share one process, since both own `NSApplication` and the run loop, and a second process would bring back the IPC this rebuild removed. The owner declined a GPUI spike. Rune gaps are handled under §3. | all UI steps |
 
 **Intentional differences from the Tauri app.** Everything else is parity. The audit (S74) accepts a difference only if it is on this list or the owner adds it.
 
