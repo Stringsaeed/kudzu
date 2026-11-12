@@ -1386,6 +1386,7 @@ Screen and window steps share these acceptance rules, so they are not repeated: 
 #### S73 · Visual parity pass — L
 - **Goal:** Every reference state compared with its Rune scene, and every difference fixed or explained.
 - **Owns:** `docs/migration/PARITY_REPORT.md`; fixes go to the owning module. Generated sheets stay in `target/parity/`, not in git.
+- **From wave 9 (orchestrator):** the comparator fails any missing landmark, and every main-window reference shows the whole window (sidebar, list or content, editor). A screen step therefore leaves its main-window scenes in the not-yet-built list until every region they show is built, and covers its own region with landmark tree tests: rects within 2 pt, both themes. Chromeless scenes, such as onboarding, are compared in their own step. S73 removes every remaining main-window scene from the not-yet-built list and brings each to 0 failed. Deferred so far: `group-context-menu` (S42); each wave-9 report lists its own.
 - **Accept:** `cargo xtask parity` renders every scene in `reference/STATES.md` in both themes. No landmark is off by more than 2 pt and no token colour differs, or the row is in `PARITY_REPORT.md` with its reason, for the owner to approve in S74; a reviewer cannot waive it. In-main dialog sizes match WIN-2. Motion durations and curves spot-checked against FEATURES §3.
 - **Closes:** WIN-2.
 - **Depends:** S02, S41–S66 · **Parallel with:** S71, S72
