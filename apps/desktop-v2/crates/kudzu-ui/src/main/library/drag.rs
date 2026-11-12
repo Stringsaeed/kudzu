@@ -54,8 +54,10 @@ pub(super) fn gesture(s: &mut MainState, id: Uuid, d: &mut Drag, tx: &mut Tx) {
             if source.active.is_none() && d.dx.hypot(d.dy) >= THRESHOLD {
                 source.active = source.pending.take();
             }
+            crate::dnd::source_move(&mut s.sidebar, source.active.clone(), d, tx);
         }
         Phase::Up => {
+            crate::dnd::source_release(&mut s.sidebar, source.active.clone(), d, tx);
             source.pending = None;
             if source.active.take().is_some() {
                 source.swallow_press = true;

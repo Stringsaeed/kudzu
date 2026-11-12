@@ -172,6 +172,7 @@ impl MainState {
     pub fn sync(&mut self) -> bool {
         let mut changed = false;
         changed |= crate::main::onboarding::poll(self);
+        changed |= crate::main::sidebar::poll(self);
         if !self.model.started {
             self.start();
             changed = true;

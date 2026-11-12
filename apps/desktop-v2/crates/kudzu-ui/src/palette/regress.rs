@@ -19,7 +19,7 @@ use crate::shell::Identity;
 struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Self {
-        let path = PathBuf::from("/tmp").join(format!("kudzu-palette-{}", uuid::Uuid::new_v4()));
+        let path = std::env::temp_dir().join(format!("kudzu-palette-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&path).unwrap();
         Self(path)
     }

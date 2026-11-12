@@ -198,7 +198,22 @@ impl Rig {
             .rt
             .elements()
             .into_iter()
-            .find(|e| e.text.as_deref() == Some(needle))
+            .find(|e| {
+                if e.text.as_deref() != Some(needle) {
+                    return false;
+                }
+                let (x, y) = (e.rect[0] + e.rect[2] * 0.5, e.rect[1] + e.rect[3] * 0.5);
+                self.rt.element_at(x, y).is_some_and(|hit| {
+                    let path = hit.path();
+                    e.path == path
+                        || e.path
+                            .strip_prefix(path)
+                            .is_some_and(|rest| rest.starts_with('/'))
+                        || path
+                            .strip_prefix(&e.path)
+                            .is_some_and(|rest| rest.starts_with('/'))
+                })
+            })
             .map(|e| e.rect)
             .unwrap_or_else(|| panic!("missing element with text `{needle}`"));
         let (cx, cy) = (r[0] + r[2] * 0.5, r[1] + r[3] * 0.5);

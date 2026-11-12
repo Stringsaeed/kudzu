@@ -24,12 +24,28 @@ pub enum SettingsError {
 pub struct SettingsService {
     state: Mutex<Publisher<Settings>>,
     persisted: Persisted<Settings>,
+    sidebar_sections: Mutex<SidebarSections>,
+}
+
+#[derive(Default)]
+struct SidebarSections {
+    closed: Vec<String>,
+    revision: Revision,
+    persisted: Option<Persisted<Vec<String>>>,
 }
 
 impl SettingsService {
     /// Startup I/O only. Missing keys inherit this variant's defaults before typed decoding.
     /// Out-of-range stored fields are clamped and queued for repair without discarding preferences.
     pub fn open(path: PathBuf, variant: Variant, writer: &Writer) -> Result<Self, SettingsError> {
+        let ui_path = path.with_file_name("ui-state.json");
+        let (ui_file, ui_loaded) = JsonFile::open(ui_path, Vec::<String>::new)?;
+        let ui_revision = if ui_loaded.source == LoadSource::Existing {
+            Revision(1)
+        } else {
+            Revision(0)
+        };
+        let ui_persisted = writer.register(ui_file, ui_revision)?;
         let (file, mut loaded) = JsonFile::open_with(
             path,
             || Settings::for_variant(variant),
@@ -54,7 +70,16 @@ impl SettingsService {
         } else {
             Revision(0)
         };
-        Self::new(loaded.value, writer.register(file, durable)?)
+        let service = Self::new(loaded.value, writer.register(file, durable)?)?;
+        *service
+            .sidebar_sections
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner) = SidebarSections {
+            closed: ui_loaded.value,
+            revision: ui_revision,
+            persisted: Some(ui_persisted),
+        };
+        Ok(service)
     }
 
     /// Construct over a writer target (including an in-memory target for scenes).
@@ -65,7 +90,49 @@ impl SettingsService {
         Ok(Self {
             state: Mutex::new(Publisher::with_revision(initial, Revision(1))),
             persisted,
+            sidebar_sections: Mutex::new(SidebarSections::default()),
         })
+    }
+
+    pub fn sidebar_section_closed(&self, section: &str) -> bool {
+        self.sidebar_sections
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .closed
+            .iter()
+            .any(|value| value == section)
+    }
+
+    pub fn set_sidebar_section_closed(
+        &self,
+        section: &str,
+        closed: bool,
+    ) -> Result<(), SettingsError> {
+        let mut state = self
+            .sidebar_sections
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        let mut next = state.closed.clone();
+        next.retain(|value| value != section);
+        if closed {
+            next.push(section.to_owned());
+        }
+        if next == state.closed {
+            return Ok(());
+        }
+        let revision = Revision(
+            state
+                .revision
+                .0
+                .checked_add(1)
+                .expect("sidebar revision exhausted"),
+        );
+        if let Some(persisted) = &state.persisted {
+            persisted.submit(revision, Arc::new(next.clone()))?;
+        }
+        state.closed = next;
+        state.revision = revision;
+        Ok(())
     }
 
     pub fn watch(&self) -> Watch<Settings> {

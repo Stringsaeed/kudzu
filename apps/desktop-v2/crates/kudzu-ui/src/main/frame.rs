@@ -83,17 +83,27 @@ fn build_sidebar_slot(s: &MainState, theme: &Theme) -> El {
         .motion(motion::soft_spring(motion::MODERATE))
         .h_full()
         .min_h(0.0)
-        .clip_corners([0.0; 4])
         .opacity(if open { 1.0 } else { 0.0 })
         .opacity_motion(Curve::ease_in_out(motion::FAST))
         .on_drawn_layout_tx(|st: &mut MainState, r, tx: &mut Tx| {
             st.sync_sidebar_material([r[0] as f64, r[1] as f64, r[2] as f64, r[3] as f64]);
             tx.live_only();
         })
-        .child(sidebar::view(s, theme));
+        .child(
+            col()
+                .key("sidebar-panel")
+                .w(SIDEBAR_W)
+                .min_w(SIDEBAR_W)
+                .h_full()
+                .offset(if open { 0.0 } else { -216.0 }, 0.0)
+                .offset_motion(motion::soft_spring(motion::MODERATE))
+                .child(sidebar::view(s, theme)),
+        );
 
     if !open {
-        aside = aside.inert().a11y_hidden();
+        aside = aside.clip_corners([0.0; 4]).inert().a11y_hidden();
+    } else if s.sidebar.menu.is_some() || s.sidebar.drag.is_some() {
+        aside = aside.paint_order(10);
     } else if pane_focused {
         aside = aside.focus_selected(true);
     }

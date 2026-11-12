@@ -51,6 +51,10 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
         return false;
     }
 
+    if sidebar::handle_key(s, ev, tx) {
+        return true;
+    }
+
     // 3. Escape inside the editor returns focus to the snippet list (`main-app.tsx:146-156`).
     if ev.key == Key::Escape
         && !ev.mods.cmd

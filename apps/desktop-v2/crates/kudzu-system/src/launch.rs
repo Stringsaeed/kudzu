@@ -146,8 +146,7 @@ mod tests {
 
     #[test]
     fn a_refused_claim_leaves_the_lock_file_in_place() {
-        let dir =
-            std::path::PathBuf::from("/tmp").join(format!("kudzu-claim-{}", uuid::Uuid::new_v4()));
+        let dir = std::env::temp_dir().join(format!("kudzu-claim-{}", uuid::Uuid::new_v4()));
         let held = claim_instance(&dir, "sh.saeed.kudzu.next", None)
             .ok()
             .unwrap();

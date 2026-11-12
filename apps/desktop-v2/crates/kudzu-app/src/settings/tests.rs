@@ -256,3 +256,32 @@ fn opening_out_of_range_settings_repairs_only_invalid_fields_and_allows_later_ed
         assert_eq!(fs::read_dir(&folder.0).unwrap().count(), 1);
     }
 }
+
+#[test]
+fn sidebar_folds_survive_restart_in_ui_state() {
+    let folder = Folder::new();
+    let writes = writer();
+    let settings = SettingsService::open(folder.path(), Variant::Dev, &writes).unwrap();
+    assert!(!settings.sidebar_section_closed("snippets"));
+    settings
+        .set_sidebar_section_closed("snippets", true)
+        .unwrap();
+    writes.shutdown().unwrap();
+    let writes = writer();
+    let reopened = SettingsService::open(folder.path(), Variant::Dev, &writes).unwrap();
+    assert!(reopened.sidebar_section_closed("snippets"));
+    assert!(!reopened.sidebar_section_closed("clipboard"));
+    writes.shutdown().unwrap();
+}
+
+#[test]
+fn sidebar_fold_is_not_accepted_after_the_writer_stops() {
+    let folder = Folder::new();
+    let writes = writer();
+    let settings = SettingsService::open(folder.path(), Variant::Dev, &writes).unwrap();
+    writes.shutdown().unwrap();
+    assert!(settings
+        .set_sidebar_section_closed("snippets", true)
+        .is_err());
+    assert!(!settings.sidebar_section_closed("snippets"));
+}

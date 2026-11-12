@@ -91,6 +91,7 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 |---|---|---|---|
 | `shortcut` | `shortcut.tsx`, `kbd.tsx` | `spec:shortcut/{sm,md,word,ghost,accent,on-accent,spoken}` | pass; spoken in words in the tree, for combos and for recorded accelerators and ready-made labels (`⌃ ⌥ Space` is “Control Option Space”; tests) |
 | `trigger_chip` | `trigger-chip.tsx` | `spec:trigger-chip/{active,muted,space,truncated}` 20 tall | pass; `␣` for spaces (test) |
+| `sidebar` (S42) | `main/sidebar.tsx` | LIB-8, LIB-9, LIB-10, LIB-11, CLP-8; fixture tree and drag tests in both themes | Context-menu scene deferred; the pill fades between sections or group rows rather than gliding, so it can follow folds and scroll without lag; the reference has no menu rectangle landmark. |
 | `selection_pill` (`Segmented`) | `selection-pill.tsx`, `segmented.tsx` | `parity:` radios Dark, Light, System (settings-general) and Automatic, Type, Paste (settings-expansion); `spec:segmented/{sm,none}` | pass in both themes (each capture shows its own theme chosen); slide checked by the motion gate |
 | `slider` (`RUNE-GAP(#149)`) | `insights.tsx` range, `slider.tsx` look | `spec:slider/{rest,active,min,max}` 192×12 | pass; role, value and keyboard steps (test) |
 | `stepper` | `tag-tools.tsx` `Stepper` | `parity:` “Times” (chip-key), “Milliseconds” (chip-delay), “Copies back” (chip-clipboard), 296×32 | pass |
