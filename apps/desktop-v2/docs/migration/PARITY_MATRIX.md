@@ -197,6 +197,7 @@ Intentional differences:
 - **Removed rows play Rune's exit** instead of Tauri's 320 ms ghost rows. A change of more than 12 snippets lands at once (`instant_changes`), as Tauri's `MAX_MOVING` does.
 - **The bar's count does not play `tick`** when the selection grows or shrinks.
 - **`?` in the list** opens the cheat sheet and is not typed into the filter (Tauri did both).
+- **No tooltips yet** on Sort, New snippet (“New snippet ⌘N”), Favorite all (“Add to favorites”) and Turn off all (“Toggle on/off”). PLAN §1.4 rules out `El::help`, which rune-kit's `Button::help` becomes, and `rune_kit::Tooltip` needs an `open` flag driven by hover with Tauri's 500 ms delay. No main-window control has that yet (the S41 toolbar neither): a shared delayed tooltip is a follow-up.
 - **Breadcrumb x drifts** up to a point per crumb: Rune rounds each crumb's text width to whole points. Sizes stay within 2 pt (S07's gallery rows gate crumbs by size for this reason).
 
 For S73, when the scenes are enabled:

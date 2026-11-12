@@ -113,7 +113,6 @@ fn header(s: &MainState, theme: &Theme, title: &str, count: usize, overlays: &mu
         .size(Size::IconSm)
         .ink(c.muted_foreground)
         .name("Sort")
-        .help("Sort")
         .expanded(s.library.sort_open)
         .on_press(|s: &mut MainState| s.library.sort_open = !s.library.sort_open)
         .build(theme)
@@ -144,7 +143,6 @@ fn header(s: &MainState, theme: &Theme, title: &str, count: usize, overlays: &mu
         .size(Size::IconSm)
         .ink(c.muted_foreground)
         .name("New snippet")
-        .help("New snippet ⌘N")
         .on_press(|s: &mut MainState| {
             let _ = super::actions::new_snippet(s, NewSnippet::default());
         })

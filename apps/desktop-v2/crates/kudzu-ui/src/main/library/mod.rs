@@ -143,6 +143,13 @@ pub fn sync(s: &mut MainState) -> bool {
     }
     let view = s.frame.view.clone();
     let MainView::Library(scope) = &view else {
+        // The Tauri list unmounts outside the library: its sort, anchor and menus start over.
+        if s.library.seen_view.take().is_some() {
+            s.library.sort = Sort::default();
+            s.library.selection = Selection::default();
+            s.library.sort_open = false;
+            s.library.move_open = false;
+        }
         return changed;
     };
     if s.library.seen_view.as_ref() != Some(&view) {

@@ -410,3 +410,19 @@ fn a_remounted_row_does_not_replay_its_entrance() {
     let back = arrival()(&rig).expect("mounted again at the top");
     assert_eq!(back.opacity, 1.0, "no entrance replay on remount");
 }
+
+/// The Tauri list unmounts outside the library (`main-app.tsx` keys the content by area), so
+/// its sort and multi-selection start over when you come back; the filter is the store's.
+#[test]
+fn leaving_the_library_resets_the_sort_and_the_selection() {
+    let mut rig = sample_rig();
+    rig.click_key(library::SORT_KEY);
+    rig.click_text("Most used");
+    focus_list(&mut rig);
+    rig.press(cmd('a'));
+    rig.press(cmd('4'));
+    rig.press(cmd('1'));
+    assert_eq!(rig.rt.state.library.sort, library::model::Sort::BestMatch);
+    assert!(rig.rt.state.library.selection.multi().is_empty());
+    assert_eq!(row_names(&rig)[0], "Bug report");
+}

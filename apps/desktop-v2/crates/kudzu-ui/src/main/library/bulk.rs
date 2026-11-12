@@ -46,7 +46,6 @@ pub(super) fn bar(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) -> Optio
         .variant(Variant::Ghost)
         .size(Size::IconSm)
         .name("Favorite all")
-        .help("Add to favorites")
         .on_press(|s: &mut MainState| favorite_all(s))
         .build(theme)
         .key(FAVORITE_KEY);
@@ -55,7 +54,6 @@ pub(super) fn bar(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) -> Optio
         .variant(Variant::Ghost)
         .size(Size::IconSm)
         .name("Turn off all")
-        .help("Toggle on/off")
         .on_press(|s: &mut MainState| toggle_each(s))
         .build(theme)
         .key(TOGGLE_KEY);
