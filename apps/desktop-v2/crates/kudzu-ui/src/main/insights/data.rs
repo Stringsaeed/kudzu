@@ -13,8 +13,6 @@ use crate::shell::MainState;
 pub const TOP_N: usize = 10;
 pub const RECENT_N: usize = 6;
 pub const UNUSED_N: usize = 18;
-/// Fixture clock is UTC; calendar fallback past 30 days uses this offset.
-pub const OFFSET_MINUTES: i32 = 0;
 
 pub struct Tile {
     pub label: &'static str,
@@ -42,16 +40,22 @@ pub struct Data {
     pub top: Vec<Ranked>,
     pub recent: Vec<Ranked>,
     pub unused: Vec<Unused>,
+    pub unused_total: usize,
     pub max: i64,
     pub wpm: u32,
 }
 
 pub fn from_state(s: &MainState) -> Data {
     let wpm = s.svc.settings.watch().get().typing_speed_wpm;
-    collect(&s.model.library, wpm, unix_ms(s.svc.clock.now()))
+    let offset = if s.shell.native() {
+        chrono::Local::now().offset().local_minus_utc() / 60
+    } else {
+        s.insights.offset_minutes()
+    };
+    collect(&s.model.library, wpm, unix_ms(s.svc.clock.now()), offset)
 }
 
-pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {
+pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64, offset_minutes: i32) -> Data {
     let usage = usage::usage_by_id(&library.usage);
     let totals = usage::totals(&library.snippets, &usage, wpm);
     let words = js_round(totals.chars as f64 / CHARACTERS_PER_WORD);
@@ -86,7 +90,8 @@ pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {
         .iter()
         .filter_map(|snippet| {
             let row = usage.get(&snippet.id)?;
-            (row.count > 0).then(|| ranked_row(snippet, row.count, row.last_ms, now_ms))
+            (row.count > 0)
+                .then(|| ranked_row(snippet, row.count, row.last_ms, now_ms, offset_minutes))
         })
         .collect();
     ranked.sort_by_key(|a| Reverse(a.count));
@@ -96,7 +101,7 @@ pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {
     recent.sort_by_key(|a| Reverse(a.last_ms));
     recent.truncate(RECENT_N);
 
-    let unused = library
+    let unused_all: Vec<&SnippetRecord> = library
         .snippets
         .iter()
         .filter(|snippet| {
@@ -104,6 +109,10 @@ pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {
                 && usage.get(&snippet.id).is_none_or(|row| row.count == 0)
                 && !snippet.triggers.is_empty()
         })
+        .collect();
+    let unused_total = unused_all.len();
+    let unused = unused_all
+        .into_iter()
         .take(UNUSED_N)
         .map(|snippet| Unused {
             id: snippet.id,
@@ -116,19 +125,26 @@ pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {
         top,
         recent,
         unused,
+        unused_total,
         max,
         wpm,
     }
 }
 
-fn ranked_row(snippet: &SnippetRecord, count: i64, last_ms: i64, now_ms: i64) -> Ranked {
+fn ranked_row(
+    snippet: &SnippetRecord,
+    count: i64,
+    last_ms: i64,
+    now_ms: i64,
+    offset_minutes: i32,
+) -> Ranked {
     Ranked {
         id: snippet.id,
         name: display_name(snippet),
         trigger: snippet.triggers.first().cloned(),
         count,
         last_ms,
-        relative: relative_time(last_ms, now_ms, OFFSET_MINUTES),
+        relative: relative_time(last_ms, now_ms, offset_minutes),
     }
 }
 

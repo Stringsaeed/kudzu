@@ -12,6 +12,7 @@ mod command_menu;
 mod frame;
 mod group_settings;
 mod insights;
+mod insights_motion;
 mod landmarks;
 mod library;
 mod library_bulk;

@@ -1,7 +1,7 @@
 //! Insights element tree (`components/app/main/insights.tsx`).
 
 use kudzu_core::fmt::format_count;
-use rune::{col, el, icon, row, text, El, MotionIntent, ScrollSpec, Spring, TextStyle, Tx};
+use rune::{col, el, icon, row, text, Color, El, MotionIntent, ScrollSpec, Spring, TextStyle, Tx};
 use uuid::Uuid;
 
 use super::data::{self, Data, Ranked};
@@ -230,6 +230,8 @@ fn top_row(
         .gap(12.0)
         .px(8.0)
         .py(6.0)
+        .border(1.0, Color::TRANSPARENT)
+        .border_layout()
         .center_y()
         .radius(radius::LG)
         .hover(c.foreground.alpha(0.04))
@@ -316,6 +318,8 @@ fn recent(theme: &Theme, data: &Data) -> El {
                 .gap(8.0)
                 .px(8.0)
                 .py(6.0)
+                .border(1.0, Color::TRANSPARENT)
+                .border_layout()
                 .center_y()
                 .radius(radius::LG)
                 .hover(c.foreground.alpha(0.04))
@@ -365,7 +369,7 @@ fn unused(theme: &Theme, data: &Data) -> Option<El> {
         return None;
     }
     let c = &theme.c;
-    let count = data.unused.len();
+    let count = data.unused_total;
     let mut chips = row().key("insights-unused-chips").flex_wrap().gap(6.0);
     for (i, chip) in data.unused.iter().enumerate() {
         let id = chip.id;

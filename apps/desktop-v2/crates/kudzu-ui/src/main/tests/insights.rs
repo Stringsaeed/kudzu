@@ -3,8 +3,13 @@
 use super::{cmd, Rig};
 use crate::main::state::{LibraryFilter, MainView};
 use crate::shell::Route;
+use chrono::{TimeZone, Utc};
 use kudzu_app::settings::Theme;
+use kudzu_core::{SnippetRecord, UsageRecord};
 use rune::{Key, KeyEvent, Mods};
+
+const HZ: f64 = 120.0;
+const DT: f64 = 1.0 / HZ;
 
 const TOLERANCE: f32 = 2.0;
 
@@ -43,6 +48,22 @@ fn land(rig: &mut Rig) {
     for _ in 0..80 {
         rig.rt.frame(1.0 / 60.0);
     }
+}
+
+fn begin_arrival(rig: &mut Rig) {
+    rig.rt.update(|st, _| st.navigate_to(MainView::Insights));
+    rig.rt.settle_all();
+    rig.rt.frame(0.0);
+}
+
+fn frames(rig: &mut Rig, n: usize) {
+    for _ in 0..n {
+        rig.rt.frame(DT);
+    }
+}
+
+fn bar_delay_frames(index: usize) -> usize {
+    ((0.060 + index as f64 * 0.040) / DT).ceil() as usize
 }
 
 fn text_on(rig: &Rig, needle: &str) -> bool {
@@ -255,43 +276,105 @@ fn the_wpm_slider_steps_persists_and_updates_time_saved() {
     assert!(text_on(&rig, "at 80 words per minute"));
 }
 
-/// INS-4: count-up 560 ms quartic on arrival; a later WPM change snaps.
+/// INS-4: count-up ends at 560 ms; each bar starts at 60 + i×40 ms and runs 480 ms.
 #[test]
 fn arrival_counts_up_over_560ms_and_later_wpm_is_instant() {
     let mut rig = mock();
-    open(&mut rig);
-    let first = tile(&rig, 0);
-    assert_ne!(first, "471", "first paint is still counting: {first}");
+    begin_arrival(&mut rig);
+    assert_eq!(tile(&rig, 0), "0");
+    assert!(!rig.rt.state.insights.bar_started(0));
     let bar0 = element(&rig, "insights-bar-0");
     assert!(
-        bar0.rect[2] < 8.0,
+        bar0.rect[2] < 1.0,
         "bar 0 waits 60 ms before growing: {:?}",
         bar0.rect
     );
 
-    for _ in 0..8 {
-        rig.rt.frame(1.0 / 60.0);
+    let mut elapsed_frames = 0usize;
+    for i in 0..10 {
+        let delay = bar_delay_frames(i);
+        frames(&mut rig, delay - elapsed_frames - 1);
+        elapsed_frames = delay - 1;
+        assert!(
+            !rig.rt.state.insights.bar_started(i),
+            "bar {i} still waits just before {} ms",
+            60 + i * 40
+        );
+        frames(&mut rig, 1);
+        elapsed_frames += 1;
+        assert!(
+            rig.rt.state.insights.bar_started(i),
+            "bar {i} starts at {} ms",
+            60 + i * 40
+        );
+        if i == 0 {
+            let started = element(&rig, "insights-bar-0");
+            assert!(
+                started.target[2] > 8.0,
+                "bar 0 targets its width once started: {:?}",
+                started.target
+            );
+            let mid = tile(&rig, 0);
+            assert_ne!(mid, "0");
+            assert_ne!(mid, "471", "count-up is mid-flight at 60 ms: {mid}");
+        }
     }
-    let mid = tile(&rig, 0);
-    assert_ne!(mid, first);
-    assert_ne!(mid, "471");
-    let growing = element(&rig, "insights-bar-0");
+
+    let before_end = ((0.560 - 1e-9) / DT).floor() as usize;
+    frames(&mut rig, before_end - elapsed_frames);
+    elapsed_frames = before_end;
     assert!(
-        growing.target[2] > bar0.target[2],
-        "bar 0 starts after its delay: {:?} then {:?}",
-        bar0.target,
-        growing.target
+        rig.rt.state.insights.arriving(),
+        "count-up still running at {} ms",
+        (elapsed_frames as f64 * DT * 1000.0).round()
+    );
+    frames(&mut rig, 1);
+    elapsed_frames += 1;
+    assert!(rig.rt.state.insights.landed(), "count-up ends at 560 ms");
+    assert_eq!(tile(&rig, 0), "471", "count-up ends at 560 ms");
+    assert_eq!(tile(&rig, 2), "2.3 h");
+
+    let bar0_start = bar_delay_frames(0);
+    let after_bar0 = bar0_start + (0.480 / DT).round() as usize;
+    if elapsed_frames < after_bar0 {
+        frames(&mut rig, after_bar0 - elapsed_frames);
+    }
+    let track = element(&rig, "insights-bar-track-0");
+    let settled = element(&rig, "insights-bar-0");
+    assert!(
+        (settled.rect[2] - track.rect[2]).abs() < track.rect[2] * 0.03,
+        "bar 0 lasts 480 ms: {:?} vs track {:?}",
+        settled.rect,
+        track.rect
     );
 
     land(&mut rig);
-    assert_eq!(tile(&rig, 0), "471");
-    assert_eq!(tile(&rig, 2), "2.3 h");
+    let counts = [129.0, 75.0, 53.0, 41.0, 33.0, 28.0, 24.0, 21.0, 19.0, 17.0];
+    let max = 129.0f32;
+    for (i, count) in counts.iter().enumerate() {
+        let bar = element(&rig, &format!("insights-bar-{i}"));
+        let track = element(&rig, &format!("insights-bar-track-{i}"));
+        let pct = (*count as f32 / max).clamp(0.03, 1.0);
+        let want = track.rect[2] * pct;
+        assert!(
+            (bar.rect[2] - want).abs() <= 2.0,
+            "bar {i} proportional: {:?} want {want} (pct {pct})",
+            bar.rect
+        );
+    }
+    let landed0 = element(&rig, "insights-bar-0").rect[2];
 
     rig.rt.update(|st, _| {
         st.svc.settings.update(|s| s.typing_speed_wpm = 80).unwrap();
     });
     rig.rt.frame(0.0);
     assert_eq!(tile(&rig, 2), "1.1 h");
+    let after = element(&rig, "insights-bar-0");
+    assert!(
+        (after.rect[2] - landed0).abs() < 2.0,
+        "later changes leave bars in place: {:?}",
+        after.rect
+    );
 }
 
 /// INS-4: Reduce Motion skips count-up and bar stagger.
@@ -314,52 +397,81 @@ fn the_page_is_at_most_880_with_one_point_four_to_one_columns() {
     }
 }
 
+fn assert_rect(rig: &Rig, key: &str, expected: [f32; 4], theme: Theme) {
+    let got = element(rig, key).rect;
+    let ok = (0..4).all(|i| (got[i] - expected[i]).abs() <= TOLERANCE);
+    assert!(
+        ok,
+        "{theme:?} {key} {:?}, want {expected:?}\n{}",
+        got,
+        dump_landmarks(rig)
+    );
+}
+
+fn dump_landmarks(rig: &Rig) -> String {
+    [
+        "insights-page",
+        "insights-heading",
+        "insights-tile-0",
+        "insights-most-used",
+        "insights-top-0",
+        "insights-top-9",
+        "insights-recent",
+        "insights-recent-0",
+        "insights-recent-5",
+        "insights-unused",
+        "insights-unused-0",
+        "insights-unused-4",
+    ]
+    .iter()
+    .map(|key| format!("{key}: {:?}", element(rig, key).rect))
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
 fn assert_content_landmarks(rig: &Rig, theme: Theme) {
-    let page = element(rig, "insights-page");
+    let dump = dump_landmarks(rig);
+    let top0 = element(rig, "insights-top-0");
     assert!(
-        (page.rect[2] - 880.0).abs() <= TOLERANCE,
-        "{theme:?} page {:?}",
-        page.rect
+        (top0.rect[3] - 42.0).abs() <= TOLERANCE,
+        "{theme:?} most-used row 0 is 42 pt: {:?}\n{dump}",
+        top0.rect
     );
-    let heading = element(rig, "insights-heading");
+    let top9 = element(rig, "insights-top-9");
     assert!(
-        (heading.rect[0] - 248.0).abs() <= TOLERANCE,
-        "{theme:?} heading {:?}",
-        heading.rect
+        (top9.rect[3] - 42.0).abs() <= TOLERANCE,
+        "{theme:?} most-used row 9 is 42 pt: {:?}\n{dump}",
+        top9.rect
     );
+    let recent0 = element(rig, "insights-recent-0");
     assert!(
-        (heading.rect[1] - 63.5).abs() <= TOLERANCE,
-        "{theme:?} heading {:?}",
-        heading.rect
+        (recent0.rect[3] - 34.0).abs() <= TOLERANCE,
+        "{theme:?} recent row 0 is 34 pt: {:?}\n{dump}",
+        recent0.rect
     );
-    let most = element(rig, "insights-most-used");
-    let recent = element(rig, "insights-recent");
+    let recent5 = element(rig, "insights-recent-5");
     assert!(
-        (most.rect[0] - 290.0).abs() <= TOLERANCE,
-        "{theme:?} most {:?}",
-        most.rect
+        (recent5.rect[3] - 34.0).abs() <= TOLERANCE,
+        "{theme:?} recent row 5 is 34 pt: {:?}\n{dump}",
+        recent5.rect
     );
-    assert!(
-        (most.rect[2] - 462.0).abs() <= TOLERANCE,
-        "{theme:?} most width {:?}",
-        most.rect
+    assert_rect(rig, "insights-heading", [248.0, 64.0, 50.0, 20.0], theme);
+    assert_rect(rig, "insights-page", [258.0, 99.0, 880.0, 814.0], theme);
+    assert_rect(rig, "insights-tile-0", [290.0, 131.0, 195.0, 102.0], theme);
+    assert_rect(
+        rig,
+        "insights-most-used",
+        [290.0, 265.0, 462.0, 470.0],
+        theme,
     );
-    assert!(
-        (recent.rect[0] - 776.0).abs() <= TOLERANCE,
-        "{theme:?} recent {:?}",
-        recent.rect
-    );
-    assert!(
-        (recent.rect[2] - 330.0).abs() <= TOLERANCE,
-        "{theme:?} recent width {:?}",
-        recent.rect
-    );
-    for i in 0..4 {
-        assert!(
-            rig.rect(&format!("insights-tile-{i}")).is_some(),
-            "{theme:?} missing tile {i}"
-        );
-    }
+    assert_rect(rig, "insights-top-0", [290.0, 297.0, 462.0, 42.0], theme);
+    assert_rect(rig, "insights-top-9", [290.0, 693.0, 462.0, 42.0], theme);
+    assert_rect(rig, "insights-recent", [776.0, 265.0, 330.0, 246.0], theme);
+    assert_rect(rig, "insights-recent-0", [776.0, 297.0, 330.0, 34.0], theme);
+    assert_rect(rig, "insights-recent-5", [776.0, 477.0, 330.0, 34.0], theme);
+    assert_rect(rig, "insights-unused", [776.0, 535.0, 330.0, 118.0], theme);
+    assert_rect(rig, "insights-unused-0", [776.0, 567.0, 58.0, 24.0], theme);
+    assert_rect(rig, "insights-unused-4", [909.0, 597.0, 78.0, 24.0], theme);
 }
 
 /// Leaving Insights and coming back replays the arrival.
@@ -402,4 +514,102 @@ fn the_insights_scene_finishes_arrival() {
     assert_eq!(tile(&rig, 2), "2.3 h");
     let bar0 = element(&rig, "insights-bar-0");
     assert!(bar0.rect[2] > 20.0, "scene bars are full: {:?}", bar0.rect);
+}
+
+/// M1: after arrival, a new expansion and an enablement change refresh the tiles.
+#[test]
+fn landed_tiles_refresh_when_usage_and_enablement_change() {
+    let mut rig = mock();
+    rig.rt.update(|st, _| {
+        st.navigate_to(MainView::Insights);
+        st.insights.finish_arrival();
+    });
+    rig.settle();
+    assert_eq!(tile(&rig, 0), "471");
+    assert_eq!(tile(&rig, 3), "17");
+
+    rig.kudzu
+        .library
+        .transact(|lib| {
+            lib.usage[0].count += 10;
+            if let Some(row) = lib.snippets.iter_mut().find(|s| s.name == "Thanks") {
+                row.is_enabled = false;
+            }
+            Ok(())
+        })
+        .unwrap();
+    rig.rt.update(|st, _| st.refresh_library_snapshot());
+    rig.settle();
+    assert_eq!(tile(&rig, 0), "481");
+    assert_eq!(tile(&rig, 3), "16");
+}
+
+/// m5: heading is the eligible total; at most 18 chips.
+#[test]
+fn never_used_shows_the_total_and_at_most_eighteen_chips() {
+    let mut rig = mock();
+    rig.kudzu
+        .library
+        .transact(|lib| {
+            for i in 0..20 {
+                lib.snippets.push(SnippetRecord::new(
+                    format!("Spare {i}"),
+                    vec![format!(";spare{i}")],
+                    "x",
+                ));
+            }
+            Ok(())
+        })
+        .unwrap();
+    rig.rt.update(|st, _| st.refresh_library_snapshot());
+    open_reduced(&mut rig);
+    let tree = a11y(&rig);
+    assert!(tree.contains("Never used 25"), "{tree}");
+    assert!(element(&rig, "insights-unused-17").rect[2] > 0.0);
+    assert!(rig.rect("insights-unused-18").is_none());
+}
+
+/// m4: calendar fallback uses the injected offset; both sides of midnight and the 30-day cut.
+#[test]
+fn calendar_fallback_uses_the_injected_offset_across_midnight() {
+    let west_of_midnight = 1_791_775_800_000;
+    let east_of_midnight = 1_791_779_400_000;
+    let exactly_thirty_days = 1_791_806_400_000;
+    let just_inside_thirty = 1_791_806_400_001;
+
+    assert_calendar(&mut mock(), west_of_midnight, -240, "Oct 11, 2026");
+    assert_calendar(&mut mock(), east_of_midnight, -240, "Oct 12, 2026");
+    assert_calendar(&mut mock(), exactly_thirty_days, 0, "Oct 12, 2026");
+    assert_calendar(&mut mock(), just_inside_thirty, 0, "30 days ago");
+}
+
+fn assert_calendar(rig: &mut Rig, at_ms: i64, offset: i32, want: &str) {
+    let id = snippet_id(rig, "Email signature");
+    let at = Utc.timestamp_millis_opt(at_ms).single().unwrap();
+    rig.kudzu
+        .library
+        .transact(move |lib| {
+            lib.usage.clear();
+            lib.usage.push(UsageRecord {
+                snippet_id: id,
+                device_id: "test".into(),
+                count: 1,
+                chars_saved: 10,
+                last_used_at: Some(at),
+            });
+            Ok(())
+        })
+        .unwrap();
+    rig.rt.update(|st, _| {
+        st.refresh_library_snapshot();
+        st.insights.set_offset_minutes(offset);
+        st.navigate_to(MainView::Insights);
+        st.insights.finish_arrival();
+    });
+    rig.settle();
+    assert!(
+        text_on(rig, want),
+        "offset {offset} at {at_ms} should show {want}: {}",
+        a11y(rig)
+    );
 }

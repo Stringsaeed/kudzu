@@ -170,6 +170,14 @@ fn js_round(value: f64) -> i64 {
     (value + 0.5).floor() as i64
 }
 
-fn to_fixed(value: f64, digits: usize) -> String {
-    format!("{value:.digits$}")
+/// JavaScript `Number#toFixed`: nearest, exact ties toward +∞.
+pub fn to_fixed(value: f64, digits: usize) -> String {
+    let factor = 10f64.powi(digits as i32);
+    let scaled = (value * factor + 0.5).floor();
+    if digits == 0 {
+        return format!("{}", scaled as i64);
+    }
+    let int_part = (scaled / factor).floor() as i64;
+    let frac = (scaled - int_part as f64 * factor).round() as u64;
+    format!("{int_part}.{frac:0digits$}")
 }

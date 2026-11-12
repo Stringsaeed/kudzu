@@ -138,6 +138,16 @@ fn clock_matches_stats_fixture() {
 }
 
 #[test]
+fn to_fixed_rounds_exact_ties_up() {
+    assert_eq!(fmt::format_count(1_250), "1.3k");
+    assert_eq!(fmt::format_count(12_500), "13k");
+    assert_eq!(fmt::format_duration(2.25 * 60.0), "2.3 h");
+    assert_eq!(fmt::to_fixed(1.25, 1), "1.3");
+    assert_eq!(fmt::to_fixed(12.5, 0), "13");
+    assert_eq!(fmt::to_fixed(2.25, 1), "2.3");
+}
+
+#[test]
 fn byte_sizes_match_clipboard_fixture() {
     let cases: Vec<ByteCase> = load("fmt-bytes.json");
     assert!(!cases.is_empty());

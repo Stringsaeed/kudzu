@@ -15,7 +15,10 @@ pub fn interpolate(value: &str, progress: f64) -> String {
     };
     let t = progress.clamp(0.0, 1.0);
     let eased = 1.0 - (1.0 - t).powi(4);
-    format!("{}{suffix}", to_fixed(number * eased, digits))
+    format!(
+        "{}{suffix}",
+        kudzu_core::fmt::to_fixed(number * eased, digits)
+    )
 }
 
 /// Leading number, trailing unit, and the number of digits after the decimal in the source.
@@ -41,11 +44,6 @@ fn split_numeric_prefix(value: &str) -> Option<(f64, &str, usize)> {
     let digits = head.find('.').map(|dot| head.len() - dot - 1).unwrap_or(0);
     let number = head.parse().ok()?;
     Some((number, &value[i..], digits))
-}
-
-/// JavaScript `Number#toFixed`: `format!("{n:.digits$}")`.
-fn to_fixed(value: f64, digits: usize) -> String {
-    format!("{value:.digits$}")
 }
 
 #[cfg(test)]

@@ -33,8 +33,9 @@ pub struct State {
     visit: Cell<Visit>,
     started: Cell<f64>,
     bars_started: Cell<u32>,
-    last_wpm: Cell<u32>,
     scene: Cell<bool>,
+    /// Minutes east of UTC for the calendar fallback. Headless stays 0 (UTC); tests inject.
+    offset_minutes: Cell<i32>,
     tiles: [LiveText; 4],
 }
 
@@ -44,8 +45,8 @@ impl Default for State {
             visit: Cell::new(Visit::Idle),
             started: Cell::new(0.0),
             bars_started: Cell::new(0),
-            last_wpm: Cell::new(0),
             scene: Cell::new(false),
+            offset_minutes: Cell::new(0),
             tiles: [
                 LiveText::new("0"),
                 LiveText::new("0"),
@@ -71,6 +72,15 @@ impl State {
         self.tiles[index].get().to_string()
     }
 
+    /// Inject the calendar-fallback offset. Fixtures stay at 0 (UTC).
+    pub fn set_offset_minutes(&self, minutes: i32) {
+        self.offset_minutes.set(minutes);
+    }
+
+    pub fn offset_minutes(&self) -> i32 {
+        self.offset_minutes.get()
+    }
+
     pub fn arriving(&self) -> bool {
         self.visit.get() == Visit::Arriving
     }
@@ -94,7 +104,6 @@ impl State {
         self.visit.set(Visit::Idle);
         self.started.set(0.0);
         self.bars_started.set(0);
-        self.last_wpm.set(0);
         self.scene.set(false);
         for tile in &self.tiles {
             tile.set("0");
@@ -104,7 +113,6 @@ impl State {
     fn observe(&self, clock: f64, reduced: bool, data: &data::Data) {
         match self.visit.get() {
             Visit::Idle => {
-                self.last_wpm.set(data.wpm);
                 if reduced || self.scene.get() {
                     self.land(data);
                 } else {
@@ -115,19 +123,13 @@ impl State {
                 }
             }
             Visit::Arriving => {}
-            Visit::Landed => {
-                if data.wpm != self.last_wpm.get() {
-                    self.last_wpm.set(data.wpm);
-                    self.snap(data);
-                }
-            }
+            Visit::Landed => self.snap(data),
         }
     }
 
     fn land(&self, data: &data::Data) {
         self.visit.set(Visit::Landed);
         self.bars_started.set(u32::MAX);
-        self.last_wpm.set(data.wpm);
         self.snap(data);
     }
 
@@ -163,7 +165,6 @@ pub fn poll(s: &mut MainState, tx: &mut Tx) -> bool {
     s.insights.snap_progress(&data, progress);
     if progress >= 1.0 {
         s.insights.visit.set(Visit::Landed);
-        s.insights.last_wpm.set(data.wpm);
     }
     let n_bars = if data.top.is_empty() {
         3
