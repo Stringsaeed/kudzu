@@ -48,11 +48,7 @@ pub struct Data {
 
 pub fn from_state(s: &MainState) -> Data {
     let wpm = s.svc.settings.watch().get().typing_speed_wpm;
-    collect(
-        &s.model.library,
-        wpm,
-        unix_ms(s.svc.clipboard.clock().now()),
-    )
+    collect(&s.model.library, wpm, unix_ms(s.svc.clock.now()))
 }
 
 pub fn collect(library: &KudzuLibrary, wpm: u32, now_ms: i64) -> Data {

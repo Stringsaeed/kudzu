@@ -33,7 +33,7 @@ use crate::{
     paths::Paths,
     permissions::{Permissions, PermissionsConfig},
     persist::{LoadSource, PersistError, Writer},
-    ports::{ExpansionEngine, KudzuWindows, Ports},
+    ports::{Clock, ExpansionEngine, KudzuWindows, Ports},
     schedule::{Scheduler, Timer},
     settings::{SettingsService, Variant},
     sync::{SyncConfig, SyncService},
@@ -168,6 +168,8 @@ pub struct Kudzu {
     pub sync: Arc<SyncService>,
     pub agents: Arc<AgentsService>,
     pub selection: Arc<SelectionCapture>,
+    /// The clock every service was built with. Screens read "now" here, never the system.
+    pub clock: Arc<dyn Clock>,
     /// Which windows are Kudzu's. The shell pushes the list on every open, close or change.
     pub windows: Arc<dyn KudzuWindows>,
     /// `Some(LOGIN_ITEM_UNAVAILABLE)` after a failed enable or disable. Cleared when a later
@@ -378,6 +380,7 @@ impl Kudzu {
             sync,
             agents,
             selection,
+            clock: ports.clock.clone(),
             windows: ports.windows.clone(),
             login_notice: login_notice.watch(),
             first_run: source == LoadSource::Missing,

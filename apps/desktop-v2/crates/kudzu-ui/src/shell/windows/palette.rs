@@ -26,7 +26,7 @@ impl From<&Arc<Kudzu>> for PaletteServices {
             settings: kudzu.settings.clone(),
             library: kudzu.library.clone(),
             expansion: kudzu.expansion.clone(),
-            clock: kudzu.clipboard.clock(),
+            clock: kudzu.clock.clone(),
         }
     }
 }

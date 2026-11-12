@@ -11,6 +11,7 @@ use kudzu_app::clipboard::ClipboardService;
 use kudzu_app::expansion::ExpansionService;
 use kudzu_app::hotkeys::{HotkeyError, HotkeySlots};
 use kudzu_app::library::{LibraryService, SnippetDraft};
+use kudzu_app::ports::Clock;
 use kudzu_app::settings::SettingsService;
 use kudzu_app::tasks::Task;
 use kudzu_app::updates::Updates;
@@ -37,6 +38,7 @@ pub struct MainServices {
     pub updates: Updates,
     pub hotkeys: Arc<HotkeySlots>,
     pub clipboard: Arc<ClipboardService>,
+    pub clock: Arc<dyn Clock>,
 }
 
 impl From<&Arc<Kudzu>> for MainServices {
@@ -50,6 +52,7 @@ impl From<&Arc<Kudzu>> for MainServices {
             updates: kudzu.updates.clone(),
             hotkeys: kudzu.hotkeys.clone(),
             clipboard: kudzu.clipboard.clone(),
+            clock: kudzu.clock.clone(),
         }
     }
 }
