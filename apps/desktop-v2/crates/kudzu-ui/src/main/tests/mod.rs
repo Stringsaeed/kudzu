@@ -12,6 +12,7 @@ mod landmarks;
 mod library;
 mod onboarding;
 mod library_bulk;
+mod library_landmarks;
 mod library_list;
 mod routes;
 mod shortcuts;
