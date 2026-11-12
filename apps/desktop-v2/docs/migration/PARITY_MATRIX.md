@@ -113,7 +113,7 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 | `kit_ext::textarea` (wrapper, `RUNE-GAP(#573)`) | The text style (rune-kit: `ty.ui` on a 1.35 line) and padding (8); its editor is an inner element | built from Rune core's `text_input` in a padded column with the input's surface | none for the matched metrics | Rune #573 |
 | `kit_ext::select` (decorated, S07) | Trigger height (28), padding, radius (6), fill (base), depth (`input`), hover tint, focus look; the list's 6 pt radius | a kit copy with `bg_base = surface-raised` and no field depth; `h`, `pl(3)`, `pr(7)`, `radius(10)`, `fill`, `hover(transparent)`, `focus_ring(3, 0, ring/50)` on the trigger; `kit_ext::press` layers; radius 10 on the pushed list | none for the matched metrics | Rune #573, #360 |
 | `kit_ext::menu` (decorated, S07) | The surface's 6 pt radius | radius 10 on every element `Menu::build` pushes (the scrim and the anchor point are transparent) | none | Rune #573 |
-| `kit_ext::dialog` (wrapper, S07) | The panel's 6 pt radius, its padding and depth (the panel is a child of the pushed layer) | built from Rune core with rune-kit's structure; radius 14 (shadcn) or 18 (`kudzu()`), `p-4 gap-4`, `panel` + ring or `float` | the `bg-muted/50` footer band (no dialog in the app needs it before S55) | Rune #573 |
+| `kit_ext::dialog` (wrapper, S07) | The panel's 6 pt radius, its padding and depth (the panel is a child of the pushed layer) | built from Rune core with rune-kit's structure; radius 14 (shadcn) or 18 (`kudzu()`), `p-4 gap-4`, `panel` + ring or `float` | the generic wrapper still has no `bg-muted/50` footer band; the group dialog draws its own (S55). `group-dialog` stays not-yet-built until S73 | Rune #573 |
 | `kit_ext::toast` (decorated, S07) | The 8 pt radius, the 320 width | radius 14, width 356 on the built toast | the inline end action (Sonner) | Rune #573 |
 | `kit_ext::checkbox` (wrapper, D21) | The checked fill, border, mark, depth and sheen (an inner element) | built from Rune core | none | Rune #573 |
 | `kit_ext::press` (S07, D21) | Shadows and child geometry per hover and press | hover: two face layers crossfaded by `group_opacity`; pointer press: a `Live` value set by the control's drag handler (`Tx::live_only`), bound to the pressed layer's opacity or the knob's `live_rect`; Space: the control's `on_key` marks it held by the keyboard, a control rebuilt while held starts pressed, its `on_key_up` lets go | a pointer press that sees a rebuild while held restarts at rest (the look lets go early); controls are told apart by kind and accessible name, so two same-named buttons on one screen would both show a held Space | Rune #360 |
@@ -126,7 +126,7 @@ Each has a gallery scene (`gallery/widgets/`). Where the reference has a landmar
 - Focus rings: shadcn draws a ring-coloured border plus a 3 pt `ring/50` halo; the decorated button, input, select, checkbox and the wrappers draw the halo as a focus ring and, for a forced focus state, the border too. rune-kit's other components keep their own ring.
 - Press: shadcn scales a pressed control to 0.97 and swaps to `shadow-pressed`; the decorated button does both, for the pointer and for Space until its key-up (D21). Return passes a focused button by in Rune, as in AppKit, so it shows no press.
 
-- The toast's action sits under the text (rune-kit's layout) rather than inline at the end as a dark Sonner button; the dialog wrapper has no `bg-muted/50` footer band yet (S55 builds the group dialog).
+- The toast's action sits under the text (rune-kit's layout) rather than inline at the end as a dark Sonner button; the dialog wrapper has no `bg-muted/50` footer band. The group dialog draws its own (S55). `group-dialog` stays not-yet-built until S73.
 
 ## Screens (S57 fill-in form)
 
@@ -204,3 +204,9 @@ For S73, when the scenes are enabled:
 
 - **Toolbar inset.** S02 captured the browser preview (`platform: "web"`, `pl-3`, 12 pt), while Rune's headless window has traffic lights and pads 88 pt, as the Tauri app does on macOS. Every toolbar landmark before the search button is 76 pt off until a scene drops the inset.
 - **Toast Undo.** The reference's Undo is inline at the toast's end (704, 695, 46.8×24); rune-kit's toast puts actions under the text (S07, above).
+
+## Group settings (S55)
+
+The 520 pt dialog (name, On/Off, Default/Type/Paste, All apps / Only in… / Except…, Save and Cancel) is covered by tree tests in both themes, within 2 pt of the dialog's own `group-dialog` landmarks. The scene stays in the not-yet-built list until S73, because the reference also includes the sidebar, list and editor.
+
+Save waits until the library writer reports the revision durable, and leaves the dialog open with the error when the write fails. The Tauri dialog closes without waiting (FEATURES §7). Closes RUL-7 (UI) and RUL-8.

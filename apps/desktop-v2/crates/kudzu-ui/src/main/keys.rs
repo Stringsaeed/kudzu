@@ -10,7 +10,9 @@ use rune::{Key, KeyEvent, Keybind, Tx};
 use crate::actions::main::{ActionContext, MainAction};
 use crate::actions::Action;
 use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
-use crate::main::{cheatsheet, clipboard, command_menu, editor, library, nav, sidebar};
+use crate::main::{
+    cheatsheet, clipboard, command_menu, editor, group_settings, library, nav, sidebar,
+};
 use crate::shell::{MainState, NewSnippet};
 
 /// Window-level `on_key` handler wired into `AppSpec::on_key` for `main`.
@@ -29,6 +31,10 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
             && s.frame.group_settings_id.is_none()
             && !s.frame.breadcrumb_overflow_open;
         if ev.key == Key::Escape && !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt {
+            if s.group_settings.picker_open() {
+                group_settings::close_picker(s);
+                return true;
+            }
             if command_top {
                 command_menu::close(s);
                 return true;
@@ -143,6 +149,7 @@ impl MainState {
             || self.insights.is_composing()
             || self.onboarding.is_composing()
             || self.command_menu.query.is_composing()
+            || self.group_settings.is_composing()
     }
 
     /// True while any screen's editable text field holds keyboard focus.
@@ -154,6 +161,7 @@ impl MainState {
             || self.settings.is_editing_text()
             || self.insights.is_editing_text()
             || self.onboarding.is_editing_text()
+            || self.group_settings.is_editing_text()
     }
 
     /// Clears every screen's text-field focus flag before pane focus moves.
@@ -166,5 +174,6 @@ impl MainState {
         self.insights.blur_inputs();
         self.onboarding.blur_inputs();
         self.command_menu.query.focused = false;
+        self.group_settings.blur_inputs();
     }
 }

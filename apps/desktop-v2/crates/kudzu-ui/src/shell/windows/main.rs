@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 
+use kudzu_app::apps::Apps;
 use kudzu_app::assembly::Kudzu;
 use kudzu_app::clipboard::ClipboardService;
 use kudzu_app::expansion::ExpansionService;
@@ -27,7 +28,8 @@ use rune::raw_window_handle::RawWindowHandle;
 use super::super::{routes::Route, theme_sync::ThemeSync, tray::Tray, Shell};
 use crate::main::nav::{selected_for_route, view_for_route};
 use crate::main::{
-    clipboard, command_menu, editor, insights, library, onboarding, settings, sidebar, MainFrame,
+    clipboard, command_menu, editor, group_settings, insights, library, onboarding, settings,
+    sidebar, MainFrame,
 };
 
 /// The services `main` reads. S41 onward add what their screens need, here only.
@@ -40,6 +42,7 @@ pub struct MainServices {
     pub updates: Updates,
     pub hotkeys: Arc<HotkeySlots>,
     pub clipboard: Arc<ClipboardService>,
+    pub apps: Arc<Apps>,
     pub clock: Arc<dyn Clock>,
     pub files: Arc<dyn kudzu_app::ports::FileOpener>,
 }
@@ -55,6 +58,7 @@ impl From<&Arc<Kudzu>> for MainServices {
             updates: kudzu.updates.clone(),
             hotkeys: kudzu.hotkeys.clone(),
             clipboard: kudzu.clipboard.clone(),
+            apps: kudzu.apps.clone(),
             clock: kudzu.clock.clone(),
             files: kudzu.files.clone(),
         }
@@ -107,6 +111,7 @@ pub struct MainState {
     pub insights: insights::State,
     pub onboarding: onboarding::State,
     pub command_menu: command_menu::State,
+    pub group_settings: group_settings::State,
 }
 
 impl MainState {
@@ -120,6 +125,10 @@ impl MainState {
         let initial_view = view_for_route(&route);
         let initial_selected = selected_for_route(&route);
         let library_snap = svc.library.watch().get();
+        let icon_wake = {
+            let main = shell.handles().main.clone();
+            Arc::new(move || main.wake())
+        };
         let model = MainModel {
             open_at_launch,
             route,
@@ -139,6 +148,7 @@ impl MainState {
             insights: insights::State::default(),
             onboarding: onboarding::State::default(),
             command_menu: command_menu::State::default(),
+            group_settings: group_settings::State::new(icon_wake),
         };
         state.frame.selected_snippet = initial_selected;
         state.observe_breadcrumbs();

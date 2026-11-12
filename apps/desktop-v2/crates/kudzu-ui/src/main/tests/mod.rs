@@ -7,6 +7,7 @@ mod clipboard_landmarks;
 mod clipboard_scroll;
 mod command_menu;
 mod frame;
+mod group_settings;
 mod insights;
 mod landmarks;
 mod library;
@@ -154,6 +155,11 @@ impl Rig {
     /// The library as the service holds it now.
     pub(super) fn library(&self) -> Arc<kudzu_core::KudzuLibrary> {
         self.kudzu.library.watch().get()
+    }
+
+    /// The fixture data directory (`library.json` is written here).
+    pub(super) fn data_dir(&self) -> &Path {
+        &self._scratch.0
     }
 
     pub(super) fn rect(&self, key: &str) -> Option<[f32; 4]> {

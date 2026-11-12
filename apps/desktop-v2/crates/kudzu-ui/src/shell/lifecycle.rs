@@ -201,6 +201,7 @@ impl MainState {
             changed = true;
         }
         changed |= crate::main::library::sync(self);
+        changed |= crate::main::group_settings::sync(self);
         if let Some(result) = self.model.capture.as_ref().and_then(|task| task.take()) {
             self.model.capture = None;
             let content = result.unwrap_or_default();

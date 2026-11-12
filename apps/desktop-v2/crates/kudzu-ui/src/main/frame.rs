@@ -48,7 +48,7 @@ pub fn view(s: &MainState, cx: &mut Cx<MainState>) -> El {
 
     command_menu::view(s, theme, &mut overlays);
     cheatsheet::view(s, theme, &mut overlays);
-    group_settings::view(s, theme, &mut overlays);
+    group_settings::view(s, cx, theme, &mut overlays);
     if let Some(toast_layer) = s.frame.toasts.view(theme, |st: &mut MainState| {
         let now = st.frame.clock_secs;
         (&mut st.frame.toasts, now)
