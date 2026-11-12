@@ -222,6 +222,10 @@ pub(super) fn check_consistent(states_md: &[(String, String)], refs: &[RefState]
 pub(super) type Pending = (&'static str, &'static str, &'static str);
 
 pub(super) const NOT_YET_BUILT: &[Pending] = &[
+    ("main", "library", "S50"),
+    ("main", "library-empty", "S50"),
+    ("main", "snippet-bulk", "S50"),
+    ("main", "snippet-deleted-toast", "S50"),
     ("main", "snippet-actions", "S51"),
     ("main", "insert-menu", "S52"),
     ("main", "chip-date", "S53"),
