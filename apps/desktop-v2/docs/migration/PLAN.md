@@ -612,7 +612,7 @@ Waves 9 and later, step by step:
 | S51 editor shell | Merged (`1e1bfc6c`, report `S51_REPORT.md`); reviewed. Fixes pending: 2 majors and 3 minors (`reviews/S51-editor.md`) | Opus (after Carbon failed) → Grok 4.7 |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
 | S61 settings frame, General, Expansion, Apps | Merged (`38466e64`, handoff `S61_HANDOFF.md`); reviewed, fixes pending (`reviews/S61-settings.md`) | Codex Sol (after Argon stalled and failed) → Grok 4.6 |
-| S60 clipboard picker window | Merged (`418278dc`); reviewed. **Fixes pending, including 2 paste-safety blockers** (`reviews/S60-picker.md`) | Sonnet (after Carbon failed) → Codex Sol |
+| S60 clipboard picker window | Merged (`418278dc`); reviewed. **Fix round running** for 2 paste-safety blockers, 4 majors and 2 minors (`reviews/S60-picker.md`); a re-check follows, because of the blockers | Sonnet (after Carbon failed) → Codex Sol |
 
 **Orchestrator changes on the base during wave 9:**
 - `95368d01`: the shared core `ClipFilter` and `MainServices.clipboard`.
