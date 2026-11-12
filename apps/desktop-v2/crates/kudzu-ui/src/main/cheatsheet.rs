@@ -1,23 +1,29 @@
 //! Keyboard shortcuts cheat sheet (`⌘/` or `?`). A 720-point panel centred in the
-//! 16-point window inset, listing every shortcut the registry publishes.
+//! 16-point window inset.
 //!
-//! Rune's `gap` is one value for both axes, so the columns are two fixed stacks with
-//! a 40-point row gap and a 24-point section gap. The sheet is the captured 624.422
-//! points tall (header plus a 570-point body), which is `min(640, 75vh)` at 760.
+//! Chords come from the action registry and from each screen's shortcut metadata.
+//! This file only places a row in a section and keeps the label the sheet shows.
+//! The body is `min(640, 75vh)`, which is 570 at a 760-point window, so the panel
+//! stays 624.422 there. Rune's `gap` is one value for both axes, so the columns
+//! are two fixed stacks with a 40-point row gap and a 24-point section gap.
 
 use rune::{col, el, icon, row, text, El, ScrollSpec, TextStyle};
 
+use crate::actions::main::MainAction;
+use crate::actions::menu;
+use crate::actions::Action;
+use crate::main::shortcut_meta::LocalShortcut;
+use crate::main::{clipboard, editor, library};
 use crate::shell::MainState;
 use crate::theme::icons;
 use crate::theme::{radius, Theme};
-use crate::widgets::shortcut::{Shortcut, Tone};
+use crate::widgets::shortcut::Shortcut;
 
 const PANEL_W: f32 = 720.0;
-const PANEL_H: f32 = 624.422;
 const HEADER_H: f32 = 54.422;
 const TITLE_ROW_H: f32 = 53.422;
 const TITLE_LH: f32 = 21.422;
-const BODY_H: f32 = 570.0;
+const BODY_CAP: f32 = 640.0;
 const COL_W: f32 = 316.0;
 const HEADING_H: f32 = 15.703;
 const ROW_H: f32 = 28.0;
@@ -26,231 +32,111 @@ const TALL: f32 = 247.703;
 const MID: f32 = 219.703;
 const SHORT: f32 = 191.703;
 
-struct Item {
-    combo: &'static str,
-    label: &'static str,
+enum Entry {
+    Action(MainAction),
+    Local(&'static LocalShortcut),
 }
 
-#[derive(Clone, Copy)]
 struct Section {
     key: &'static str,
     title: &'static str,
     height: f32,
-    rows: &'static [Item],
+    rows: Vec<Entry>,
 }
 
-const EVERYWHERE: &[Item] = &[
-    Item {
-        combo: "mod+k",
-        label: "Search & commands",
-    },
-    Item {
-        combo: "mod+n",
-        label: "New snippet",
-    },
-    Item {
-        combo: "mod+shift+n",
-        label: "New group",
-    },
-    Item {
-        combo: "mod+f",
-        label: "Filter snippets",
-    },
-    Item {
-        combo: "mod+shift+p",
-        label: "Pause / resume expanding",
-    },
-    Item {
-        combo: "mod+,",
-        label: "Settings",
-    },
-    Item {
-        combo: "mod+/",
-        label: "Keyboard shortcuts",
-    },
-];
-
-const NAVIGATE: &[Item] = &[
-    Item {
-        combo: "mod+1",
-        label: "All snippets",
-    },
-    Item {
-        combo: "mod+2",
-        label: "Favorites",
-    },
-    Item {
-        combo: "mod+3",
-        label: "Recently used",
-    },
-    Item {
-        combo: "mod+4",
-        label: "Insights",
-    },
-    Item {
-        combo: "mod+5",
-        label: "Clipboard history",
-    },
-    Item {
-        combo: "mod+l",
-        label: "Focus the list",
-    },
-    Item {
-        combo: "mod+e",
-        label: "Edit content",
-    },
-    Item {
-        combo: "escape",
-        label: "Back to the list",
-    },
-];
-
-const SNIPPET_LIST: &[Item] = &[
-    Item {
-        combo: "up",
-        label: "Previous (or K)",
-    },
-    Item {
-        combo: "down",
-        label: "Next (or J)",
-    },
-    Item {
-        combo: "shift+down",
-        label: "Extend selection",
-    },
-    Item {
-        combo: "mod+a",
-        label: "Select all",
-    },
-    Item {
-        combo: "enter",
-        label: "Open in editor",
-    },
-    Item {
-        combo: "/",
-        label: "Filter",
-    },
-    Item {
-        combo: "mod+backspace",
-        label: "Delete snippet",
-    },
-];
-
-const CLIPBOARD: &[Item] = &[
-    Item {
-        combo: "enter",
-        label: "Copy",
-    },
-    Item {
-        combo: "shift+enter",
-        label: "Copy as plain text",
-    },
-    Item {
-        combo: "space",
-        label: "Large preview",
-    },
-    Item {
-        combo: "mod+p",
-        label: "Pin / unpin",
-    },
-    Item {
-        combo: "mod+s",
-        label: "Save as snippet",
-    },
-    Item {
-        combo: "mod+o",
-        label: "Open link or file",
-    },
-    Item {
-        combo: "mod+backspace",
-        label: "Delete (undoable)",
-    },
-];
-
-const EDITOR: &[Item] = &[
-    Item {
-        combo: "/",
-        label: "Insert a variable",
-    },
-    Item {
-        combo: "mod+d",
-        label: "Duplicate snippet",
-    },
-    Item {
-        combo: "mod+shift+f",
-        label: "Toggle favorite",
-    },
-    Item {
-        combo: "mod+shift+e",
-        label: "Turn on / off",
-    },
-    Item {
-        combo: "mod+z",
-        label: "Undo",
-    },
-    Item {
-        combo: "mod+s",
-        label: "Save now (auto-saves anyway)",
-    },
-];
-
-const FOOTER: &[Item] = &[
-    Item {
-        combo: "mod+[",
-        label: "Back",
-    },
-    Item {
-        combo: "mod+]",
-        label: "Forward",
-    },
-    Item {
-        combo: "mod+\\",
-        label: "Toggle sidebar",
-    },
-];
+fn action_rows(actions: &[MainAction]) -> Vec<Entry> {
+    actions.iter().copied().map(Entry::Action).collect()
+}
 
 fn sections() -> [Section; 5] {
+    let everywhere = action_rows(&[
+        MainAction::CommandMenu,
+        MainAction::NewSnippet,
+        MainAction::NewGroup,
+        MainAction::FocusFilter,
+        MainAction::TogglePause,
+        MainAction::OpenSettings,
+        MainAction::OpenShortcuts,
+    ]);
+    let mut navigate = action_rows(&[
+        MainAction::ViewAll,
+        MainAction::ViewFavorites,
+        MainAction::ViewRecent,
+        MainAction::ViewInsights,
+        MainAction::ViewClipboard,
+        MainAction::FocusList,
+        MainAction::EditContent,
+    ]);
+    navigate.push(Entry::Local(&editor::BACK_TO_LIST));
+    let mut snippet_list: Vec<_> = library::LIST_SHORTCUTS.iter().map(Entry::Local).collect();
+    snippet_list.push(Entry::Action(MainAction::DeleteSnippet));
+    let clipboard_rows = clipboard::SCREEN_SHORTCUTS
+        .iter()
+        .map(Entry::Local)
+        .collect();
+    let mut editor_rows = vec![Entry::Local(&editor::INSERT_VARIABLE)];
+    editor_rows.extend(action_rows(&[
+        MainAction::DuplicateSnippet,
+        MainAction::ToggleFavorite,
+        MainAction::ToggleEnabled,
+    ]));
+    editor_rows.extend(editor::EDITOR_SHORTCUTS.iter().map(Entry::Local));
     [
         Section {
             key: "everywhere",
             title: "Everywhere",
             height: TALL,
-            rows: EVERYWHERE,
+            rows: everywhere,
         },
         Section {
             key: "navigate",
             title: "Navigate",
             height: TALL,
-            rows: NAVIGATE,
+            rows: navigate,
         },
         Section {
             key: "snippet-list",
             title: "Snippet list",
             height: MID,
-            rows: SNIPPET_LIST,
+            rows: snippet_list,
         },
         Section {
             key: "clipboard",
             title: "Clipboard history",
             height: MID,
-            rows: CLIPBOARD,
+            rows: clipboard_rows,
         },
         Section {
             key: "editor",
             title: "Editor",
             height: SHORT,
-            rows: EDITOR,
+            rows: editor_rows,
         },
     ]
 }
 
-/// Every label the sheet renders, from the same tables as the view.
+fn footer() -> Vec<Entry> {
+    action_rows(&[
+        MainAction::Back,
+        MainAction::Forward,
+        MainAction::ToggleSidebar,
+    ])
+}
+
+fn entry_label(entry: &Entry) -> &'static str {
+    match entry {
+        Entry::Action(action) => action.label(),
+        Entry::Local(shortcut) => shortcut.label,
+    }
+}
+
+/// Every label the sheet renders, in section order.
 pub fn shortcut_labels() -> Vec<&'static str> {
     let mut labels: Vec<_> = sections()
         .iter()
-        .flat_map(|section| section.rows.iter().map(|item| item.label))
+        .flat_map(|section| section.rows.iter().map(entry_label))
         .collect();
-    labels.extend(FOOTER.iter().map(|item| item.label));
+    labels.extend(footer().iter().map(entry_label));
     labels
 }
 
@@ -259,7 +145,7 @@ pub fn open(s: &mut MainState) {
     s.frame.shortcuts_open = true;
 }
 
-pub fn view(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) {
+pub fn view(s: &MainState, theme: &Theme, viewport_h: f32, overlays: &mut Vec<El>) {
     if !s.frame.shortcuts_open {
         return;
     }
@@ -277,12 +163,16 @@ pub fn view(s: &MainState, theme: &Theme, overlays: &mut Vec<El>) {
         .h_full()
         .padding(16.0)
         .center()
-        .child(panel(s, theme));
+        .child(panel(s, theme, viewport_h));
     overlays.push(scrim);
     overlays.push(layer);
 }
 
-fn panel(s: &MainState, theme: &Theme) -> El {
+fn body_height(viewport_h: f32) -> f32 {
+    BODY_CAP.min(viewport_h * 0.75)
+}
+
+fn panel(s: &MainState, theme: &Theme, viewport_h: f32) -> El {
     let mut panel = col()
         .key("shortcuts-cheatsheet-dialog")
         .role("dialog")
@@ -291,13 +181,10 @@ fn panel(s: &MainState, theme: &Theme) -> El {
         .w(PANEL_W)
         .min_w(PANEL_W)
         .max_w(PANEL_W)
-        .h(PANEL_H)
-        .min_h(PANEL_H)
-        .max_h(PANEL_H)
         .radius(radius::XL2)
         .fill(theme.c.popover)
         .child(header(s, theme))
-        .child(body(theme))
+        .child(body(theme, viewport_h))
         .child(close_button(theme));
     for shadow in &theme.depth.float {
         panel = panel.box_shadow(*shadow);
@@ -326,7 +213,7 @@ fn header(s: &MainState, theme: &Theme) -> El {
         )
         .child(
             Shortcut::accelerator(&settings.palette_hotkey)
-                .tone(Tone::Accent)
+                .tone(crate::widgets::shortcut::Tone::Accent)
                 .build(theme),
         );
     if settings.clipboard_enabled {
@@ -339,7 +226,7 @@ fn header(s: &MainState, theme: &Theme) -> El {
             )
             .child(
                 Shortcut::accelerator(&settings.clipboard_hotkey)
-                    .tone(Tone::Accent)
+                    .tone(crate::widgets::shortcut::Tone::Accent)
                     .build(theme),
             );
     }
@@ -359,12 +246,12 @@ fn header(s: &MainState, theme: &Theme) -> El {
         .child(el().h(1.0).w_full().fill(c.hairline))
 }
 
-fn body(theme: &Theme) -> El {
+fn body(theme: &Theme, viewport_h: f32) -> El {
     let sections = sections();
     // Everywhere stretches beside Navigate. Snippet list sits beside Clipboard.
     // Editor is the third left-hand region. A uniform grid gap cannot do 40 by 24.
-    let left = [sections[0], sections[2], sections[4]];
-    let right = [sections[1], sections[3]];
+    let left = [&sections[0], &sections[2], &sections[4]];
+    let right = [&sections[1], &sections[3]];
     let columns = row()
         .w_full()
         .gap(40.0)
@@ -373,7 +260,7 @@ fn body(theme: &Theme) -> El {
         .child(column(theme, &right));
     col()
         .w_full()
-        .h(BODY_H)
+        .h(body_height(viewport_h))
         .min_h(0.0)
         .scroll(ScrollSpec {
             stick_bottom: false,
@@ -384,11 +271,11 @@ fn body(theme: &Theme) -> El {
                 .px(24.0)
                 .py(20.0)
                 .child(columns)
-                .child(footer(theme)),
+                .child(footer_block(theme)),
         )
 }
 
-fn column(theme: &Theme, sections: &[Section]) -> El {
+fn column(theme: &Theme, sections: &[&Section]) -> El {
     col()
         .w(COL_W)
         .gap(24.0)
@@ -405,7 +292,7 @@ fn region(theme: &Theme, section: &Section) -> El {
         .max_h(section.height)
         .child(heading(theme, section))
         .child(el().h(8.0))
-        .children(section.rows.iter().map(|item| sheet_row(theme, item)))
+        .children(section.rows.iter().map(|entry| sheet_row(theme, entry)))
 }
 
 fn heading(theme: &Theme, section: &Section) -> El {
@@ -422,7 +309,19 @@ fn heading(theme: &Theme, section: &Section) -> El {
         )
 }
 
-fn sheet_row(theme: &Theme, item: &Item) -> El {
+fn sheet_row(theme: &Theme, entry: &Entry) -> El {
+    let (label, chord, key) = match entry {
+        Entry::Action(action) => (
+            action.label(),
+            menu::shown_chord(*action),
+            format!("shortcuts-action-{action:?}"),
+        ),
+        Entry::Local(shortcut) => (
+            shortcut.label,
+            shortcut.chord.to_string(),
+            format!("shortcuts-local-{}", shortcut.id),
+        ),
+    };
     row()
         .h(ROW_H)
         .w_full()
@@ -430,19 +329,19 @@ fn sheet_row(theme: &Theme, item: &Item) -> El {
         .justify_between()
         .gap(16.0)
         .child(
-            text(item.label)
+            text(label)
                 .font(theme.ty.body)
                 .color(theme.c.foreground.alpha(0.85))
                 .truncate(),
         )
-        .child(Shortcut::combo(item.combo).build(theme))
+        .child(Shortcut::combo(&chord).build(theme).key(key))
 }
 
-fn footer(theme: &Theme) -> El {
+fn footer_block(theme: &Theme) -> El {
     col()
         .w(COL_W)
         .pt(24.0)
-        .children(FOOTER.iter().map(|item| sheet_row(theme, item)))
+        .children(footer().iter().map(|entry| sheet_row(theme, entry)))
 }
 
 fn close_button(theme: &Theme) -> El {

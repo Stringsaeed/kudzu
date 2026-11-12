@@ -32,6 +32,7 @@ use crate::main::state::{MainPane, MainView};
 use crate::shell::MainState;
 
 pub use keys::handle as handle_key;
+pub use keys::SCREEN_SHORTCUTS;
 pub use view::view;
 #[cfg(test)]
 pub(crate) use view::VIEWS;

@@ -12,7 +12,42 @@ use rune::{Key, KeyEvent, Tx};
 use super::model::PAGE;
 use super::{actions, row_key, sync, SCROLL_KEY};
 use crate::main::editor;
+use crate::main::shortcut_meta::LocalShortcut;
 use crate::shell::MainState;
+
+/// List chords that are not window actions. [`list`] still handles the keys.
+pub(crate) const LIST_SHORTCUTS: &[LocalShortcut] = &[
+    LocalShortcut {
+        id: "list-up",
+        chord: "up",
+        label: "Previous (or K)",
+    },
+    LocalShortcut {
+        id: "list-down",
+        chord: "down",
+        label: "Next (or J)",
+    },
+    LocalShortcut {
+        id: "list-extend",
+        chord: "shift+down",
+        label: "Extend selection",
+    },
+    LocalShortcut {
+        id: "list-all",
+        chord: "mod+a",
+        label: "Select all",
+    },
+    LocalShortcut {
+        id: "list-open",
+        chord: "enter",
+        label: "Open in editor",
+    },
+    LocalShortcut {
+        id: "list-filter",
+        chord: "/",
+        label: "Filter",
+    },
+];
 
 /// Moves the open snippet `delta` rows and reveals it. Consumed even on an empty list.
 fn step(s: &mut MainState, delta: isize, extend: bool, tx: &mut Tx) -> bool {

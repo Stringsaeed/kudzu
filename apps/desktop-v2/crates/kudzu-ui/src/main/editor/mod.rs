@@ -5,10 +5,39 @@ use rune::{col, text_input, El, Key, KeyEvent, TextEdit, Tx};
 use uuid::Uuid;
 
 use crate::main::library;
+use crate::main::shortcut_meta::LocalShortcut;
 use crate::main::state::MainPane;
 use crate::shell::MainState;
 use crate::theme::{icons, radius, Theme};
 use crate::widgets::empty_state::EmptyState;
+
+/// `/` inserts a variable once the editor content exists. Listed beside that field.
+pub(crate) const INSERT_VARIABLE: LocalShortcut = LocalShortcut {
+    id: "editor-variable",
+    chord: "/",
+    label: "Insert a variable",
+};
+
+/// Undo and save stay with the editor. The content field does not run them yet.
+pub(crate) const EDITOR_SHORTCUTS: &[LocalShortcut] = &[
+    LocalShortcut {
+        id: "editor-undo",
+        chord: "mod+z",
+        label: "Undo",
+    },
+    LocalShortcut {
+        id: "editor-save",
+        chord: "mod+s",
+        label: "Save now (auto-saves anyway)",
+    },
+];
+
+/// Escape from the editor field, next to [`escape_to_list`].
+pub(crate) const BACK_TO_LIST: LocalShortcut = LocalShortcut {
+    id: "editor-back",
+    chord: "escape",
+    label: "Back to the list",
+};
 
 pub const CONTENT_KEY: &str = "editor-content";
 pub const NAME_KEY: &str = "editor-name";

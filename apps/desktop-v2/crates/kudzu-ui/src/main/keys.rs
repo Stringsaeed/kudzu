@@ -13,7 +13,7 @@ use crate::main::state::{ClipFilter, LibraryFilter, MainPane, MainView};
 use crate::main::{
     cheatsheet, clipboard, command_menu, editor, group_settings, library, nav, sidebar,
 };
-use crate::shell::{MainState, NewSnippet};
+use crate::shell::{MainState, NewSnippet, SettingsPane};
 
 /// Window-level `on_key` handler wired into `AppSpec::on_key` for `main`.
 pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
@@ -31,15 +31,7 @@ pub fn handle_key(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
             && s.frame.group_settings_id.is_none()
             && !s.frame.breadcrumb_overflow_open;
         if ev.key == Key::Escape && !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt {
-            if s.group_settings.picker_open() {
-                group_settings::close_picker(s);
-                return true;
-            }
-            if command_top {
-                command_menu::close(s);
-                return true;
-            }
-            return s.frame.close_top_modal();
+            return s.dismiss_top_overlay();
         }
         if command_top && Keybind::new("mod+k").matches(ev) {
             command_menu::close(s);
@@ -132,6 +124,18 @@ pub fn run(s: &mut MainState, action: MainAction, tx: &mut Tx) {
         MainAction::Back => nav::back(s, tx),
         MainAction::Forward => nav::forward(s, tx),
         MainAction::ToggleSidebar => s.toggle_sidebar(),
+        MainAction::ImportSnippets => command_menu::import_snippets(s, tx),
+        MainAction::ExportLibrary => command_menu::export_library(s, tx),
+        MainAction::ToggleAppearance => command_menu::toggle_appearance(s),
+        MainAction::ToggleClipboardHistory => command_menu::toggle_clipboard(s),
+        MainAction::OpenSettingsClipboard => {
+            nav::view(s, MainView::Settings(SettingsPane::Clipboard), tx);
+        }
+        MainAction::OpenSettingsActivity => {
+            nav::view(s, MainView::Settings(SettingsPane::Activity), tx);
+        }
+        MainAction::OpenSettingsApps => nav::view(s, MainView::Settings(SettingsPane::Apps), tx),
+        MainAction::OpenSettingsData => nav::view(s, MainView::Settings(SettingsPane::Data), tx),
     }
     if let Some(due) = s.frame.toasts.next_due() {
         tx.wake_at(due);
@@ -162,6 +166,33 @@ impl MainState {
             || self.insights.is_editing_text()
             || self.onboarding.is_editing_text()
             || self.group_settings.is_editing_text()
+    }
+
+    /// Dismisses the overlay painted last. The group-settings app picker, then
+    /// group settings, then the cheat sheet, then the command menu (which clears
+    /// its query), then the breadcrumb menu.
+    pub fn dismiss_top_overlay(&mut self) -> bool {
+        if self.group_settings.picker_open() {
+            group_settings::close_picker(self);
+            return true;
+        }
+        if self.frame.group_settings_id.is_some() {
+            self.frame.group_settings_id = None;
+            return true;
+        }
+        if self.frame.shortcuts_open {
+            self.frame.shortcuts_open = false;
+            return true;
+        }
+        if self.frame.command_open {
+            command_menu::close(self);
+            return true;
+        }
+        if self.frame.breadcrumb_overflow_open {
+            self.frame.breadcrumb_overflow_open = false;
+            return true;
+        }
+        false
     }
 
     /// Clears every screen's text-field focus flag before pane focus moves.

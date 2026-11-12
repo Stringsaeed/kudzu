@@ -181,7 +181,12 @@ fn escape_and_command_k_close_and_reset_the_query() {
 #[test]
 fn delete_follows_the_field_under_the_menu() {
     let mut rig = Rig::new(true);
-    let id = rig.rt.state.library_snapshot().snippets[0].id;
+    let snapshot = rig.rt.state.library_snapshot();
+    let snippet = &snapshot.snippets[0];
+    let id = snippet.id;
+    let name = snippet.name.clone();
+    let delete = format!("Delete “{name}”");
+    let duplicate = format!("Duplicate “{name}”");
     rig.rt.update(move |state, _| {
         state.select_snippet(Some(id));
         state.blur_all_inputs();
@@ -189,7 +194,7 @@ fn delete_follows_the_field_under_the_menu() {
     rig.settle();
     open_menu(&mut rig);
     assert!(
-        menu_has(&rig, "Delete snippet"),
+        menu_has(&rig, &delete),
         "Delete is offered when a snippet is selected and no text field is focused"
     );
     rig.press(esc());
@@ -198,7 +203,7 @@ fn delete_follows_the_field_under_the_menu() {
     assert!(rig.rt.state.library.is_editing_text());
     open_menu(&mut rig);
     assert!(
-        !menu_has(&rig, "Delete snippet"),
+        !menu_has(&rig, &delete),
         "the menu's own search field is not the text-field guard"
     );
     assert!(menu_has(&rig, "New snippet"));
@@ -206,8 +211,8 @@ fn delete_follows_the_field_under_the_menu() {
 
     rig.press(cmd('4'));
     open_menu(&mut rig);
-    assert!(!menu_has(&rig, "Duplicate snippet"));
-    assert!(!menu_has(&rig, "Delete snippet"));
+    assert!(!menu_has(&rig, &duplicate));
+    assert!(!menu_has(&rig, &delete));
     assert!(menu_has(&rig, "Insights"));
 }
 

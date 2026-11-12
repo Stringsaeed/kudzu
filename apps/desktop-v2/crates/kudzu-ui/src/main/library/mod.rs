@@ -34,6 +34,7 @@ use uuid::Uuid;
 use crate::main::state::MainView;
 use crate::shell::MainState;
 
+pub(crate) use keys::LIST_SHORTCUTS;
 pub use listing::Listing;
 use model::{keep_valid, Selection, Sort};
 pub use view::view;

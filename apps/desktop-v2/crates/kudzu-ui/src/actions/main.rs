@@ -59,6 +59,14 @@ pub enum MainAction {
     Back,
     Forward,
     ToggleSidebar,
+    ImportSnippets,
+    ExportLibrary,
+    ToggleAppearance,
+    ToggleClipboardHistory,
+    OpenSettingsClipboard,
+    OpenSettingsActivity,
+    OpenSettingsApps,
+    OpenSettingsData,
 }
 
 impl MainAction {
@@ -84,6 +92,14 @@ impl MainAction {
         MainAction::Back,
         MainAction::Forward,
         MainAction::ToggleSidebar,
+        MainAction::ImportSnippets,
+        MainAction::ExportLibrary,
+        MainAction::ToggleAppearance,
+        MainAction::ToggleClipboardHistory,
+        MainAction::OpenSettingsClipboard,
+        MainAction::OpenSettingsActivity,
+        MainAction::OpenSettingsApps,
+        MainAction::OpenSettingsData,
     ];
 
     /// Whether this shortcut fires even while typing in a focused text input (`allowInInput`).
@@ -110,7 +126,15 @@ impl MainAction {
             | MainAction::OpenShortcuts
             | MainAction::Back
             | MainAction::Forward
-            | MainAction::ToggleSidebar => true,
+            | MainAction::ToggleSidebar
+            | MainAction::ImportSnippets
+            | MainAction::ExportLibrary
+            | MainAction::ToggleAppearance
+            | MainAction::ToggleClipboardHistory
+            | MainAction::OpenSettingsClipboard
+            | MainAction::OpenSettingsActivity
+            | MainAction::OpenSettingsApps
+            | MainAction::OpenSettingsData => true,
         }
     }
 
@@ -139,7 +163,15 @@ impl MainAction {
             | MainAction::ViewInsights
             | MainAction::ViewClipboard
             | MainAction::OpenSettings
-            | MainAction::OpenShortcuts => !in_onboarding,
+            | MainAction::OpenShortcuts
+            | MainAction::ImportSnippets
+            | MainAction::ExportLibrary
+            | MainAction::ToggleAppearance
+            | MainAction::ToggleClipboardHistory
+            | MainAction::OpenSettingsClipboard
+            | MainAction::OpenSettingsActivity
+            | MainAction::OpenSettingsApps
+            | MainAction::OpenSettingsData => !in_onboarding,
         }
     }
 
@@ -168,6 +200,14 @@ impl MainAction {
             MainAction::Back => "mod+[",
             MainAction::Forward => "mod+]",
             MainAction::ToggleSidebar => "mod+\\",
+            MainAction::ImportSnippets
+            | MainAction::ExportLibrary
+            | MainAction::ToggleAppearance
+            | MainAction::ToggleClipboardHistory
+            | MainAction::OpenSettingsClipboard
+            | MainAction::OpenSettingsActivity
+            | MainAction::OpenSettingsApps
+            | MainAction::OpenSettingsData => "",
         }
     }
 
@@ -176,7 +216,17 @@ impl MainAction {
         match self {
             MainAction::NewSnippet => "create add",
             MainAction::NewGroup => "folder create",
-            MainAction::TogglePause => "stop disable expansion",
+            MainAction::TogglePause => "stop disable",
+            MainAction::ImportSnippets => "raycast textexpander espanso json yaml csv",
+            MainAction::ExportLibrary => "backup json espanso",
+            MainAction::ToggleAppearance => "theme mode color",
+            MainAction::ToggleClipboardHistory => "copy record privacy stop",
+            MainAction::OpenSettingsClipboard => "history retention keep days privacy",
+            MainAction::OpenSettingsActivity => {
+                "activity troubleshooting recent log skipped blocked not working expansion settings"
+            }
+            MainAction::OpenSettingsApps => "exclude block terminal",
+            MainAction::OpenSettingsData => "restore import export",
             MainAction::OpenShortcuts => "help keys cheat sheet",
             MainAction::ViewInsights => "stats statistics usage",
             MainAction::ViewClipboard => "copy paste history copied",
@@ -280,11 +330,24 @@ impl Action<MainState> for MainAction {
             MainAction::Back => "Back",
             MainAction::Forward => "Forward",
             MainAction::ToggleSidebar => "Toggle sidebar",
+            MainAction::ImportSnippets => "Import snippets…",
+            MainAction::ExportLibrary => "Export library…",
+            MainAction::ToggleAppearance => "Switch appearance",
+            MainAction::ToggleClipboardHistory => "Pause clipboard history",
+            MainAction::OpenSettingsClipboard => "Settings › Clipboard",
+            MainAction::OpenSettingsActivity => "Why didn’t this expand?",
+            MainAction::OpenSettingsApps => "Settings › Apps",
+            MainAction::OpenSettingsData => "Settings › Backups & data",
         }
     }
 
     fn keys(self) -> Keybind {
-        Keybind::new(self.chord())
+        let spec = self.chord();
+        if spec.is_empty() {
+            Keybind::default()
+        } else {
+            Keybind::new(spec)
+        }
     }
 
     fn enabled(self, s: &MainState) -> bool {

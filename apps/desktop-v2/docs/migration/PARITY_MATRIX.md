@@ -148,16 +148,14 @@ Intentional differences, not closed:
 
 ## Command menu and cheat sheet (S43)
 
-`main` / `command-menu` and `main` / `cheat-sheet` stay in `NOT_YET_BUILT` until S73. Both reference frames also show the sidebar, list and editor, which later steps own. Tree tests cover the dialogs in both themes: the menu is 600 × 489 at 18% from the top, the sheet is 720 × 624.422 centred in the padded window, and the section landmarks match within 2 pt. Closes the command-menu slice of LIB-13 and the menu and sheet slice of WIN-2. FEATURES.md boxes that also cover unbuilt dialogs stay unchecked.
+`main` / `command-menu` and `main` / `cheat-sheet` stay in `NOT_YET_BUILT` until S73. Both reference frames also show the sidebar, list and editor, which later steps own. Tree tests cover the dialogs in both themes: the menu is 600 wide at 18% from the top, and a full list at 760 is 489 tall. The sheet is 720 wide and, at 760, 624.422 tall, centred in the padded window. Section landmarks match within 2 pt. Closes the command-menu slice of LIB-13 and the menu and sheet slice of WIN-2. FEATURES.md boxes that also cover unbuilt dialogs stay unchecked.
 
 Intentional differences, not closed:
 
-- **Title width.** Rune measures "Keyboard shortcuts" at 15/600 as 143 pt. The reference shrink-wrap is 140.922 (delta 2.078). Position and line height match. The tree test allows 2.1 pt on that axis only.
-- **No `h_frac`.** The menu's 18% top gap is a `grow(0.18)` spacer. The sheet height is the captured 624.422, which is the same 570 pt body `min(640, 75vh)` gives at 760.
+- **Title width.** Rune measures "Keyboard shortcuts" at 15/600 as 143 pt. The reference shrink-wrap is 140.922 (delta 2.078). Position and line height match. This is a font metric, not a layout error. S73 should approve the gap before these scenes leave `NOT_YET_BUILT`. The tree test allows 2.1 pt on that axis only, and that allowance stays.
+- **No `h_frac`.** The menu's 18% top gap is a `grow(0.18)` spacer. The list cap is `min(440, 60vh)` and the panel height follows its rows, so a short or empty menu is shorter than 489. At 760 a full list is still 440, and the panel is 489. The sheet body is `min(640, 75vh)`. At 760 that is 570, so the panel stays 624.422.
 - **Columns.** Rune gap is one value, so the sheet uses a 40 pt column gap and an 8 pt spacer under each heading instead of `gap-x` / `gap-y`.
-- **One Actions section.** The menu does not split Selected / Actions / Go to.
-- **Footer.** Back, Forward and Toggle sidebar sit under the columns. Clipboard keeps Tauri's static rows, including "Delete (undoable)".
-- **Toolbar.** The search button still sets `command_open` itself, so it does not snapshot the text field under the menu. `⌘K` does.
+- **Footer.** Back, Forward and Toggle sidebar sit under the columns. Clipboard rows, including "Delete (undoable)", come from the clipboard screen's shortcut metadata. The screen still handles the keys. ⌘R stays unlisted.
 
 ## Quick Search (S56)
 
@@ -181,7 +179,7 @@ Intentional differences, not closed:
 - **Rows glide only for a few changes.** Rune glides every virtual row that moves, so a bulk change (more than ten rows), a load or a hidden window asks for an instant commit (`Census::take_instant`, then `Tx::instant()` in `poll`). Up to ten changes glide for 400 ms.
 - **The list estimates every row at 58 pt**, headers (30 pt) included: `virtual_rows` takes one estimate, and Rune measures a row by its key once it is mounted.
 - **The kind folders in the sidebar are S42's.** This screen shows whichever filter the view carries.
-- **⌘P, ⌘S, ⌘O, ⌘R and the list keys are handled by the screen, not `MainAction`**, so the ⌘? cheat sheet does not list them yet.
+- **⌘P, ⌘S, ⌘O and the list keys are handled by the screen, not `MainAction`.** The cheat sheet lists them from the clipboard screen's shortcut metadata. Execution stays in `clipboard/keys.rs`. ⌘R is handled and stays unlisted.
 - **The trailing Clear search button is nudged 3 pt** (`offset`) because rune-kit's field puts its trailing slot 11 pt in; the reference's `right-2` is 8.
 
 ## Library list (S50)

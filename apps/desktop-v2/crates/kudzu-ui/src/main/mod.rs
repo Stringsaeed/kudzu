@@ -6,7 +6,7 @@
 //! - Frame (S41): `mod`, `state`, `nav` (views, selection, routes, pane focus), `keys` (key
 //!   routing, the action dispatcher, input guards), `frame`, `toolbar`, `toasts`, `scenes`.
 //! - `sidebar/**` (S42): the view, `State`, and `sidebar/actions.rs` (groups, pause).
-//! - `command_menu.rs` and `cheatsheet.rs` (S43).
+//! - `command_menu/` and `cheatsheet.rs` (S43).
 //! - `library/**` (S50): the list, `State`, and `library/actions.rs` (snippet actions, delete
 //!   with Undo, list focus).
 //! - `editor/**` (S51–S54), `group_settings.rs` (S55), `clipboard/**` (S58), `settings/**`
@@ -29,6 +29,7 @@ pub mod nav;
 pub mod onboarding;
 pub mod scenes;
 pub mod settings;
+pub(crate) mod shortcut_meta;
 pub mod sidebar;
 pub mod state;
 pub mod toasts;

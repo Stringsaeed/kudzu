@@ -47,8 +47,12 @@ pub fn view(s: &MainState, cx: &mut Cx<MainState>) -> El {
             .child(body)
     };
 
-    command_menu::view(s, theme, &mut overlays);
-    cheatsheet::view(s, theme, &mut overlays);
+    let viewport_h = cx
+        .layout_size("main-window-frame")
+        .map(|size| size[1])
+        .unwrap_or(760.0);
+    command_menu::view(s, theme, viewport_h, &mut overlays);
+    cheatsheet::view(s, theme, viewport_h, &mut overlays);
     group_settings::view(s, cx, theme, &mut overlays);
     if let Some(toast_layer) = s.frame.toasts.view(theme, |st: &mut MainState| {
         let now = st.frame.clock_secs;

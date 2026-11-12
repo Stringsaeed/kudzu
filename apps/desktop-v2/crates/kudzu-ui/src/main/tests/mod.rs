@@ -11,6 +11,7 @@ mod clipboard_review59;
 mod clipboard_scroll;
 mod clipboard_secrets;
 mod command_menu;
+mod command_menu_review;
 mod frame;
 mod group_settings;
 mod insights;

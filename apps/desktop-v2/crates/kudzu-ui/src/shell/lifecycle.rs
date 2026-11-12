@@ -233,6 +233,7 @@ pub(crate) fn poll(s: &mut MainState, _: f64, tx: &mut Tx) -> bool {
     changed |= crate::main::insights::poll(s, tx);
     changed |= crate::main::onboarding::poll_frame(s, tx);
     crate::main::library::reveal(s, tx);
+    changed |= crate::main::command_menu::note_text_field(s);
     if let Some(due) = s.frame.toasts.next_due() {
         tx.wake_at(due);
     }

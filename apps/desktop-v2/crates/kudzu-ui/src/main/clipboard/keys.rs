@@ -9,7 +9,47 @@ use uuid::Uuid;
 use super::{actions, focus_list, focus_search};
 use crate::actions::main::is_bare_shortcuts_question;
 use crate::clip::model::PAGE;
+use crate::main::shortcut_meta::LocalShortcut;
 use crate::shell::MainState;
+
+/// Chords this screen handles itself. The cheat sheet reads them; [`handle`] still runs them.
+pub const SCREEN_SHORTCUTS: &[LocalShortcut] = &[
+    LocalShortcut {
+        id: "clip-copy",
+        chord: "enter",
+        label: "Copy",
+    },
+    LocalShortcut {
+        id: "clip-copy-plain",
+        chord: "shift+enter",
+        label: "Copy as plain text",
+    },
+    LocalShortcut {
+        id: "clip-preview",
+        chord: "space",
+        label: "Large preview",
+    },
+    LocalShortcut {
+        id: "clip-pin",
+        chord: "mod+p",
+        label: "Pin / unpin",
+    },
+    LocalShortcut {
+        id: "clip-save",
+        chord: "mod+s",
+        label: "Save as snippet",
+    },
+    LocalShortcut {
+        id: "clip-open",
+        chord: "mod+o",
+        label: "Open link or file",
+    },
+    LocalShortcut {
+        id: "clip-delete",
+        chord: "mod+backspace",
+        label: "Delete (undoable)",
+    },
+];
 
 /// True when the screen took the key.
 pub fn handle(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {

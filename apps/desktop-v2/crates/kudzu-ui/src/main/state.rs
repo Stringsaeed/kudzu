@@ -237,27 +237,6 @@ impl<S: 'static> MainFrame<S> {
             || self.breadcrumb_overflow_open
     }
 
-    /// Closes the topmost open modal overlay. Returns `true` if one was dismissed.
-    pub fn close_top_modal(&mut self) -> bool {
-        if self.breadcrumb_overflow_open {
-            self.breadcrumb_overflow_open = false;
-            return true;
-        }
-        if self.command_open {
-            self.command_open = false;
-            return true;
-        }
-        if self.shortcuts_open {
-            self.shortcuts_open = false;
-            return true;
-        }
-        if self.group_settings_id.is_some() {
-            self.group_settings_id = None;
-            return true;
-        }
-        false
-    }
-
     /// Synchronizes `Focus<MainPane>` order when `view` or `sidebar_open` changes so a hidden
     /// sidebar or non-Library editor pane never retains keyboard focus.
     pub fn sync_focus_order(&mut self) {

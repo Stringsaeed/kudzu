@@ -5,6 +5,7 @@
 pub mod form;
 #[allow(special_module_name)]
 pub mod main;
+pub mod menu;
 pub mod palette;
 pub mod permissions;
 pub mod picker;

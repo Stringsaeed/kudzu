@@ -4,6 +4,7 @@ use kudzu_core::KudzuLibrary;
 use rune::{el, icon, row, text, Cx, El};
 use uuid::Uuid;
 
+use crate::main::command_menu;
 use crate::main::state::{
     clip_filter_key, clip_filter_label, settings_pane_label, ClipFilter, LibraryFilter, MainView,
 };
@@ -280,8 +281,8 @@ pub fn view(s: &MainState, cx: &Cx<MainState>, theme: &Theme, overlays: &mut Vec
         .hover(c.secondary)
         .border(1.0, c.hairline)
         .focus_ring(2.0, 2.0, c.ring)
-        .on_press(|st: &mut MainState| {
-            st.frame.command_open = true;
+        .on_press_tx(|st: &mut MainState, tx| {
+            command_menu::open(st, tx);
         })
         .child(
             icon(&icons::SEARCH, 14.0)
