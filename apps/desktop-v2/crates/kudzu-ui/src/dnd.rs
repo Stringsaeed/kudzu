@@ -1,9 +1,9 @@
-//! dnd: in-app drag and drop (S42 owns this module). S50 added only the payload its rows carry;
-//! S42's version wins when the two merge.
+//! Shared payloads for sidebar and snippet-list drags.
 
-/// What an in-app drag carries.
+use uuid::Uuid;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum DragPayload {
-    Snippets(Vec<uuid::Uuid>),
-    Group(uuid::Uuid),
+    Snippets(Vec<Uuid>),
+    Group(Uuid),
 }

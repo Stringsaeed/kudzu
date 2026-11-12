@@ -28,6 +28,7 @@ mod onboarding;
 mod onboarding_review;
 mod routes;
 mod shortcuts;
+mod sidebar;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
