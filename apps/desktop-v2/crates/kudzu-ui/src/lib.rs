@@ -2,6 +2,7 @@
 // The architecture names this screen module main; it is not a binary target.
 #![allow(special_module_name)]
 pub mod actions;
+pub mod clip;
 pub mod dnd;
 pub mod focus;
 pub mod form;
