@@ -593,7 +593,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
-| 9 | S43, S50, S58, S64 and S65 done. S42 is merged and awaiting review, and S55 is fixing review findings. |
+| 9 | S43, S50, S58, S64 and S65 done. S42 is reviewed and its fixes are pending; S55 is fixed and being re-checked. |
 | 10 | S59 done; S61 merged with review fixes pending; S51 building. |
 | 11 | S60 merged and in review (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
@@ -605,7 +605,7 @@ Waves 9 and later, step by step:
 | S42 sidebar | Merged (`fc064426`, report `S42_REPORT.md`); reviewed, fixes pending (`reviews/S42-sidebar.md`) | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
 | S43 command menu and cheat sheet | Done (`reviews/S43-command-menu.md`); the title-width gap is recorded for S73 | Grok 4.7 → Codex Sol |
 | S50 library list | Done (`reviews/S50-library.md`); the 13 pt row inset was kept, measured against the reference | Opus → Grok 4.7 |
-| S55 group settings and app picker | Merged; fixing 1 blocker, 8 majors (`reviews/S55-group-settings.md`) | Grok 4.7 → Opus |
+| S55 group settings and app picker | Fixes merged (`f809dd4f`); a re-check is running, because the review had a blocker | Grok 4.7 → Opus; re-check by Sonnet |
 | S58 clipboard history list | Done (`reviews/S58-clipboard.md`) | Sonnet → Grok 4.7 |
 | S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
@@ -644,7 +644,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 | Step | State | Notes |
 |---|---|---|
 | S42 sidebar | Merged as `fc064426`; reviewed. Fixes pending: 2 majors and 9 minors (`reviews/S42-sidebar.md`), for the Codex Terra thread | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
-| S55 group settings and app picker | Fixing 1 blocker and 8 majors (Grok 4.7) | See `reviews/S55-group-settings.md`. M8 changes the `AppPicker` API: a unique `id` first, `.add_label()`, picker-owned Escape, scroll-aware placement. After it merges, update every picker call site in S61 and S51. |
+| S55 group settings and app picker | Fixes merged as `f809dd4f`; a re-check of B1, M1, M2 and M8 by Sonnet is running | The new `AppPicker` API is `new(id, value, apps, query, icons)`, then `.add_label()`, `.open()`, `.active()` and `.overlays()`, with `build(theme, cx, edit, toggle, set_open, set_active)`. S61's call site is already updated, and S51 has none yet. |
 | S51 editor shell | Building (Opus) | Restarted after Carbon failed. Carbon's untested draft is on local branch `t3/editor-shell` (`b981342d`), for reference only and never pushed. |
 | S60 clipboard picker window | Merged as `418278dc` (three commits squashed so every commit builds); in review by Codex Sol | Its `picker` scenes pass in both themes (662 rows, 0 failed). The release scroll printed a p95 of 0.42 ms. S73 should look at the comparator rule it added: a `complementary` landmark accepts any inner text's RGB. The hotkey-to-frame latency, hide on blur and first mouse are S71 live checks. Carbon's draft branch can be deleted after review. |
 | S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; reviewed. Fixes pending: 5 majors and 10 minors (`reviews/S61-settings.md`), for the Codex Sol thread | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
