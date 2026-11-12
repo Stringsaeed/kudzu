@@ -150,6 +150,7 @@ pub fn delete_with_undo(s: &mut MainState, ids: &[Uuid], tx: &mut Tx) -> bool {
     if ids.is_empty() {
         return false;
     }
+    crate::main::editor::flush(s);
     let neighbour = neighbour_after_delete(s, ids);
     let Ok((deleted, _)) = s.svc.library.delete_snippets(ids) else {
         return false;

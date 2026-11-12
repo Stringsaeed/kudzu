@@ -10,6 +10,27 @@ use super::{cmd, Rig};
 use crate::main::editor::behavior::{self, describe_rule, with_mode};
 use kudzu_core::system::AppInfo;
 
+/// Presses the control named `label` inside the editor's rule container (the picker's own
+/// keys are its business; S55 is changing them).
+fn click_in_rule(rig: &mut Rig, label: &str) {
+    let elements = rig.rt.elements();
+    let scope = elements
+        .iter()
+        .find(|e| e.key.as_deref() == Some(behavior::RULE_KEY))
+        .map(|e| format!("{}/", e.path))
+        .expect("the rule container");
+    let r = elements
+        .iter()
+        .find(|e| e.path.starts_with(&scope) && e.label.as_deref() == Some(label))
+        .unwrap_or_else(|| panic!("no “{label}” in the rule container"))
+        .rect;
+    let (x, y) = (r[0] + r[2] / 2.0, r[1] + r[3] / 2.0);
+    rig.rt.pointer_move(x, y);
+    rig.rt.pointer_down(x, y);
+    rig.rt.pointer_up(x, y);
+    rig.settle();
+}
+
 /// Tall enough that every behaviour row is on screen without scrolling.
 fn tall(mut rig: Rig) -> Rig {
     rig.rt.set_viewport((1180.0, 1400.0), 1.0);
@@ -144,9 +165,10 @@ fn the_app_rule_keeps_its_apps_and_resets_the_insertion_on_a_new_mode() {
         .iter()
         .any(|e| e.key.as_deref() == Some(behavior::RULE_KEY)));
 
-    rig.click_key("app-picker-add");
+    click_in_rule(&mut rig, "Allow an app");
     assert!(rig.rt.state.editor.rules.picker_open);
-    rig.click_key("app-row-com.apple.mail");
+    // The list is on the overlay layer; its row is the only "Mail" while nothing is chosen.
+    rig.click_text("Mail");
     assert!(
         rig.rt.state.editor.rules.picker_open,
         "the list stays open across checks"

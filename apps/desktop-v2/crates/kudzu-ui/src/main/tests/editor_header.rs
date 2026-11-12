@@ -160,3 +160,39 @@ fn more_actions_duplicate_move_and_delete() {
     assert!(rig.library().snippets.iter().all(|s| s.id != id(1)));
     assert!(has_text(&rig, "Deleted “Sig”"));
 }
+
+#[test]
+fn escape_closes_an_open_menu_first() {
+    let mut rig = grouped();
+    rig.click_key(header::MORE_KEY);
+    assert!(rig.rt.state.editor.header.more_open);
+    rig.press(super::esc());
+    assert!(!rig.rt.state.editor.header.more_open);
+    rig.click_key(header::GROUP_KEY);
+    rig.press(super::esc());
+    assert!(!rig.rt.state.editor.header.group_open);
+}
+
+#[test]
+fn deleting_the_open_snippet_writes_its_draft_first_so_undo_restores_it() {
+    let mut rig = grouped();
+    rig.click_key(crate::main::editor::NAME_KEY);
+    rig.press(rune::KeyEvent {
+        key: rune::Key::End,
+        mods: rune::Mods::default(),
+    });
+    super::editor::type_str(&mut rig, "!");
+    rig.press(super::esc());
+    rig.press(super::cmd_backspace());
+    assert!(rig.library().snippets.iter().all(|s| s.id != id(1)));
+    assert!(
+        !has_text(&rig, "Couldn't save"),
+        "no write against a deleted snippet"
+    );
+    rig.click_text("Undo");
+    assert_eq!(
+        stored(&rig, 1).name,
+        "Sig!",
+        "Undo brings back the edited snippet"
+    );
+}
