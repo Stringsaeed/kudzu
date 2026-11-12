@@ -13,6 +13,7 @@ use kudzu_core::clipboard::{ClipEntry, ClipKind};
 use rune::{col, icon, row, text, El, GrowthSpec, ScrollSpec, Span, TextStyle, Transition, Tx};
 use uuid::Uuid;
 
+use super::content::loader::Media;
 use super::model::{Click, ClipList, RowKind};
 use super::motion::Census;
 use super::tile::tile;
@@ -85,6 +86,9 @@ pub struct ListState {
     pub list: ClipList,
     pub look: Look,
     pub census: Census,
+    /// Thumbnails, file icons and app icons, loaded off the UI thread. Created with the
+    /// window's waker on first use.
+    pub media: Option<Media>,
 }
 
 impl ListState {
@@ -93,6 +97,7 @@ impl ListState {
             list: ClipList::default(),
             look: Look::new(now),
             census: Census::default(),
+            media: None,
         }
     }
 }
@@ -104,6 +109,9 @@ pub struct Hooks<S: 'static> {
     pub press: fn(&mut S, Uuid, Click, &mut Tx),
     /// A double press: copy it.
     pub pick: fn(&mut S, Uuid, &mut Tx),
+    /// The rows now in view (indices into `ListState::list.rows()`). Bookkeeping only: it
+    /// must not change what the view draws, so scrolling commits nothing.
+    pub visible: fn(&mut S, std::ops::Range<usize>),
 }
 
 impl<S: 'static> Clone for Hooks<S> {
@@ -151,15 +159,31 @@ fn marked(
         .into_iter()
         .map(|(s, e)| Span::new(s, e).color(theme.c.iris_foreground))
         .collect();
-    let mut el = text(shown).font(style).color(ink).single_line();
+    let mut el = text(shown).font(style).color(ink).truncate();
     if !spans.is_empty() {
         el = el.spans(spans);
     }
     el
 }
 
-fn dots(len: usize) -> String {
-    "•".repeat(len.clamp(8, 18))
+/// A concealed row shows `stand` (dots, the reason) until the pointer is on the row, then
+/// `real`. Paint only: nothing is rebuilt on hover, so scrolling a list commits nothing, and
+/// the real text is hidden from assistive technology (the row's label already says "Hidden").
+fn reveal(hidden: bool, stand: El, real: impl FnOnce() -> El) -> El {
+    if !hidden {
+        return stand;
+    }
+    col()
+        .w_full()
+        .min_w(0.0)
+        .child(stand.group_opacity(1.0, 0.0).a11y_hidden())
+        .child(
+            real()
+                .absolute(0.0, 0.0)
+                .w_full()
+                .group_opacity(0.0, 1.0)
+                .a11y_hidden(),
+        )
 }
 
 fn truncate(s: &str, chars: usize) -> String {
@@ -181,6 +205,7 @@ fn clip_row<S: 'static>(
     hooks: Hooks<S>,
     e: &ClipEntry,
     look: &Look,
+    media: Option<&Media>,
     at: Place,
 ) -> El {
     let Place {
@@ -197,12 +222,13 @@ fn clip_row<S: 'static>(
     let mono = matches!(e.kind, ClipKind::Code | ClipKind::Color) && !hidden;
     let (title, subtitle) = if hidden {
         (
-            dots(d.title.chars().count()),
+            super::secret::dots(d.title.chars().count()),
             format!("{} · hover to show", secret_reason(e)),
         )
     } else {
         (truncate(&d.title, 200), truncate(&d.subtitle, 200))
     };
+    let (real_title, real_subtitle) = (truncate(&d.title, 200), truncate(&d.subtitle, 200));
     let terms: &[String] = if hidden { &[] } else { &look.terms };
     let title_style = if mono {
         TextStyle::new(12.5, 400.0).family(ty.mono.family)
@@ -238,25 +264,29 @@ fn clip_row<S: 'static>(
         .center_y()
         .radius(10.0)
         .hover(c.foreground.alpha(0.035))
+        .hover_group()
         .child(tile(
             theme,
             e,
             hidden,
             active && look.focused,
             look.density.tile(),
+            media,
         ))
         .child(
             col()
                 .grow(1.0)
                 .min_w(0.0)
                 .gap(2.0)
-                .child(marked(theme, title, terms, title_style, c.foreground))
-                .child(marked(
-                    theme,
-                    subtitle,
-                    terms,
-                    sub_style,
-                    c.muted_foreground,
+                .child(reveal(
+                    hidden,
+                    marked(theme, title, terms, title_style, c.foreground),
+                    || marked(theme, real_title, &[], title_style, c.foreground),
+                ))
+                .child(reveal(
+                    hidden,
+                    marked(theme, subtitle, terms, sub_style, c.muted_foreground),
+                    || marked(theme, real_subtitle, &[], sub_style, c.muted_foreground),
                 )),
         )
         .child(
@@ -368,7 +398,7 @@ fn build_row<S: 'static>(theme: &'static Theme, hooks: Hooks<S>, s: &S, i: usize
                 selected: st.list.in_multi(*id),
                 arriving: st.census.is_fresh(*id),
             };
-            clip_row(theme, hooks, e, &st.look, place)
+            clip_row(theme, hooks, e, &st.look, st.media.as_ref(), place)
         }
     }
 }
@@ -401,7 +431,11 @@ pub fn view<S: 'static>(
             },
             move |s: &S, i| build_row(theme, hooks, s, i),
         )
-        .virtual_rows_version(st.list.version());
+        .virtual_rows_version(st.list.version())
+        .on_visible_rows(move |s: &mut S, range| {
+            (hooks.visible)(s, range);
+            false
+        });
     col()
         .key(key)
         .role("listbox")

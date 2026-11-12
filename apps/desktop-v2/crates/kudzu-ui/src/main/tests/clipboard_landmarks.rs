@@ -9,7 +9,7 @@ use super::Rig;
 use crate::main::clipboard::scenes;
 use crate::shell::MainState;
 
-type Landmark = (&'static str, &'static str, usize, [f32; 4]);
+pub(super) type Landmark = (&'static str, &'static str, usize, [f32; 4]);
 
 /// Common to `clipboard-history`, `clips-5000`, `clipboard-empty` and `clipboard-no-match`.
 const LIST_SIDE: &[Landmark] = &[
@@ -88,8 +88,12 @@ fn check(rig: &Rig, scene: &str, theme: &str, want: &[Landmark]) {
         for (i, side) in ["x", "y", "width", "height"].iter().enumerate() {
             // Positions and heights hold to 2 pt. A width that comes from a label's text also
             // depends on the font (the reference was measured in SF Pro, tests run bundled
-            // Figtree), so widths get 4 pt.
-            let tolerance = if i == 2 { 4.0 } else { 2.0 };
+            // Figtree), so widths get 4 pt or 3%, whichever is more.
+            let tolerance = if i == 2 {
+                (rect[2] * 0.03).max(4.0)
+            } else {
+                2.0
+            };
             assert!(
                 (e.rect[i] - rect[i]).abs() <= tolerance,
                 "{scene}/{theme}: {role} “{name}” {side} is {} but the reference has {}",
@@ -107,7 +111,7 @@ fn scene(theme: Theme, run: fn(&mut MainState)) -> Rig {
     rig
 }
 
-fn both(name: &str, run: fn(&mut MainState), groups: &[&[Landmark]]) {
+pub(super) fn both(name: &str, run: fn(&mut MainState), groups: &[&[Landmark]]) {
     for (theme, label) in [(Theme::Light, "light"), (Theme::Dark, "dark")] {
         let rig = scene(theme, run);
         for want in groups {

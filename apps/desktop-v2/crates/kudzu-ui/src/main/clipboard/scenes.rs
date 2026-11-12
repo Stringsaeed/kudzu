@@ -139,3 +139,30 @@ fn generated(count: usize, now: chrono::DateTime<chrono::Utc>) -> Vec<ClipEntry>
         })
         .collect()
 }
+
+/// A kind folder opened on the sample history (the reference clicks the sidebar's folder).
+fn folder(s: &mut MainState, filter: ClipFilter) {
+    open(s, sample());
+    s.navigate_to(MainView::Clipboard(filter));
+    sync(s);
+}
+
+pub fn code(s: &mut MainState) {
+    folder(s, ClipFilter::Code);
+}
+
+pub fn color(s: &mut MainState) {
+    folder(s, ClipFilter::Color);
+}
+
+pub fn file(s: &mut MainState) {
+    folder(s, ClipFilter::File);
+}
+
+pub fn image(s: &mut MainState) {
+    folder(s, ClipFilter::Image);
+}
+
+pub fn link(s: &mut MainState) {
+    folder(s, ClipFilter::Link);
+}

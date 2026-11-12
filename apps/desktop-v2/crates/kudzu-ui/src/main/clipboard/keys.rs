@@ -14,20 +14,20 @@ use crate::shell::MainState;
 pub fn handle(s: &mut MainState, ev: &KeyEvent, tx: &mut Tx) -> bool {
     let m = ev.mods;
     let editing = s.clipboard.is_editing_text();
-    if s.clipboard.large_preview {
-        return large_preview_key(s, ev, tx);
-    }
-    if m.cmd && !m.ctrl && !m.alt {
-        return chord(s, ev, editing, tx);
-    }
-    if m.cmd || m.ctrl || m.alt {
-        return false;
-    }
-    if editing {
+    let took = if s.clipboard.large_preview {
+        large_preview_key(s, ev, tx)
+    } else if m.cmd && !m.ctrl && !m.alt {
+        chord(s, ev, editing, tx)
+    } else if m.cmd || m.ctrl || m.alt {
+        false
+    } else if editing {
         search_key(s, ev, tx)
     } else {
         list_key(s, ev, tx)
-    }
+    };
+    // The key may have moved the active row: point the preview at it now, not next poll.
+    super::track_active(s);
+    took
 }
 
 /// ⌘ chords. ⌘P, ⌘S, ⌘O and ⌘R also work inside the search field; the rest leave the field's

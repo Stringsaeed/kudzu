@@ -4,11 +4,13 @@
 use kudzu_core::clipboard::facts::describe;
 use kudzu_core::clipboard::query::ClipFilter;
 use kudzu_core::clipboard::ClipEntry;
-use rune::{col, icon, row, text, El, Tx};
+use rune::{col, icon, row, text, El, ScrollSpec, Tx};
 
 use super::{actions, bulk, list_hooks, toolbar, LIST_KEY};
+use crate::clip::content::Body;
 use crate::clip::filters::nothing_yet;
-use crate::clip::list;
+use crate::clip::preview::{self, Preview};
+use crate::clip::{large, list};
 use crate::main::state::{clip_filter_label, MainPane};
 use crate::shell::MainState;
 use crate::theme::{icons, Theme};
@@ -75,6 +77,7 @@ pub fn view(
         .child(left)
         .child(toolbar::rule_v(theme));
     bulk::clear_dialog(s, theme, layer);
+    large_preview(s, theme, layer);
     row()
         .key("clipboard-screen")
         .w_full()
@@ -83,7 +86,8 @@ pub fn view(
         .min_h(0.0)
         .on_drawn_layout_tx(|st: &mut MainState, r, tx: &mut Tx| {
             // A new width rebuilds the view (the column is a clamp of it); the same one doesn't.
-            if (st.clipboard.card_w - r[2]).abs() > 0.5 {
+            if (st.clipboard.card_w - r[2]).abs() > 0.5 || (st.clipboard.card_h - r[3]).abs() > 0.5
+            {
                 st.clipboard.card_w = r[2];
             } else {
                 tx.live_only();
@@ -268,7 +272,9 @@ fn preview_column(
                     st.frame.focus.move_to(MainPane::List);
                 },
                 |_: &mut MainState, _| {},
-            ),
+            )
+            .shrink()
+            .min_w(0.0),
         );
     }
     let mut column = col()
@@ -299,8 +305,89 @@ fn preview_column(
     column
 }
 
-/// S59 replaces this body with the previews: heading, content and details for `entry`. The
-/// large preview (`State::large_preview`, set by Space) is S59's too.
-fn preview_body(_s: &MainState, _theme: &Theme, _entry: &ClipEntry) -> El {
-    col().key("clip-preview-body").grow(1.0).w_full().min_h(0.0)
+fn preview_hooks() -> crate::clip::preview::Hooks<MainState> {
+    use crate::clip::content::Hooks as Content;
+    crate::clip::preview::Hooks {
+        content: Content {
+            open_link: |s, tx| actions::open_active(s, tx),
+            open_file: |s, i, _| actions::open_file(s, i),
+            reveal_file: |s, i, _| actions::reveal_file(s, i),
+            copy_value: |s, v, tx| actions::copy_value(s, v, tx),
+        },
+        not_a_secret: |s, _| actions::not_a_secret(s),
+        toggle_formats: |s, _| s.clipboard.formats_open = !s.clipboard.formats_open,
+    }
+}
+
+/// What one preview needs from the screen's state.
+pub(super) fn preview_of<'a>(s: &'a MainState, entry: &'a ClipEntry, large: bool) -> Preview<'a> {
+    let st = &s.clipboard;
+    Preview {
+        body: Body {
+            entry,
+            full: st.full.get().filter(|_| st.seen_active_is(entry.id)),
+            terms: &st.clips.look.terms,
+            large,
+            media: st.clips.media.as_ref(),
+            copied_value: st.copied_value.as_ref().map(|(v, _)| v.as_str()),
+        },
+        show_secrets: st.prefs.show_secrets,
+        retention_days: st.prefs.retention_days,
+        now: st.clips.look.now,
+        formats_open: st.formats_open,
+        compact: false,
+    }
+}
+
+/// The scrolling body of the preview column: heading, content and details of the clip.
+fn preview_body(s: &MainState, theme: &Theme, entry: &ClipEntry) -> El {
+    let p = preview_of(s, entry, false);
+    col()
+        .key("clip-preview-body")
+        .grow(1.0)
+        .w_full()
+        .min_h(0.0)
+        .scroll(ScrollSpec {
+            stick_bottom: false,
+        })
+        .child(
+            col()
+                .w_full()
+                .px(24.0)
+                .py(20.0)
+                .child(preview::column(theme, &p, preview_hooks())),
+        )
+}
+
+/// The large preview, when Space opened it.
+fn large_preview(s: &MainState, theme: &Theme, layer: &mut Vec<El>) {
+    let Some(entry) = s
+        .clipboard
+        .large_preview
+        .then(|| s.clipboard.clips.list.active_entry())
+        .flatten()
+    else {
+        return;
+    };
+    let chrome = if s.frame.sidebar_open {
+        crate::main::SIDEBAR_W + 8.0
+    } else {
+        16.0
+    };
+    let window = (s.clipboard.card_w + chrome, s.clipboard.card_h + 58.0);
+    let title = if entry.is_secret() && !s.clipboard.prefs.show_secrets {
+        "Secret".to_owned()
+    } else {
+        describe(entry).title
+    };
+    let p = preview_of(s, entry, true);
+    large::build(
+        theme,
+        &p,
+        preview_hooks(),
+        &title,
+        window,
+        |st: &mut MainState| st.clipboard.large_preview = false,
+        layer,
+    );
 }

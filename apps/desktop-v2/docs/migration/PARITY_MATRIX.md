@@ -210,3 +210,17 @@ For S73, when the scenes are enabled:
 The 520 pt dialog (name, On/Off, Default/Type/Paste, All apps / Only in… / Except…, Save and Cancel) is covered by tree tests in both themes, within 2 pt of the dialog's own `group-dialog` landmarks. The scene stays in the not-yet-built list until S73, because the reference also includes the sidebar, list and editor.
 
 Save waits until the library writer reports the revision durable, and leaves the dialog open with the error when the write fails. The Tauri dialog closes without waiting (FEATURES §7). Closes RUL-7 (UI) and RUL-8.
+
+## Clipboard previews (S59)
+
+**Closes:** CLP-13, CLP-14, CLP-15, CLP-16, CLP-17, CLP-18, CLP-20 (preview states), WIN-2 (large preview).
+
+**Scenes.** `clipboard-code`, `-color`, `-file`, `-image` and `-link` are built (`main/clipboard/scenes.rs`, each opens its kind folder on the sample history) and stay in the comparator's not-yet-built list for the S58 reason: S42's sidebar is missing from the render. `main/tests/clipboard_preview_landmarks.rs` checks the preview pane's landmarks against `metrics.json` in both themes: the Preview region, the breadcrumb, the Copy activity region and its heading, the body's own buttons (Open in browser, the four Copy value buttons, Open and Show in Finder on a file row) and the item action bar. Positions and heights hold to 2 pt; widths that come from label text hold to 4 pt or 3%, because the reference was measured in SF Pro and the tests run bundled Figtree.
+
+Intentional differences, not closed:
+
+- **Checkerboards are drawn as 14 pt squares** (about 400 elements for the colour swatch), because Rune has no tiled fill. `RUNE-GAP`: replace `content::checkerboard` when it has one.
+- **The text loading shimmer is a still bar.** Rune's `Beat` has no background-position (the S57 gap).
+- **Covered content is never selectable, even while revealed.** Reveal on hover or keyboard focus is paint only (`group_opacity` under `hover_group_focus`), so the page cannot also toggle selectability or the accessibility tree per hover. The cover's label says only "Hidden: <reason>".
+- **A copied colour value is written by `Tx::copy`**, as the Tauri preview wrote it with `navigator.clipboard`; Kudzu's own watcher then records it as a new clip. The history's own copy path (`ClipboardService::copy`) is for stored clips only.
+- **The copy timeline's dots sit at their fractions by flex growth, not percentages**, so a dot is up to 4 pt off its exact place on a very wide track.

@@ -4,7 +4,10 @@
 
 mod clipboard;
 mod clipboard_landmarks;
+mod clipboard_preview;
+mod clipboard_preview_landmarks;
 mod clipboard_scroll;
+mod clipboard_secrets;
 mod command_menu;
 mod frame;
 mod group_settings;

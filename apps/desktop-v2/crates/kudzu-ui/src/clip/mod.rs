@@ -9,8 +9,14 @@
 //!
 //! S59 adds `preview`, `facts`, `timeline`, `secret`, `large` and `content/**` beside these.
 
+pub mod content;
+pub mod facts;
 pub mod filters;
+pub mod large;
 pub mod list;
 pub mod model;
 pub mod motion;
+pub mod preview;
+pub mod secret;
 pub mod tile;
+pub mod timeline;

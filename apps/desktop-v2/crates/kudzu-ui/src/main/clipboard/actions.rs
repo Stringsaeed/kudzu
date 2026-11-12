@@ -206,30 +206,40 @@ pub fn open_active(s: &mut MainState, tx: &mut Tx) {
                 toast(s, "clip-failed", ToastSpec::new("Couldn't open it"));
             }
         }
-        ClipKind::File => file_job(s, false),
+        ClipKind::File => file_job(s, 0, false),
         _ => {}
     }
 }
 
 /// `⌘R`: shows the first copied file in Finder.
 pub fn reveal_active(s: &mut MainState) {
+    reveal_file(s, 0);
+}
+
+/// Opens the file at `index` of the active clip (the buttons on each file row).
+pub fn open_file(s: &mut MainState, index: usize) {
+    file_job(s, index, false);
+}
+
+/// Shows the file at `index` of the active clip in Finder.
+pub fn reveal_file(s: &mut MainState, index: usize) {
     if s.clipboard
         .clips
         .list
         .active_entry()
         .is_some_and(|e| e.kind == ClipKind::File)
     {
-        file_job(s, true);
+        file_job(s, index, true);
     }
 }
 
-fn file_job(s: &mut MainState, reveal: bool) {
+fn file_job(s: &mut MainState, index: usize, reveal: bool) {
     let Some(path) = s
         .clipboard
         .clips
         .list
         .active_entry()
-        .and_then(|e| e.files.first().cloned())
+        .and_then(|e| e.files.get(index).cloned())
     else {
         return;
     };
@@ -260,8 +270,47 @@ pub fn toggle_secret(s: &mut MainState) {
         return;
     };
     let (id, hide) = (e.id, !e.is_secret());
-    if let Err(error) = s.svc.clipboard.set_secret(id, Some(hide)) {
-        failure_toast(s, "Couldn't change that", &error);
+    set_secret_with_feedback(s, id, hide);
+}
+
+/// The heading's "Not a secret?".
+pub fn not_a_secret(s: &mut MainState) {
+    if let Some(id) = s.clipboard.clips.list.active() {
+        set_secret_with_feedback(s, id, false);
+    }
+}
+
+/// Marks a clip as a secret or not, with an Undo toast that says what changed. Matching
+/// Kudzu's own detection clears the correction instead of storing a redundant one.
+pub fn set_secret_with_feedback(s: &mut MainState, id: Uuid, secret: bool) {
+    let Some(e) = s.clipboard.clips.list.entry(id).cloned() else {
+        return;
+    };
+    let change = crate::clip::secret::change(&e, secret);
+    if let Err(error) = s.svc.clipboard.set_secret(id, change.next) {
+        return failure_toast(s, "Couldn't change that", &error);
+    }
+    let before = change.before;
+    let spec = ToastSpec::new(change.title)
+        .description(change.description)
+        .duration_secs(UNDO_TOAST_SECS)
+        .action(ToastAction::new("Undo", true, move |st: &mut MainState| {
+            if let Err(error) = st.svc.clipboard.set_secret(id, before) {
+                failure_toast(st, "Couldn't undo that", &error);
+            }
+        }));
+    toast(s, "clip-secret", spec);
+}
+
+/// Copies a colour value from the preview; a check shows beside it for a moment.
+pub fn copy_value(s: &mut MainState, value: String, tx: &mut Tx) {
+    tx.copy(value.clone());
+    let until = s.frame.clock_secs + COPIED_SECS;
+    s.clipboard.copied_value = Some((value, until));
+    if let Some(due) = s.frame.toasts.next_due() {
+        tx.wake_at(due.min(until));
+    } else {
+        tx.wake_at(until);
     }
 }
 
