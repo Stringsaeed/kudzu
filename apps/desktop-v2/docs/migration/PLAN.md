@@ -573,7 +573,7 @@ The test for adopting a crate is the owner's: it gives **the same result** and l
 
 Wave 7 is one step on purpose: S40 is the first point where every service and adapter exists, and it composes them.
 
-### Progress (updated 2026-11-12, 03:45 UTC)
+### Progress (updated 2026-11-12, 03:40 UTC)
 
 **This table is the record of what actually happened.** The `Implementer` and `Reviewer` fields in the step sections were the plan; about a third of them changed.
 
@@ -583,14 +583,14 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
 - A second review is required only after a blocker or a safety major.
 
-**Totals:** 42 done, 4 merged and in review or fixing, 4 building, 11 waiting (61 steps).
+**Totals:** 43 done, 3 merged and fixing review findings, 4 building, 11 waiting (61 steps).
 
 | Wave | Status |
 |---|---|
 | 1–7 | Done. Reviews are in `reviews/` and the step commits. |
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
 | 9 | S58, S64 and S65 done. S43, S50 and S55 are fixing review findings, and S42 is building. |
-| 10 | S59 merged and fixing review findings; S51 and S61 building. |
+| 10 | S59 done; S51 and S61 building. |
 | 11 | S60 building (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
 
@@ -606,7 +606,7 @@ Waves 9 and later, step by step:
 | S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
 | S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
 | S51 editor shell | Building | Carbon → a non-Antigravity reviewer |
-| S59 clipboard previews | Merged; fixing 4 majors (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
+| S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
 | S61 settings frame, General, Expansion, Apps | Building | Argon → a non-Antigravity reviewer |
 | S60 clipboard picker window | Building | Carbon → a non-Antigravity reviewer |
 
