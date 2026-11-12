@@ -13,7 +13,7 @@ use std::sync::Arc;
 use kudzu_core::library::groups::GroupResolver;
 use kudzu_core::system::AppInfo;
 use kudzu_core::{AppRule, AppRuleMode, CaseMode, FireMode, InsertionMethod, SnippetRecord};
-use rune::{col, el, icon, row, text, Cx, El, Key, Span, TextEdit};
+use rune::{col, el, icon, row, text, Cx, El, Span, TextEdit};
 use uuid::Uuid;
 
 use crate::shell::MainState;
@@ -28,6 +28,7 @@ pub const RULE_KEY: &str = "editor-app-rule";
 /// The app picker's search, list and icons, and each row's change count.
 pub struct Rules {
     pub picker_open: bool,
+    pub picker_active: usize,
     pub query: TextEdit,
     pub icons: IconCache,
     seen: Option<(Uuid, Choices)>,
@@ -53,6 +54,7 @@ impl Rules {
     pub fn new(wake: rune::Waker) -> Rules {
         Rules {
             picker_open: false,
+            picker_active: 0,
             query: TextEdit::new(""),
             icons: IconCache::new(wake),
             seen: None,
@@ -63,6 +65,7 @@ impl Rules {
     /// Another snippet opened: rows start still and the list is closed.
     pub fn opened(&mut self) {
         self.picker_open = false;
+        self.picker_active = 0;
         self.query = TextEdit::new("");
         self.seen = None;
         self.bumps = [0; 4];
@@ -454,23 +457,24 @@ fn picker(
         AppRuleMode::Allow => "Allow an app",
         AppRuleMode::Deny => "Block an app",
     };
-    let picker = AppPicker {
-        add_label,
-        ..AppPicker::new(
-            &rule.bundle_ids,
-            installed,
-            &s.editor.rules.query,
-            &s.editor.rules.icons,
-        )
-    }
+    let picker = AppPicker::new(
+        "editor-app-rule-picker",
+        &rule.bundle_ids,
+        installed,
+        &s.editor.rules.query,
+        &s.editor.rules.icons,
+    )
+    .add_label(add_label)
     .open(s.editor.rules.picker_open)
+    .active(s.editor.rules.picker_active)
+    .overlays(overlays)
     .build(
         theme,
         cx,
         |st: &mut MainState| &mut st.editor.rules.query,
         toggle_app,
         |st: &mut MainState, open| st.editor.rules.picker_open = open,
-        overlays,
+        |st: &mut MainState, active| st.editor.rules.picker_active = active,
     );
     let mut out = col()
         .key(RULE_KEY)
@@ -478,20 +482,6 @@ fn picker(
         .gap(12.0)
         .pb(4.0)
         .transition(crate::motion::rise())
-        // Escape in the picker's search closes the list, not the editor (S55 moves this into
-        // the picker).
-        .on_key(|st: &mut MainState, ev, _| {
-            let bare = !ev.mods.cmd && !ev.mods.ctrl && !ev.mods.alt && !ev.mods.shift;
-            if ev.key == Key::Escape
-                && bare
-                && st.editor.rules.picker_open
-                && !st.editor.rules.query.is_composing()
-            {
-                st.editor.rules.picker_open = false;
-                return true;
-            }
-            false
-        })
         .child(picker);
     if rule.mode == AppRuleMode::Allow && !rule.bundle_ids.is_empty() {
         let c = &theme.c;
