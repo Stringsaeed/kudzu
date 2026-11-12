@@ -90,14 +90,17 @@ fn bad_raycast_import_shows_the_data_error_sentence() {
     let path = r._scratch.0.join("bad.json");
     std::fs::write(&path, "[").unwrap();
     choose(&mut r, "onboarding-raycast", path);
+    // Wait for the sentence on screen: the domain records the failure a moment before the
+    // window's watch wakes, so waiting on the domain alone races the redraw under load.
     until(&mut r, |r| {
-        r.kudzu
-            .onboarding
-            .snapshot()
-            .failures
-            .contains_key(&ImportSource::Raycast)
+        has(r, "This isn't a valid Raycast snippet export file.")
     });
-    assert!(has(&r, "This isn't a valid Raycast snippet export file."));
+    assert!(r
+        .kudzu
+        .onboarding
+        .snapshot()
+        .failures
+        .contains_key(&ImportSource::Raycast));
     assert_eq!(r.kudzu.onboarding.snapshot().imported, 0);
 }
 #[test]
@@ -128,16 +131,17 @@ fn failed_safety_backup_explains_why_import_changed_nothing() {
     .unwrap();
     choose(&mut r, "onboarding-raycast", path);
     until(&mut r, |r| {
-        r.kudzu
-            .onboarding
-            .snapshot()
-            .failures
-            .contains_key(&ImportSource::Raycast)
+        has(
+            r,
+            "Couldn't back up your library first, so nothing was changed.",
+        )
     });
-    assert!(has(
-        &r,
-        "Couldn't back up your library first, so nothing was changed."
-    ));
+    assert!(r
+        .kudzu
+        .onboarding
+        .snapshot()
+        .failures
+        .contains_key(&ImportSource::Raycast));
 
     assert_eq!(r.library().snippets.len(), before);
 }
@@ -183,15 +187,16 @@ fn a_second_detected_retry_reports_completed_over_original_folder_count() {
         .fail_import(ImportSource::Espanso, "Previous attempt failed".into());
     r.settle();
     r.click_key("onboarding-espanso");
-    until(&mut r, |r| {
-        r.kudzu
-            .onboarding
-            .snapshot()
-            .failures
-            .get(&ImportSource::Espanso)
-            .is_some_and(|e| e != "Previous attempt failed")
-    });
-    assert!(has(&r,"Imported 2 of 3 folders; retry brings in the rest. This isn't a valid Raycast snippet export file."));
+    let sentence = "Imported 2 of 3 folders; retry brings in the rest. \
+                    This isn't a valid Raycast snippet export file.";
+    until(&mut r, |r| has(r, sentence));
+    assert!(r
+        .kudzu
+        .onboarding
+        .snapshot()
+        .failures
+        .get(&ImportSource::Espanso)
+        .is_some_and(|e| e != "Previous attempt failed"));
 }
 
 #[test]
