@@ -608,7 +608,7 @@ Waves 9 and later, step by step:
 | S51 editor shell | Building (restarted on Opus after Carbon failed; its untested draft is kept on local branch `t3/editor-shell`, `b981342d`) | Opus → a non-Claude reviewer |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
 | S61 settings frame, General, Expansion, Apps | Building (restarted on Codex Sol after Argon stalled and then failed) | Codex Sol → a non-Codex reviewer |
-| S60 clipboard picker window | Building | Carbon → a non-Antigravity reviewer |
+| S60 clipboard picker window | Building (restarted on Sonnet after Carbon failed; its untested draft is kept on local branch `t3/clipboard-picker-window`, `b68b385b`) | Sonnet → a non-Claude reviewer |
 
 **Orchestrator changes on the base during wave 9:**
 - `95368d01`: the shared core `ClipFilter` and `MainServices.clipboard`.
