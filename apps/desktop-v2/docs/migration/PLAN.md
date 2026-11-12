@@ -40,6 +40,28 @@ Build Kudzu again as a pure Rust app on [Rune](https://github.com/anomalyco/rune
 9. **Privacy invariants, by sink.** Only the local product stores (library, backups, clipboard history, form memory) hold user content. Logs, error causes written to the log, and Activity never contain typed text, inserted text, clipboard contents or snippet bodies; Activity stays in memory. Only the library syncs: clipboard history, settings and form memory never do. Secrets are redacted before anything reaches an agent.
 10. **Commits and releases.** One commit per step with the message given (small follow-ups allowed). Before S75, a commit touches only `apps/desktop-v2/` (plus the two new `desktop-v2*.yml` workflow files, in S01, S03 and S70) and uses the scope `desktop-v2`. release-please's package path is `apps/desktop`, and it counts only commits that touch files under `apps/desktop/`, so these commits cannot open or change a release. As a second guard, every commit before S75 uses a type release-please hides (`refactor`, `build`, `test`, `docs`, `ci`, `chore`). S01 confirms both with a dry run. The rewrite gets one changelog entry, from S75.
 11. **Report honestly.** If an acceptance item cannot be met, say which and why; do not weaken the test.
+12. **Evidence** (added 2026-11-12, `RETRO.md`).
+    - The report lists every Accept item, or every review finding, as done (with test name and file:line) or not done (with the reason).
+    - Quote only numbers a command printed, with the command, the build profile and the machine's load.
+    - Reports go in `docs/migration/`, never `src/`.
+    - Nothing is written outside the worktree. Test folders come from `std::env::temp_dir()`.
+    - Commit bodies name the tests.
+13. **Tests.**
+    - Assertions are unconditional: no `if` that skips them when a fixture doesn't match.
+    - Wait on completion, or read the source of truth. Never read a derived async state or count frames.
+    - Landmark tests assert full rects in both themes.
+    - For each Tauri state of a component, assert its visible copy, not only the captured scene's.
+14. **Before you report.** Check these product patterns, which reviewers have caught repeatedly:
+    - Motion state expires, and a test proves it.
+    - Sizes come from content and the viewport, tested at 900 × 560 and with no results.
+    - Every key handler, including field callbacks, ignores keys during IME composition.
+    - Domain error text reaches the UI.
+    - Ports come from `Kudzu`, not through another service.
+    - JavaScript-compatible number formatting is checked on exact decimals, including ties.
+    - Toggles flip the source of truth.
+15. **Shared machine.**
+    - Run cargo with `-j 2`. Rerun a command killed with exit 137 or "signal: 9"; it is not a failure.
+    - Never launch the GUI app, call `Ports::macos`, or touch anything outside the worktree.
 
 ---
 
@@ -551,6 +573,64 @@ The test for adopting a crate is the owner's: it gives **the same result** and l
 
 Wave 7 is one step on purpose: S40 is the first point where every service and adapter exists, and it composes them.
 
+### Progress (updated 2026-11-12, 03:45 UTC)
+
+**This table is the record of what actually happened.** The `Implementer` and `Reviewer` fields in the step sections were the plan; about a third of them changed.
+
+**What "done" means:**
+- The step is merged.
+- It has been reviewed by another provider.
+- Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
+- A second review is required only after a blocker or a safety major.
+
+**Totals:** 42 done, 4 merged and in review or fixing, 4 building, 11 waiting (61 steps).
+
+| Wave | Status |
+|---|---|
+| 1–7 | Done. Reviews are in `reviews/` and the step commits. |
+| 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
+| 9 | S58, S64 and S65 done. S43 and S50 are fixing review findings, S55 is in review, and S42 is building. |
+| 10 | S59 merged and in review; S51 and S61 building. |
+| 11 | S60 building (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
+| 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
+
+Waves 9 and later, step by step:
+
+| Step | State | Built by → reviewed by |
+|---|---|---|
+| S42 sidebar | Building. Its navigation is committed in its worktree. | Codex Terra (Carbon failed during the outage) → a non-Codex reviewer |
+| S43 command menu and cheat sheet | Merged; fixing 3 majors (`reviews/S43-command-menu.md`) | Grok 4.7 → Codex Sol |
+| S50 library list | Merged; fixing 1 major (`reviews/S50-library.md`) | Opus → Grok 4.7 |
+| S55 group settings and app picker | Merged; in review | Grok 4.7 → Opus |
+| S58 clipboard history list | Done (`reviews/S58-clipboard.md`) | Sonnet → Grok 4.7 |
+| S64 Insights | Done (`reviews/S64-insights.md`); the orchestrator corrected `fmt::to_fixed` | Grok 4.6 → Codex Sol |
+| S65 onboarding | Done (`reviews/S65-onboarding.md`, `S65_REPORT.md`) | Codex Sol → Grok 4.7 |
+| S51 editor shell | Building | Carbon → a non-Antigravity reviewer |
+| S59 clipboard previews | Merged; in review | Sonnet → Grok 4.7 |
+| S61 settings frame, General, Expansion, Apps | Building | Argon → a non-Antigravity reviewer |
+| S60 clipboard picker window | Building | Carbon → a non-Antigravity reviewer |
+
+**Orchestrator changes on the base during wave 9:**
+- `95368d01`: the shared core `ClipFilter` and `MainServices.clipboard`.
+- `02b5a63c`: `Kudzu.clock`.
+- `63c4c730`: an atomic pause toggle.
+- `d448c63a`: an exact `to_fixed`.
+
+**Next:**
+1. **Close wave 9** as S42 merges and the S43, S50 and S55 fixes land.
+2. **Turn scenes on as soon as their regions exist.** Don't save them all for S73.
+   - Once S42 merges, enable `insights` and the eleven clipboard scenes (S58's six and S59's five), because none of them shows the editor.
+   - The `library*`, `snippet-*`, `group-*`, `command-menu`, `cheat-sheet` and settings scenes wait for the editor (S51–S54) where they show it.
+   - About 24 scenes in both themes are deferred so far, more than S73's L sizing allows.
+3. **Land the shared seams before the next parallel steps:**
+   - the editor document seam, before S52–S54 (the content field S51 leaves);
+   - the settings pane stubs, before S62 and S63.
+4. **Then wave 11** (S52, S62, S63) and **wave 12** (S53, S54), with briefs that carry rules 12–15 and the additive-edit rule from the first message.
+
+**Open items:**
+- `shell/windows/permissions.rs` is 615 lines, of which about 450 are code and the rest inline tests. That is within rule 7.
+- `docs/migration/RETRO.md` holds the lessons behind rules 12–15.
+
 **Merge rules for the orchestrator.**
 
 - A step that creates a tree for later steps pre-declares their modules as documented empty files: S01 for every crate's `lib.rs`, S20 for `kudzu-core`, S41 for the main window's screens, S61 for the settings panes, S52 for the editor's tag forms and format bar. Later steps fill files they own and do not edit the parent module. If a step still needs a new module line, such conflicts resolve by union.
@@ -562,6 +642,13 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - A screen step builds against `kudzu_app::fixtures`, so it does not wait for real adapters.
 - The orchestrator re-runs the gate of rule 8 after every merge.
 - **Integration edits outside Owns are allowed** (added 2026-11-11 after S03): `<crate> = { workspace = true }` lines for approved dependencies in any crate's `Cargo.toml`; `Cargo.lock` as cargo generates it; one-line `mod` declarations, scene or window registrations, and subcommand dispatch entries in a parent module (`lib.rs`, `mod.rs`, `xtask/src/main.rs`, `src/compose.rs`). Nothing more. The step report lists each such edit. They resolve by union at merge.
+- **Additive shared edits** (added 2026-11-12, after wave 9). A step may also add, without asking:
+  - one field and its constructor line in `MainServices` or `Kudzu`;
+  - one enum variant;
+  - one poll or subscription line in `shell/`;
+  - a corrected test-rig helper.
+
+  Nothing may be restructured or reordered, and the report lists every such line. Shared contracts that two parallel steps need (a type, a field, a port) are landed on the base by the orchestrator before those steps start.
 
 **Step fields.** *Owns* is the scope. *Deliverables* is given where it adds something; where a step has none, the deliverable is the modules in *Owns*, behaving as *Accept* lists. *Accept* lists what must be true beyond the gate. *Closes* names the FEATURES checks the step satisfies (a check split across steps appears in each; S74 confirms them all).
 
