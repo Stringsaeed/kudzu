@@ -17,15 +17,21 @@ use rune::{col, row, text, El, ScrollSpec};
 #[derive(Default)]
 pub struct State {
     pub error: Option<String>,
+    pub prefix: rune::TextEdit,
+    pub recording: bool,
+    pub captured_until: Option<std::time::Duration>,
 }
 impl State {
     pub fn is_composing(&self) -> bool {
-        false
+        self.prefix.is_composing()
     }
     pub fn is_editing_text(&self) -> bool {
-        false
+        self.prefix.focused || self.recording
     }
-    pub fn blur_inputs(&mut self) {}
+    pub fn blur_inputs(&mut self) {
+        self.prefix.focused = false;
+        self.recording = false;
+    }
 }
 pub fn view(s: &MainState, t: &Theme, pane: SettingsPane) -> El {
     let body = match pane {
@@ -128,4 +134,35 @@ pub(super) fn update(s: &mut MainState, edit: impl FnOnce(&mut kudzu_app::settin
     if let Err(e) = s.svc.settings.update(edit) {
         s.settings.error = Some(e.to_string());
     }
+}
+
+pub fn sync(s: &mut MainState) -> bool {
+    let mut changed = false;
+    if s.settings
+        .captured_until
+        .is_some_and(|end| s.svc.clock.monotonic() >= end)
+    {
+        s.settings.captured_until = None;
+        changed = true;
+    }
+    if !s.settings.prefix.is_composing() {
+        if s.settings.prefix.focused {
+            let prefix = expansion::limited_prefix(&s.settings.prefix.text);
+            if prefix != s.settings.prefix.text {
+                s.settings.prefix.text = prefix.clone();
+                changed = true;
+            }
+            if s.svc.settings.watch().get().default_trigger_prefix != prefix {
+                update(s, |p| p.default_trigger_prefix = prefix);
+                changed = true;
+            }
+        } else {
+            let prefix = s.svc.settings.watch().get().default_trigger_prefix.clone();
+            if s.settings.prefix.text != prefix {
+                s.settings.prefix = rune::TextEdit::new(prefix);
+                changed = true;
+            }
+        }
+    }
+    changed
 }

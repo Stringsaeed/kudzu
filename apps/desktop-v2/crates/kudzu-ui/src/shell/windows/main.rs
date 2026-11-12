@@ -45,6 +45,7 @@ pub struct MainServices {
     pub apps: Arc<Apps>,
     pub clock: Arc<dyn Clock>,
     pub files: Arc<dyn kudzu_app::ports::FileOpener>,
+    pub login_notice: kudzu_app::watch::Watch<Option<String>>,
 }
 
 impl From<&Arc<Kudzu>> for MainServices {
@@ -61,6 +62,7 @@ impl From<&Arc<Kudzu>> for MainServices {
             apps: kudzu.apps.clone(),
             clock: kudzu.clock.clone(),
             files: kudzu.files.clone(),
+            login_notice: kudzu.login_notice.clone(),
         }
     }
 }
