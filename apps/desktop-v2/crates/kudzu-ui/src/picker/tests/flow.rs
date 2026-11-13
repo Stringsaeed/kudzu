@@ -3,7 +3,7 @@
 use kudzu_core::clipboard::uti;
 use rune::Key;
 
-use super::{cmd, key, plain, with, Rig, NOTES};
+use super::{cmd, key, with, Rig, NOTES};
 use crate::picker::model::{ERROR_FLASH_SECS, FALLBACK_NOTICE};
 use crate::shell::{NewSnippet, Route, SettingsPane};
 
@@ -37,8 +37,11 @@ fn every_opening_resets_the_filter_query_selection_and_undo_and_focuses_search()
     rig.press(key(Key::Tab));
     rig.press(with(Key::Backspace, true, false, false));
     rig.rt.update(|s, _| s.dismiss());
+    // Focus has gone elsewhere by the time the next opening comes.
+    rig.rt.update(|_, tx| tx.blur());
     rig.settle();
     assert!(!rig.open_now());
+    assert!(rig.rt.elements().into_iter().all(|e| !e.focused));
     rig.open();
     let p = &rig.state().model.picker;
     assert_eq!(p.query(), "");
@@ -63,25 +66,24 @@ fn every_opening_resets_the_filter_query_selection_and_undo_and_focuses_search()
 fn return_hides_the_panel_then_pastes_into_the_app_it_came_from() {
     let mut rig = Rig::with_clips(&["first", "second"]);
     assert_eq!(rig.state().model.picker.paste_label(), "Paste into Notes");
+    // Hold the paste at the moment the keystroke would be posted, and look at the panel then.
+    let hold = std::sync::Arc::new(kudzu_app::fixtures::apps::Latch::default());
+    *rig.fixtures.pasteboard.paste_hold.lock().unwrap() = Some(hold.clone());
     rig.press(key(Key::Enter));
+    rig.fixtures.pasteboard.paste_entered.wait();
+    let visible_at_paste = rig.open_now();
+    assert!(!visible_at_paste, "the panel hid before the keystroke");
+    assert_eq!(rig.pasted(), 0, "and the keystroke had not gone out yet");
+    hold.set();
     rig.until("the paste", |r| r.pasted() == 1);
-    assert!(!rig.open_now(), "the panel hid before the paste");
     let pasted = rig.fixtures.pasteboard.pasted_into.lock().unwrap().clone();
     assert_eq!(
         pasted[0].as_ref().map(|a| a.bundle_id.as_str()),
         Some(NOTES)
     );
-    let items = rig
-        .fixtures
-        .pasteboard
-        .snapshot
-        .lock()
-        .unwrap()
-        .items
-        .clone();
     assert_eq!(
-        items[0][0].1,
-        b"second".to_vec(),
+        rig.pasted_text(),
+        vec![Some("second".to_owned())],
         "the active clip was on the pasteboard"
     );
 }
@@ -329,7 +331,7 @@ fn command_o_opens_a_file_and_closes() {
         rig.fixtures.files.opened.lock().unwrap()[0].to_string_lossy(),
         "/Users/me/Documents/report.pdf"
     );
-    assert!(!rig.open_now());
+    rig.until("the picker to close", |r| !r.open_now());
 }
 
 #[test]
@@ -410,5 +412,19 @@ fn keys_are_ignored_while_an_input_method_is_composing() {
         rig.open_now(),
         "Escape cancels the composition, not the picker"
     );
-    let _ = plain('x');
+    // Neither the window's handler nor the search field's takes a chord while composing.
+    for chord in [cmd('p'), cmd('q'), with(Key::Backspace, true, false, false)] {
+        let (mut window, mut field) = (true, true);
+        rig.rt.update(|s, tx| {
+            window = crate::picker::on_key(s, &chord, tx);
+            field = crate::picker::drive::on_input_key(s, &chord, tx);
+        });
+        assert!(!window && !field, "{chord:?} belongs to the input method");
+    }
+    rig.settle();
+    assert!(
+        rig.state().model.picker.active().is_some_and(|e| !e.pinned),
+        "⌘P pinned nothing"
+    );
+    assert_eq!(rig.order_texts().len(), 2, "⌘⌫ deleted nothing");
 }

@@ -9,7 +9,7 @@
 //! Timers are deadlines on the UI clock (`Picker::flash`, `Picker::hide`); `poll` ends them.
 //! Clip text never reaches a log: only error sentences do.
 
-use kudzu_app::clipboard::{ClipboardError, DeletedClips, Flavor, PasteOutcome, PickSession};
+use kudzu_app::clipboard::{ClipboardError, DeletedClips, Flavor, PasteOutcome, PasteTicket};
 use kudzu_app::tasks::Task;
 use kudzu_app::watch::Subscription;
 use kudzu_core::clipboard::facts::has_text;
@@ -48,8 +48,9 @@ pub(crate) enum Job {
         task: Task<Result<(), ClipboardError>>,
         _wake: Wake,
     },
-    Paste {
-        task: Task<Result<PasteOutcome, ClipboardError>>,
+    /// A copy that a paste follows: its ticket keeps every other copy away until spent.
+    CopyForPaste {
+        task: Task<Result<PasteTicket, ClipboardError>>,
         _wake: Wake,
     },
     Restore {
@@ -61,10 +62,20 @@ pub(crate) enum Job {
         task: Task<Result<Option<String>, ClipboardError>>,
         _wake: Wake,
     },
+    /// Open or show a file; `close` ends the opening once it worked.
     File {
+        close: bool,
         task: Task<Result<(), ClipboardError>>,
         _wake: Wake,
     },
+}
+
+/// A paste that has left the panel. It outlives the opening that started it: the answer is
+/// taken whether or not the panel is showing, and only the opening that asked may show it.
+pub(crate) struct PasteJob {
+    opening: u64,
+    task: Task<Result<PasteOutcome, ClipboardError>>,
+    _wake: Wake,
 }
 
 fn start<T: Send + 'static>(
@@ -81,12 +92,13 @@ fn start<T: Send + 'static>(
 // MARK: Keys
 
 pub fn on_key(s: &mut PickerState, key: &KeyEvent, tx: &mut Tx) -> bool {
+    // An input method owns every key while it composes, ⌘Q included.
+    if s.model.picker.is_composing() {
+        return false;
+    }
     if crate::shell::closes_windows(key) {
         s.shell.close_windows();
         return true;
-    }
-    if s.model.picker.is_composing() {
-        return false;
     }
     let took = dispatch(s, key, tx);
     if matches!(key.key, Key::Modifier { .. }) {
@@ -201,6 +213,15 @@ fn flavor(s: &PickerState, id: Uuid, flip: bool) -> Option<Flavor> {
 }
 
 pub(super) fn paste(s: &mut PickerState, id: Uuid, flip: bool) {
+    // One paste at a time: while a copy for a paste is on its way, another Return is the same
+    // request again.
+    if s.model
+        .jobs
+        .iter()
+        .any(|job| matches!(job, Job::CopyForPaste { .. }))
+    {
+        return;
+    }
     // The session lands a moment after the panel opens: a paste asked for before then waits.
     if s.model.session.is_none() && s.model.begin.is_some() {
         s.model.picker.pending_paste = Some((id, flip));
@@ -219,8 +240,17 @@ fn copy(s: &mut PickerState, id: Uuid, flip: bool, then: After) {
         return;
     };
     let service = s.svc.clipboard.clone();
-    match start(s, "kudzu-picker-copy", move || service.copy(id, flavor)) {
-        Some((task, _wake)) => s.model.jobs.push(Job::Copy { then, task, _wake }),
+    let started = if then == After::Paste {
+        start(s, "kudzu-picker-copy", move || {
+            service.copy_for_paste(id, flavor)
+        })
+        .map(|(task, _wake)| Job::CopyForPaste { task, _wake })
+    } else {
+        start(s, "kudzu-picker-copy", move || service.copy(id, flavor))
+            .map(|(task, _wake)| Job::Copy { then, task, _wake })
+    };
+    match started {
+        Some(job) => s.model.jobs.push(job),
         None => say_error(s, &ClipboardError::WorkerStopped),
     }
 }
@@ -332,21 +362,35 @@ fn open(s: &mut PickerState, tx: &mut Tx) {
                     .say("Couldn't open that link.", ERROR_FLASH_SECS, clock),
             }
         }
-        ClipKind::File => {
-            if let Some(path) = entry.files.first().cloned() {
-                let files = s.svc.files.clone();
-                let work = move || {
-                    files
-                        .open(std::path::Path::new(&path))
-                        .map_err(ClipboardError::from)
-                };
-                if let Some((task, _wake)) = start(s, "kudzu-picker-open", work) {
-                    s.model.jobs.push(Job::File { task, _wake });
-                }
-            }
-            s.dismiss();
-        }
+        ClipKind::File => file_job(s, 0, false, true),
         _ => {}
+    }
+}
+
+/// Opens (or shows in Finder) the file at `index` of the active clip, through the file port,
+/// on a worker. A failure goes to the footer; `close` ends the opening when it worked.
+pub(super) fn file_job(s: &mut PickerState, index: usize, reveal: bool, close: bool) {
+    let Some(path) = s
+        .model
+        .picker
+        .active()
+        .and_then(|e| e.files.get(index).cloned())
+    else {
+        return;
+    };
+    let files = s.svc.files.clone();
+    let work = move || {
+        let path = std::path::Path::new(&path);
+        let result = if reveal {
+            files.reveal(path)
+        } else {
+            files.open(path)
+        };
+        result.map_err(ClipboardError::from)
+    };
+    match start(s, "kudzu-picker-file", work) {
+        Some((task, _wake)) => s.model.jobs.push(Job::File { close, task, _wake }),
+        None => say_error(s, &ClipboardError::WorkerStopped),
     }
 }
 
@@ -364,9 +408,16 @@ pub fn poll(s: &mut PickerState, _now: f64, tx: &mut Tx) -> bool {
     let clock = s.model.clock_secs;
     let mut changed = s.sync();
     changed |= refresh_prefs(s);
+    // A paste's answer is taken whether or not the panel is showing.
+    changed |= finish_pastes(s);
     if s.model.open {
+        if std::mem::take(&mut s.model.focus_search) {
+            tx.focus(FIELD_KEY, true);
+            changed = true;
+        }
         changed |= pull(s);
         changed |= finish_jobs(s);
+        changed |= s.model.picker.note_focus(tx.focused(), tx.focus_visible());
         let p = &mut s.model.picker;
         changed |= p.full.poll();
         changed |= p.clips.media.as_mut().is_some_and(Media::poll);
@@ -382,21 +433,54 @@ pub fn poll(s: &mut PickerState, _now: f64, tx: &mut Tx) -> bool {
     changed
 }
 
-fn reshow_with(s: &mut PickerState, error: &ClipboardError) {
-    // The panel already hid for the paste, and the paste failed (the app is gone): the
-    // sentence has to be seen, so the panel comes back for a few seconds.
+/// The panel already hid for a paste that then failed or fell back to a copy: the sentence has
+/// to be seen, so the panel comes back for `hide_after` seconds.
+fn reshow(s: &mut PickerState, sentence: String, flash_secs: f64, hide_after: f64) {
     let clock = s.model.clock_secs;
     s.model.open = true;
-    s.model
-        .picker
-        .say(error.to_string(), ERROR_FLASH_SECS, clock);
-    s.model.picker.hide_after(ERROR_FLASH_SECS, false, clock);
+    s.model.picker.say(sentence, flash_secs, clock);
+    s.model.picker.hide_after(hide_after, false, clock);
     let picker = s.shell.handles().picker.clone();
     s.shell.handles().picker.update(move |st, _| {
         if st.model.open {
             picker.show();
         }
     });
+}
+
+/// Takes the answers of pastes that have left the panel. Only the opening that asked may show
+/// one: a newer opening's footer and query are never touched by an older paste.
+fn finish_pastes(s: &mut PickerState) -> bool {
+    let jobs = std::mem::take(&mut s.model.pastes);
+    let mut changed = false;
+    for job in jobs {
+        let Some(result) = job.task.take() else {
+            s.model.pastes.push(job);
+            continue;
+        };
+        let current = job.opening == s.model.opening;
+        match result.unwrap_or(Err(ClipboardError::WorkerStopped)) {
+            Ok(PasteOutcome::Pasted) => {}
+            Ok(PasteOutcome::Copied) if current => {
+                // Permission went away after the panel opened: the clip is on the pasteboard.
+                reshow(
+                    s,
+                    FALLBACK_NOTICE.into(),
+                    FALLBACK_FLASH_SECS,
+                    FALLBACK_HIDE_AFTER,
+                );
+                changed = true;
+            }
+            Ok(PasteOutcome::Copied) => log::warn!("a paste fell back to a copy"),
+            Err(error) if current => {
+                log::warn!("the paste failed: {error}");
+                reshow(s, error.to_string(), ERROR_FLASH_SECS, ERROR_FLASH_SECS);
+                changed = true;
+            }
+            Err(error) => log::warn!("a paste for an earlier opening failed: {error}"),
+        }
+    }
+    changed
 }
 
 fn finish_jobs(s: &mut PickerState) -> bool {
@@ -415,15 +499,13 @@ fn finish_jobs(s: &mut PickerState) -> bool {
                     );
                 }
             },
-            Job::Paste { task, _wake } => match task.take() {
-                None => s.model.jobs.push(Job::Paste { task, _wake }),
+            Job::CopyForPaste { task, _wake } => match task.take() {
+                None => s.model.jobs.push(Job::CopyForPaste { task, _wake }),
                 Some(result) => {
                     changed = true;
-                    if let Ok(Err(error)) | Err(error) =
-                        result.map_err(|_| ClipboardError::WorkerStopped)
-                    {
-                        log::warn!("the paste failed: {error}");
-                        reshow_with(s, &error);
+                    match result.unwrap_or(Err(ClipboardError::WorkerStopped)) {
+                        Ok(ticket) => start_paste(s, ticket),
+                        Err(error) => say_error(s, &error),
                     }
                 }
             },
@@ -466,14 +548,14 @@ fn finish_jobs(s: &mut PickerState) -> bool {
                     }
                 }
             },
-            Job::File { task, _wake } => match task.take() {
-                None => s.model.jobs.push(Job::File { task, _wake }),
+            Job::File { close, task, _wake } => match task.take() {
+                None => s.model.jobs.push(Job::File { close, task, _wake }),
                 Some(result) => {
                     changed = true;
-                    if let Ok(Err(error)) | Err(error) =
-                        result.map_err(|_| ClipboardError::WorkerStopped)
-                    {
-                        log::warn!("the file did not open: {error}");
+                    match result.unwrap_or(Err(ClipboardError::WorkerStopped)) {
+                        Ok(()) if close => s.dismiss(),
+                        Ok(()) => {}
+                        Err(error) => say_error(s, &error),
                     }
                 }
             },
@@ -499,21 +581,28 @@ fn after_copy(s: &mut PickerState, then: After, result: Result<(), ClipboardErro
                 .say(FALLBACK_NOTICE, FALLBACK_FLASH_SECS, clock);
             s.model.picker.hide_after(FALLBACK_HIDE_AFTER, true, clock);
         }
-        After::Paste => {
-            // Hide first, then paste on a worker: the session moves into the task, so the
-            // blur the hide causes cannot drop it.
-            let Some(session) = s.model.session.take() else {
-                return;
-            };
-            s.dismiss();
-            paste_copied(s, session);
-        }
+        // The paste follows a copy that holds a ticket: `start_paste`.
+        After::Paste => {}
     }
 }
 
-fn paste_copied(s: &mut PickerState, session: PickSession) {
-    if let Some((task, _wake)) = start(s, "kudzu-picker-paste", move || session.paste_copied()) {
-        s.model.jobs.push(Job::Paste { task, _wake });
+/// Hides the panel, then pastes on a worker. The session moves into the task, so the blur the
+/// hide causes cannot drop it. Without one (the opening ended) the ticket is dropped and
+/// the clip stays on the pasteboard.
+fn start_paste(s: &mut PickerState, ticket: PasteTicket) {
+    let Some(session) = s.model.session.take() else {
+        return;
+    };
+    s.dismiss();
+    let opening = s.model.opening;
+    if let Some((task, _wake)) = start(s, "kudzu-picker-paste", move || {
+        session.paste_copied(ticket)
+    }) {
+        s.model.pastes.push(PasteJob {
+            opening,
+            task,
+            _wake,
+        });
     }
 }
 

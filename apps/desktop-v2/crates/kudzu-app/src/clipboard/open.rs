@@ -86,6 +86,7 @@ impl ClipboardService {
             }),
             history,
             operations: Mutex::new(()),
+            pasting: Arc::default(),
             store,
             persisted,
             settings,

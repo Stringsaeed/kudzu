@@ -5,7 +5,7 @@
 //! gives focus back to that app only when the user closed the panel (Escape, the shortcut
 //! again), never on a blur.
 use super::super::{routes::Route, theme_sync::ThemeSync, Shell};
-use crate::picker::drive::Job;
+use crate::picker::drive::{Job, PasteJob};
 use crate::picker::model::Picker;
 use chrono::{DateTime, FixedOffset, Utc};
 use kudzu_app::apps::Apps;
@@ -43,6 +43,13 @@ pub struct PickerModel {
     pub session: Option<PickSession>,
     pub picker: Picker,
     pub(crate) jobs: Vec<Job>,
+    /// Pastes that left the panel; they outlive the opening that made them.
+    pub(crate) pastes: Vec<PasteJob>,
+    /// A new opening wants the search field focused; `poll` does it, so the same code runs
+    /// in the window and in the headless tests.
+    pub(crate) focus_search: bool,
+    /// Counts openings, so an older paste's answer can be told from the current one's.
+    pub(crate) opening: u64,
     /// The UI clock at the last key or poll, for deadlines.
     pub clock_secs: f64,
     /// The last route the picker asked `main` to show (⌘S, ⌘,), for tests and the log.
@@ -68,10 +75,18 @@ impl PickerState {
                 session: None,
                 picker: Picker::new(now),
                 jobs: Vec::new(),
+                pastes: Vec::new(),
+                opening: 0,
+                focus_search: false,
                 clock_secs: 0.0,
                 last_route: None,
             },
         }
+    }
+
+    /// Pastes whose answer has not been taken yet.
+    pub fn pastes_pending(&self) -> usize {
+        self.model.pastes.len()
     }
 
     fn recording(&self) -> bool {
@@ -108,6 +123,8 @@ impl PickerState {
         let now = self.now();
         self.model.picker.reset(now);
         self.model.jobs.clear();
+        self.model.opening += 1;
+        self.model.focus_search = true;
         self.model.session = None;
         let clipboard = self.svc.clipboard.clone();
         match Task::spawn("kudzu-picker-begin", move || clipboard.begin_pick()) {
@@ -117,10 +134,9 @@ impl PickerState {
         self.model.open = true;
         crate::picker::drive::pull(self);
         let picker = self.shell.handles().picker.clone();
-        self.shell.handles().picker.update(move |s, tx| {
+        self.shell.handles().picker.update(move |s, _| {
             if s.model.open {
                 crate::picker::place(s);
-                tx.focus(crate::picker::drive::FIELD_KEY, true);
                 picker.show();
             }
         });

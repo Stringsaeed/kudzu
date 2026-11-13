@@ -3,6 +3,8 @@
 
 mod flow;
 mod landmarks;
+mod paste;
+mod review;
 mod rows;
 mod scroll;
 mod timers;
@@ -20,7 +22,6 @@ use kudzu_core::system::AppInfo;
 use rune::{Env, Key, KeyEvent, Mods, Runtime};
 use uuid::Uuid;
 
-use crate::picker::drive::FIELD_KEY;
 use crate::shell::windows::{parts, Launch, PickerState};
 use crate::shell::Identity;
 
@@ -164,12 +165,6 @@ impl Rig {
     pub(super) fn open(&mut self) {
         self.rt.update(|s, _| s.toggle());
         self.until("the session", |r| r.state().model.session.is_some());
-        self.focus_field();
-    }
-
-    pub(super) fn focus_field(&mut self) {
-        self.rt.update(|_, tx| tx.focus(FIELD_KEY, true));
-        self.settle();
     }
 
     /// Copies `texts` through the fake pasteboard, oldest first, and opens the picker.
@@ -249,6 +244,11 @@ impl Rig {
 
     pub(super) fn pasted(&self) -> usize {
         self.fixtures.pasteboard.pasted_into.lock().unwrap().len()
+    }
+
+    /// The plain text on the pasteboard at each paste, oldest first.
+    pub(super) fn pasted_text(&self) -> Vec<Option<String>> {
+        self.fixtures.pasteboard.pasted_text.lock().unwrap().clone()
     }
 
     pub(super) fn flash(&self) -> Option<String> {

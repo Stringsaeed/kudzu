@@ -6,9 +6,11 @@ mod open;
 mod pick;
 mod runtime;
 pub use media::{Media, MediaKind};
-pub use pick::PickSession;
+pub use pick::{PasteTicket, PickSession};
 mod search;
 pub use search::{AgentItem, ClipResults, MAX_ITEM_CHARS};
+#[cfg(test)]
+mod pick_tests;
 #[cfg(test)]
 mod review_tests;
 #[cfg(test)]
@@ -63,6 +65,8 @@ pub enum ClipboardError {
     Schedule(crate::schedule::ScheduleError),
     #[error("The clipboard worker stopped unexpectedly.")]
     WorkerStopped,
+    #[error("A paste is still finishing. Try again in a moment.")]
+    PasteBusy,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Flavor {
@@ -113,6 +117,8 @@ pub struct ClipboardService {
     state: Mutex<State>,
     history: Watch<History>,
     operations: Mutex<()>,
+    /// One copy-through-paste at a time.
+    pasting: Arc<pick::PasteGate>,
     store: Store,
     persisted: Persisted<History>,
     settings: Watch<Settings>,

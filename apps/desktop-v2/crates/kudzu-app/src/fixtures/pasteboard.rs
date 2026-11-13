@@ -1,16 +1,23 @@
 //! In-memory pasteboard; external copies are distinguishable from Kudzu writes.
+use super::apps::Latch;
 use crate::{
     error::PortError,
     ports::{PasteSnapshot, Pasteboard},
 };
 use kudzu_core::{clipboard::PasteItem, system::AppInfo};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 #[derive(Default)]
 pub struct FakePasteboard {
     pub snapshot: Mutex<PasteSnapshot>,
     pub reads: Mutex<usize>,
     pub paste_allowed: Mutex<bool>,
     pub pasted_into: Mutex<Vec<Option<AppInfo>>>,
+    /// The plain text on the pasteboard at each paste.
+    pub pasted_text: Mutex<Vec<Option<String>>>,
+    /// While set, `paste` waits for this latch after setting `paste_entered`, so a test can
+    /// look at the world at the moment the keystroke is about to be posted.
+    pub paste_hold: Mutex<Option<Arc<Latch>>>,
+    pub paste_entered: Latch,
     pub failure: Mutex<Option<PortError>>,
     pub text_reads: Mutex<usize>,
     #[cfg(test)]
@@ -99,6 +106,13 @@ impl Pasteboard for FakePasteboard {
         if !self.can_paste() {
             return Err(PortError::PermissionDenied);
         }
+        self.paste_entered.set();
+        let hold = self.paste_hold.lock().unwrap().clone();
+        if let Some(hold) = hold {
+            hold.wait();
+        }
+        let text = kudzu_core::clipboard::text_of(&self.snapshot.lock().unwrap().items);
+        self.pasted_text.lock().unwrap().push(text);
         self.pasted_into.lock().unwrap().push(target.cloned());
         Ok(())
     }

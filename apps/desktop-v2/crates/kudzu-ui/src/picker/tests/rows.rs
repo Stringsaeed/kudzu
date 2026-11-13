@@ -1,9 +1,10 @@
 //! The list: order, sections, pills, the four empty states, and the compact sizes.
 
-use kudzu_core::clipboard::query::ClipFilter;
+use kudzu_core::clipboard::query::{clip_filter_key, ClipFilter};
 use rune::Key;
 
 use super::{cmd, key, with, Rig};
+use crate::clip::filters::PICKER_FILTERS;
 use crate::clip::model::RowKind;
 
 fn headers(rig: &Rig) -> Vec<String> {
@@ -34,12 +35,20 @@ fn newest_first_with_date_sections_only_without_a_query() {
 #[test]
 fn tab_and_shift_tab_cycle_the_six_pills_and_filter_the_list() {
     let mut rig = Rig::with_clips(&["plain text", "https://example.com"]);
-    // The checked pill is the model's filter; the accessibility tree says so too.
+    // The radio's own checked state, from the accessibility tree.
     let checked = |rig: &Rig| -> Vec<String> {
-        let name = crate::clip::filters::pill_label(rig.state().model.picker.filter);
-        let tree = rig.rt.accessibility_json().to_string();
-        assert!(tree.contains(name), "the pill “{name}” is in the tree");
-        vec![name.to_owned()]
+        let tree = rig.rt.accessibility_json();
+        ["all", "pinned", "text", "image", "link", "file"]
+            .into_iter()
+            .filter(|key| is_checked(&tree, &format!("picker-pills-{key}")))
+            .map(|key| {
+                let filter = PICKER_FILTERS
+                    .into_iter()
+                    .find(|f| clip_filter_key(*f) == key)
+                    .unwrap();
+                crate::clip::filters::pill_label(filter).to_owned()
+            })
+            .collect()
     };
     assert_eq!(checked(&rig), vec!["All"]);
     let order = ["Pinned", "Text", "Images", "Links", "Files", "All"];
@@ -176,4 +185,21 @@ fn rows_are_50_headers_28_and_tiles_32() {
     let numbered = rig.state().model.picker.clips.look.numbered;
     assert!(numbered, "⌘1–9 hints on the first nine rows");
     let _ = cmd('1');
+}
+
+fn is_checked(tree: &serde_json::Value, key: &str) -> bool {
+    fn walk(value: &serde_json::Value, key: &str) -> Option<bool> {
+        if value.get("key").and_then(|k| k.as_str()) == Some(key) {
+            let states = value.get("states").and_then(|s| s.as_array());
+            return Some(
+                states.is_some_and(|items| items.iter().any(|s| s.as_str() == Some("checked"))),
+            );
+        }
+        value
+            .get("children")?
+            .as_array()?
+            .iter()
+            .find_map(|child| walk(child, key))
+    }
+    walk(tree, key).unwrap_or(false)
 }

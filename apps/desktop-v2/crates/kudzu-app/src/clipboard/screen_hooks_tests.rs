@@ -168,12 +168,12 @@ fn copy_then_paste_copied_is_the_same_as_paste_and_lets_the_caller_hide_in_betwe
     let id = service.watch().get().entries[0].id;
     *board.paste_allowed.lock().unwrap() = true;
     let session = service.begin_pick().unwrap();
-    service.copy(id, Flavor::Original).unwrap();
+    let ticket = service.copy_for_paste(id, Flavor::Original).unwrap();
     assert!(
         board.pasted_into.lock().unwrap().is_empty(),
         "copying does not paste"
     );
-    assert_eq!(session.paste_copied().unwrap(), PasteOutcome::Pasted);
+    assert_eq!(session.paste_copied(ticket).unwrap(), PasteOutcome::Pasted);
     assert_eq!(board.pasted_into.lock().unwrap().len(), 1);
     service.shutdown().unwrap();
     writer.shutdown().unwrap();

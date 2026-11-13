@@ -4,7 +4,30 @@ use crate::{
     ports::{AppCatalog, FileIcons, TargetApp},
 };
 use kudzu_core::system::{AppInfo, Rect};
-use std::{collections::BTreeMap, sync::Mutex};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::{Arc, Condvar, Mutex},
+};
+
+/// A one-way gate a test opens: workers wait on it, so a test can hold an operation in the
+/// middle without sleeping.
+#[derive(Default)]
+pub struct Latch {
+    open: Mutex<bool>,
+    changed: Condvar,
+}
+impl Latch {
+    pub fn set(&self) {
+        *self.open.lock().unwrap() = true;
+        self.changed.notify_all();
+    }
+    pub fn wait(&self) {
+        let mut open = self.open.lock().unwrap();
+        while !*open {
+            open = self.changed.wait(open).unwrap();
+        }
+    }
+}
 #[derive(Default)]
 pub struct FakeApps {
     pub installed: Mutex<Vec<AppInfo>>,
@@ -17,6 +40,11 @@ pub struct FakeApps {
     pub failure: Mutex<Option<PortError>>,
     pub installed_calls: Mutex<usize>,
     pub icon_calls: Mutex<Vec<(String, u32)>>,
+    /// While set, `activate` waits for this latch after setting `activation_entered`.
+    pub activation_hold: Mutex<Option<Arc<Latch>>>,
+    pub activation_entered: Latch,
+    /// Answers for the next `frontmost` calls, oldest first; then the current app again.
+    pub frontmost_script: Mutex<VecDeque<Option<AppInfo>>>,
 }
 impl FakeApps {
     fn check(&self) -> Result<(), PortError> {
@@ -38,10 +66,18 @@ impl AppCatalog for FakeApps {
 impl TargetApp for FakeApps {
     fn frontmost(&self) -> Result<Option<AppInfo>, PortError> {
         self.check()?;
+        if let Some(answer) = self.frontmost_script.lock().unwrap().pop_front() {
+            return Ok(answer);
+        }
         Ok(self.frontmost.lock().unwrap().clone())
     }
     fn activate(&self, app: &AppInfo) -> Result<(), PortError> {
         self.check()?;
+        self.activation_entered.set();
+        let hold = self.activation_hold.lock().unwrap().clone();
+        if let Some(hold) = hold {
+            hold.wait();
+        }
         self.activations.lock().unwrap().push(app.clone());
         *self.frontmost.lock().unwrap() = Some(app.clone());
         Ok(())

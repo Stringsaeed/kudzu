@@ -27,14 +27,8 @@ const LANDMARKS: &[Landmark] = &[
     ("contentinfo", "Copy", [12.0, 468.0, 776.0, 40.0]),
 ];
 
-/// Pills and the field take their width from text: 4 pt. Everything else is structural: 2 pt.
-fn tolerance(role: &str, side: usize) -> f32 {
-    if side == 2 && matches!(role, "radio" | "combobox") {
-        4.0
-    } else {
-        2.0
-    }
-}
+/// Every side, text-sized ones included, within 2 pt.
+const TOLERANCE: f32 = 2.0;
 
 fn check(scene: fn(&mut PickerState), name: &str) {
     for (theme, label) in [(Theme::Light, "light"), (Theme::Dark, "dark")] {
@@ -49,7 +43,7 @@ fn check(scene: fn(&mut PickerState), name: &str) {
                 .unwrap_or_else(|| panic!("{name}/{label}: no {role} “{label_text}”"));
             for (i, side) in ["x", "y", "width", "height"].iter().enumerate() {
                 assert!(
-                    (found.rect[i] - rect[i]).abs() <= tolerance(role, i),
+                    (found.rect[i] - rect[i]).abs() <= TOLERANCE,
                     "{name}/{label}: {role} “{label_text}” {side} is {} but the reference has {}",
                     found.rect[i],
                     rect[i]

@@ -124,6 +124,7 @@ pub(crate) fn track_active(s: &mut PickerState) -> bool {
     }
     s.model.picker.seen.active = Some(key);
     s.model.picker.cover_hover = false;
+    s.model.picker.cover_focus = false;
     let handle = s.shell.handles().picker.clone();
     let wake: Arc<dyn Fn() + Send + Sync> = Arc::new(move || handle.wake());
     s.model.picker.full.show(&clipboard, &wake, &entry);

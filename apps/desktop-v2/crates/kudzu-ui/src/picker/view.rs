@@ -163,8 +163,8 @@ fn preview_hooks() -> PreviewHooks<PickerState> {
     PreviewHooks {
         content: Content {
             open_link: |s, tx| super::drive::apply(s, super::keys::Effect::Open, tx),
-            open_file: |s, _, tx| super::drive::apply(s, super::keys::Effect::Open, tx),
-            reveal_file: |_, _, _| {},
+            open_file: |s, index, _| super::drive::file_job(s, index, false, true),
+            reveal_file: |s, index, _| super::drive::file_job(s, index, true, false),
             copy_value: |_, value, tx| tx.copy(value),
         },
         not_a_secret: |s, _| {
@@ -198,7 +198,7 @@ fn preview_of<'a>(p: &'a Picker, entry: &'a ClipEntry) -> Preview<'a> {
         now: p.clips.look.now,
         formats_open: false,
         compact: true,
-        revealed: p.cover_hover,
+        revealed: p.cover_revealed(),
         hover_dot: None,
     }
 }

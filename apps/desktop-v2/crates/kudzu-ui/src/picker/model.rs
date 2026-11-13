@@ -158,6 +158,8 @@ pub struct Picker {
     pub hide: Option<HideAt>,
     /// The pointer is on a concealed preview.
     pub cover_hover: bool,
+    /// Keyboard focus is on a concealed preview.
+    pub cover_focus: bool,
     /// Whether this opening can paste, and into which app.
     pub can_paste: bool,
     pub target: Option<String>,
@@ -175,6 +177,19 @@ fn compact(now: DateTime<FixedOffset>) -> ListState {
 }
 
 impl Picker {
+    /// A concealed preview is uncovered: the pointer is on it, or keyboard focus is.
+    pub fn cover_revealed(&self) -> bool {
+        self.cover_hover || self.cover_focus
+    }
+
+    /// Keyboard focus reaches or leaves the concealed preview (`Tx::focused`, read in `poll`;
+    /// Rune has no per-element focus hook). Only keyboard focus reveals, as `focus-visible`
+    /// does. True when that changed what shows.
+    pub fn note_focus(&mut self, focused: Option<&str>, keyboard: bool) -> bool {
+        let on = keyboard && focused == Some(crate::clip::secret::COVER_KEY);
+        std::mem::replace(&mut self.cover_focus, on) != on
+    }
+
     pub fn new(now: DateTime<FixedOffset>) -> Self {
         let mut edit = TextEdit::new("");
         edit.focused = true;
@@ -190,6 +205,7 @@ impl Picker {
             flash: None,
             hide: None,
             cover_hover: false,
+            cover_focus: false,
             can_paste: true,
             target: None,
             pending_paste: None,
@@ -211,6 +227,7 @@ impl Picker {
         self.flash = None;
         self.hide = None;
         self.cover_hover = false;
+        self.cover_focus = false;
         self.pending_paste = None;
         self.target = None;
         self.can_paste = true;
