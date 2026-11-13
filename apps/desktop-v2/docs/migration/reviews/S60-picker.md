@@ -71,6 +71,16 @@ This is an independent review by Codex Sol of `418278dc refactor(desktop-v2): ad
    **Fix:** drop the focus repair, record visibility when the paste is called, assert the radio's checked property, and keep structural widths to 2 pt.
 8. **⌘Q is handled before the composition check** (`picker/drive.rs:83–89`). **Fix:** check composition first.
 
+## Fix round
+
+Sonnet fixed every finding in `8d94fe8a` (M5, the comparator) and `158b636c` (the rest). The orchestrator read the service diff, confirmed both callers of `ClipboardService::copy` run on workers (so waiting for a paste never blocks the UI), and ran the full gate: 2,235 tests passed, 0 failed; check-deps and check-headless passed; `cargo xtask parity` printed 668 rows, 0 failed, 90 not yet built.
+
+- **B1:** `PasteGate` in `kudzu-app/src/clipboard/pick.rs`. `copy_for_paste` returns a `PasteTicket` held until the keystroke; a second pick gets `PasteBusy` ("A paste is still finishing. Try again in a moment."); plain copies and `restore_target` wait for it.
+- **B2:** `begin_pick` drops this process as a target; with no external target the picker only copies; the target is checked again just before the keystroke.
+- **M3–M6, m7, m8:** see the `158b636c` commit body for the tests.
+
+A re-check by Grok 4.7 is running, because there were blockers.
+
 ## What holds
 
 | Area | Evidence |
