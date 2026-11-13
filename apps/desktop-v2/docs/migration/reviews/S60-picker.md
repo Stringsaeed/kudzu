@@ -89,6 +89,12 @@ Sonnet fixed every finding in `8d94fe8a` (M5, the comparator) and `158b636c` (th
 - **Noted, unchanged:** M4's open test doesn't assert the panel closes after a successful Open; the gate itself has no deadline, so a port that never returns would stall later copies (production `board.paste` caps its wait at 800 ms, and activation goes through `activateWithOptions`).
 
 
+## Check of the re-check fixes (Grok 4.6)
+
+**Verdict:** ready. `cargo test -j 2 -p kudzu-ui picker` 82 passed, `cargo test -j 2 -p kudzu-app clipboard` 72 passed, 0 failed in each. It confirmed that the ticket is released after a dismiss whether the copy has finished, is still running, or got `PasteBusy`; that every close goes through `dismiss_with`; that `start_paste` is unaffected; and that the engine and latch changes can't reject a valid paste or fail a passing test.
+
+**Minor, left for later:** the new test can pass without its fix if the restore wins the gate before the copy does. Forcing that order needs a write hold on the fake pasteboard.
+
 ## What holds
 
 | Area | Evidence |
