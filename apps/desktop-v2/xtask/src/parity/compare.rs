@@ -190,24 +190,6 @@ pub(super) fn style_checks(want: &Landmark, got: &Measured, position: bool) -> V
             fmt_rgba(s.color),
             "Rune draws no text or icon inside",
         )),
-        // A preview pane is a container: its colour is what its unstyled text inherits, and
-        // the first text in it (a muted kind badge) is not that text. Its children set that
-        // colour at their own opacity (body text at 90%), so the channels are compared, not
-        // the alpha.
-        (Some(want_ink), Some(ink)) if want.role == "complementary" => {
-            let ink = got
-                .inks
-                .iter()
-                .map(|i| [i[0], i[1], i[2], want_ink[3]])
-                .find(|i| colour_eq(s.color, Some(*i)))
-                .unwrap_or(ink);
-            out.push(check(
-                "text colour",
-                fmt_rgba(s.color),
-                fmt_rgba(Some(ink)),
-                colour_eq(s.color, Some(ink)),
-            ));
-        }
         (Some(_), Some(ink)) => out.push(check(
             "text colour",
             fmt_rgba(s.color),
@@ -423,6 +405,62 @@ fn permission_row_checks(
     out
 }
 
+/// A container whose reference colour is what its unstyled text inherits, which Rune cannot
+/// draw as a text of its own (its first text is a muted badge). The landmark is measured on one
+/// designated text instead: the element keyed `sample`, which the reference paints at
+/// `opacity` of that colour. Only the pairs listed here are measured this way.
+struct Inherited {
+    window: &'static str,
+    role: &'static str,
+    name: &'static str,
+    sample: &'static str,
+    opacity: f32,
+}
+
+const INHERITED: &[Inherited] = &[Inherited {
+    window: "picker",
+    role: "complementary",
+    name: "Preview",
+    sample: "clip-text",
+    opacity: 0.9,
+}];
+
+/// The "text colour" check of an `Inherited` landmark: the sample's colour, undone for its
+/// opacity, against the reference. A missing, undrawn or transparent sample fails.
+fn inherited_ink(
+    rule: &Inherited,
+    want: &Landmark,
+    els: &[Element],
+    landmark: &tree::Measured,
+) -> Check {
+    let sample = els.iter().find(|e| {
+        e.key.as_deref() == Some(rule.sample)
+            && e.text.is_some()
+            && e.rect[2] > 0.0
+            && e.rect[3] > 0.0
+            && tree::inside(&e.path, &landmark.path)
+    });
+    let Some(ink) = sample.and_then(|e| e.color) else {
+        return check(
+            "text colour",
+            fmt_rgba(want.style.color),
+            format!("no drawn text keyed `{}` inside", rule.sample),
+            false,
+        );
+    };
+    let undone = [ink[0], ink[1], ink[2], ink[3] / rule.opacity];
+    check(
+        "text colour",
+        fmt_rgba(want.style.color),
+        format!(
+            "{} (the sample at {})",
+            fmt_rgba(Some(undone)),
+            rule.opacity
+        ),
+        colour_eq(want.style.color, Some(undone)),
+    )
+}
+
 pub(super) fn screen_rows(r: &RefState, els: &[Element]) -> Vec<Row> {
     let got = tree::landmarks(els);
     let page = format!("{}/{}", r.window, r.scene);
@@ -434,7 +472,22 @@ pub(super) fn screen_rows(r: &RefState, els: &[Element]) -> Vec<Row> {
                 g.role == want.role && g.name == want.name && g.occurrence == want.occurrence
             });
             let checks = match found {
-                Some(g) => style_checks(want, g, true),
+                Some(g) => {
+                    let mut checks = style_checks(want, g, true);
+                    let rule = INHERITED.iter().find(|i| {
+                        i.window == r.window && i.role == want.role && i.name == want.name
+                    });
+                    // A pane with nothing drawn in it (no clip selected) has no text to measure.
+                    let drawn = g.ink.is_some();
+                    if let (true, Some(rule), Some(at)) = (
+                        drawn,
+                        rule,
+                        checks.iter().position(|c| c.prop == "text colour"),
+                    ) {
+                        checks[at] = inherited_ink(rule, want, els, g);
+                    }
+                    checks
+                }
                 None => vec![check("present", "drawn".into(), "missing".into(), false)],
             };
             Row {
@@ -576,7 +629,6 @@ fn measure(els: &[Element], el: &Element, want: &Landmark) -> Measured {
         fill: el.fill,
         content,
         ink,
-        inks: tree::text_inks(els, el),
     }
 }
 

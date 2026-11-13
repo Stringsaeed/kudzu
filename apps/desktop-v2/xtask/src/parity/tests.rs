@@ -351,41 +351,99 @@ fn status(checks: &[compare::Check], prop: &str) -> Status {
         .status
 }
 
-/// A pane with a muted badge first and body text after it.
-fn pane(body_ink: [f32; 4]) -> Vec<Element> {
+/// A preview pane: a muted badge first, then body text keyed `sample` with colour `ink`.
+fn pane(label: &str, sample: &str, ink: [f32; 4]) -> Vec<Element> {
     let mut p = el("p", "complementary", [0.0, 0.0, 300.0, 200.0]);
-    p.label = Some("Preview".into());
+    p.label = Some(label.into());
     let mut badge = el("p/#0", "text", [10.0, 10.0, 40.0, 18.0]);
     badge.text = Some("Text".into());
     badge.color = Some([120.0, 113.0, 107.0, 1.0]);
     let mut body = el("p/#1", "text", [10.0, 40.0, 200.0, 18.0]);
+    body.key = Some(sample.into());
     body.text = Some("hello".into());
-    // Body text is the pane's colour at 90%.
-    body.color = Some([body_ink[0], body_ink[1], body_ink[2], 0.9]);
+    body.color = Some(ink);
     vec![p, badge, body]
 }
 
+fn pane_status(window: &str, label: &str, els: &[Element]) -> Status {
+    let want = landmark(
+        "complementary",
+        label,
+        [0.0, 0.0, 300.0, 200.0],
+        style([0.0; 4], Some(INK), None),
+    );
+    let st = state(window, "history", "light", vec![want]);
+    let rows = compare::screen_rows(&st, els);
+    status(&rows[0].checks, "text colour")
+}
+
+/// The reference body text: the pane's colour at 90%.
+const BODY: [f32; 4] = [12.0, 10.0, 9.0, 0.9];
+
 #[test]
-fn a_preview_pane_takes_the_colour_its_unstyled_text_inherits() {
+fn the_pickers_preview_pane_is_measured_on_its_designated_text_at_its_opacity() {
+    let ok = pane("Preview", "clip-text", BODY);
+    assert_eq!(pane_status("picker", "Preview", &ok), Status::Pass);
+}
+
+#[test]
+fn another_text_with_the_right_channels_does_not_stand_in_for_the_sample() {
+    // Same RGB, wrong element: the sample is missing.
+    let els = pane("Preview", "clip-other", BODY);
+    assert_eq!(pane_status("picker", "Preview", &els), Status::Fail);
+}
+
+#[test]
+fn invisible_or_faint_sample_text_fails() {
+    for ink in [[12.0, 10.0, 9.0, 0.0], [12.0, 10.0, 9.0, 0.5]] {
+        let els = pane("Preview", "clip-text", ink);
+        assert_eq!(
+            pane_status("picker", "Preview", &els),
+            Status::Fail,
+            "{ink:?}"
+        );
+    }
+}
+
+#[test]
+fn a_sample_outside_the_pane_or_in_the_wrong_colour_fails() {
+    let mut outside = pane("Preview", "clip-text", BODY);
+    outside[2].path = "q/#1".into();
+    assert_eq!(pane_status("picker", "Preview", &outside), Status::Fail);
+    let wrong = pane("Preview", "clip-text", [200.0, 10.0, 9.0, 0.9]);
+    assert_eq!(pane_status("picker", "Preview", &wrong), Status::Fail);
+}
+
+#[test]
+fn an_empty_preview_pane_has_no_text_to_measure() {
+    let mut pane = el("p", "complementary", [0.0, 0.0, 300.0, 200.0]);
+    pane.label = Some("Preview".into());
     let want = landmark(
         "complementary",
         "Preview",
         [0.0, 0.0, 300.0, 200.0],
         style([0.0; 4], Some(INK), None),
     );
-    let ok = checks_of(&pane(INK), &want);
-    assert_eq!(status(&ok, "text colour"), Status::Pass);
-    let wrong = checks_of(&pane([1.0, 2.0, 3.0, 1.0]), &want);
-    assert_eq!(status(&wrong, "text colour"), Status::Fail);
-    // Any other role still measures its first text.
-    let mut other = want.clone();
-    other.role = "region".into();
-    let mut els = pane(INK);
-    els[0].role = "region".into();
+    let st = state("picker", "empty", "light", vec![want]);
+    let rows = compare::screen_rows(&st, &[pane]);
+    assert_eq!(status(&rows[0].checks, "text colour"), Status::Review);
+}
+
+#[test]
+fn other_complementary_regions_still_measure_their_first_text() {
+    // A sidebar whose first text regressed to the muted colour, with a matching keyed
+    // descendant further in, still fails; so does the same pane in another window.
+    let sidebar = pane("Sidebar", "clip-text", BODY);
+    assert_eq!(pane_status("main", "Sidebar", &sidebar), Status::Fail);
+    let preview_elsewhere = pane("Preview", "clip-text", BODY);
     assert_eq!(
-        status(&checks_of(&els, &other), "text colour"),
+        pane_status("main", "Preview", &preview_elsewhere),
         Status::Fail
     );
+    // And a first text with the right colour passes as it always did.
+    let mut right = pane("Sidebar", "x", BODY);
+    right[1].color = Some(INK);
+    assert_eq!(pane_status("main", "Sidebar", &right), Status::Pass);
 }
 
 #[test]
