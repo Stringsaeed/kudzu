@@ -587,7 +587,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 - Its fixes are merged, after the orchestrator checked the fix diff and the gate passed.
 - A second review is required only after a blocker or a safety major.
 
-**Totals:** 46 done, 3 merged with review fixes pending (S42, S51, S61), 1 with fixes merged and its re-check running (S60), 0 building, 11 waiting (61 steps).
+**Totals:** 46 done, 3 merged with review fixes pending (S42, S51, S61), 1 with fixes merged and a short check running (S60), 0 building, 11 waiting (61 steps).
 
 | Wave | Status |
 |---|---|
@@ -595,7 +595,7 @@ Wave 7 is one step on purpose: S40 is the first point where every service and ad
 | 8 | Done. S41 was built by Carbon, reviewed by Grok, and fixed by Opus after an Antigravity outage. S56 and S57 are done. S66 was built by Carbon and fixed by Carbon then Grok; its fixes were checked by the orchestrator's diff review, not a second review. |
 | 9 | S43, S50, S55, S58, S64 and S65 done. S42 is reviewed and its fixes are pending. |
 | 10 | S59 done; S51 and S61 merged with review fixes pending. |
-| 11 | S60 merged with its review fixes (`8d94fe8a`, `158b636c`); its re-check is running (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
+| 11 | S60 merged with its review and re-check fixes (`8d94fe8a`, `158b636c`, `79c0db6a`); a short check of the last fix is running (it started early, since it needed only S59). S52 waits on S51. S62 and S63 wait on S61. |
 | 12–16 | Waiting: S53 and S54 on S52; S71–S73 on every screen; then S74, S75 and S76. |
 
 Waves 9 and later, step by step:
@@ -612,7 +612,7 @@ Waves 9 and later, step by step:
 | S51 editor shell | Merged (`1e1bfc6c`, report `S51_REPORT.md`); reviewed. Fixes pending: 2 majors and 3 minors (`reviews/S51-editor.md`) | Opus (after Carbon failed) → Grok 4.7 |
 | S59 clipboard previews | Done (`reviews/S59-clipboard-previews.md`) | Sonnet → Grok 4.7 |
 | S61 settings frame, General, Expansion, Apps | Merged (`38466e64`, handoff `S61_HANDOFF.md`); reviewed, fixes pending (`reviews/S61-settings.md`) | Codex Sol (after Argon stalled and failed) → Grok 4.6 |
-| S60 clipboard picker window | Merged (`418278dc`); reviewed; fixes merged (`8d94fe8a` comparator, `158b636c` the rest; gate: 2,235 tests passed, 0 failed; parity 668 rows, 0 failed, 90 not yet built). **Re-check running** (Grok 4.7), because of the blockers | Sonnet (after Carbon failed) → Codex Sol; fixes Sonnet → re-check Grok 4.7 |
+| S60 clipboard picker window | Merged (`418278dc`); reviewed; fixes merged (`8d94fe8a` comparator, `158b636c` the rest). Grok 4.7's re-check found one new blocker (a dismissed copy held the paste gate) and two minors; the orchestrator fixed them in `79c0db6a` (gate: 2,236 tests passed, 0 failed; parity 668 rows, 0 failed, 90 not yet built). **A short check of `79c0db6a` is running**, because it fixed a blocker | Sonnet (after Carbon failed) → Codex Sol; fixes Sonnet → re-check Grok 4.7; re-check fixes orchestrator → Grok 4.6 |
 
 **Orchestrator changes on the base during wave 9:**
 - `95368d01`: the shared core `ClipFilter` and `MainServices.clipboard`.
@@ -646,7 +646,7 @@ Pick these up in this order. The step sections in §4 stay the spec; this list s
 | S42 sidebar | Merged as `fc064426`; reviewed. Fixes pending: 2 majors and 9 minors (`reviews/S42-sidebar.md`), for the Codex Terra thread | The report is `docs/migration/S42_REPORT.md`. The orchestrator reverted its change to the assembly tests' scratch folder (`test(desktop-v2): keep the assembly tests' agent socket under /tmp`). Its `group-context-menu` scene is deferred, and the reference has no menu rect. Once it's reviewed, enable `insights` and the eleven clipboard scenes (S73). |
 | S55 group settings and app picker | Done. The re-check confirmed B1, M1, M2 and M8 fixed; the orchestrator fixed its icon-queue major and two minors (`refactor(desktop-v2): apply the S55 re-check fixes`) | Two minors remain for later: `AppPicker::new` takes `&'static str` (switch to `impl Into<String>` if per-row pickers are needed), and closing the list leaves the query focused with its text. The API is `new(id, value, apps, query, icons)`, then `.add_label()`, `.open()`, `.active()` and `.overlays()`, with `build(theme, cx, edit, toggle, set_open, set_active)`. |
 | S51 editor shell | Merged; reviewed. **Fixes pending**, for the Opus thread: M1, deleting the last snippet leaves the editor open on it; M2, dates are UTC rather than the host offset Insights uses; 3 minors (`reviews/S51-editor.md`) | `S51_REPORT.md` describes the content-field interface S52 replaces. The reviewer recommends: show the whitespace-only message only when the field is empty too; keep Tab swallowed during IME; keep the flush before delete and toggles; match Insights' dates; leave `MainModel.draft` to the frame. The owner can override any of these. Carbon's draft branch can be deleted. |
-| S60 clipboard picker window | Merged as `418278dc` (three commits squashed so every commit builds); reviewed. Every finding fixed in `8d94fe8a` and `158b636c` (B1 a paste ticket held from copy to keystroke; B2 Kudzu is never the target, copy-only fallback). **Next:** Grok 4.7's re-check; then mark it done or apply its findings | Its `picker` scenes pass in both themes (662 rows, 0 failed). The release scroll printed a p95 of 0.42 ms. S73 should look at the comparator rule it added: a `complementary` landmark accepts any inner text's RGB. The hotkey-to-frame latency, hide on blur and first mouse are S71 live checks. Carbon's draft branch can be deleted after review. |
+| S60 clipboard picker window | Merged as `418278dc` (three commits squashed so every commit builds); reviewed. Every finding fixed in `8d94fe8a` and `158b636c` (B1 a paste ticket held from copy to keystroke; B2 Kudzu is never the target, copy-only fallback). Grok 4.7's re-check found a new blocker and two minors, fixed in `79c0db6a` (`reviews/S60-picker.md` § Re-check). **Next:** Grok 4.6's short check of `79c0db6a`; then mark it done | Its `picker` scenes pass in both themes (662 rows, 0 failed). The release scroll printed a p95 of 0.42 ms. S73 should look at the comparator rule it added: a `complementary` landmark accepts any inner text's RGB. The hotkey-to-frame latency, hide on blur and first mouse are S71 live checks. Carbon's draft branch can be deleted after review. |
 | S61 settings frame, General, Expansion, Apps | Merged as `38466e64`; reviewed. Fixes pending: 5 majors and 10 minors (`reviews/S61-settings.md`), for the Codex Sol thread | `docs/migration/S61_HANDOFF.md` lists the tests, shared-file edits, the single `AppPicker` call site (update it after the S55 fix), and follow-ups for S62 and S63. The five pane stubs are in place. Its scenes are deferred. |
 
 Each needs a review from a provider other than its builder, then fixes, then a progress-table update.

@@ -79,7 +79,15 @@ Sonnet fixed every finding in `8d94fe8a` (M5, the comparator) and `158b636c` (th
 - **B2:** `begin_pick` drops this process as a target; with no external target the picker only copies; the target is checked again just before the keystroke.
 - **M3–M6, m7, m8:** see the `158b636c` commit body for the tests.
 
-A re-check by Grok 4.7 is running, because there were blockers.
+## Re-check (Grok 4.7)
+
+**Verdict:** fixes needed. B2, M3, M4, M5, M6, m7 and m8 are fixed; B1 is partly fixed. Its runs: `cargo test -j 2 -p kudzu-app clipboard` 72 passed, `cargo test -j 2 -p kudzu-ui picker` 81 passed, `cargo test -j 2 -p xtask` 72 passed, 0 failed in each.
+
+- **New blocker (from B1): a dismissed copy held the paste gate until the next opening.** Return, then Escape or a click away before `poll` took the `CopyForPaste` job: `dismiss_with` kept `jobs`, and `finish_jobs` runs only while the panel is open. The ticket sat in the job, so the main window's Copy blocked, and the restore that dismiss started waited, then activated the old app over the next picker. **Fixed** by the orchestrator in `refactor(desktop-v2): apply the S60 re-check fixes`: `dismiss_with` drops a `CopyForPaste` job, and its ticket goes with the task or with the worker. Test: `picker::tests::paste::closing_the_picker_before_its_paste_starts_frees_the_clipboard`, which failed without the fix ("timed out waiting for focus given back").
+- **Minor: the self check was not the last step before ⌘V.** `kudzu-engine/src/macos/clipboard.rs` `paste` now refuses (`TargetGone`) when Kudzu is in front after the 40 ms settle. That adapter cannot run headless; it joins the S71 live check "opening from Kudzu's editor".
+- **Minor: two latch waits could hang a test.** `Latch::wait` in `kudzu-app/src/fixtures/apps.rs` now panics after 10 s.
+- **Noted, unchanged:** M4's open test doesn't assert the panel closes after a successful Open; the gate itself has no deadline, so a port that never returns would stall later copies (production `board.paste` caps its wait at 800 ms, and activation goes through `activateWithOptions`).
+
 
 ## What holds
 
