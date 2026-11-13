@@ -37,6 +37,10 @@ pub fn paste(target: Option<&AppInfo>) -> Result<(), PasteError> {
         }
         // Let the target's key window settle before ⌘V.
         thread::sleep(Duration::from_millis(40));
+        // Focus may have moved to Kudzu while it settled: never post ⌘V into this process.
+        if apps::frontmost_pid() == Some(std::process::id() as i32) {
+            return Err(PasteError::TargetGone);
+        }
     }
     keys::paste(&SystemEvents).map_err(|_| PasteError::NotAllowed)
 }

@@ -7,6 +7,7 @@ use kudzu_core::system::{AppInfo, Rect};
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{Arc, Condvar, Mutex},
+    time::Duration,
 };
 
 /// A one-way gate a test opens: workers wait on it, so a test can hold an operation in the
@@ -21,11 +22,15 @@ impl Latch {
         *self.open.lock().unwrap() = true;
         self.changed.notify_all();
     }
+    /// Waits for [`Latch::set`]. Panics after 10 s, so a test whose worker never gets there
+    /// fails instead of hanging.
     pub fn wait(&self) {
-        let mut open = self.open.lock().unwrap();
-        while !*open {
-            open = self.changed.wait(open).unwrap();
-        }
+        let open = self.open.lock().unwrap();
+        let (open, _) = self
+            .changed
+            .wait_timeout_while(open, Duration::from_secs(10), |open| !*open)
+            .unwrap();
+        assert!(*open, "the latch was not opened within 10 s");
     }
 }
 #[derive(Default)]

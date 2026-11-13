@@ -160,6 +160,12 @@ impl PickerState {
         self.model.picker.clips.look.show_numbers = false;
         self.model.picker.hide = None;
         self.model.picker.pending_paste = None;
+        // A copy waiting to become a paste ends with the opening. Its ticket goes with the
+        // task (or with the worker, if it is still copying), so the paste gate is free before
+        // the restore below waits on it and before the next plain copy.
+        self.model
+            .jobs
+            .retain(|job| !matches!(job, crate::picker::drive::Job::CopyForPaste { .. }));
         if let Some(session) = self.model.session.take() {
             if restore {
                 match session.restore_target() {

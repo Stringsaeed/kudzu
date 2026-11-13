@@ -2,8 +2,9 @@
 //! review's B1, B2 and M3.
 
 use std::sync::Arc;
+use std::time::Duration;
 
-use kudzu_app::clipboard::ClipboardError;
+use kudzu_app::clipboard::{ClipboardError, Flavor};
 use kudzu_app::error::PortError;
 use kudzu_app::fixtures::apps::Latch;
 use kudzu_core::system::AppInfo;
@@ -72,6 +73,41 @@ fn asking_twice_in_one_opening_pastes_once() {
     rig.settle();
     assert_eq!(rig.pasted_text(), vec![Some("second".to_owned())]);
     assert_eq!(rig.flash(), None, "the second Return was not an error");
+}
+
+#[test]
+fn closing_the_picker_before_its_paste_starts_frees_the_clipboard() {
+    let mut rig = Rig::with_clips(&["first", "second"]);
+    let id = rig
+        .state()
+        .model
+        .picker
+        .active()
+        .map(|e| e.id)
+        .expect("a clip is selected");
+    // Return, then Escape before any poll takes the copy: the opening ends before its paste
+    // can start.
+    rig.rt.update(move |s, _| {
+        crate::picker::drive::paste(s, id, false);
+        s.dismiss_with(true);
+    });
+
+    // Giving focus back waits for the paste gate; it must not wait for the next opening.
+    rig.until("focus given back", |r| {
+        !r.fixtures.apps.activations.lock().unwrap().is_empty()
+    });
+    assert!(!rig.open_now());
+
+    // A plain copy elsewhere (the main window's Copy) goes through.
+    let clipboard = rig.kudzu.clipboard.clone();
+    let (sent, got) = std::sync::mpsc::channel();
+    std::thread::spawn(move || sent.send(clipboard.copy(id, Flavor::Plain)));
+    let copied = got
+        .recv_timeout(Duration::from_secs(5))
+        .expect("a later copy waited for a paste that never started");
+    assert!(copied.is_ok(), "the copy went through: {copied:?}");
+    rig.settle();
+    assert_eq!(rig.pasted(), 0, "nothing was pasted");
 }
 
 // MARK: B2 — never into Kudzu
